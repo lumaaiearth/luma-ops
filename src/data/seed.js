@@ -7,9 +7,11 @@ export const TEAM = [
 ]
 
 export const VEHICLES = [
-  { id: 'sprinter', name: 'Sprinter', type: 'van' },
-  { id: 'passat',   name: 'Passat',   type: 'car' },
-  { id: 'anhanger', name: 'Anhänger', type: 'trailer' },
+  { id: 'lumi',       name: 'LUMi',              model: 'Renault Kangoo Maxi', ownership: 'owned',  type: 'van',     color: '#08AA56' },
+  { id: 'lumo',       name: 'LUMo',              model: 'Mercedes Vito',       ownership: 'owned',  type: 'van',     color: '#22EAA7' },
+  { id: 'hebebuehne', name: 'Hebebühne',         model: 'Leihe',               ownership: 'rental', type: 'lift',    color: '#F59E0B' },
+  { id: 'haecksler',  name: 'Häcksler-Anhänger', model: 'Leihe',               ownership: 'rental', type: 'trailer', color: '#F97316' },
+  { id: 'pritsche',   name: 'Pritsche',          model: 'Leihe',               ownership: 'rental', type: 'truck',   color: '#8B5CF6' },
 ]
 
 export const JOB_TYPES = [

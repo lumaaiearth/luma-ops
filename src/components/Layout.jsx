@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { LayoutDashboard, CalendarDays, ListChecks, Radio, Users, LogOut, Menu, X, RefreshCw } from 'lucide-react'
+import { LayoutDashboard, CalendarDays, ListChecks, Radio, Users, Settings, LogOut, Menu, X } from 'lucide-react'
 
 const NAV = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -9,6 +9,7 @@ const NAV = [
   { to: '/jobs',      icon: ListChecks,      label: 'Einsätze' },
   { to: '/sensors',   icon: Radio,           label: 'Sensoren' },
   { to: '/team',      icon: Users,           label: 'Team' },
+  { to: '/settings',  icon: Settings,        label: 'Einstellungen' },
 ]
 
 const A = '#08AA56'

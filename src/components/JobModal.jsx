@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { X, Repeat } from 'lucide-react'
-import { TEAM, VEHICLES, JOB_TYPES, PROJECTS_OPS } from '../data/seed.js'
+import { TEAM, VEHICLES as VEHICLES_DEFAULT, JOB_TYPES, PROJECTS_OPS } from '../data/seed.js'
+
+const VEHICLES = (() => { try { return JSON.parse(localStorage.getItem('luma_vehicles')) || VEHICLES_DEFAULT } catch { return VEHICLES_DEFAULT } })()
 import { A, SURFACE, BORDER, FG, MUTED } from './Layout.jsx'
 import { isoToday, addDays } from '../lib/storage.js'
 

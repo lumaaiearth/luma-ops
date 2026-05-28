@@ -8,6 +8,7 @@ import CalendarPage from './pages/CalendarPage.jsx'
 import JobsPage from './pages/JobsPage.jsx'
 import SensorsPage from './pages/SensorsPage.jsx'
 import TeamPage from './pages/TeamPage.jsx'
+import SettingsPage from './pages/SettingsPage.jsx'
 
 function RequireAuth({ children }) {
   const { user } = useAuth()
@@ -26,6 +27,7 @@ function AppRoutes() {
       <Route path="/jobs" element={<RequireAuth><Layout><JobsPage /></Layout></RequireAuth>} />
       <Route path="/sensors" element={<RequireAuth><Layout><SensorsPage /></Layout></RequireAuth>} />
       <Route path="/team" element={<RequireAuth><Layout><TeamPage /></Layout></RequireAuth>} />
+      <Route path="/settings" element={<RequireAuth><Layout><SettingsPage /></Layout></RequireAuth>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   )
