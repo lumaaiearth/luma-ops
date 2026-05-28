@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useCallback } from 'react'
 import { getJobs, saveJobs, getRecurring, saveRecurring, getSensors, saveSensors, genId, addDays } from '../lib/storage.js'
+import { tgSend, tgGroups, groupsForUsers } from '../lib/telegram.js'
+import { PROJECTS_OPS, JOB_TYPES } from '../data/seed.js'
 
 const OpsContext = createContext(null)
 
@@ -13,14 +15,49 @@ export function OpsProvider({ children }) {
 
   function createJob(data) {
     const job = { ...data, id: genId(), created_at: new Date().toISOString() }
-    const updated = [...jobs, job]
-    updateJobs(updated)
+    updateJobs([...jobs, job])
+    // Notify field team if Jona or Anselm assigned
+    if (data.assigned_users?.some(id => ['jona', 'anselm'].includes(id))) {
+      const project = PROJECTS_OPS.find(p => p.id === data.project_id)
+      const type = JOB_TYPES.find(t => t.id === data.job_type)
+      const dateStr = new Date(data.date + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit' })
+      const endStr = data.date_end && data.date_end > data.date
+        ? ` – ${new Date(data.date_end + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}`
+        : ''
+      tgSend(tgGroups().pflege,
+        `🌿 <b>Neuer Einsatz</b>\n<b>${data.title}</b>\n${project?.name || ''} · ${type?.label || ''}\n📅 ${dateStr}${endStr}`)
+    }
+    // Check vehicle conflict
+    if (data.vehicle_id) {
+      const conflict = jobs.find(j =>
+        j.vehicle_id === data.vehicle_id &&
+        j.status !== 'cancelled' &&
+        (j.date === data.date || (j.date_end && j.date_end >= data.date && j.date <= (data.date_end || data.date)))
+      )
+      if (conflict) {
+        tgSend(tgGroups().inter,
+          `⚠️ <b>Fahrzeugkonflikt</b>\nFahrzeug wird doppelt gebucht am ${data.date}:\n– ${conflict.title}\n– ${data.title}`)
+      }
+    }
     return job
   }
 
   function updateJob(id, changes) {
+    const existing = jobs.find(j => j.id === id)
     const updated = jobs.map(j => j.id === id ? { ...j, ...changes } : j)
     updateJobs(updated)
+    // Notify on cancellation or date change
+    if (existing && changes.status === 'cancelled' && existing.status !== 'cancelled') {
+      const groups = groupsForUsers(existing.assigned_users || [])
+      const project = PROJECTS_OPS.find(p => p.id === existing.project_id)
+      const msg = `❌ <b>Einsatz abgesagt</b>\n<b>${existing.title}</b>\n${project?.name || ''} · ${existing.date}`
+      groups.forEach(g => tgSend(tgGroups()[g], msg))
+    } else if (existing && changes.date && changes.date !== existing.date) {
+      const groups = groupsForUsers(existing.assigned_users || [])
+      const project = PROJECTS_OPS.find(p => p.id === existing.project_id)
+      const msg = `📅 <b>Einsatz verschoben</b>\n<b>${existing.title}</b>\n${project?.name || ''}\n${existing.date} → ${changes.date}`
+      groups.forEach(g => tgSend(tgGroups()[g], msg))
+    }
   }
 
   function deleteJob(id) {
@@ -87,6 +124,7 @@ export function OpsProvider({ children }) {
   }
 
   function updateSensorValue(id, value) {
+    const prev = sensors.find(s => s.id === id)
     const updated = sensors.map(s => {
       if (s.id !== id) return s
       const status = value < s.threshold_low ? (value < s.threshold_low * 0.6 ? 'critical' : 'warning') : 'ok'
@@ -94,6 +132,13 @@ export function OpsProvider({ children }) {
     })
     setSensors(updated)
     saveSensors(updated)
+    // Notify PM group when sensor transitions to critical
+    const next = updated.find(s => s.id === id)
+    if (next?.status === 'critical' && prev?.status !== 'critical') {
+      const project = PROJECTS_OPS.find(p => p.id === next.project_id)
+      tgSend(tgGroups().pm,
+        `🚨 <b>Sensor kritisch</b>\n<b>${next.name}</b>\n${project?.name || ''}\nAktuell: ${value}${next.unit} (Min: ${next.threshold_low}${next.unit})`)
+    }
   }
 
   return (

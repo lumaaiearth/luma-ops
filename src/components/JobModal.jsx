@@ -30,6 +30,7 @@ export default function JobModal({ initialDate, initialJob, onSave, onClose, isR
     tools: initialJob?.tools?.join(', ') || '',
     notes: initialJob?.notes || '',
     status: initialJob?.status || 'planned',
+    date_end: initialJob?.date_end || '',
     // Recurring fields
     interval_days: 14,
     make_recurring: false,
@@ -61,6 +62,7 @@ export default function JobModal({ initialDate, initialJob, onSave, onClose, isR
       tools,
       notes: form.notes,
       status: form.status,
+      date_end: form.date_end && form.date_end > form.date ? form.date_end : null,
     }
     if (form.make_recurring) {
       onSave({
@@ -122,10 +124,14 @@ export default function JobModal({ initialDate, initialJob, onSave, onClose, isR
           </div>
 
           {/* Date + Duration */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
             <div>
               <label style={LABEL_STYLE}>Datum *</label>
-              <input type="date" style={INPUT_STYLE} value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} required />
+              <input type="date" style={INPUT_STYLE} value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value, date_end: f.date_end && f.date_end < e.target.value ? '' : f.date_end }))} required />
+            </div>
+            <div>
+              <label style={LABEL_STYLE}>Ende <span style={{ color: MUTED, fontWeight: 400 }}>(mehrtägig)</span></label>
+              <input type="date" style={{ ...INPUT_STYLE, opacity: form.date_end ? 1 : 0.5 }} value={form.date_end} min={form.date} onChange={e => setForm(f => ({ ...f, date_end: e.target.value }))} />
             </div>
             <div>
               <label style={LABEL_STYLE}>Umfang</label>

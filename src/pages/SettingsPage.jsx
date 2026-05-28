@@ -3,7 +3,8 @@ import { A, SURFACE, BORDER, FG, MUTED } from '../components/Layout.jsx'
 import { VEHICLES } from '../data/seed.js'
 import { useOps } from '../context/OpsContext.jsx'
 import { genId } from '../lib/storage.js'
-import { Car, Truck, Plus, Trash2, Calendar, ExternalLink, AlertTriangle } from 'lucide-react'
+import { tgSend } from '../lib/telegram.js'
+import { Car, Truck, Plus, Trash2, Calendar, ExternalLink, AlertTriangle, Send, Check } from 'lucide-react'
 
 const INPUT_STYLE = {
   background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`,
@@ -54,6 +55,35 @@ export default function SettingsPage() {
   const [gcalUrl, setGcalUrl] = useState(() => localStorage.getItem('luma_gcal_url') || '')
   const [gcalStatus, setGcalStatus] = useState(null) // null | 'loading' | 'ok' | 'error'
   const [gcalEvents, setGcalEvents] = useState([])
+
+  const [tgToken, setTgToken] = useState(() => localStorage.getItem('luma_tg_token') || '')
+  const [tgPflege, setTgPflege] = useState(() => localStorage.getItem('luma_tg_pflege') || '')
+  const [tgPm, setTgPm] = useState(() => localStorage.getItem('luma_tg_pm') || '')
+  const [tgInter, setTgInter] = useState(() => localStorage.getItem('luma_tg_inter') || '')
+  const [tgTestStatus, setTgTestStatus] = useState({}) // { pflege: 'ok'|'error', ... }
+
+  function saveTgSettings() {
+    localStorage.setItem('luma_tg_token', tgToken)
+    localStorage.setItem('luma_tg_pflege', tgPflege)
+    localStorage.setItem('luma_tg_pm', tgPm)
+    localStorage.setItem('luma_tg_inter', tgInter)
+  }
+
+  async function testTg(group, chatId) {
+    if (!chatId || !tgToken) return
+    localStorage.setItem('luma_tg_token', tgToken)
+    setTgTestStatus(s => ({ ...s, [group]: 'loading' }))
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, text: `✅ LUMA Ops verbunden — Gruppe: ${group}` }),
+      })
+      setTgTestStatus(s => ({ ...s, [group]: res.ok ? 'ok' : 'error' }))
+    } catch {
+      setTgTestStatus(s => ({ ...s, [group]: 'error' }))
+    }
+  }
 
   function saveVehicles(updated) {
     setVehicles(updated)
@@ -217,6 +247,80 @@ export default function SettingsPage() {
         {gcalStatus === 'ok' && gcalEvents.length === 0 && (
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED, padding: '8px 0' }}>Keine kommenden Termine gefunden.</div>
         )}
+      </section>
+
+      {/* ── Telegram ── */}
+      <section style={{ marginBottom: 36 }}>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 14 }}>
+          Telegram Integration
+        </div>
+        <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, marginBottom: 12 }}>
+          <div style={{ fontSize: 13, color: FG, marginBottom: 6, lineHeight: 1.6 }}>
+            Bot <code style={{ fontFamily: "'Space Mono', monospace", background: 'rgba(255,255,255,0.07)', padding: '1px 6px', borderRadius: 3 }}>@lumaaiearth_bot</code> zu den Gruppen hinzufügen, dann Chat-IDs unten eintragen.
+          </div>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, marginBottom: 14 }}>
+            Chat-ID ermitteln: Bot in Gruppe schreiben → https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates → "chat":&#123;"id":...&#125;
+          </div>
+
+          <label style={LABEL}>Bot Token</label>
+          <input
+            style={{ ...INPUT_STYLE, marginBottom: 16, fontFamily: "'Space Mono', monospace", fontSize: 12 }}
+            type="password"
+            value={tgToken}
+            onChange={e => setTgToken(e.target.value)}
+            placeholder="123456789:AAE..."
+          />
+
+          {[
+            { key: 'pflege', label: 'LUMA Pflege', members: 'Jona · Anselm · Malte', state: tgPflege, setState: setTgPflege },
+            { key: 'pm', label: 'LUMA Projektmanagement', members: 'Malte · Lukas · Robert', state: tgPm, setState: setTgPm },
+            { key: 'inter', label: 'LUMA Inter', members: 'Lukas · Malte', state: tgInter, setState: setTgInter },
+          ].map(({ key, label, members, state, setState }) => (
+            <div key={key} style={{ marginBottom: 14 }}>
+              <label style={LABEL}>{label} <span style={{ color: MUTED, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— {members}</span></label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  style={{ ...INPUT_STYLE, fontFamily: "'Space Mono', monospace", fontSize: 12 }}
+                  value={state}
+                  onChange={e => setState(e.target.value)}
+                  placeholder="-100123456789"
+                />
+                <button
+                  onClick={() => testTg(key, state)}
+                  disabled={!state || !tgToken || tgTestStatus[key] === 'loading'}
+                  style={{
+                    width: 38, height: 38, borderRadius: 6, flexShrink: 0,
+                    background: tgTestStatus[key] === 'ok' ? '#22EAA722' : 'rgba(255,255,255,0.05)',
+                    border: `1px solid ${tgTestStatus[key] === 'ok' ? '#22EAA750' : tgTestStatus[key] === 'error' ? '#ef444450' : BORDER}`,
+                    cursor: state && tgToken ? 'pointer' : 'default',
+                    color: tgTestStatus[key] === 'ok' ? '#22EAA7' : tgTestStatus[key] === 'error' ? '#ef4444' : MUTED,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}
+                >
+                  {tgTestStatus[key] === 'ok' ? <Check size={14} /> : <Send size={13} />}
+                </button>
+              </div>
+            </div>
+          ))}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              onClick={saveTgSettings}
+              style={{ padding: '8px 18px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
+              Speichern
+            </button>
+          </div>
+        </div>
+
+        <div style={{ padding: '10px 14px', background: `${A}06`, border: `1px solid ${A}18`, borderRadius: 6 }}>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Wann wird benachrichtigt?</div>
+          <ul style={{ margin: 0, padding: '0 0 0 16px', fontSize: 12, color: MUTED, lineHeight: 2 }}>
+            <li>Neuer Einsatz mit Jona / Anselm → LUMA Pflege</li>
+            <li>Einsatz abgesagt oder verschoben → betroffene Gruppe</li>
+            <li>Sensor kritisch → LUMA Projektmanagement</li>
+            <li>Fahrzeug doppelt gebucht → LUMA Inter</li>
+          </ul>
+        </div>
       </section>
 
       {/* ── Passwords note ── */}

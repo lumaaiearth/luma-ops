@@ -36,7 +36,16 @@ function JobCard({ job, onClick }) {
         <div style={{ fontSize: 12, fontWeight: 500, color: FG, lineHeight: 1.3, flex: 1 }}>{job.title}</div>
         <div style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_DOT[job.status], flexShrink: 0, marginTop: 3 }} />
       </div>
-      {project && <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: type?.color, marginBottom: 4 }}>{project.name}</div>}
+      {project && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: type?.color }}>{project.name}</span>
+          {job.date_end && job.date_end > job.date && (
+            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: 3 }}>
+              bis {new Date(job.date_end + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
+            </span>
+          )}
+        </div>
+      )}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', gap: 3 }}>
           {assignees.map(u => (
@@ -98,7 +107,10 @@ export default function CalendarPage() {
   }
 
   function jobsForDate(date) {
-    return jobs.filter(j => j.date === date).sort((a, b) => a.status.localeCompare(b.status))
+    return jobs.filter(j => {
+      if (j.date_end && j.date_end > j.date) return j.date <= date && j.date_end >= date
+      return j.date === date
+    }).sort((a, b) => a.status.localeCompare(b.status))
   }
 
   const weekLabel = (() => {
@@ -108,7 +120,7 @@ export default function CalendarPage() {
     return `${d1.toLocaleDateString('de-DE', { day: '2-digit', month: 'long' })}${same ? '' : ` – ${d2.toLocaleDateString('de-DE', { day: '2-digit', month: 'long' })}`} ${d2.getFullYear()}`
   })()
 
-  const allJobsThisWeek = weekDays.flatMap(d => jobsForDate(d)).length
+  const allJobsThisWeek = new Set(weekDays.flatMap(d => jobsForDate(d)).map(j => j.id)).size
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#080f14' }}>
