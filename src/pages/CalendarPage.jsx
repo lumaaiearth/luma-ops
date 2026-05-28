@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { useOps } from '../context/OpsContext.jsx'
 import { A, SURFACE, BORDER, FG, MUTED } from '../components/Layout.jsx'
@@ -10,7 +10,7 @@ const STATUS_DOT = { planned: '#6EA8C0', in_progress: A, done: '#22EAA7', cancel
 const DURATION_LABEL = { full: 'Ganztags', half_am: '07–12', half_pm: '12–17' }
 const DAY_NAMES = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 
-function JobCard({ job, onClick }) {
+function JobCard({ job, onClick, onDragStart, onDragEnd }) {
   const type = JOB_TYPES.find(t => t.id === job.job_type)
   const project = PROJECTS_OPS.find(p => p.id === job.project_id)
   const assignees = TEAM.filter(t => job.assigned_users.includes(t.id))
@@ -18,15 +18,18 @@ function JobCard({ job, onClick }) {
 
   return (
     <div
+      draggable
       onClick={onClick}
+      onDragStart={e => { e.stopPropagation(); onDragStart(e, job) }}
+      onDragEnd={onDragEnd}
       style={{
         background: `${type?.color || A}14`,
         border: `1px solid ${type?.color || A}30`,
         borderLeft: `3px solid ${type?.color || A}`,
         borderRadius: 4,
         padding: '8px 10px',
-        cursor: 'pointer',
-        transition: 'background 0.15s',
+        cursor: 'grab',
+        transition: 'background 0.15s, opacity 0.15s',
         marginBottom: 3,
       }}
       onMouseEnter={e => e.currentTarget.style.background = `${type?.color || A}22`}
@@ -71,10 +74,45 @@ export default function CalendarPage() {
   const [view, setView] = useState('week') // 'week' | 'month'
 
   const weekDays = getWeekDays(currentWeek)
+  const dragJob = useRef(null)
+  const [dragOverDate, setDragOverDate] = useState(null)
 
   function prevWeek() { setCurrentWeek(w => addDays(w, -7)) }
   function nextWeek() { setCurrentWeek(w => addDays(w, 7)) }
   function goToday() { setCurrentWeek(weekStart(today)) }
+
+  function handleDragStart(e, job) {
+    dragJob.current = job
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  function handleDragOver(e, date) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverDate(date)
+  }
+
+  function handleDrop(e, targetDate) {
+    e.preventDefault()
+    setDragOverDate(null)
+    const job = dragJob.current
+    dragJob.current = null
+    if (!job || job.date === targetDate) return
+    // For multi-day jobs, shift end date by the same offset
+    const changes = { date: targetDate }
+    if (job.date_end && job.date_end > job.date) {
+      const startMs = new Date(job.date + 'T00:00:00').getTime()
+      const endMs = new Date(job.date_end + 'T00:00:00').getTime()
+      const span = Math.round((endMs - startMs) / 86400000)
+      changes.date_end = addDays(targetDate, span)
+    }
+    updateJob(job.id, changes)
+  }
+
+  function handleDragEnd() {
+    dragJob.current = null
+    setDragOverDate(null)
+  }
 
   function handleSave(result) {
     if (result.type === 'job') {
@@ -171,15 +209,23 @@ export default function CalendarPage() {
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(7, minmax(150px, 1fr))`, minWidth: 700, height: '100%' }}>
             {weekDays.map((date, i) => {
               const isToday = date === today
+              const isDragOver = dragOverDate === date
               const dayJobs = jobsForDate(date)
               const d = new Date(date + 'T00:00:00')
               return (
                 <div
                   key={date}
+                  onDragOver={e => handleDragOver(e, date)}
+                  onDragLeave={() => setDragOverDate(null)}
+                  onDrop={e => handleDrop(e, date)}
                   style={{
                     borderRight: i < 6 ? `1px solid ${BORDER}` : 'none',
                     display: 'flex', flexDirection: 'column',
                     minHeight: 200,
+                    background: isDragOver ? `${A}0d` : 'transparent',
+                    outline: isDragOver ? `2px solid ${A}40` : 'none',
+                    outlineOffset: -2,
+                    transition: 'background 0.1s',
                   }}
                 >
                   {/* Day header */}
@@ -211,7 +257,11 @@ export default function CalendarPage() {
                   {/* Jobs */}
                   <div style={{ flex: 1, padding: '8px 8px', overflowY: 'auto' }}>
                     {dayJobs.map(job => (
-                      <JobCard key={job.id} job={job} onClick={() => { setSelectedJob(job); setModal({ job }) }} />
+                      <JobCard key={job.id} job={job}
+                        onClick={() => { setSelectedJob(job); setModal({ job }) }}
+                        onDragStart={handleDragStart}
+                        onDragEnd={handleDragEnd}
+                      />
                     ))}
                     <div
                       onClick={() => setModal({ date })}
@@ -243,27 +293,36 @@ export default function CalendarPage() {
             {getMonthDays().map((date, i) => {
               if (!date) return <div key={`empty-${i}`} />
               const isToday = date === today
+              const isDragOver = dragOverDate === date
               const dayJobs = jobsForDate(date)
               const d = new Date(date + 'T00:00:00')
               return (
                 <div
                   key={date}
                   onClick={() => setModal({ date })}
+                  onDragOver={e => handleDragOver(e, date)}
+                  onDragLeave={() => setDragOverDate(null)}
+                  onDrop={e => handleDrop(e, date)}
                   style={{
                     minHeight: 80, padding: '8px', borderRadius: 6,
-                    border: `1px solid ${isToday ? A + '60' : BORDER}`,
-                    background: isToday ? `${A}0a` : 'rgba(255,255,255,0.01)',
-                    cursor: 'pointer', transition: 'background 0.15s',
+                    border: `1px solid ${isDragOver ? A + '80' : isToday ? A + '60' : BORDER}`,
+                    background: isDragOver ? `${A}14` : isToday ? `${A}0a` : 'rgba(255,255,255,0.01)',
+                    cursor: 'pointer', transition: 'background 0.1s, border-color 0.1s',
                   }}
-                  onMouseEnter={e => e.currentTarget.style.background = isToday ? `${A}14` : 'rgba(255,255,255,0.04)'}
-                  onMouseLeave={e => e.currentTarget.style.background = isToday ? `${A}0a` : 'rgba(255,255,255,0.01)'}
+                  onMouseEnter={e => { if (!isDragOver) e.currentTarget.style.background = isToday ? `${A}14` : 'rgba(255,255,255,0.04)' }}
+                  onMouseLeave={e => { if (!isDragOver) e.currentTarget.style.background = isToday ? `${A}0a` : 'rgba(255,255,255,0.01)' }}
                 >
                   <div style={{ fontSize: 13, fontWeight: isToday ? 600 : 400, color: isToday ? A : FG, marginBottom: 4 }}>{d.getDate()}</div>
                   {dayJobs.slice(0, 3).map(job => {
                     const type = JOB_TYPES.find(t => t.id === job.job_type)
                     return (
-                      <div key={job.id} onClick={e => { e.stopPropagation(); setSelectedJob(job); setModal({ job }) }}
-                        style={{ fontSize: 11, color: type?.color || A, background: `${type?.color || A}18`, borderRadius: 2, padding: '1px 4px', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div
+                        key={job.id}
+                        draggable
+                        onDragStart={e => { e.stopPropagation(); handleDragStart(e, job) }}
+                        onDragEnd={handleDragEnd}
+                        onClick={e => { e.stopPropagation(); setSelectedJob(job); setModal({ job }) }}
+                        style={{ fontSize: 11, color: type?.color || A, background: `${type?.color || A}18`, borderRadius: 2, padding: '1px 4px', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'grab' }}>
                         {job.title}
                       </div>
                     )
