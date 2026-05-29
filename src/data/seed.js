@@ -6,6 +6,15 @@ export const TEAM = [
   { id: 'anselm', name: 'Anselm', role: 'field',   color: '#C0966E', initials: 'AS' },
 ]
 
+// Weekly/annual hour targets per person
+export const HOUR_TARGETS = {
+  malte:  { type: 'balance' },   // track balance with lukas
+  lukas:  { type: 'balance' },   // track balance with malte
+  jona:   { type: 'weekly', weekly: 10 },
+  anselm: { type: 'weekly', weekly: 10 },
+  robert: { type: 'project' },   // project-based, no fixed target
+}
+
 export const VEHICLES = [
   { id: 'lumi',       name: 'LUMi',              model: 'Renault Kangoo Maxi', ownership: 'owned',  type: 'van',     color: '#08AA56' },
   { id: 'lumo',       name: 'LUMo',              model: 'Mercedes Vito',       ownership: 'owned',  type: 'van',     color: '#22EAA7' },
@@ -144,5 +153,40 @@ export const SEED_SENSORS = [
     type: 'soil_moisture', unit: '%', value: 15,
     threshold_low: 20, threshold_high: 75,
     status: 'critical', last_updated: new Date().toISOString(),
+  },
+]
+
+export const SEED_TIME_ENTRIES = [
+  // This week
+  { id: 'te1', user_id: 'jona',   project_id: 'mv-bew',       job_id: 'j1', date: daysFromNow(0),  hours: 8,   description: 'Wochenpflege, Mulchen, Wildblumen kontrollieren', invoice_id: null },
+  { id: 'te2', user_id: 'anselm', project_id: 'mv-bew',       job_id: 'j1', date: daysFromNow(0),  hours: 8,   description: 'Wochenpflege, Mulchen', invoice_id: null },
+  { id: 'te3', user_id: 'jona',   project_id: 'blankenburg',  job_id: 'j2', date: daysFromNow(1),  hours: 4,   description: 'Schröpfschnitt Wildbienenweide', invoice_id: null },
+  { id: 'te4', user_id: 'malte',  project_id: 'h14',          job_id: 'j3', date: daysFromNow(2),  hours: 6,   description: 'Baumpflege + FLL-Kontrolle', invoice_id: null },
+  { id: 'te5', user_id: 'lukas',  project_id: 'h14',          job_id: 'j3', date: daysFromNow(2),  hours: 6,   description: 'Baumpflege, Schnittvorbereitung Eiche', invoice_id: null },
+  { id: 'te6', user_id: 'malte',  project_id: 'preussenpark', job_id: 'j5', date: daysFromNow(4),  hours: 3,   description: 'Beratung Bezirksamt, Konzept Blühstreifen 2026', invoice_id: null },
+  { id: 'te7', user_id: 'robert', project_id: 'preussenpark', job_id: 'j5', date: daysFromNow(4),  hours: 3,   description: 'Beratung Bezirksamt', invoice_id: null },
+  // Last week
+  { id: 'te8',  user_id: 'jona',   project_id: 'mv-bew',      job_id: null, date: daysFromNow(-7), hours: 8,   description: 'Pflege Tiny Forest', invoice_id: 'inv1' },
+  { id: 'te9',  user_id: 'anselm', project_id: 'mv-bew',      job_id: null, date: daysFromNow(-7), hours: 8,   description: 'Pflege Tiny Forest', invoice_id: 'inv1' },
+  { id: 'te10', user_id: 'malte',  project_id: 'mv-bew',      job_id: null, date: daysFromNow(-6), hours: 5,   description: 'Standortanalyse + Protokoll', invoice_id: 'inv1' },
+  { id: 'te11', user_id: 'lukas',  project_id: 'mv-bew',      job_id: null, date: daysFromNow(-6), hours: 4,   description: 'Drohnenbefliegung NDVI', invoice_id: 'inv1' },
+  { id: 'te12', user_id: 'jona',   project_id: 'htw',         job_id: null, date: daysFromNow(-5), hours: 4,   description: 'Pflege Mobile Forest', invoice_id: null },
+  { id: 'te13', user_id: 'anselm', project_id: 'htw',         job_id: null, date: daysFromNow(-5), hours: 4,   description: 'Pflege Mobile Forest', invoice_id: null },
+  { id: 'te14', user_id: 'malte',  project_id: 'langen-enden',job_id: null, date: daysFromNow(-4), hours: 7,   description: 'Installation Pflanzzone A', invoice_id: null },
+  { id: 'te15', user_id: 'lukas',  project_id: 'langen-enden',job_id: null, date: daysFromNow(-4), hours: 7,   description: 'Installation Pflanzzone A + B', invoice_id: null },
+]
+
+export const SEED_INVOICES = [
+  {
+    id: 'inv1',
+    project_id: 'mv-bew',
+    client: 'BEW / Vattenfall',
+    invoice_number: 'RE-2026-003',
+    date_issued: daysFromNow(-10),
+    date_paid: daysFromNow(-2),
+    entry_ids: ['te8', 'te9', 'te10', 'te11'],
+    total_hours: 25,
+    amount: 3250,
+    notes: 'Pflege + Monitoring KW 20',
   },
 ]

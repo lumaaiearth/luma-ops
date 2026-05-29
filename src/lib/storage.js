@@ -1,6 +1,6 @@
-import { SEED_JOBS, SEED_RECURRING, SEED_SENSORS } from '../data/seed.js'
+import { SEED_JOBS, SEED_RECURRING, SEED_SENSORS, SEED_TIME_ENTRIES, SEED_INVOICES } from '../data/seed.js'
 
-const KEYS = { jobs: 'luma_jobs', recurring: 'luma_recurring', sensors: 'luma_sensors' }
+const KEYS = { jobs: 'luma_jobs', recurring: 'luma_recurring', sensors: 'luma_sensors', time: 'luma_time_entries', invoices: 'luma_invoices' }
 
 function load(key, fallback) {
   try { return JSON.parse(localStorage.getItem(key)) || fallback } catch { return fallback }
@@ -15,6 +15,12 @@ export function saveRecurring(r) { save(KEYS.recurring, r) }
 
 export function getSensors() { return load(KEYS.sensors, SEED_SENSORS) }
 export function saveSensors(s) { save(KEYS.sensors, s) }
+
+export function getTimeEntries() { return load(KEYS.time, SEED_TIME_ENTRIES) }
+export function saveTimeEntries(t) { save(KEYS.time, t) }
+
+export function getInvoices() { return load(KEYS.invoices, SEED_INVOICES) }
+export function saveInvoices(i) { save(KEYS.invoices, i) }
 
 export function genId() {
   return Math.random().toString(36).slice(2, 10)

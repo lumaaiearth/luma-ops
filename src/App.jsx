@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext.jsx'
 import { OpsProvider } from './context/OpsContext.jsx'
 import { GCalProvider } from './context/GCalContext.jsx'
+import { TimeProvider } from './context/TimeContext.jsx'
+import TimePage from './pages/TimePage.jsx'
 import Layout from './components/Layout.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import DashboardPage from './pages/DashboardPage.jsx'
@@ -28,6 +30,7 @@ function AppRoutes() {
       <Route path="/jobs" element={<RequireAuth><Layout><JobsPage /></Layout></RequireAuth>} />
       <Route path="/sensors" element={<RequireAuth><Layout><SensorsPage /></Layout></RequireAuth>} />
       <Route path="/team" element={<RequireAuth><Layout><TeamPage /></Layout></RequireAuth>} />
+      <Route path="/time" element={<RequireAuth><Layout><TimePage /></Layout></RequireAuth>} />
       <Route path="/settings" element={<RequireAuth><Layout><SettingsPage /></Layout></RequireAuth>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
@@ -40,7 +43,9 @@ export default function App() {
       <AuthProvider>
         <GCalProvider>
           <OpsProvider>
-            <AppRoutes />
+            <TimeProvider>
+              <AppRoutes />
+            </TimeProvider>
           </OpsProvider>
         </GCalProvider>
       </AuthProvider>
