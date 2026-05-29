@@ -1,6 +1,7 @@
-import { useState, useRef } from 'react'
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { ChevronLeft, ChevronRight, Plus, CalendarDays } from 'lucide-react'
 import { useOps } from '../context/OpsContext.jsx'
+import { useGCal } from '../context/GCalContext.jsx'
 import { A, SURFACE, BORDER, FG, MUTED } from '../components/Layout.jsx'
 import JobModal from '../components/JobModal.jsx'
 import { JOB_TYPES, TEAM, VEHICLES, PROJECTS_OPS } from '../data/seed.js'
@@ -65,8 +66,56 @@ function JobCard({ job, onClick, onDragStart, onDragEnd }) {
   )
 }
 
+function GCalEventCard({ event, onClick }) {
+  return (
+    <div
+      onClick={onClick}
+      title="Google Kalender — klicken um Einsatz zu erstellen"
+      style={{
+        background: 'rgba(255,255,255,0.04)',
+        border: `1px dashed rgba(255,255,255,0.18)`,
+        borderLeft: '3px dashed rgba(255,255,255,0.25)',
+        borderRadius: 4,
+        padding: '6px 10px',
+        cursor: 'pointer',
+        marginBottom: 3,
+        opacity: 0.8,
+      }}
+      onMouseEnter={e => e.currentTarget.style.opacity = 1}
+      onMouseLeave={e => e.currentTarget.style.opacity = 0.8}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
+        <CalendarDays size={10} color={MUTED} />
+        <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.3, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{event.title}</div>
+      </div>
+      {event.date_end && event.date_end > event.date && (
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED }}>
+          bis {new Date(event.date_end + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function gcalEventToJob(ev) {
+  return {
+    title: ev.title,
+    date: ev.date,
+    date_end: ev.date_end && ev.date_end > ev.date ? ev.date_end : null,
+    notes: ev.description || '',
+    job_type: 'sonstiges',
+    project_id: '',
+    assigned_users: [],
+    vehicle_id: '',
+    tools: [],
+    status: 'planned',
+    duration: 'full',
+  }
+}
+
 export default function CalendarPage() {
   const { jobs, createJob, updateJob, deleteJob, createRecurring } = useOps()
+  const { connected: gcalConnected, events: gcalEvents, fetchForRange, syncing: gcalSyncing } = useGCal()
   const today = isoToday()
   const [currentWeek, setCurrentWeek] = useState(() => weekStart(today))
   const [modal, setModal] = useState(null) // { date?, job? }
@@ -74,6 +123,29 @@ export default function CalendarPage() {
   const [view, setView] = useState('week') // 'week' | 'month'
 
   const weekDays = getWeekDays(currentWeek)
+  // Fetch GCal events when range changes
+  useEffect(() => {
+    if (!gcalConnected) return
+    if (view === 'week') {
+      const from = new Date(weekDays[0] + 'T00:00:00')
+      const to = new Date(addDays(weekDays[6], 1) + 'T00:00:00')
+      fetchForRange(from, to)
+    } else {
+      const [y, m] = currentMonth.split('-').map(Number)
+      fetchForRange(new Date(y, m - 1, 1), new Date(y, m, 1))
+    }
+  }, [gcalConnected, view, currentWeek, currentMonth])
+
+  // GCal events for a specific date (excluding ones already synced as jobs)
+  const jobGcalIds = new Set(jobs.map(j => j.gcal_event_id).filter(Boolean))
+  function gcalForDate(date) {
+    return gcalEvents.filter(ev => {
+      if (jobGcalIds.has(ev.id)) return false
+      const end = ev.date_end && ev.date_end >= ev.date ? ev.date_end : ev.date
+      return ev.date <= date && end >= date
+    })
+  }
+
   const dragJob = useRef(null)
   const [dragOverDate, setDragOverDate] = useState(null)
 
@@ -182,6 +254,11 @@ export default function CalendarPage() {
           {view === 'week' && allJobsThisWeek > 0 && (
             <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED }}>{allJobsThisWeek} Einsätze</span>
           )}
+          {gcalConnected && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: "'Space Mono', monospace", fontSize: 10, color: gcalSyncing ? A : MUTED }}>
+              <CalendarDays size={11} /> {gcalSyncing ? 'sync…' : 'GCal'}
+            </span>
+          )}
         </div>
 
         <div style={{ display: 'flex', gap: 8 }}>
@@ -263,6 +340,9 @@ export default function CalendarPage() {
                         onDragEnd={handleDragEnd}
                       />
                     ))}
+                    {gcalForDate(date).map(ev => (
+                      <GCalEventCard key={ev.id} event={ev} onClick={() => setModal({ date, gcalEvent: ev })} />
+                    ))}
                     <div
                       onClick={() => setModal({ date })}
                       style={{ height: 28, borderRadius: 4, border: `1px dashed ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: 0, transition: 'opacity 0.15s' }}
@@ -313,7 +393,7 @@ export default function CalendarPage() {
                   onMouseLeave={e => { if (!isDragOver) e.currentTarget.style.background = isToday ? `${A}0a` : 'rgba(255,255,255,0.01)' }}
                 >
                   <div style={{ fontSize: 13, fontWeight: isToday ? 600 : 400, color: isToday ? A : FG, marginBottom: 4 }}>{d.getDate()}</div>
-                  {dayJobs.slice(0, 3).map(job => {
+                  {dayJobs.slice(0, 2).map(job => {
                     const type = JOB_TYPES.find(t => t.id === job.job_type)
                     return (
                       <div
@@ -327,6 +407,12 @@ export default function CalendarPage() {
                       </div>
                     )
                   })}
+                  {gcalForDate(date).slice(0, 1).map(ev => (
+                    <div key={ev.id} onClick={e => { e.stopPropagation(); setModal({ date, gcalEvent: ev }) }}
+                      style={{ fontSize: 11, color: MUTED, background: 'rgba(255,255,255,0.05)', border: `1px dashed ${BORDER}`, borderRadius: 2, padding: '1px 4px', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }}>
+                      📅 {ev.title}
+                    </div>
+                  ))}
                   {dayJobs.length > 3 && (
                     <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED }}>+{dayJobs.length - 3} mehr</div>
                   )}
@@ -340,7 +426,7 @@ export default function CalendarPage() {
       {modal && (
         <JobModal
           initialDate={modal.date}
-          initialJob={selectedJob || null}
+          initialJob={selectedJob || (modal.gcalEvent ? gcalEventToJob(modal.gcalEvent) : null)}
           onSave={handleSave}
           onClose={() => { setModal(null); setSelectedJob(null) }}
         />

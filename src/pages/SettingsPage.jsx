@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { A, SURFACE, BORDER, FG, MUTED } from '../components/Layout.jsx'
 import { VEHICLES } from '../data/seed.js'
 import { useOps } from '../context/OpsContext.jsx'
+import { useGCal } from '../context/GCalContext.jsx'
 import { genId } from '../lib/storage.js'
 import { tgSend } from '../lib/telegram.js'
-import { Car, Truck, Plus, Trash2, Calendar, ExternalLink, AlertTriangle, Send, Check } from 'lucide-react'
+import { Car, Truck, Plus, Trash2, Calendar, ExternalLink, AlertTriangle, Send, Check, RefreshCw, Unlink } from 'lucide-react'
 
 const INPUT_STYLE = {
   background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`,
@@ -47,6 +48,7 @@ function VehicleCard({ v, onDelete }) {
 }
 
 export default function SettingsPage() {
+  const { connected: gcalConnected, ready: gcalReady, syncing: gcalSyncing, calendars, calendarId, connect: gcalConnect, disconnect: gcalDisconnect, setCalendarId, reload: gcalReload } = useGCal()
   const [vehicles, setVehicles] = useState(() => {
     try { return JSON.parse(localStorage.getItem('luma_vehicles')) || VEHICLES } catch { return VEHICLES }
   })
@@ -193,10 +195,69 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {/* ── Google Calendar Sync ── */}
+      {/* ── Google Calendar OAuth Sync ── */}
       <section style={{ marginBottom: 36 }}>
         <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 14 }}>
-          Google Kalender Import
+          Google Kalender Sync
+        </div>
+        <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${gcalConnected ? A + '40' : BORDER}`, borderRadius: 8, marginBottom: 12 }}>
+          {!gcalConnected ? (
+            <div>
+              <div style={{ fontSize: 13, color: FG, marginBottom: 10, lineHeight: 1.6 }}>
+                Mit Google Kalender verbinden — Einsätze werden bidirektional synchronisiert.
+              </div>
+              <button
+                onClick={gcalConnect}
+                disabled={!gcalReady}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', borderRadius: 6, background: gcalReady ? A : 'rgba(255,255,255,0.05)', border: 'none', color: gcalReady ? '#001219' : MUTED, cursor: gcalReady ? 'pointer' : 'default', fontSize: 13, fontWeight: 500 }}>
+                <Calendar size={14} />
+                {gcalReady ? 'Mit Google Kalender verbinden' : 'Lädt…'}
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22EAA7' }} />
+                  <span style={{ fontSize: 13, color: FG }}>Verbunden</span>
+                  {gcalSyncing && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A }}>sync…</span>}
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={gcalReload} style={{ width: 30, height: 30, borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <RefreshCw size={12} />
+                  </button>
+                  <button onClick={gcalDisconnect} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, fontSize: 12 }}>
+                    <Unlink size={11} /> Trennen
+                  </button>
+                </div>
+              </div>
+              {calendars.length > 0 && (
+                <div>
+                  <label style={LABEL}>Kalender</label>
+                  <select style={INPUT_STYLE} value={calendarId} onChange={e => setCalendarId(e.target.value)}>
+                    {calendars.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}{c.primary ? ' (Primär)' : ''}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        <div style={{ padding: '10px 14px', background: `${A}06`, border: `1px solid ${A}18`, borderRadius: 6, marginBottom: 24 }}>
+          <ul style={{ margin: 0, padding: '0 0 0 16px', fontSize: 12, color: MUTED, lineHeight: 2 }}>
+            <li>Neuer Einsatz in luma-ops → erscheint in Google Kalender</li>
+            <li>Einsatz verschoben / gelöscht → wird in GCal aktualisiert</li>
+            <li>GCal-Termine → als Overlay im Kalender sichtbar (grau gestrichelt)</li>
+            <li>GCal-Termin anklicken → Einsatz mit vorausgefüllten Feldern erstellen</li>
+          </ul>
+        </div>
+      </section>
+
+      {/* ── Google Calendar iCal Import (Fallback) ── */}
+      <section style={{ marginBottom: 36 }}>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 14 }}>
+          Google Kalender Import (iCal, read-only)
         </div>
 
         <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, marginBottom: 12 }}>

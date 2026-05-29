@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext.jsx'
 import { OpsProvider } from './context/OpsContext.jsx'
+import { GCalProvider } from './context/GCalContext.jsx'
 import Layout from './components/Layout.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import DashboardPage from './pages/DashboardPage.jsx'
@@ -37,9 +38,11 @@ export default function App() {
   return (
     <BrowserRouter basename="/luma-ops">
       <AuthProvider>
-        <OpsProvider>
-          <AppRoutes />
-        </OpsProvider>
+        <GCalProvider>
+          <OpsProvider>
+            <AppRoutes />
+          </OpsProvider>
+        </GCalProvider>
       </AuthProvider>
     </BrowserRouter>
   )

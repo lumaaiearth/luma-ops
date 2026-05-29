@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback } from 'react'
 import { getJobs, saveJobs, getRecurring, saveRecurring, getSensors, saveSensors, genId, addDays } from '../lib/storage.js'
 import { tgSend, tgGroups, groupsForUsers } from '../lib/telegram.js'
+import * as gcal from '../lib/gcal.js'
 import { PROJECTS_OPS, JOB_TYPES } from '../data/seed.js'
 
 const OpsContext = createContext(null)
@@ -16,6 +17,13 @@ export function OpsProvider({ children }) {
   function createJob(data) {
     const job = { ...data, id: genId(), created_at: new Date().toISOString() }
     updateJobs([...jobs, job])
+    // Write to Google Calendar
+    if (gcal.isConnected()) {
+      const project = PROJECTS_OPS.find(p => p.id === data.project_id)
+      gcal.createEvent(job, project?.name).then(gcalId => {
+        if (gcalId) updateJobs([...jobs, { ...job, gcal_event_id: gcalId }])
+      }).catch(() => {})
+    }
     // Notify field team if Jona or Anselm assigned
     if (data.assigned_users?.some(id => ['jona', 'anselm'].includes(id))) {
       const project = PROJECTS_OPS.find(p => p.id === data.project_id)
@@ -46,6 +54,12 @@ export function OpsProvider({ children }) {
     const existing = jobs.find(j => j.id === id)
     const updated = jobs.map(j => j.id === id ? { ...j, ...changes } : j)
     updateJobs(updated)
+    // Write to Google Calendar
+    if (gcal.isConnected() && existing?.gcal_event_id) {
+      const merged = { ...existing, ...changes }
+      const project = PROJECTS_OPS.find(p => p.id === merged.project_id)
+      gcal.updateEvent(existing.gcal_event_id, merged, project?.name).catch(() => {})
+    }
     // Notify on cancellation or date change
     if (existing && changes.status === 'cancelled' && existing.status !== 'cancelled') {
       const groups = groupsForUsers(existing.assigned_users || [])
@@ -61,7 +75,11 @@ export function OpsProvider({ children }) {
   }
 
   function deleteJob(id) {
+    const job = jobs.find(j => j.id === id)
     updateJobs(jobs.filter(j => j.id !== id))
+    if (gcal.isConnected() && job?.gcal_event_id) {
+      gcal.deleteEvent(job.gcal_event_id).catch(() => {})
+    }
   }
 
   function setJobStatus(id, status) {
