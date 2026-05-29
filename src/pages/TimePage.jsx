@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Plus, Trash2, Check, Clock, TrendingUp, FileText, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { Plus, Trash2, Check, Clock, TrendingUp, FileText, ChevronLeft, ChevronRight, X, Download, Printer } from 'lucide-react'
 import { useTime } from '../context/TimeContext.jsx'
 import { useOps } from '../context/OpsContext.jsx'
 import { A, SURFACE, BORDER, FG, MUTED } from '../components/Layout.jsx'
@@ -287,8 +287,23 @@ function TabAbrechnung() {
   const { entries, invoices, createInvoice, markPaid, deleteInvoice } = useTime()
   const [filterProject, setFilterProject] = useState('')
   const [filterUser, setFilterUser] = useState('')
+  const [filterFrom, setFilterFrom] = useState('')
+  const [filterTo, setFilterTo] = useState('')
   const [newInvoice, setNewInvoice] = useState(null) // { project_id, entry_ids }
   const [invForm, setInvForm] = useState({ invoice_number: '', date_issued: isoToday(), amount: '', notes: '' })
+
+  const filteredForExport = entries.filter(e =>
+    (!filterProject || e.project_id === filterProject) &&
+    (!filterUser || e.user_id === filterUser) &&
+    (!filterFrom || e.date >= filterFrom) &&
+    (!filterTo || e.date <= filterTo)
+  ).sort((a, b) => a.date.localeCompare(b.date))
+
+  const exportLabel = [
+    filterProject ? PROJECTS_OPS.find(p => p.id === filterProject)?.name : 'Alle Projekte',
+    filterUser ? TEAM.find(u => u.id === filterUser)?.name : 'Alle Personen',
+    filterFrom || filterTo ? `${filterFrom || '…'} – ${filterTo || '…'}` : null,
+  ].filter(Boolean).join(' · ')
 
   // Group unbilled entries by project
   const unbilled = entries.filter(e => !e.invoice_id)
@@ -322,16 +337,38 @@ function TabAbrechnung() {
 
   return (
     <div>
-      {/* Filters */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-        <select style={{ ...INPUT, width: 'auto', flex: 1 }} value={filterProject} onChange={e => setFilterProject(e.target.value)}>
-          <option value="">Alle Projekte</option>
-          {PROJECTS_OPS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
-        <select style={{ ...INPUT, width: 'auto', flex: 1 }} value={filterUser} onChange={e => setFilterUser(e.target.value)}>
-          <option value="">Alle Personen</option>
-          {TEAM.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-        </select>
+      {/* Filters + Export */}
+      <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, marginBottom: 20 }}>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 10 }}>Filter &amp; Export</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
+          <select style={INPUT} value={filterProject} onChange={e => setFilterProject(e.target.value)}>
+            <option value="">Alle Projekte</option>
+            {PROJECTS_OPS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+          <select style={INPUT} value={filterUser} onChange={e => setFilterUser(e.target.value)}>
+            <option value="">Alle Personen</option>
+            {TEAM.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </select>
+          <input type="date" style={INPUT} value={filterFrom} onChange={e => setFilterFrom(e.target.value)} placeholder="Von" title="Von Datum" />
+          <input type="date" style={INPUT} value={filterTo} onChange={e => setFilterTo(e.target.value)} placeholder="Bis" title="Bis Datum" />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, flex: 1 }}>
+            {filteredForExport.length} Einträge · {filteredForExport.reduce((s, e) => s + Number(e.hours), 0)}h
+          </span>
+          <button
+            onClick={() => exportCSV(filteredForExport, invoices)}
+            disabled={!filteredForExport.length}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 6, background: filteredForExport.length ? `${A}18` : 'transparent', border: `1px solid ${filteredForExport.length ? A + '50' : BORDER}`, color: filteredForExport.length ? A : MUTED, cursor: filteredForExport.length ? 'pointer' : 'default', fontSize: 12 }}>
+            <Download size={12} /> CSV
+          </button>
+          <button
+            onClick={() => exportPDF(filteredForExport, invoices, exportLabel)}
+            disabled={!filteredForExport.length}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 6, background: filteredForExport.length ? 'rgba(255,255,255,0.05)' : 'transparent', border: `1px solid ${BORDER}`, color: filteredForExport.length ? FG : MUTED, cursor: filteredForExport.length ? 'pointer' : 'default', fontSize: 12 }}>
+            <Printer size={12} /> PDF / Drucken
+          </button>
+        </div>
       </div>
 
       {/* Unbilled hours */}
@@ -460,6 +497,80 @@ function TabAbrechnung() {
       </div>
     </div>
   )
+}
+
+// ── Export helpers ────────────────────────────────────────────────────────────
+function exportCSV(filteredEntries, allInvoices) {
+  const invMap = Object.fromEntries(allInvoices.map(inv => [inv.id, inv.invoice_number]))
+  const rows = [
+    ['Datum', 'Person', 'Projekt', 'Kunde', 'Stunden', 'Tätigkeit', 'Abgerechnet', 'Rechnung-Nr', 'Bezahlt'],
+    ...filteredEntries.map(e => {
+      const user = TEAM.find(u => u.id === e.user_id)
+      const project = PROJECTS_OPS.find(p => p.id === e.project_id)
+      const inv = e.invoice_id ? allInvoices.find(i => i.id === e.invoice_id) : null
+      return [
+        e.date, user?.name || e.user_id, project?.name || e.project_id,
+        project?.client || '', e.hours, e.description || '',
+        e.invoice_id ? 'Ja' : 'Nein',
+        inv?.invoice_number || '',
+        inv?.date_paid ? inv.date_paid : (e.invoice_id ? 'Offen' : ''),
+      ]
+    })
+  ]
+  const csv = '﻿' + rows.map(r =>
+    r.map(cell => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(';')
+  ).join('\r\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `luma-zeiten-${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function exportPDF(filteredEntries, allInvoices, filterLabel) {
+  const invMap = Object.fromEntries(allInvoices.map(inv => [inv.id, inv]))
+  const totalHours = filteredEntries.reduce((s, e) => s + Number(e.hours), 0)
+  const rows = filteredEntries.map(e => {
+    const user = TEAM.find(u => u.id === e.user_id)
+    const project = PROJECTS_OPS.find(p => p.id === e.project_id)
+    const inv = e.invoice_id ? invMap[e.invoice_id] : null
+    return `<tr>
+      <td>${e.date}</td>
+      <td>${user?.name || e.user_id}</td>
+      <td>${project?.name || e.project_id}</td>
+      <td>${e.hours}h</td>
+      <td>${e.description || '—'}</td>
+      <td>${inv?.invoice_number || (e.invoice_id ? '…' : '—')}</td>
+      <td style="color:${inv?.date_paid ? '#16a34a' : (e.invoice_id ? '#d97706' : '#6b7280')}">${inv?.date_paid ? `Bezahlt ${inv.date_paid}` : (e.invoice_id ? 'Offen' : '—')}</td>
+    </tr>`
+  }).join('')
+  const html = `<!DOCTYPE html><html lang="de"><head><meta charset="utf-8">
+    <title>LUMA Stundennachweis</title>
+    <style>
+      body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #1a1a1a; margin: 32px; }
+      h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+      .meta { color: #6b7280; font-size: 11px; margin-bottom: 20px; }
+      table { width: 100%; border-collapse: collapse; }
+      th { text-align: left; padding: 6px 10px; border-bottom: 2px solid #e5e7eb; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; }
+      td { padding: 7px 10px; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
+      tr:last-child td { border-bottom: none; }
+      .total { margin-top: 16px; font-weight: 600; font-size: 13px; }
+      @media print { body { margin: 16px; } }
+    </style></head><body>
+    <h1>LUMA Ops — Stundennachweis</h1>
+    <div class="meta">${filterLabel} · Erstellt: ${new Date().toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
+    <table>
+      <thead><tr><th>Datum</th><th>Person</th><th>Projekt</th><th>Std.</th><th>Tätigkeit</th><th>Rechnung</th><th>Status</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="total">Gesamt: ${totalHours}h</div>
+    <script>window.onload = () => window.print()</script>
+  </body></html>`
+  const w = window.open('', '_blank')
+  w.document.write(html)
+  w.document.close()
 }
 
 // ── ISO week helper ───────────────────────────────────────────────────────────
