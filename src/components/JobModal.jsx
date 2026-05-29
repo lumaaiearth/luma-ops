@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { X, Repeat } from 'lucide-react'
-import { TEAM, VEHICLES as VEHICLES_DEFAULT, JOB_TYPES, PROJECTS_OPS } from '../data/seed.js'
+import { TEAM, VEHICLES as VEHICLES_DEFAULT, JOB_TYPES } from '../data/seed.js'
+import { useOps } from '../context/OpsContext.jsx'
 
 const VEHICLES = (() => { try { return JSON.parse(localStorage.getItem('luma_vehicles')) || VEHICLES_DEFAULT } catch { return VEHICLES_DEFAULT } })()
 import { A, SURFACE, BORDER, FG, MUTED } from './Layout.jsx'
@@ -18,6 +19,7 @@ const LABEL_STYLE = {
 }
 
 export default function JobModal({ initialDate, initialJob, onSave, onClose, isRecurring = false }) {
+  const { projects } = useOps()
   const editing = !!initialJob
   const [form, setForm] = useState({
     project_id: initialJob?.project_id || '',
@@ -112,7 +114,7 @@ export default function JobModal({ initialDate, initialJob, onSave, onClose, isR
               <label style={LABEL_STYLE}>Projekt *</label>
               <select style={INPUT_STYLE} value={form.project_id} onChange={e => setForm(f => ({ ...f, project_id: e.target.value }))} required>
                 <option value="">Projekt wählen</option>
-                {PROJECTS_OPS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
             <div>

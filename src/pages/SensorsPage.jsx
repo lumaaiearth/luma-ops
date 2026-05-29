@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useOps } from '../context/OpsContext.jsx'
 import { A, SURFACE, BORDER, FG, MUTED } from '../components/Layout.jsx'
-import { PROJECTS_OPS } from '../data/seed.js'
 import { AlertTriangle, CheckCircle2, RefreshCw, Wifi } from 'lucide-react'
 
 const TYPE_LABELS = { soil_moisture: 'Bodenfeuchte', soil_temp: 'Bodentemperatur', air_temp: 'Lufttemperatur', rainfall: 'Niederschlag' }
@@ -21,7 +20,7 @@ function GaugeBar({ value, low, high, color }) {
 }
 
 export default function SensorsPage() {
-  const { sensors, updateSensorValue } = useOps()
+  const { sensors, projects, updateSensorValue } = useOps()
   const [lastRefresh, setLastRefresh] = useState(new Date())
   const [simulating, setSimulating] = useState(false)
 
@@ -42,7 +41,7 @@ export default function SensorsPage() {
   const criticalCount = sensors.filter(s => s.status === 'critical').length
   const warningCount = sensors.filter(s => s.status === 'warning').length
 
-  const grouped = PROJECTS_OPS.reduce((acc, p) => {
+  const grouped = projects.reduce((acc, p) => {
     const ps = sensors.filter(s => s.project_id === p.id)
     if (ps.length > 0) acc.push({ project: p, sensors: ps })
     return acc

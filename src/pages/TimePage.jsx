@@ -3,7 +3,7 @@ import { Plus, Trash2, Check, Clock, TrendingUp, FileText, ChevronLeft, ChevronR
 import { useTime } from '../context/TimeContext.jsx'
 import { useOps } from '../context/OpsContext.jsx'
 import { A, SURFACE, BORDER, FG, MUTED } from '../components/Layout.jsx'
-import { TEAM, PROJECTS_OPS, HOUR_TARGETS } from '../data/seed.js'
+import { TEAM, HOUR_TARGETS } from '../data/seed.js'
 import { genId, isoToday, addDays, weekStart, getWeekDays } from '../lib/storage.js'
 
 const INPUT = {
@@ -34,7 +34,7 @@ function hoursForProject(entries, userId, projectId) {
 
 // ── Log Form ──────────────────────────────────────────────────────────────────
 function LogForm({ onSave, prefill, onClose }) {
-  const { jobs } = useOps()
+  const { jobs, projects } = useOps()
   const [form, setForm] = useState({
     user_id: prefill?.user_id || 'malte',
     project_id: prefill?.project_id || '',
@@ -66,7 +66,7 @@ function LogForm({ onSave, prefill, onClose }) {
         <label style={LABEL}>Projekt *</label>
         <select style={INPUT} value={form.project_id} onChange={e => setForm(f => ({ ...f, project_id: e.target.value, job_id: '' }))} required>
           <option value="">Projekt wählen</option>
-          {PROJECTS_OPS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
       </div>
       <div>
@@ -104,6 +104,7 @@ function LogForm({ onSave, prefill, onClose }) {
 // ── Tab 1: Erfassen ───────────────────────────────────────────────────────────
 function TabErfassen() {
   const { entries, logTime, deleteEntry } = useTime()
+  const { projects } = useOps()
   const [editId, setEditId] = useState(null)
   const recent = [...entries].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30)
 
@@ -125,7 +126,7 @@ function TabErfassen() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {recent.map(entry => {
             const user = TEAM.find(u => u.id === entry.user_id)
-            const project = PROJECTS_OPS.find(p => p.id === entry.project_id)
+            const project = projects.find(p => p.id === entry.project_id)
             return (
               <div key={entry.id} style={{ padding: '10px 14px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 6, display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ width: 26, height: 26, borderRadius: '50%', background: user?.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -266,7 +267,7 @@ function TabUebersicht() {
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {PROJECTS_OPS.map(p => {
+          {projects.map(p => {
             const h = hoursForProject(entries, 'robert', p.id)
             if (!h) return null
             return (
@@ -285,6 +286,7 @@ function TabUebersicht() {
 // ── Tab 3: Abrechnung ─────────────────────────────────────────────────────────
 function TabAbrechnung() {
   const { entries, invoices, createInvoice, markPaid, deleteInvoice } = useTime()
+  const { projects } = useOps()
   const [filterProject, setFilterProject] = useState('')
   const [filterUser, setFilterUser] = useState('')
   const [filterFrom, setFilterFrom] = useState('')
@@ -300,14 +302,14 @@ function TabAbrechnung() {
   ).sort((a, b) => a.date.localeCompare(b.date))
 
   const exportLabel = [
-    filterProject ? PROJECTS_OPS.find(p => p.id === filterProject)?.name : 'Alle Projekte',
+    filterProject ? projects.find(p => p.id === filterProject)?.name : 'Alle Projekte',
     filterUser ? TEAM.find(u => u.id === filterUser)?.name : 'Alle Personen',
     filterFrom || filterTo ? `${filterFrom || '…'} – ${filterTo || '…'}` : null,
   ].filter(Boolean).join(' · ')
 
   // Group unbilled entries by project
   const unbilled = entries.filter(e => !e.invoice_id)
-  const unbilledByProject = PROJECTS_OPS.map(p => {
+  const unbilledByProject = projects.map(p => {
     const pEntries = unbilled.filter(e => e.project_id === p.id && (!filterUser || e.user_id === filterUser))
     if (!pEntries.length) return null
     return { project: p, entries: pEntries, totalHours: pEntries.reduce((s, e) => s + Number(e.hours), 0) }
@@ -320,7 +322,7 @@ function TabAbrechnung() {
 
   function submitInvoice(e) {
     e.preventDefault()
-    const project = PROJECTS_OPS.find(p => p.id === newInvoice.project_id)
+    const project = projects.find(p => p.id === newInvoice.project_id)
     createInvoice({
       ...newInvoice,
       client: project?.client || '',
@@ -343,7 +345,7 @@ function TabAbrechnung() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
           <select style={INPUT} value={filterProject} onChange={e => setFilterProject(e.target.value)}>
             <option value="">Alle Projekte</option>
-            {PROJECTS_OPS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
           <select style={INPUT} value={filterUser} onChange={e => setFilterUser(e.target.value)}>
             <option value="">Alle Personen</option>
@@ -357,13 +359,13 @@ function TabAbrechnung() {
             {filteredForExport.length} Einträge · {filteredForExport.reduce((s, e) => s + Number(e.hours), 0)}h
           </span>
           <button
-            onClick={() => exportCSV(filteredForExport, invoices)}
+            onClick={() => exportCSV(filteredForExport, invoices, projects)}
             disabled={!filteredForExport.length}
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 6, background: filteredForExport.length ? `${A}18` : 'transparent', border: `1px solid ${filteredForExport.length ? A + '50' : BORDER}`, color: filteredForExport.length ? A : MUTED, cursor: filteredForExport.length ? 'pointer' : 'default', fontSize: 12 }}>
             <Download size={12} /> CSV
           </button>
           <button
-            onClick={() => exportPDF(filteredForExport, invoices, exportLabel)}
+            onClick={() => exportPDF(filteredForExport, invoices, exportLabel, projects)}
             disabled={!filteredForExport.length}
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 6, background: filteredForExport.length ? 'rgba(255,255,255,0.05)' : 'transparent', border: `1px solid ${BORDER}`, color: filteredForExport.length ? FG : MUTED, cursor: filteredForExport.length ? 'pointer' : 'default', fontSize: 12 }}>
             <Printer size={12} /> PDF / Drucken
@@ -461,7 +463,7 @@ function TabAbrechnung() {
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {[...filteredInvoices].sort((a, b) => b.date_issued.localeCompare(a.date_issued)).map(inv => {
-            const project = PROJECTS_OPS.find(p => p.id === inv.project_id)
+            const project = projects.find(p => p.id === inv.project_id)
             const paid = !!inv.date_paid
             return (
               <div key={inv.id} style={{ padding: '14px 16px', background: SURFACE, border: `1px solid ${paid ? '#22EAA730' : BORDER}`, borderRadius: 8, display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -500,13 +502,13 @@ function TabAbrechnung() {
 }
 
 // ── Export helpers ────────────────────────────────────────────────────────────
-function exportCSV(filteredEntries, allInvoices) {
+function exportCSV(filteredEntries, allInvoices, projects) {
   const invMap = Object.fromEntries(allInvoices.map(inv => [inv.id, inv.invoice_number]))
   const rows = [
     ['Datum', 'Person', 'Projekt', 'Kunde', 'Stunden', 'Tätigkeit', 'Abgerechnet', 'Rechnung-Nr', 'Bezahlt'],
     ...filteredEntries.map(e => {
       const user = TEAM.find(u => u.id === e.user_id)
-      const project = PROJECTS_OPS.find(p => p.id === e.project_id)
+      const project = projects.find(p => p.id === e.project_id)
       const inv = e.invoice_id ? allInvoices.find(i => i.id === e.invoice_id) : null
       return [
         e.date, user?.name || e.user_id, project?.name || e.project_id,
@@ -529,12 +531,12 @@ function exportCSV(filteredEntries, allInvoices) {
   URL.revokeObjectURL(url)
 }
 
-function exportPDF(filteredEntries, allInvoices, filterLabel) {
+function exportPDF(filteredEntries, allInvoices, filterLabel, projects) {
   const invMap = Object.fromEntries(allInvoices.map(inv => [inv.id, inv]))
   const totalHours = filteredEntries.reduce((s, e) => s + Number(e.hours), 0)
   const rows = filteredEntries.map(e => {
     const user = TEAM.find(u => u.id === e.user_id)
-    const project = PROJECTS_OPS.find(p => p.id === e.project_id)
+    const project = projects.find(p => p.id === e.project_id)
     const inv = e.invoice_id ? invMap[e.invoice_id] : null
     return `<tr>
       <td>${e.date}</td>

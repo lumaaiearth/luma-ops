@@ -5,7 +5,7 @@ import { useOps } from '../context/OpsContext.jsx'
 import { useGCal } from '../context/GCalContext.jsx'
 import { genId } from '../lib/storage.js'
 import { tgSend } from '../lib/telegram.js'
-import { Car, Truck, Plus, Trash2, Calendar, ExternalLink, AlertTriangle, Send, Check, RefreshCw, Unlink } from 'lucide-react'
+import { Car, Truck, Plus, Trash2, Calendar, ExternalLink, AlertTriangle, Send, Check, RefreshCw, Unlink, FolderOpen, Pencil } from 'lucide-react'
 
 const INPUT_STYLE = {
   background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`,
@@ -49,6 +49,11 @@ function VehicleCard({ v, onDelete }) {
 
 export default function SettingsPage() {
   const { connected: gcalConnected, ready: gcalReady, syncing: gcalSyncing, calendars, calendarId, connect: gcalConnect, disconnect: gcalDisconnect, setCalendarId, reload: gcalReload } = useGCal()
+  const { projects, createProject, updateProject, deleteProject } = useOps()
+  const [showAddProject, setShowAddProject] = useState(false)
+  const [newP, setNewP] = useState({ name: '', location: '', client: '' })
+  const [editProjectId, setEditProjectId] = useState(null)
+  const [editP, setEditP] = useState({})
   const [vehicles, setVehicles] = useState(() => {
     try { return JSON.parse(localStorage.getItem('luma_vehicles')) || VEHICLES } catch { return VEHICLES }
   })
@@ -381,6 +386,100 @@ export default function SettingsPage() {
             <li>Sensor kritisch → LUMA Projektmanagement</li>
             <li>Fahrzeug doppelt gebucht → LUMA Inter</li>
           </ul>
+        </div>
+      </section>
+
+      {/* ── Projekte ── */}
+      <section style={{ marginBottom: 36 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase' }}>Projekte</div>
+          <button onClick={() => { setShowAddProject(v => !v); setNewP({ name: '', location: '', client: '' }) }}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 6, background: showAddProject ? `${A}18` : 'transparent', border: `1px solid ${showAddProject ? A + '50' : BORDER}`, color: showAddProject ? A : MUTED, cursor: 'pointer', fontSize: 12 }}>
+            <Plus size={13} /> Projekt hinzufügen
+          </button>
+        </div>
+
+        {/* Add form */}
+        {showAddProject && (
+          <div style={{ padding: '16px', background: `${A}08`, border: `1px solid ${A}20`, borderRadius: 8, marginBottom: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+              <div>
+                <label style={LABEL}>Name *</label>
+                <input style={INPUT_STYLE} placeholder="z.B. MV Tiny Forest" value={newP.name} onChange={e => setNewP(p => ({ ...p, name: e.target.value }))} />
+              </div>
+              <div>
+                <label style={LABEL}>Standort</label>
+                <input style={INPUT_STYLE} placeholder="z.B. Berlin-Mitte" value={newP.location} onChange={e => setNewP(p => ({ ...p, location: e.target.value }))} />
+              </div>
+              <div>
+                <label style={LABEL}>Kunde</label>
+                <input style={INPUT_STYLE} placeholder="z.B. JOPE AG" value={newP.client} onChange={e => setNewP(p => ({ ...p, client: e.target.value }))} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowAddProject(false)} style={{ padding: '7px 14px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 12 }}>Abbrechen</button>
+              <button
+                onClick={() => {
+                  if (!newP.name) return
+                  createProject({ id: newP.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''), ...newP })
+                  setShowAddProject(false)
+                }}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
+                <Check size={13} /> Hinzufügen
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Project list */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {projects.map(p => (
+            <div key={p.id} style={{ padding: '12px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8 }}>
+              {editProjectId === p.id ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 8, alignItems: 'end' }}>
+                  <div>
+                    <label style={LABEL}>Name</label>
+                    <input style={INPUT_STYLE} value={editP.name} onChange={e => setEditP(v => ({ ...v, name: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label style={LABEL}>Standort</label>
+                    <input style={INPUT_STYLE} value={editP.location} onChange={e => setEditP(v => ({ ...v, location: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label style={LABEL}>Kunde</label>
+                    <input style={INPUT_STYLE} value={editP.client} onChange={e => setEditP(v => ({ ...v, client: e.target.value }))} />
+                  </div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button onClick={() => { updateProject(p.id, editP); setEditProjectId(null) }} style={{ padding: '8px 12px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 12 }}><Check size={13} /></button>
+                    <button onClick={() => setEditProjectId(null)} style={{ padding: '8px 12px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 12 }}>✕</button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <FolderOpen size={14} color={A} style={{ flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: FG }}>{p.name}</div>
+                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>
+                      {[p.location, p.client].filter(Boolean).join(' · ')}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <button onClick={() => { setEditProjectId(p.id); setEditP({ name: p.name, location: p.location || '', client: p.client || '' }) }}
+                      style={{ width: 28, height: 28, borderRadius: 4, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Pencil size={11} />
+                    </button>
+                    <button onClick={() => deleteProject(p.id)}
+                      style={{ width: 28, height: 28, borderRadius: 4, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+          {projects.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '24px', color: MUTED, fontFamily: "'Space Mono', monospace", fontSize: 12 }}>Noch keine Projekte</div>
+          )}
         </div>
       </section>
 

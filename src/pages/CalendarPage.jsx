@@ -4,16 +4,16 @@ import { useOps } from '../context/OpsContext.jsx'
 import { useGCal } from '../context/GCalContext.jsx'
 import { A, SURFACE, BORDER, FG, MUTED } from '../components/Layout.jsx'
 import JobModal from '../components/JobModal.jsx'
-import { JOB_TYPES, TEAM, VEHICLES, PROJECTS_OPS } from '../data/seed.js'
+import { JOB_TYPES, TEAM, VEHICLES } from '../data/seed.js'
 import { isoToday, weekStart, getWeekDays, addDays, formatDate } from '../lib/storage.js'
 
 const STATUS_DOT = { planned: '#6EA8C0', in_progress: A, done: '#22EAA7', cancelled: '#6B7280' }
 const DURATION_LABEL = { full: 'Ganztags', half_am: '07–12', half_pm: '12–17' }
 const DAY_NAMES = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 
-function JobCard({ job, onClick, onDragStart, onDragEnd }) {
+function JobCard({ job, projects, onClick, onDragStart, onDragEnd }) {
   const type = JOB_TYPES.find(t => t.id === job.job_type)
-  const project = PROJECTS_OPS.find(p => p.id === job.project_id)
+  const project = projects.find(p => p.id === job.project_id)
   const assignees = TEAM.filter(t => job.assigned_users.includes(t.id))
   const vehicle = VEHICLES.find(v => v.id === job.vehicle_id)
 
@@ -114,7 +114,7 @@ function gcalEventToJob(ev) {
 }
 
 export default function CalendarPage() {
-  const { jobs, createJob, updateJob, deleteJob, createRecurring } = useOps()
+  const { jobs, projects, createJob, updateJob, deleteJob, createRecurring } = useOps()
   const { connected: gcalConnected, events: gcalEvents, fetchForRange, syncing: gcalSyncing } = useGCal()
   const today = isoToday()
   const [currentWeek, setCurrentWeek] = useState(() => weekStart(today))
@@ -334,7 +334,7 @@ export default function CalendarPage() {
                   {/* Jobs */}
                   <div style={{ flex: 1, padding: '8px 8px', overflowY: 'auto' }}>
                     {dayJobs.map(job => (
-                      <JobCard key={job.id} job={job}
+                      <JobCard key={job.id} job={job} projects={projects}
                         onClick={() => { setSelectedJob(job); setModal({ job }) }}
                         onDragStart={handleDragStart}
                         onDragEnd={handleDragEnd}

@@ -1,6 +1,6 @@
 import { useOps } from '../context/OpsContext.jsx'
 import { A, SURFACE, BORDER, FG, MUTED } from '../components/Layout.jsx'
-import { TEAM, JOB_TYPES, PROJECTS_OPS } from '../data/seed.js'
+import { TEAM, JOB_TYPES } from '../data/seed.js'
 import { isoToday, addDays, formatDate } from '../lib/storage.js'
 
 const TG_GROUPS = [
@@ -10,7 +10,7 @@ const TG_GROUPS = [
 ]
 
 export default function TeamPage() {
-  const { jobs } = useOps()
+  const { jobs, projects } = useOps()
   const today = isoToday()
   const next7 = addDays(today, 7)
 
@@ -40,7 +40,7 @@ export default function TeamPage() {
                   <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: u.color, marginBottom: 2 }}>HEUTE</div>
                   <div style={{ fontSize: 12, color: FG }}>{todayJob.title}</div>
                   <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>
-                    {PROJECTS_OPS.find(p => p.id === todayJob.project_id)?.name}
+                    {projects.find(p => p.id === todayJob.project_id)?.name}
                   </div>
                 </div>
               ) : (

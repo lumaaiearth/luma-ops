@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useOps } from '../context/OpsContext.jsx'
 import { A, SURFACE, BORDER, FG, MUTED } from '../components/Layout.jsx'
-import { JOB_TYPES, TEAM, PROJECTS_OPS, VEHICLES } from '../data/seed.js'
+import { JOB_TYPES, TEAM, VEHICLES } from '../data/seed.js'
 import { formatDate, isoToday } from '../lib/storage.js'
 import JobModal from '../components/JobModal.jsx'
 import { Plus, Repeat, Trash2, CheckCircle2, Circle, ChevronDown } from 'lucide-react'
@@ -11,7 +11,7 @@ const STATUS_LABELS = { planned: 'Geplant', in_progress: 'Läuft', done: 'Erledi
 const DURATION_LABEL = { full: 'Ganztags', half_am: 'VM', half_pm: 'NM' }
 
 export default function JobsPage() {
-  const { jobs, recurring, createJob, updateJob, deleteJob, setJobStatus, createRecurring, deleteRecurring } = useOps()
+  const { jobs, recurring, projects, createJob, updateJob, deleteJob, setJobStatus, createRecurring, deleteRecurring } = useOps()
   const [modal, setModal] = useState(null)
   const [editJob, setEditJob] = useState(null)
   const [tab, setTab] = useState('jobs') // 'jobs' | 'recurring'
@@ -77,7 +77,7 @@ export default function JobsPage() {
             )}
             {filteredJobs.map(job => {
               const type = JOB_TYPES.find(t => t.id === job.job_type)
-              const project = PROJECTS_OPS.find(p => p.id === job.project_id)
+              const project = projects.find(p => p.id === job.project_id)
               const assignees = TEAM.filter(t => job.assigned_users.includes(t.id))
               const vehicle = VEHICLES.find(v => v.id === job.vehicle_id)
               const isToday = job.date === today
@@ -143,7 +143,7 @@ export default function JobsPage() {
           )}
           {recurring.map(r => {
             const type = JOB_TYPES.find(t => t.id === r.job_type)
-            const project = PROJECTS_OPS.find(p => p.id === r.project_id)
+            const project = projects.find(p => p.id === r.project_id)
             const assignees = TEAM.filter(t => r.assigned_users.includes(t.id))
             const today2 = isoToday()
             const daysUntil = Math.ceil((new Date(r.next_date + 'T00:00:00') - new Date(today2 + 'T00:00:00')) / 86400000)

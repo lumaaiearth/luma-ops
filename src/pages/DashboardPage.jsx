@@ -1,7 +1,7 @@
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { A, SURFACE, BORDER, FG, MUTED } from '../components/Layout.jsx'
-import { JOB_TYPES, TEAM, PROJECTS_OPS } from '../data/seed.js'
+import { JOB_TYPES, TEAM } from '../data/seed.js'
 import { isoToday, addDays, formatDate } from '../lib/storage.js'
 import { AlertTriangle, CheckCircle2, Clock, Repeat } from 'lucide-react'
 
@@ -19,7 +19,7 @@ function StatCard({ label, value, sub, color }) {
 }
 
 export default function DashboardPage() {
-  const { jobs, recurring, sensors } = useOps()
+  const { jobs, recurring, sensors, projects } = useOps()
   const { user } = useAuth()
   const today = isoToday()
   const tomorrow = addDays(today, 1)
@@ -52,7 +52,7 @@ export default function DashboardPage() {
       {(criticalSensors.length > 0 || warningSensors.length > 0) && (
         <div style={{ marginBottom: 24 }}>
           {criticalSensors.map(s => {
-            const project = PROJECTS_OPS.find(p => p.id === s.project_id)
+            const project = projects.find(p => p.id === s.project_id)
             return (
               <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: '#ef444418', border: '1px solid #ef444440', borderRadius: 8, marginBottom: 8 }}>
                 <AlertTriangle size={16} color="#ef4444" />
@@ -64,7 +64,7 @@ export default function DashboardPage() {
             )
           })}
           {warningSensors.map(s => {
-            const project = PROJECTS_OPS.find(p => p.id === s.project_id)
+            const project = projects.find(p => p.id === s.project_id)
             return (
               <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: '#F59E0B18', border: '1px solid #F59E0B40', borderRadius: 8, marginBottom: 8 }}>
                 <AlertTriangle size={16} color="#F59E0B" />
@@ -99,7 +99,7 @@ export default function DashboardPage() {
             )}
             {upcoming.map(job => {
               const type = JOB_TYPES.find(t => t.id === job.job_type)
-              const project = PROJECTS_OPS.find(p => p.id === job.project_id)
+              const project = projects.find(p => p.id === job.project_id)
               const assignees = TEAM.filter(t => job.assigned_users.includes(t.id))
               const isToday = job.date === today
               const isTomorrow = job.date === tomorrow
@@ -138,7 +138,7 @@ export default function DashboardPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {recurring.filter(r => r.active).map(r => {
               const type = JOB_TYPES.find(t => t.id === r.job_type)
-              const project = PROJECTS_OPS.find(p => p.id === r.project_id)
+              const project = projects.find(p => p.id === r.project_id)
               const daysUntil = Math.ceil((new Date(r.next_date + 'T00:00:00') - new Date(today + 'T00:00:00')) / 86400000)
               const overdue = daysUntil < 0
               return (
