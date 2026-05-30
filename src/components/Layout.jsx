@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { LayoutDashboard, CalendarDays, ListChecks, Radio, Users, Settings, LogOut, Menu, X, Clock } from 'lucide-react'
+import { A, BG, SURFACE, BORDER, FG, MUTED } from '../lib/theme.js'
 
 const NAV = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -13,12 +14,6 @@ const NAV = [
   { to: '/settings',  icon: Settings,        label: 'Einstellungen' },
 ]
 
-const A = '#08AA56'
-const BG = '#080f14'
-const SURFACE = '#0d1a23'
-const BORDER = 'rgba(255,255,255,0.07)'
-const FG = '#e8f0f5'
-const MUTED = 'rgba(232,240,245,0.5)'
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth()
@@ -127,4 +122,4 @@ export default function Layout({ children }) {
   )
 }
 
-export { A, BG, SURFACE, BORDER, FG, MUTED }
+export { A, BG, SURFACE, BORDER, FG, MUTED } from '../lib/theme.js'

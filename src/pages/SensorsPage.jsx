@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useOps } from '../context/OpsContext.jsx'
-import { A, SURFACE, BORDER, FG, MUTED } from '../components/Layout.jsx'
+import { A, SURFACE, BORDER, FG, MUTED } from '../lib/theme.js'
 import { AlertTriangle, CheckCircle2, RefreshCw, Wifi } from 'lucide-react'
 
 const TYPE_LABELS = { soil_moisture: 'Bodenfeuchte', soil_temp: 'Bodentemperatur', air_temp: 'Lufttemperatur', rainfall: 'Niederschlag' }

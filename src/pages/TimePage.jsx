@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { Plus, Trash2, Check, Clock, TrendingUp, FileText, ChevronLeft, ChevronRight, X, Download, Printer } from 'lucide-react'
 import { useTime } from '../context/TimeContext.jsx'
 import { useOps } from '../context/OpsContext.jsx'
-import { A, SURFACE, BORDER, FG, MUTED } from '../components/Layout.jsx'
+import { A, SURFACE, BORDER, FG, MUTED } from '../lib/theme.js'
 import { TEAM, HOUR_TARGETS } from '../data/seed.js'
 import { genId, isoToday, addDays, weekStart, getWeekDays } from '../lib/storage.js'
 

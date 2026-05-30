@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { A, SURFACE, BORDER, FG, MUTED } from '../components/Layout.jsx'
+import { A, SURFACE, BORDER, FG, MUTED } from '../lib/theme.js'
 import { VEHICLES } from '../data/seed.js'
 import { useOps } from '../context/OpsContext.jsx'
 import { useGCal } from '../context/GCalContext.jsx'

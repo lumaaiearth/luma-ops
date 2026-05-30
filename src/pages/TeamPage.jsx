@@ -1,5 +1,5 @@
 import { useOps } from '../context/OpsContext.jsx'
-import { A, SURFACE, BORDER, FG, MUTED } from '../components/Layout.jsx'
+import { A, SURFACE, BORDER, FG, MUTED } from '../lib/theme.js'
 import { TEAM, JOB_TYPES } from '../data/seed.js'
 import { isoToday, addDays, formatDate } from '../lib/storage.js'
 

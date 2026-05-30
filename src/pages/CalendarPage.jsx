@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { ChevronLeft, ChevronRight, Plus, CalendarDays } from 'lucide-react'
 import { useOps } from '../context/OpsContext.jsx'
 import { useGCal } from '../context/GCalContext.jsx'
-import { A, SURFACE, BORDER, FG, MUTED } from '../components/Layout.jsx'
+import { A, SURFACE, BORDER, FG, MUTED } from '../lib/theme.js'
 import JobModal from '../components/JobModal.jsx'
 import { JOB_TYPES, TEAM, VEHICLES } from '../data/seed.js'
 import { isoToday, weekStart, getWeekDays, addDays, formatDate } from '../lib/storage.js'
@@ -121,6 +121,10 @@ export default function CalendarPage() {
   const [modal, setModal] = useState(null) // { date?, job? }
   const [selectedJob, setSelectedJob] = useState(null)
   const [view, setView] = useState('week') // 'week' | 'month'
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
 
   const weekDays = getWeekDays(currentWeek)
   // Fetch GCal events when range changes
@@ -145,12 +149,6 @@ export default function CalendarPage() {
       return ev.date <= date && end >= date
     })
   }
-
-  // Month view state — must be declared before the useEffect that references it
-  const [currentMonth, setCurrentMonth] = useState(() => {
-    const d = new Date()
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-  })
 
   const dragJob = useRef(null)
   const [dragOverDate, setDragOverDate] = useState(null)

@@ -4,7 +4,7 @@ import { TEAM, VEHICLES as VEHICLES_DEFAULT, JOB_TYPES } from '../data/seed.js'
 import { useOps } from '../context/OpsContext.jsx'
 
 const VEHICLES = (() => { try { return JSON.parse(localStorage.getItem('luma_vehicles')) || VEHICLES_DEFAULT } catch { return VEHICLES_DEFAULT } })()
-import { A, SURFACE, BORDER, FG, MUTED } from './Layout.jsx'
+import { A, SURFACE, BORDER, FG, MUTED } from '../lib/theme.js'
 import { isoToday, addDays } from '../lib/storage.js'
 
 const INPUT_STYLE = {

@@ -1,0 +1,6 @@
+export const A       = '#08AA56'
+export const BG      = '#080f14'
+export const SURFACE = '#0d1a23'
+export const BORDER  = 'rgba(255,255,255,0.07)'
+export const FG      = '#e8f0f5'
+export const MUTED   = 'rgba(232,240,245,0.5)'

@@ -1,6 +1,6 @@
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
-import { A, SURFACE, BORDER, FG, MUTED } from '../components/Layout.jsx'
+import { A, SURFACE, BORDER, FG, MUTED } from '../lib/theme.js'
 import { JOB_TYPES, TEAM } from '../data/seed.js'
 import { isoToday, addDays, formatDate } from '../lib/storage.js'
 import { AlertTriangle, CheckCircle2, Clock, Repeat } from 'lucide-react'
