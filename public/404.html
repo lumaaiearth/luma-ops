@@ -2,6 +2,6 @@
 <html><head>
 <script>
   var l = window.location;
-  l.replace(l.protocol+'//'+l.hostname+(l.port?':'+l.port:'')+l.pathname.split('/').slice(0,2).join('/')+'/?p='+encodeURIComponent(l.pathname.slice(l.pathname.split('/').slice(0,2).join('/').length))+l.search+(l.hash?'&h='+encodeURIComponent(l.hash):''));
+  l.replace(l.protocol+'//'+l.hostname+(l.port?':'+l.port:'')+'/?p='+encodeURIComponent(l.pathname)+l.search+(l.hash?'&h='+encodeURIComponent(l.hash):''));
 </script>
 </head><body></body></html>
