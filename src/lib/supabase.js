@@ -33,3 +33,27 @@ export async function sbUpdate(table, id, changes) {
   const { error } = await sb.from(table).update(changes).eq('id', id)
   if (error) throw error
 }
+
+// ── Storage: Job Photos ────────────────────────────────────────────────────────
+
+export async function sbUploadPhoto(jobId, photoId, blob) {
+  const path = `${jobId}/${photoId}.jpg`
+  const { error } = await sb.storage.from('job-photos').upload(path, blob, {
+    contentType: 'image/jpeg',
+    upsert: false,
+  })
+  if (error) throw error
+  const { data } = sb.storage.from('job-photos').getPublicUrl(path)
+  return data.publicUrl
+}
+
+export async function sbDeletePhoto(jobId, photoId) {
+  const { error } = await sb.storage.from('job-photos').remove([`${jobId}/${photoId}.jpg`])
+  if (error) throw error
+}
+
+export async function sbGetJobPhotos(jobId) {
+  const { data, error } = await sb.from('job_photos').select('*').eq('job_id', jobId).order('created_at', { ascending: true })
+  if (error) throw error
+  return data || []
+}
