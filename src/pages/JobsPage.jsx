@@ -78,7 +78,7 @@ export default function JobsPage() {
             {filteredJobs.map(job => {
               const type = JOB_TYPES.find(t => t.id === job.job_type)
               const project = projects.find(p => p.id === job.project_id)
-              const assignees = TEAM.filter(t => job.assigned_users.includes(t.id))
+              const assignees = TEAM.filter(t => (job.assigned_users || []).includes(t.id))
               const vehicle = VEHICLES.find(v => v.id === job.vehicle_id)
               const isToday = job.date === today
               return (
@@ -144,7 +144,7 @@ export default function JobsPage() {
           {recurring.map(r => {
             const type = JOB_TYPES.find(t => t.id === r.job_type)
             const project = projects.find(p => p.id === r.project_id)
-            const assignees = TEAM.filter(t => r.assigned_users.includes(t.id))
+            const assignees = TEAM.filter(t => (r.assigned_users || []).includes(t.id))
             const today2 = isoToday()
             const daysUntil = Math.ceil((new Date(r.next_date + 'T00:00:00') - new Date(today2 + 'T00:00:00')) / 86400000)
             return (
@@ -173,8 +173,8 @@ export default function JobsPage() {
                       <span style={{ fontSize: 11, color: u.color }}>{u.name}</span>
                     </div>
                   ))}
-                  {r.tools.length > 0 && (
-                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>· {r.tools.join(', ')}</div>
+                  {(r.tools || []).length > 0 && (
+                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>· {(r.tools || []).join(', ')}</div>
                   )}
                 </div>
               </div>

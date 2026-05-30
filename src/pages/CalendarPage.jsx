@@ -14,7 +14,7 @@ const DAY_NAMES = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 function JobCard({ job, projects, onClick, onDragStart, onDragEnd }) {
   const type = JOB_TYPES.find(t => t.id === job.job_type)
   const project = projects.find(p => p.id === job.project_id)
-  const assignees = TEAM.filter(t => job.assigned_users.includes(t.id))
+  const assignees = TEAM.filter(t => (job.assigned_users || []).includes(t.id))
   const vehicle = VEHICLES.find(v => v.id === job.vehicle_id)
 
   return (
@@ -146,6 +146,12 @@ export default function CalendarPage() {
     })
   }
 
+  // Month view state — must be declared before the useEffect that references it
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
+
   const dragJob = useRef(null)
   const [dragOverDate, setDragOverDate] = useState(null)
 
@@ -198,10 +204,6 @@ export default function CalendarPage() {
   }
 
   // Month view helpers
-  const [currentMonth, setCurrentMonth] = useState(() => {
-    const d = new Date()
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-  })
 
   function getMonthDays() {
     const [y, m] = currentMonth.split('-').map(Number)

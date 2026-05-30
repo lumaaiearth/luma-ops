@@ -27,7 +27,7 @@ export default function DashboardPage() {
   const todayJobs = jobs.filter(j => j.date === today)
   const tomorrowJobs = jobs.filter(j => j.date === tomorrow)
   const weekJobs = jobs.filter(j => j.date >= today && j.date <= addDays(today, 7))
-  const myJobs = weekJobs.filter(j => j.assigned_users.includes(user?.id))
+  const myJobs = weekJobs.filter(j => (j.assigned_users || []).includes(user?.id))
   const criticalSensors = sensors.filter(s => s.status === 'critical')
   const warningSensors = sensors.filter(s => s.status === 'warning')
 
@@ -100,7 +100,7 @@ export default function DashboardPage() {
             {upcoming.map(job => {
               const type = JOB_TYPES.find(t => t.id === job.job_type)
               const project = projects.find(p => p.id === job.project_id)
-              const assignees = TEAM.filter(t => job.assigned_users.includes(t.id))
+              const assignees = TEAM.filter(t => (job.assigned_users || []).includes(t.id))
               const isToday = job.date === today
               const isTomorrow = job.date === tomorrow
               return (
