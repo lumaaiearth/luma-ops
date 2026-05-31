@@ -5,11 +5,11 @@ import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import JobPhotos from './JobPhotos.jsx'
 
-import { A, SURFACE, BORDER, FG, MUTED, CARD } from '../lib/theme.js'
+import { A, SURFACE, BORDER, FG, MUTED, CARD, A06, A08 } from '../lib/theme.js'
 import { isoToday, addDays } from '../lib/storage.js'
 
 const INPUT_STYLE = {
-  width: '100%', background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`,
+  width: '100%', background: SURFACE, border: `1px solid ${BORDER}`,
   borderRadius: 6, padding: '10px 12px', color: FG,
   fontFamily: "'Space Grotesk', sans-serif", fontSize: 14, outline: 'none',
 }
@@ -41,7 +41,7 @@ function QuickProjectModal({ clients, onSave, onClose }) {
   }
 
   const INPUT = {
-    width: '100%', background: 'rgba(255,255,255,0.05)', border: `1px solid rgba(255,255,255,0.12)`,
+    width: '100%', background: A06, border: `1px solid ${BORDER}`,
     borderRadius: 6, padding: '9px 12px', color: '#e8f0f5',
     fontFamily: "'Space Grotesk', sans-serif", fontSize: 13, outline: 'none',
   }
@@ -49,7 +49,7 @@ function QuickProjectModal({ clients, onSave, onClose }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
-      <div onClick={e => e.stopPropagation()} style={{ position: 'relative', background: CARD, border: `1px solid rgba(255,255,255,0.12)`, borderRadius: 8, width: '100%', maxWidth: 380, boxShadow: '0 24px 60px rgba(0,0,0,0.7)', padding: 20 }}>
+      <div onClick={e => e.stopPropagation()} style={{ position: 'relative', background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8, width: '100%', maxWidth: 380, boxShadow: '0 24px 60px rgba(0,0,0,0.7)', padding: 20 }}>
         <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: '#08AA56', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 14 }}>Neues Projekt</div>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <input style={INPUT} value={name} onChange={e => setName(e.target.value)} placeholder="Projektname *" required autoFocus />
@@ -59,7 +59,7 @@ function QuickProjectModal({ clients, onSave, onClose }) {
           </select>
           <input style={INPUT} value={location} onChange={e => setLocation(e.target.value)} placeholder="Standort / Adresse" />
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
-            <button type="button" onClick={onClose} style={{ padding: '8px 14px', borderRadius: 6, background: 'transparent', border: `1px solid rgba(255,255,255,0.12)`, color: 'rgba(232,240,245,0.4)', cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif" }}>Abbrechen</button>
+            <button type="button" onClick={onClose} style={{ padding: '8px 14px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: 'rgba(232,240,245,0.4)', cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif" }}>Abbrechen</button>
             <button type="submit" style={{ padding: '8px 16px', borderRadius: 6, background: '#08AA56', border: 'none', color: '#001219', cursor: 'pointer', fontSize: 12, fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif" }}>Anlegen</button>
           </div>
         </form>
@@ -149,7 +149,7 @@ export default function JobModal({ initialDate, initialJob, onSave, onClose, isR
             </div>
             <div style={{ fontSize: 16, fontWeight: 500, color: FG }}>{form.title || 'Titel eingeben...'}</div>
           </div>
-          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.07)', border: 'none', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button onClick={onClose} style={{ background: A06, border: 'none', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <X size={16} />
           </button>
         </div>

@@ -3,12 +3,12 @@ import { Plus, Trash2, Check, Clock, TrendingUp, FileText, ChevronLeft, ChevronR
 import { useTime } from '../context/TimeContext.jsx'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
-import { A, SURFACE, BORDER, FG, MUTED, CARD, A08, A18, A20 } from '../lib/theme.js'
+import { A, SURFACE, BORDER, FG, MUTED, CARD, A06, A08, A18, A20 } from '../lib/theme.js'
 import { TEAM, HOUR_TARGETS } from '../data/seed.js'
 import { genId, isoToday, addDays, weekStart, getWeekDays } from '../lib/storage.js'
 
 const INPUT = {
-  background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`,
+  background: SURFACE, border: `1px solid ${BORDER}`,
   borderRadius: 6, padding: '9px 12px', color: FG,
   fontFamily: "'Space Grotesk', sans-serif", fontSize: 13, outline: 'none', width: '100%',
 }
@@ -393,7 +393,7 @@ function TabUebersicht() {
                   </div>
                   <div style={{ marginLeft: 'auto', fontFamily: "'Space Mono', monospace", fontSize: 18, fontWeight: 700, color: pct >= 100 ? '#22EAA7' : u.color }}>{wh}h</div>
                 </div>
-                <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 4, height: 6, overflow: 'hidden' }}>
+                <div style={{ background: A06, borderRadius: 4, height: 6, overflow: 'hidden' }}>
                   <div style={{ height: '100%', width: `${pct}%`, background: pct >= 100 ? '#22EAA7' : u.color, borderRadius: 4, transition: 'width 0.4s' }} />
                 </div>
                 <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, marginTop: 5 }}>
@@ -883,7 +883,7 @@ function TabStatistiken() {
                   <span style={{ fontSize: 13, color: FG }}>{p.name}</span>
                   <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: A }}>{p.hours}h</span>
                 </div>
-                <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 3, height: 6 }}>
+                <div style={{ background: A06, borderRadius: 3, height: 6 }}>
                   <div style={{ width: `${(p.hours / maxProjectH) * 100}%`, height: '100%', background: A, borderRadius: 3, transition: 'width 0.4s' }} />
                 </div>
               </div>
@@ -924,7 +924,7 @@ export default function TimePage() {
       </div>
 
       {/* Tab bar */}
-      <div style={{ display: 'flex', gap: 4, background: 'rgba(255,255,255,0.04)', borderRadius: 8, padding: 4, marginBottom: 24, width: 'fit-content' }}>
+      <div style={{ display: 'flex', gap: 4, background: A06, borderRadius: 8, padding: 4, marginBottom: 24, width: 'fit-content' }}>
         {visibleTabs.map(({ id, label, icon: Icon }) => (
           <button key={id} onClick={() => setTab(id)}
             style={{

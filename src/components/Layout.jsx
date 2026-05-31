@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { LayoutDashboard, CalendarDays, ListChecks, Radio, Users, Settings, LogOut, Menu, X, Clock, Map, Database } from 'lucide-react'
-import { A, BG, SURFACE, BORDER, FG, MUTED, A14 } from '../lib/theme.js'
+import { LayoutDashboard, CalendarDays, ListChecks, Radio, Users, Settings, LogOut, Menu, X, Clock, Map, Database, MoreHorizontal } from 'lucide-react'
+import { A, BG, SURFACE, BORDER, FG, MUTED, A14, A06 } from '../lib/theme.js'
 
 const NAV = [
   { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
@@ -16,6 +16,8 @@ const NAV = [
   { to: '/settings',   icon: Settings,        label: 'Einstellungen' },
 ]
 
+// First 4 nav items show in bottom bar; rest in "More" drawer
+const BOTTOM_NAV = NAV.slice(0, 4)
 
 export default function Layout({ children, fullHeight = false }) {
   const { user, logout } = useAuth()
@@ -38,10 +40,7 @@ export default function Layout({ children, fullHeight = false }) {
       {/* Nav */}
       <nav style={{ flex: 1, padding: '12px 8px', display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto' }}>
         {NAV.map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            onClick={() => setMobileOpen(false)}
+          <NavLink key={to} to={to} onClick={() => setMobileOpen(false)}
             style={({ isActive }) => ({
               display: 'flex', alignItems: 'center', gap: 10,
               padding: '10px 12px', borderRadius: 6,
@@ -51,8 +50,7 @@ export default function Layout({ children, fullHeight = false }) {
               color: isActive ? A : MUTED,
               background: isActive ? A14 : 'transparent',
               transition: 'background 0.15s, color 0.15s',
-            })}
-          >
+            })}>
             <Icon size={16} />
             {label}
           </NavLink>
@@ -70,12 +68,10 @@ export default function Layout({ children, fullHeight = false }) {
             <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>{user?.role}</div>
           </div>
         </div>
-        <button
-          onClick={handleLogout}
+        <button onClick={handleLogout}
           style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 12px', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer', color: MUTED, fontSize: 14, fontFamily: "'Space Grotesk', sans-serif", transition: 'color 0.15s, background 0.15s' }}
-          onMouseEnter={e => { e.currentTarget.style.color = FG; e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
-          onMouseLeave={e => { e.currentTarget.style.color = MUTED; e.currentTarget.style.background = 'transparent' }}
-        >
+          onMouseEnter={e => { e.currentTarget.style.color = FG; e.currentTarget.style.background = A06 }}
+          onMouseLeave={e => { e.currentTarget.style.color = MUTED; e.currentTarget.style.background = 'transparent' }}>
           <LogOut size={16} /> Abmelden
         </button>
       </div>
@@ -84,40 +80,79 @@ export default function Layout({ children, fullHeight = false }) {
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: BG }}>
+      <style>{`
+        @media (max-width: 768px) {
+          .desktop-sidebar { display: none !important; }
+          .mobile-topbar { display: flex !important; }
+          .mobile-bottom-nav { display: flex !important; }
+          .main-content { padding-bottom: 60px; }
+        }
+        @media (min-width: 769px) {
+          .mobile-topbar { display: none !important; }
+          .mobile-bottom-nav { display: none !important; }
+        }
+      `}</style>
+
       {/* Desktop sidebar */}
-      <div style={{ width: 200, flexShrink: 0, display: 'flex', flexDirection: 'column' }} className="desktop-sidebar">
-        <style>{`
-          @media (max-width: 768px) { .desktop-sidebar { display: none !important; } .mobile-nav-btn { display: flex !important; } }
-          @media (min-width: 769px) { .mobile-nav-btn { display: none !important; } }
-        `}</style>
+      <div className="desktop-sidebar" style={{ width: 200, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
         {sidebar}
       </div>
 
-      {/* Mobile overlay */}
+      {/* Mobile full-menu overlay */}
       {mobileOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100 }} onClick={() => setMobileOpen(false)}>
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)' }} />
-          <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 200 }} onClick={e => e.stopPropagation()}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200 }} onClick={() => setMobileOpen(false)}>
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.65)' }} />
+          <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 220 }} onClick={e => e.stopPropagation()}>
             {sidebar}
           </div>
         </div>
       )}
 
       {/* Main area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
         {/* Mobile topbar */}
-        <div className="mobile-nav-btn" style={{ display: 'none', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: `1px solid ${BORDER}`, background: SURFACE }}>
-          <button onClick={() => setMobileOpen(true)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: FG, padding: 4 }}>
-            <Menu size={20} />
-          </button>
-          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: A, letterSpacing: '0.15em' }}>LUMA OPS</div>
-          <div style={{ width: 28, height: 28, borderRadius: '50%', background: user?.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#001219', fontWeight: 700 }}>{user?.initials}</span>
+        <div className="mobile-topbar" style={{ display: 'none', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: `1px solid ${BORDER}`, background: SURFACE, flexShrink: 0 }}>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: A, letterSpacing: '0.18em' }}>LUMA OPS</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 28, height: 28, borderRadius: '50%', background: user?.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#001219', fontWeight: 700 }}>{user?.initials}</span>
+            </div>
           </div>
         </div>
 
-        <div style={{ flex: 1, overflowY: fullHeight ? 'hidden' : 'auto', display: fullHeight ? 'flex' : 'block', flexDirection: 'column' }}>
+        <div className="main-content" style={{ flex: 1, overflowY: fullHeight ? 'hidden' : 'auto', display: fullHeight ? 'flex' : 'block', flexDirection: 'column' }}>
           {children}
+        </div>
+
+        {/* Mobile bottom navigation */}
+        <div className="mobile-bottom-nav" style={{
+          display: 'none', alignItems: 'center', justifyContent: 'space-around',
+          borderTop: `1px solid ${BORDER}`, background: SURFACE,
+          position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
+          height: 60, paddingBottom: 'env(safe-area-inset-bottom)',
+        }}>
+          {BOTTOM_NAV.map(({ to, icon: Icon, label }) => (
+            <NavLink key={to} to={to}
+              style={({ isActive }) => ({
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                padding: '6px 12px', borderRadius: 8, textDecoration: 'none',
+                color: isActive ? A : MUTED, flex: 1,
+                fontFamily: "'Space Grotesk', sans-serif",
+              })}>
+              {({ isActive }) => (
+                <>
+                  <Icon size={20} />
+                  <span style={{ fontSize: 10, fontWeight: isActive ? 500 : 400 }}>{label}</span>
+                </>
+              )}
+            </NavLink>
+          ))}
+          {/* More button */}
+          <button onClick={() => setMobileOpen(true)}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '6px 12px', background: 'transparent', border: 'none', color: MUTED, flex: 1, cursor: 'pointer', fontFamily: "'Space Grotesk', sans-serif" }}>
+            <MoreHorizontal size={20} />
+            <span style={{ fontSize: 10 }}>Mehr</span>
+          </button>
         </div>
       </div>
     </div>

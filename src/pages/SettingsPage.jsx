@@ -17,7 +17,7 @@ const DEFAULT_CHIPS = [
 ]
 
 const INPUT_STYLE = {
-  background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`,
+  background: SURFACE, border: `1px solid ${BORDER}`,
   borderRadius: 6, padding: '9px 12px', color: FG,
   fontFamily: "'Space Grotesk', sans-serif", fontSize: 13, outline: 'none', width: '100%',
 }
@@ -39,7 +39,7 @@ function VehicleCard({ v, onDelete }) {
       <div style={{ flex: 1 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
           <span style={{ fontSize: 14, fontWeight: 500, color: FG }}>{v.name}</span>
-          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, padding: '2px 7px', borderRadius: 10, background: isOwned ? `${v.color}20` : 'rgba(255,255,255,0.06)', color: isOwned ? v.color : MUTED, border: `1px solid ${isOwned ? v.color + '40' : BORDER}` }}>
+          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, padding: '2px 7px', borderRadius: 10, background: isOwned ? `${v.color}20` : A06, color: isOwned ? v.color : MUTED, border: `1px solid ${isOwned ? v.color + '40' : BORDER}` }}>
             {isOwned ? 'EIGENTUM' : 'LEIHE'}
           </span>
         </div>
@@ -262,7 +262,7 @@ export default function SettingsPage() {
               <button
                 onClick={gcalConnect}
                 disabled={!gcalReady}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', borderRadius: 6, background: gcalReady ? A : 'rgba(255,255,255,0.05)', border: 'none', color: gcalReady ? '#001219' : MUTED, cursor: gcalReady ? 'pointer' : 'default', fontSize: 13, fontWeight: 500 }}>
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', borderRadius: 6, background: gcalReady ? A : A06, border: 'none', color: gcalReady ? '#001219' : MUTED, cursor: gcalReady ? 'pointer' : 'default', fontSize: 13, fontWeight: 500 }}>
                 <Calendar size={14} />
                 {gcalReady ? 'Mit Google Kalender verbinden' : 'Lädt…'}
               </button>
@@ -330,7 +330,7 @@ export default function SettingsPage() {
             <button
               onClick={importGcal}
               disabled={!gcalUrl || gcalStatus === 'loading'}
-              style={{ padding: '9px 16px', borderRadius: 6, background: gcalUrl ? A : 'rgba(255,255,255,0.05)', border: 'none', color: gcalUrl ? '#001219' : MUTED, cursor: gcalUrl ? 'pointer' : 'default', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap' }}>
+              style={{ padding: '9px 16px', borderRadius: 6, background: gcalUrl ? A : A06, border: 'none', color: gcalUrl ? '#001219' : MUTED, cursor: gcalUrl ? 'pointer' : 'default', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap' }}>
               {gcalStatus === 'loading' ? 'Lädt...' : 'Importieren'}
             </button>
           </div>
@@ -370,7 +370,7 @@ export default function SettingsPage() {
         </div>
         <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, marginBottom: 12 }}>
           <div style={{ fontSize: 13, color: FG, marginBottom: 6, lineHeight: 1.6 }}>
-            Bot <code style={{ fontFamily: "'Space Mono', monospace", background: 'rgba(255,255,255,0.07)', padding: '1px 6px', borderRadius: 3 }}>@lumaaiearth_bot</code> zu den Gruppen hinzufügen, dann Chat-IDs unten eintragen.
+            Bot <code style={{ fontFamily: "'Space Mono', monospace", background: A06, padding: '1px 6px', borderRadius: 3 }}>@lumaaiearth_bot</code> zu den Gruppen hinzufügen, dann Chat-IDs unten eintragen.
           </div>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, marginBottom: 14 }}>
             Chat-ID ermitteln: Bot in Gruppe schreiben → https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates → "chat":&#123;"id":...&#125;
@@ -404,7 +404,7 @@ export default function SettingsPage() {
                   disabled={!state || !tgToken || tgTestStatus[key] === 'loading'}
                   style={{
                     width: 38, height: 38, borderRadius: 6, flexShrink: 0,
-                    background: tgTestStatus[key] === 'ok' ? '#22EAA722' : 'rgba(255,255,255,0.05)',
+                    background: tgTestStatus[key] === 'ok' ? '#22EAA722' : A06,
                     border: `1px solid ${tgTestStatus[key] === 'ok' ? '#22EAA750' : tgTestStatus[key] === 'error' ? '#ef444450' : BORDER}`,
                     cursor: state && tgToken ? 'pointer' : 'default',
                     color: tgTestStatus[key] === 'ok' ? '#22EAA7' : tgTestStatus[key] === 'error' ? '#ef4444' : MUTED,
@@ -539,7 +539,7 @@ export default function SettingsPage() {
         <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8 }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
             {chips.map(chip => (
-              <div key={chip} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 12, border: `1px solid ${BORDER}`, background: 'rgba(255,255,255,0.04)' }}>
+              <div key={chip} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 12, border: `1px solid ${BORDER}`, background: A06 }}>
                 <span style={{ fontSize: 12, color: FG }}>{chip}</span>
                 <button onClick={() => saveChips(chips.filter(c => c !== chip))}
                   style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: MUTED, padding: 0, display: 'flex', alignItems: 'center' }}>
@@ -556,7 +556,7 @@ export default function SettingsPage() {
               placeholder="Neue Tätigkeit hinzufügen…"
             />
             <button type="submit" disabled={!newChip.trim()}
-              style={{ padding: '8px 14px', borderRadius: 6, background: newChip.trim() ? A : 'rgba(255,255,255,0.05)', border: 'none', color: newChip.trim() ? '#001219' : MUTED, cursor: newChip.trim() ? 'pointer' : 'default', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap' }}>
+              style={{ padding: '8px 14px', borderRadius: 6, background: newChip.trim() ? A : A06, border: 'none', color: newChip.trim() ? '#001219' : MUTED, cursor: newChip.trim() ? 'pointer' : 'default', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap' }}>
               + Hinzufügen
             </button>
           </form>
@@ -571,7 +571,7 @@ export default function SettingsPage() {
       <div style={{ padding: '14px 18px', background: A06, border: `1px solid ${A18}`, borderRadius: 8 }}>
         <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>Passwörter</div>
         <div style={{ fontSize: 13, color: MUTED, lineHeight: 1.6 }}>
-          Aktuell: alle Accounts mit <code style={{ fontFamily: "'Space Mono', monospace", background: 'rgba(255,255,255,0.07)', padding: '1px 5px', borderRadius: 3 }}>luma2026</code>. Für produktiven Einsatz → Supabase Auth einrichten, dann individuelle Passwörter per E-Mail-Einladung.
+          Aktuell: alle Accounts mit <code style={{ fontFamily: "'Space Mono', monospace", background: A06, padding: '1px 5px', borderRadius: 3 }}>luma2026</code>. Für produktiven Einsatz → Supabase Auth einrichten, dann individuelle Passwörter per E-Mail-Einladung.
         </div>
       </div>
     </div>

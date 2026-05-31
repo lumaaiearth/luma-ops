@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useOps } from '../context/OpsContext.jsx'
-import { A, SURFACE, BORDER, FG, MUTED, CARD, A14, A18, A30 } from '../lib/theme.js'
+import { A, SURFACE, BORDER, FG, MUTED, CARD, A06, A14, A18, A30 } from '../lib/theme.js'
 import { genId } from '../lib/storage.js'
 import { Plus, Pencil, Trash2, X, Check, MapPin, User, Building2, Phone, Mail } from 'lucide-react'
 
 const INPUT = {
-  background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`,
+  background: SURFACE, border: `1px solid ${BORDER}`,
   borderRadius: 6, padding: '9px 12px', color: FG,
   fontFamily: "'Space Grotesk', sans-serif", fontSize: 13, outline: 'none', width: '100%',
 }
@@ -48,7 +48,7 @@ function ProjectModal({ project, clients, onSave, onClose }) {
       <div onClick={e => e.stopPropagation()} style={{ position: 'relative', background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8, width: '100%', maxWidth: 500, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', borderBottom: `1px solid ${BORDER}` }}>
           <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: A, letterSpacing: '0.15em', textTransform: 'uppercase' }}>{project ? 'Projekt bearbeiten' : 'Neues Projekt'}</span>
-          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.07)', border: 'none', borderRadius: '50%', width: 30, height: 30, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={14} /></button>
+          <button onClick={onClose} style={{ background: A06, border: 'none', borderRadius: '50%', width: 30, height: 30, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={14} /></button>
         </div>
         <form onSubmit={handleSubmit} style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
@@ -129,7 +129,7 @@ function ClientModal({ client, onSave, onClose }) {
       <div onClick={e => e.stopPropagation()} style={{ position: 'relative', background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', borderBottom: `1px solid ${BORDER}` }}>
           <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: A, letterSpacing: '0.15em', textTransform: 'uppercase' }}>{client ? 'Kunde bearbeiten' : 'Neuer Kunde'}</span>
-          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.07)', border: 'none', borderRadius: '50%', width: 30, height: 30, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={14} /></button>
+          <button onClick={onClose} style={{ background: A06, border: 'none', borderRadius: '50%', width: 30, height: 30, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={14} /></button>
         </div>
         <form onSubmit={handleSubmit} style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
