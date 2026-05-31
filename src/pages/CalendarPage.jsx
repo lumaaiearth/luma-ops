@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { ChevronLeft, ChevronRight, Plus, CalendarDays } from 'lucide-react'
 import { useOps } from '../context/OpsContext.jsx'
 import { useGCal } from '../context/GCalContext.jsx'
-import { A, SURFACE, BORDER, FG, MUTED, A0a, A0d, A14, A40 } from '../lib/theme.js'
+import { A, BG, SURFACE, BORDER, FG, MUTED, A06, A0a, A0d, A14, A18, A40 } from '../lib/theme.js'
 import JobModal from '../components/JobModal.jsx'
 import { JOB_TYPES, TEAM, VEHICLES } from '../data/seed.js'
 import { isoToday, weekStart, getWeekDays, addDays, formatDate } from '../lib/storage.js'
@@ -44,7 +44,7 @@ function JobCard({ job, projects, onClick, onDragStart, onDragEnd }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
           <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: type?.color }}>{project.name}</span>
           {job.date_end && job.date_end > job.date && (
-            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: 3 }}>
+            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, background: A06, border: `1px solid ${BORDER}`, padding: '1px 5px', borderRadius: 3 }}>
               bis {new Date(job.date_end + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
             </span>
           )}
@@ -72,9 +72,9 @@ function GCalEventCard({ event, onClick }) {
       onClick={onClick}
       title="Google Kalender — klicken um Einsatz zu erstellen"
       style={{
-        background: 'rgba(255,255,255,0.04)',
-        border: `1px dashed rgba(255,255,255,0.18)`,
-        borderLeft: '3px dashed rgba(255,255,255,0.25)',
+        background: A06,
+        border: `1px dashed ${BORDER}`,
+        borderLeft: `3px dashed ${MUTED}`,
         borderRadius: 4,
         padding: '6px 10px',
         cursor: 'pointer',
@@ -233,7 +233,7 @@ export default function CalendarPage() {
   const allJobsThisWeek = new Set(weekDays.flatMap(d => jobsForDate(d)).map(j => j.id)).size
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#080f14' }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: BG }}>
       {/* Topbar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', borderBottom: `1px solid ${BORDER}`, background: SURFACE, flexWrap: 'wrap', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -263,7 +263,7 @@ export default function CalendarPage() {
 
         <div style={{ display: 'flex', gap: 8 }}>
           {/* View toggle */}
-          <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: 6, padding: 2 }}>
+          <div style={{ display: 'flex', background: SURFACE, borderRadius: 6, padding: 2, border: `1px solid ${BORDER}` }}>
             {['week', 'month'].map(v => (
               <button key={v} onClick={() => setView(v)}
                 style={{ padding: '5px 12px', borderRadius: 4, border: 'none', background: view === v ? A : 'transparent', color: view === v ? '#001219' : MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", fontWeight: view === v ? 500 : 400 }}>
@@ -315,13 +315,13 @@ export default function CalendarPage() {
                       background: isToday ? A0a : 'transparent',
                       transition: 'background 0.15s',
                     }}
-                    onMouseEnter={e => !isToday && (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
+                    onMouseEnter={e => !isToday && (e.currentTarget.style.background = A06)}
                     onMouseLeave={e => !isToday && (e.currentTarget.style.background = 'transparent')}
                   >
-                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: isToday ? A : MUTED, letterSpacing: '0.1em', marginBottom: 2 }}>
+                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: isToday ? A : MUTED, letterSpacing: '0.1em', marginBottom: 4 }}>
                       {DAY_NAMES[i]}
                     </div>
-                    <div style={{ fontSize: 20, fontWeight: 400, color: isToday ? A : FG, lineHeight: 1 }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: isToday ? 32 : 'auto', height: isToday ? 32 : 'auto', borderRadius: isToday ? '50%' : 0, background: isToday ? A : 'transparent', fontSize: 18, fontWeight: isToday ? 600 : 400, color: isToday ? '#001219' : FG, lineHeight: 1 }}>
                       {d.getDate()}
                     </div>
                     {dayJobs.length > 0 && (
@@ -386,13 +386,13 @@ export default function CalendarPage() {
                   style={{
                     minHeight: 80, padding: '8px', borderRadius: 6,
                     border: `1px solid ${isDragOver ? A + '80' : isToday ? A + '60' : BORDER}`,
-                    background: isDragOver ? A14 : isToday ? A0a : 'rgba(255,255,255,0.01)',
+                    background: isDragOver ? A14 : isToday ? A0a : 'transparent',
                     cursor: 'pointer', transition: 'background 0.1s, border-color 0.1s',
                   }}
-                  onMouseEnter={e => { if (!isDragOver) e.currentTarget.style.background = isToday ? A14 : 'rgba(255,255,255,0.04)' }}
-                  onMouseLeave={e => { if (!isDragOver) e.currentTarget.style.background = isToday ? A0a : 'rgba(255,255,255,0.01)' }}
+                  onMouseEnter={e => { if (!isDragOver) e.currentTarget.style.background = isToday ? A14 : A06 }}
+                  onMouseLeave={e => { if (!isDragOver) e.currentTarget.style.background = isToday ? A0a : 'transparent' }}
                 >
-                  <div style={{ fontSize: 13, fontWeight: isToday ? 600 : 400, color: isToday ? A : FG, marginBottom: 4 }}>{d.getDate()}</div>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: isToday ? 24 : 'auto', height: isToday ? 24 : 'auto', borderRadius: isToday ? '50%' : 0, background: isToday ? A : 'transparent', fontSize: 13, fontWeight: isToday ? 600 : 400, color: isToday ? '#001219' : FG, marginBottom: 4 }}>{d.getDate()}</div>
                   {dayJobs.slice(0, 2).map(job => {
                     const type = JOB_TYPES.find(t => t.id === job.job_type)
                     return (
@@ -409,7 +409,7 @@ export default function CalendarPage() {
                   })}
                   {gcalForDate(date).slice(0, 1).map(ev => (
                     <div key={ev.id} onClick={e => { e.stopPropagation(); setModal({ date, gcalEvent: ev }) }}
-                      style={{ fontSize: 11, color: MUTED, background: 'rgba(255,255,255,0.05)', border: `1px dashed ${BORDER}`, borderRadius: 2, padding: '1px 4px', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }}>
+                      style={{ fontSize: 11, color: MUTED, background: A06, border: `1px dashed ${BORDER}`, borderRadius: 2, padding: '1px 4px', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }}>
                       📅 {ev.title}
                     </div>
                   ))}
