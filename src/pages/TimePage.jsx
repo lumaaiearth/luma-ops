@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react'
-import { Plus, Trash2, Check, Clock, TrendingUp, FileText, ChevronLeft, ChevronRight, X, Download, Printer } from 'lucide-react'
+import { Plus, Trash2, Check, Clock, TrendingUp, FileText, ChevronLeft, ChevronRight, X, Download, Printer, BarChart2 } from 'lucide-react'
 import { useTime } from '../context/TimeContext.jsx'
 import { useOps } from '../context/OpsContext.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 import { A, SURFACE, BORDER, FG, MUTED } from '../lib/theme.js'
 import { TEAM, HOUR_TARGETS } from '../data/seed.js'
 import { genId, isoToday, addDays, weekStart, getWeekDays } from '../lib/storage.js'
@@ -166,6 +167,8 @@ function TabErfassen() {
 function TabUebersicht() {
   const { entries } = useTime()
   const { projects } = useOps()
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
   const today = isoToday()
   const [weekOffset, setWeekOffset] = useState(0)
   const currentWeek = weekStart(addDays(today, weekOffset * 7))
@@ -191,38 +194,43 @@ function TabUebersicht() {
         {weekOffset !== 0 && <button onClick={() => setWeekOffset(0)} style={{ padding: '6px 12px', borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12 }}>Diese Woche</button>}
       </div>
 
-      {/* Malte + Lukas balance */}
-      <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, marginBottom: 16 }}>
-        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 12 }}>Jahres-Balance {new Date().getFullYear()}</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          {['malte', 'lukas'].map(uid => {
-            const u = TEAM.find(t => t.id === uid)
-            const h = uid === 'malte' ? maltH : lukasH
-            const wh = hoursThisWeek(entries, uid, weekDays)
-            return (
-              <div key={uid}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
+      {/* Malte + Lukas balance — admin only */}
+      {isAdmin && (
+        <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase' }}>Jahres-Balance {new Date().getFullYear()}</div>
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: A, letterSpacing: '0.1em', textTransform: 'uppercase', marginLeft: 'auto', opacity: 0.7 }}>nur GF</div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            {['malte', 'lukas'].map(uid => {
+              const u = TEAM.find(t => t.id === uid)
+              const h = uid === 'malte' ? maltH : lukasH
+              const wh = hoursThisWeek(entries, uid, weekDays)
+              return (
+                <div key={uid}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 500, color: FG }}>{u.name}</div>
+                      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>{wh}h diese Woche</div>
+                    </div>
+                    <div style={{ marginLeft: 'auto', fontFamily: "'Space Mono', monospace", fontSize: 20, fontWeight: 700, color: u.color }}>{h}h</div>
                   </div>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 500, color: FG }}>{u.name}</div>
-                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>{wh}h diese Woche</div>
-                  </div>
-                  <div style={{ marginLeft: 'auto', fontFamily: "'Space Mono', monospace", fontSize: 20, fontWeight: 700, color: u.color }}>{h}h</div>
                 </div>
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${BORDER}`, fontFamily: "'Space Mono', monospace", fontSize: 11, color: Math.abs(balanceDiff) < 5 ? '#22EAA7' : '#F59E0B' }}>
+            {Math.abs(balanceDiff) < 2
+              ? '✓ Balance ausgeglichen'
+              : balanceDiff > 0
+                ? `Malte +${balanceDiff.toFixed(1)}h mehr als Lukas`
+                : `Lukas +${Math.abs(balanceDiff).toFixed(1)}h mehr als Malte`}
+          </div>
         </div>
-        <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${BORDER}`, fontFamily: "'Space Mono', monospace", fontSize: 11, color: Math.abs(balanceDiff) < 5 ? '#22EAA7' : '#F59E0B' }}>
-          {Math.abs(balanceDiff) < 2
-            ? '✓ Balance ausgeglichen'
-            : balanceDiff > 0
-              ? `Malte +${balanceDiff.toFixed(1)}h mehr als Lukas`
-              : `Lukas +${Math.abs(balanceDiff).toFixed(1)}h mehr als Malte`}
-        </div>
-      </div>
+      )}
 
       {/* Jona + Anselm weekly targets */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
@@ -585,10 +593,167 @@ function getISOWeek(d) {
   return 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7)
 }
 
+// ── Tab 4: Statistiken ────────────────────────────────────────────────────────
+function StackedBarChart({ weeks, persons }) {
+  const totals = weeks.map(w => persons.reduce((s, p) => s + (w.hours[p.id] || 0), 0))
+  const maxH = Math.max(...totals, 1)
+  const svgH = 160
+  const labelH = 22
+  const chartH = svgH - labelH
+  const barCount = weeks.length
+  const barW = 36
+  const gap = 10
+  const totalW = barCount * (barW + gap) - gap
+
+  return (
+    <svg viewBox={`0 0 ${totalW} ${svgH}`} style={{ width: '100%', height: svgH, overflow: 'visible' }}>
+      {weeks.map((week, wi) => {
+        const x = wi * (barW + gap)
+        let yBottom = chartH
+        return (
+          <g key={wi}>
+            {persons.map(p => {
+              const h = week.hours[p.id] || 0
+              if (!h) return null
+              const barH = Math.max(2, (h / maxH) * chartH)
+              yBottom -= barH
+              return (
+                <rect key={p.id} x={x} y={yBottom} width={barW} height={barH}
+                  fill={p.color} opacity={0.85} rx={2} />
+              )
+            })}
+            {totals[wi] > 0 && (
+              <text x={x + barW / 2} y={yBottom - 4} textAnchor="middle"
+                fontSize={8} fill="rgba(232,240,245,0.5)" fontFamily="'Space Mono', monospace">
+                {totals[wi]}h
+              </text>
+            )}
+            <text x={x + barW / 2} y={svgH - 4} textAnchor="middle"
+              fontSize={8} fill="rgba(232,240,245,0.35)" fontFamily="'Space Mono', monospace">
+              {week.label}
+            </text>
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
+
+function TabStatistiken() {
+  const { entries } = useTime()
+  const { projects } = useOps()
+  const today = isoToday()
+  const year = new Date().getFullYear().toString()
+
+  const persons = TEAM.filter(t => ['malte', 'lukas', 'jona', 'anselm'].includes(t.id))
+
+  // Last 10 weeks
+  const weeks = Array.from({ length: 10 }, (_, i) => {
+    const ws = weekStart(addDays(today, -(9 - i) * 7))
+    const days = getWeekDays(ws)
+    const kw = getISOWeek(new Date(ws + 'T00:00:00'))
+    const hours = {}
+    persons.forEach(p => {
+      hours[p.id] = entries
+        .filter(e => e.user_id === p.id && days.includes(e.date))
+        .reduce((s, e) => s + Number(e.hours), 0)
+    })
+    return { label: `KW${kw}`, days, hours }
+  })
+
+  // Hours by project (year)
+  const projectHours = projects
+    .map(p => ({
+      ...p,
+      hours: entries
+        .filter(e => e.project_id === p.id && e.date?.startsWith(year))
+        .reduce((s, e) => s + Number(e.hours), 0),
+    }))
+    .filter(p => p.hours > 0)
+    .sort((a, b) => b.hours - a.hours)
+
+  const maxProjectH = Math.max(...projectHours.map(p => p.hours), 1)
+
+  // Total this year
+  const totalYear = entries
+    .filter(e => e.date?.startsWith(year))
+    .reduce((s, e) => s + Number(e.hours), 0)
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* KPI row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+        {persons.map(p => {
+          const h = entries.filter(e => e.user_id === p.id && e.date?.startsWith(year)).reduce((s, e) => s + Number(e.hours), 0)
+          const thisWeekDays = getWeekDays(weekStart(today))
+          const wh = entries.filter(e => e.user_id === p.id && thisWeekDays.includes(e.date)).reduce((s, e) => s + Number(e.hours), 0)
+          return (
+            <div key={p.id} style={{ padding: '14px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+                <div style={{ width: 22, height: 22, borderRadius: '50%', background: p.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 7, color: '#001219', fontWeight: 700 }}>{p.initials}</span>
+                </div>
+                <span style={{ fontSize: 12, color: FG }}>{p.name}</span>
+              </div>
+              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 22, fontWeight: 700, color: p.color, marginBottom: 2 }}>{h}h</div>
+              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED }}>{wh}h diese Woche</div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Weekly bar chart */}
+      <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8 }}>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 16 }}>
+          Team-Stunden · letzte 10 Wochen
+        </div>
+        <StackedBarChart weeks={weeks} persons={persons} />
+        {/* Legend */}
+        <div style={{ display: 'flex', gap: 16, marginTop: 12, flexWrap: 'wrap' }}>
+          {persons.map(p => (
+            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <div style={{ width: 10, height: 10, borderRadius: 2, background: p.color, opacity: 0.85 }} />
+              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED }}>{p.name}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Hours by project */}
+      <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 16 }}>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+            Stunden nach Projekt · {year}
+          </div>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: A, marginLeft: 'auto' }}>{totalYear}h gesamt</div>
+        </div>
+        {projectHours.length === 0 ? (
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED }}>Noch keine Einträge</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {projectHours.map(p => (
+              <div key={p.id}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontSize: 13, color: FG }}>{p.name}</span>
+                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: A }}>{p.hours}h</span>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 3, height: 6 }}>
+                  <div style={{ width: `${(p.hours / maxProjectH) * 100}%`, height: '100%', background: A, borderRadius: 3, transition: 'width 0.4s' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 const TABS = [
   { id: 'erfassen', label: 'Erfassen', icon: Clock },
   { id: 'uebersicht', label: 'Übersicht', icon: TrendingUp },
+  { id: 'statistiken', label: 'Statistiken', icon: BarChart2 },
   { id: 'abrechnung', label: 'Abrechnung', icon: FileText },
 ]
 
@@ -628,6 +793,7 @@ export default function TimePage() {
 
       {tab === 'erfassen' && <TabErfassen />}
       {tab === 'uebersicht' && <TabUebersicht />}
+      {tab === 'statistiken' && <TabStatistiken />}
       {tab === 'abrechnung' && <TabAbrechnung />}
     </div>
   )
