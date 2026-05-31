@@ -1,18 +1,19 @@
 import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { LayoutDashboard, CalendarDays, ListChecks, Radio, Users, Settings, LogOut, Menu, X, Clock, Map } from 'lucide-react'
+import { LayoutDashboard, CalendarDays, ListChecks, Radio, Users, Settings, LogOut, Menu, X, Clock, Map, Database } from 'lucide-react'
 import { A, BG, SURFACE, BORDER, FG, MUTED } from '../lib/theme.js'
 
 const NAV = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/calendar',  icon: CalendarDays,    label: 'Kalender' },
-  { to: '/jobs',      icon: ListChecks,      label: 'Einsätze' },
-  { to: '/map',       icon: Map,             label: 'Karte' },
-  { to: '/time',      icon: Clock,           label: 'Zeiten' },
-  { to: '/sensors',   icon: Radio,           label: 'Sensoren' },
-  { to: '/team',      icon: Users,           label: 'Team' },
-  { to: '/settings',  icon: Settings,        label: 'Einstellungen' },
+  { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/calendar',   icon: CalendarDays,    label: 'Kalender' },
+  { to: '/jobs',       icon: ListChecks,      label: 'Einsätze' },
+  { to: '/map',        icon: Map,             label: 'Karte' },
+  { to: '/time',       icon: Clock,           label: 'Zeiten' },
+  { to: '/data',       icon: Database,        label: 'Stammdaten' },
+  { to: '/sensors',    icon: Radio,           label: 'Sensoren' },
+  { to: '/team',       icon: Users,           label: 'Team' },
+  { to: '/settings',   icon: Settings,        label: 'Einstellungen' },
 ]
 
 
@@ -35,7 +36,7 @@ export default function Layout({ children, fullHeight = false }) {
       </div>
 
       {/* Nav */}
-      <nav style={{ flex: 1, padding: '12px 8px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <nav style={{ flex: 1, padding: '12px 8px', display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto' }}>
         {NAV.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}

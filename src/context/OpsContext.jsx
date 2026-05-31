@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { sb, sbUpsert, sbDelete, sbUpdate } from '../lib/supabase.js'
+import { sb, sbUpsert, sbDelete, sbUpdate, sbInsert } from '../lib/supabase.js'
 import { getJobs, saveJobs, getRecurring, saveRecurring, getSensors, saveSensors, getProjects, saveProjects, genId, addDays } from '../lib/storage.js'
 import { tgSend, tgGroups, groupsForUsers } from '../lib/telegram.js'
 import * as gcal from '../lib/gcal.js'
@@ -12,17 +12,19 @@ export function OpsProvider({ children }) {
   const [recurring, setRecurringState] = useState([])
   const [sensors, setSensorsState] = useState(getSensors)
   const [projects, setProjectsState] = useState([])
+  const [clients, setClientsState] = useState([])
   const [loading, setLoading] = useState(true)
 
   // ── Load from Supabase on mount ──────────────────────────────────────────────
   useEffect(() => {
     async function load() {
       try {
-        const [pRows, jRows, rRows, sRows] = await Promise.all([
+        const [pRows, jRows, rRows, sRows, cRows] = await Promise.all([
           sb.from('projects').select('*'),
           sb.from('jobs').select('*').order('date'),
           sb.from('recurring_templates').select('*'),
           sb.from('sensors').select('*'),
+          sb.from('clients').select('*').order('name'),
         ])
         if (pRows.data?.length) setProjectsState(pRows.data)
         else setProjectsState(getProjects()) // fallback to localStorage seed
@@ -32,6 +34,7 @@ export function OpsProvider({ children }) {
         else setRecurringState(getRecurring())
         if (sRows.data?.length) setSensorsState(sRows.data)
         else setSensorsState(getSensors())
+        if (cRows.data) setClientsState(cRows.data)
       } catch {
         // Offline fallback
         setProjectsState(getProjects())
@@ -67,6 +70,13 @@ export function OpsProvider({ children }) {
           if (payload.eventType === 'DELETE') return prev.filter(r => r.id !== payload.old.id)
           if (payload.eventType === 'INSERT') return [...prev.filter(r => r.id !== payload.new.id), payload.new]
           return prev.map(r => r.id === payload.new.id ? payload.new : r)
+        })
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, payload => {
+        setClientsState(prev => {
+          if (payload.eventType === 'DELETE') return prev.filter(c => c.id !== payload.old.id)
+          if (payload.eventType === 'INSERT') return [...prev.filter(c => c.id !== payload.new.id), payload.new].sort((a, b) => a.name.localeCompare(b.name))
+          return prev.map(c => c.id === payload.new.id ? payload.new : c)
         })
       })
       .subscribe()
@@ -224,8 +234,26 @@ export function OpsProvider({ children }) {
     sbDelete('projects', id).catch(console.error)
   }
 
+  // ── Clients ──────────────────────────────────────────────────────────────────
+  async function createClient(data) {
+    const client = { ...data, id: data.id || genId(), created_at: new Date().toISOString() }
+    setClientsState(prev => [...prev, client].sort((a, b) => a.name.localeCompare(b.name)))
+    await sbInsert('clients', client).catch(console.error)
+    return client
+  }
+
+  function updateClient(id, changes) {
+    setClientsState(prev => prev.map(c => c.id === id ? { ...c, ...changes } : c))
+    sbUpdate('clients', id, changes).catch(console.error)
+  }
+
+  function deleteClient(id) {
+    setClientsState(prev => prev.filter(c => c.id !== id))
+    sbDelete('clients', id).catch(console.error)
+  }
+
   return (
-    <OpsContext.Provider value={{ jobs, recurring, sensors, projects, loading, createJob, updateJob, deleteJob, setJobStatus, createRecurring, deleteRecurring, updateSensorValue, createProject, updateProject, deleteProject }}>
+    <OpsContext.Provider value={{ jobs, recurring, sensors, projects, clients, loading, createJob, updateJob, deleteJob, setJobStatus, createRecurring, deleteRecurring, updateSensorValue, createProject, updateProject, deleteProject, createClient, updateClient, deleteClient }}>
       {children}
     </OpsContext.Provider>
   )

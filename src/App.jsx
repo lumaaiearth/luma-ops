@@ -6,6 +6,7 @@ import { GCalProvider } from './context/GCalContext.jsx'
 import { TimeProvider } from './context/TimeContext.jsx'
 import TimePage from './pages/TimePage.jsx'
 import MapPage from './pages/MapPage.jsx'
+import StammdatenPage from './pages/StammdatenPage.jsx'
 import Layout from './components/Layout.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import DashboardPage from './pages/DashboardPage.jsx'
@@ -35,6 +36,7 @@ function AppRoutes() {
       <Route path="/time" element={<RequireAuth><Layout><ErrorBoundary><TimePage /></ErrorBoundary></Layout></RequireAuth>} />
       <Route path="/map" element={<RequireAuth><Layout fullHeight><ErrorBoundary><MapPage /></ErrorBoundary></Layout></RequireAuth>} />
       <Route path="/settings" element={<RequireAuth><Layout><ErrorBoundary><SettingsPage /></ErrorBoundary></Layout></RequireAuth>} />
+      <Route path="/data" element={<RequireAuth><Layout><ErrorBoundary><StammdatenPage /></ErrorBoundary></Layout></RequireAuth>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   )

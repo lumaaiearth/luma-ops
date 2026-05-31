@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Repeat } from 'lucide-react'
+import { X, Repeat, Plus } from 'lucide-react'
 import { TEAM, VEHICLES as VEHICLES_DEFAULT, JOB_TYPES } from '../data/seed.js'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -20,10 +20,60 @@ const LABEL_STYLE = {
   letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6, display: 'block',
 }
 
+function QuickProjectModal({ clients, onSave, onClose }) {
+  const [name, setName] = useState('')
+  const [clientId, setClientId] = useState('')
+  const [location, setLocation] = useState('')
+  const { createProject } = useOps()
+  const { genId: _genId } = { genId: () => Math.random().toString(36).slice(2) }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!name.trim()) return
+    const selectedClient = clients.find(c => c.id === clientId)
+    const project = await createProject({
+      name: name.trim(),
+      location: location.trim(),
+      client_id: clientId || null,
+      client: selectedClient?.name || '',
+      status: 'active',
+    })
+    onSave(project)
+  }
+
+  const INPUT = {
+    width: '100%', background: 'rgba(255,255,255,0.05)', border: `1px solid rgba(255,255,255,0.12)`,
+    borderRadius: 6, padding: '9px 12px', color: '#e8f0f5',
+    fontFamily: "'Space Grotesk', sans-serif", fontSize: 13, outline: 'none',
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
+      <div onClick={e => e.stopPropagation()} style={{ position: 'relative', background: '#0d1a23', border: `1px solid rgba(255,255,255,0.12)`, borderRadius: 8, width: '100%', maxWidth: 380, boxShadow: '0 24px 60px rgba(0,0,0,0.7)', padding: 20 }}>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: '#08AA56', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 14 }}>Neues Projekt</div>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <input style={INPUT} value={name} onChange={e => setName(e.target.value)} placeholder="Projektname *" required autoFocus />
+          <select style={INPUT} value={clientId} onChange={e => setClientId(e.target.value)}>
+            <option value="">Kein Auftraggeber</option>
+            {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <input style={INPUT} value={location} onChange={e => setLocation(e.target.value)} placeholder="Standort / Adresse" />
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+            <button type="button" onClick={onClose} style={{ padding: '8px 14px', borderRadius: 6, background: 'transparent', border: `1px solid rgba(255,255,255,0.12)`, color: 'rgba(232,240,245,0.4)', cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif" }}>Abbrechen</button>
+            <button type="submit" style={{ padding: '8px 16px', borderRadius: 6, background: '#08AA56', border: 'none', color: '#001219', cursor: 'pointer', fontSize: 12, fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif" }}>Anlegen</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 export default function JobModal({ initialDate, initialJob, onSave, onClose, isRecurring = false }) {
-  const { projects } = useOps()
+  const { projects, clients } = useOps()
   const { user } = useAuth()
   const editing = !!initialJob
+  const [showQuickProject, setShowQuickProject] = useState(false)
   const [form, setForm] = useState({
     project_id: initialJob?.project_id || '',
     title: initialJob?.title || '',
@@ -80,6 +130,7 @@ export default function JobModal({ initialDate, initialJob, onSave, onClose, isR
   }
 
   return (
+    <>
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }} />
       <div
@@ -115,10 +166,25 @@ export default function JobModal({ initialDate, initialJob, onSave, onClose, isR
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={LABEL_STYLE}>Projekt *</label>
-              <select style={INPUT_STYLE} value={form.project_id} onChange={e => setForm(f => ({ ...f, project_id: e.target.value }))} required>
+              <select style={INPUT_STYLE} value={form.project_id}
+                onChange={e => {
+                  if (e.target.value === '__new__') { setShowQuickProject(true); return }
+                  setForm(f => ({ ...f, project_id: e.target.value }))
+                }} required>
                 <option value="">Projekt wählen</option>
                 {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                <option value="__new__">+ Neues Projekt anlegen</option>
               </select>
+              {form.project_id && (() => {
+                const proj = projects.find(p => p.id === form.project_id)
+                const client = proj?.client_id ? clients.find(c => c.id === proj.client_id) : null
+                const clientName = client?.name || proj?.client
+                return clientName ? (
+                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: `${typeColor}99`, marginTop: 4, paddingLeft: 2 }}>
+                    {clientName}
+                  </div>
+                ) : null
+              })()}
             </div>
             <div>
               <label style={LABEL_STYLE}>Typ</label>
@@ -269,5 +335,17 @@ export default function JobModal({ initialDate, initialJob, onSave, onClose, isR
         </form>
       </div>
     </div>
+
+    {showQuickProject && (
+      <QuickProjectModal
+        clients={clients}
+        onSave={project => {
+          setForm(f => ({ ...f, project_id: project.id }))
+          setShowQuickProject(false)
+        }}
+        onClose={() => setShowQuickProject(false)}
+      />
+    )}
+    </>
   )
 }
