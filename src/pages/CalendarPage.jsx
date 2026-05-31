@@ -155,7 +155,11 @@ export default function CalendarPage() {
 
   function prevWeek() { setCurrentWeek(w => addDays(w, -7)) }
   function nextWeek() { setCurrentWeek(w => addDays(w, 7)) }
-  function goToday() { setCurrentWeek(weekStart(today)) }
+  function goToday() {
+    setCurrentWeek(weekStart(today))
+    const d = new Date()
+    setCurrentMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+  }
 
   function handleDragStart(e, job) {
     dragJob.current = job
