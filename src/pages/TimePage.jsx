@@ -24,12 +24,32 @@ function hoursThisWeek(entries, userId, weekDays) {
 
 function hoursThisYear(entries, userId) {
   const year = new Date().getFullYear().toString()
-  return entries.filter(e => e.user_id === userId && e.date.startsWith(year))
+  return entries.filter(e => e.user_id === userId && e.date?.startsWith(year))
     .reduce((s, e) => s + Number(e.hours), 0)
 }
 
 function hoursForProject(entries, userId, projectId) {
   return entries.filter(e => e.user_id === userId && e.project_id === projectId)
+    .reduce((s, e) => s + Number(e.hours), 0)
+}
+
+const MONTHS = ['Jan','Feb','Mrz','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez']
+
+function monthlyTarget(userId, year, month) {
+  const t = HOUR_TARGETS[userId]
+  if (!t || t.type !== 'weekly') return 0
+  let mondays = 0
+  const d = new Date(year, month - 1, 1)
+  while (d.getMonth() === month - 1) {
+    if (d.getDay() === 1) mondays++
+    d.setDate(d.getDate() + 1)
+  }
+  return t.weekly * mondays
+}
+
+function monthlyActual(entries, userId, year, month) {
+  const prefix = `${year}-${String(month).padStart(2, '0')}`
+  return entries.filter(e => e.user_id === userId && e.date?.startsWith(prefix))
     .reduce((s, e) => s + Number(e.hours), 0)
 }
 
@@ -164,6 +184,97 @@ function TabErfassen() {
 }
 
 // ── Tab 2: Übersicht ──────────────────────────────────────────────────────────
+function KontostandCard({ uid, entries }) {
+  const u = TEAM.find(t => t.id === uid)
+  const year = new Date().getFullYear()
+  const nowMonth = new Date().getMonth() + 1
+
+  const monthData = Array.from({ length: 12 }, (_, i) => {
+    const m = i + 1
+    const soll = monthlyTarget(uid, year, m)
+    const ist = m <= nowMonth ? monthlyActual(entries, uid, year, m) : null
+    const saldo = ist !== null ? ist - soll : null
+    return { m, soll, ist, saldo }
+  })
+
+  let cumulative = 0
+  const monthDataWithCum = monthData.map(d => {
+    if (d.saldo !== null) cumulative += d.saldo
+    return { ...d, kum: d.saldo !== null ? cumulative : null }
+  })
+
+  const kontostand = monthDataWithCum[nowMonth - 1]?.kum ?? 0
+  const kColor = kontostand > 0 ? '#22EAA7' : kontostand < 0 ? '#F59E0B' : MUTED
+
+  const ROWSTYLE = { fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, paddingRight: 12, textTransform: 'uppercase', whiteSpace: 'nowrap', verticalAlign: 'middle', paddingBottom: 3 }
+  const CELLSTYLE = (i) => ({ fontFamily: "'Space Mono', monospace", fontSize: 10, textAlign: 'center', padding: '2px 5px', background: i + 1 === nowMonth ? 'rgba(8,170,86,0.07)' : 'transparent', verticalAlign: 'middle' })
+
+  return (
+    <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+        <div style={{ width: 28, height: 28, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 500, color: FG }}>{u.name}</div>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED }}>Jahres-Kontostand {year}</div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 24, fontWeight: 700, color: kColor, lineHeight: 1 }}>
+            {kontostand > 0 ? '+' : ''}{kontostand}h
+          </div>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, marginTop: 2 }}>Kontostand</div>
+        </div>
+      </div>
+
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ borderCollapse: 'collapse', minWidth: '100%' }}>
+          <thead>
+            <tr>
+              <td style={ROWSTYLE}></td>
+              {MONTHS.map((label, i) => (
+                <td key={i} style={{ ...CELLSTYLE(i), fontFamily: "'Space Mono', monospace", fontSize: 9, color: i + 1 === nowMonth ? A : MUTED, fontWeight: i + 1 === nowMonth ? 700 : 400, paddingBottom: 6 }}>{label}</td>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style={ROWSTYLE}>Soll</td>
+              {monthDataWithCum.map((d, i) => (
+                <td key={i} style={{ ...CELLSTYLE(i), color: MUTED }}>{d.soll}h</td>
+              ))}
+            </tr>
+            <tr>
+              <td style={ROWSTYLE}>Ist</td>
+              {monthDataWithCum.map((d, i) => (
+                <td key={i} style={{ ...CELLSTYLE(i), color: d.ist !== null ? FG : 'rgba(232,240,245,0.2)' }}>
+                  {d.ist !== null ? `${d.ist}h` : '—'}
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <td style={ROWSTYLE}>Saldo</td>
+              {monthDataWithCum.map((d, i) => (
+                <td key={i} style={{ ...CELLSTYLE(i), color: d.saldo === null ? 'rgba(232,240,245,0.2)' : d.saldo >= 0 ? '#22EAA7' : '#F59E0B', fontWeight: d.saldo !== null ? 500 : 400 }}>
+                  {d.saldo === null ? '—' : (d.saldo >= 0 ? `+${d.saldo}` : `${d.saldo}`)}
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <td style={{ ...ROWSTYLE, paddingTop: 6, borderTop: `1px solid ${BORDER}` }}>Konto</td>
+              {monthDataWithCum.map((d, i) => (
+                <td key={i} style={{ ...CELLSTYLE(i), color: d.kum === null ? 'rgba(232,240,245,0.2)' : d.kum > 0 ? '#22EAA7' : d.kum < 0 ? '#F59E0B' : MUTED, borderTop: `1px solid ${BORDER}` }}>
+                  {d.kum === null ? '—' : (d.kum > 0 ? `+${d.kum}` : `${d.kum}`)}
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 function TabUebersicht() {
   const { entries } = useTime()
   const { projects } = useOps()
@@ -184,10 +295,14 @@ function TabUebersicht() {
   const lukasH = hoursThisYear(entries, 'lukas')
   const balanceDiff = maltH - lukasH
 
+  // Which field employees to show: admins see all, others see only themselves
+  const fieldUids = ['jona', 'anselm'].filter(uid => isAdmin || user?.id === uid)
+  const showRobert = isAdmin || user?.id === 'robert'
+
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* Week navigator */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <button onClick={() => setWeekOffset(w => w - 1)} style={{ width: 32, height: 32, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronLeft size={16} /></button>
         <span style={{ fontSize: 14, color: FG, fontWeight: 500, minWidth: 220 }}>{weekLabel}</span>
         <button onClick={() => setWeekOffset(w => w + 1)} style={{ width: 32, height: 32, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronRight size={16} /></button>
@@ -196,8 +311,8 @@ function TabUebersicht() {
 
       {/* Malte + Lukas balance — admin only */}
       {isAdmin && (
-        <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
             <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase' }}>Jahres-Balance {new Date().getFullYear()}</div>
             <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: A, letterSpacing: '0.1em', textTransform: 'uppercase', marginLeft: 'auto', opacity: 0.7 }}>nur GF</div>
           </div>
@@ -207,87 +322,86 @@ function TabUebersicht() {
               const h = uid === 'malte' ? maltH : lukasH
               const wh = hoursThisWeek(entries, uid, weekDays)
               return (
-                <div key={uid}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 500, color: FG }}>{u.name}</div>
-                      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>{wh}h diese Woche</div>
-                    </div>
-                    <div style={{ marginLeft: 'auto', fontFamily: "'Space Mono', monospace", fontSize: 20, fontWeight: 700, color: u.color }}>{h}h</div>
+                <div key={uid} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
                   </div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 500, color: FG }}>{u.name}</div>
+                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>{wh}h diese Woche</div>
+                  </div>
+                  <div style={{ marginLeft: 'auto', fontFamily: "'Space Mono', monospace", fontSize: 20, fontWeight: 700, color: u.color }}>{h}h</div>
                 </div>
               )
             })}
           </div>
           <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${BORDER}`, fontFamily: "'Space Mono', monospace", fontSize: 11, color: Math.abs(balanceDiff) < 5 ? '#22EAA7' : '#F59E0B' }}>
-            {Math.abs(balanceDiff) < 2
-              ? '✓ Balance ausgeglichen'
-              : balanceDiff > 0
-                ? `Malte +${balanceDiff.toFixed(1)}h mehr als Lukas`
-                : `Lukas +${Math.abs(balanceDiff).toFixed(1)}h mehr als Malte`}
+            {Math.abs(balanceDiff) < 2 ? '✓ Balance ausgeglichen' : balanceDiff > 0 ? `Malte +${balanceDiff.toFixed(1)}h mehr als Lukas` : `Lukas +${Math.abs(balanceDiff).toFixed(1)}h mehr als Malte`}
           </div>
         </div>
       )}
 
-      {/* Jona + Anselm weekly targets */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-        {['jona', 'anselm'].map(uid => {
-          const u = TEAM.find(t => t.id === uid)
-          const wh = hoursThisWeek(entries, uid, weekDays)
-          const target = HOUR_TARGETS[uid].weekly
-          const pct = Math.min(100, (wh / target) * 100)
-          return (
-            <div key={uid} style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <div style={{ width: 28, height: 28, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
-                </div>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 500, color: FG }}>{u.name}</div>
-                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>Ziel: {target}h / Woche</div>
-                </div>
-                <div style={{ marginLeft: 'auto', fontFamily: "'Space Mono', monospace", fontSize: 18, fontWeight: 700, color: pct >= 100 ? '#22EAA7' : u.color }}>
-                  {wh}h
-                </div>
-              </div>
-              <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 4, height: 6, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${pct}%`, background: pct >= 100 ? '#22EAA7' : u.color, borderRadius: 4, transition: 'width 0.4s' }} />
-              </div>
-              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, marginTop: 5 }}>
-                {pct >= 100 ? `✓ Ziel erreicht (+${(wh - target).toFixed(1)}h)` : `${(target - wh).toFixed(1)}h fehlen noch`}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Robert project hours */}
-      <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-          <div style={{ width: 28, height: 28, borderRadius: '50%', background: TEAM.find(t => t.id === 'robert').color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#001219', fontWeight: 700 }}>RB</span>
-          </div>
-          <div style={{ fontSize: 14, fontWeight: 500, color: FG }}>Robert <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, fontWeight: 400 }}>— projektbasiert</span></div>
-          <div style={{ marginLeft: 'auto', fontFamily: "'Space Mono', monospace", fontSize: 18, fontWeight: 700, color: TEAM.find(t => t.id === 'robert').color }}>
-            {hoursThisYear(entries, 'robert')}h
-          </div>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {projects.map(p => {
-            const h = hoursForProject(entries, 'robert', p.id)
-            if (!h) return null
+      {/* Weekly targets */}
+      {fieldUids.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: fieldUids.length > 1 ? '1fr 1fr' : '1fr', gap: 12 }}>
+          {fieldUids.map(uid => {
+            const u = TEAM.find(t => t.id === uid)
+            const wh = hoursThisWeek(entries, uid, weekDays)
+            const target = HOUR_TARGETS[uid].weekly
+            const pct = Math.min(100, (wh / target) * 100)
             return (
-              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
-                <span style={{ color: MUTED, flex: 1 }}>{p.name}</span>
-                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: FG }}>{h}h</span>
+              <div key={uid} style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 500, color: FG }}>{u.name}</div>
+                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>Ziel: {target}h / Woche</div>
+                  </div>
+                  <div style={{ marginLeft: 'auto', fontFamily: "'Space Mono', monospace", fontSize: 18, fontWeight: 700, color: pct >= 100 ? '#22EAA7' : u.color }}>{wh}h</div>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 4, height: 6, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${pct}%`, background: pct >= 100 ? '#22EAA7' : u.color, borderRadius: 4, transition: 'width 0.4s' }} />
+                </div>
+                <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, marginTop: 5 }}>
+                  {pct >= 100 ? `✓ Ziel erreicht (+${(wh - target).toFixed(1)}h)` : `${(target - wh).toFixed(1)}h fehlen noch`}
+                </div>
               </div>
             )
           })}
         </div>
-      </div>
+      )}
+
+      {/* Kontostand — monatliche Soll/Ist/Saldo Tabelle */}
+      {fieldUids.map(uid => <KontostandCard key={uid} uid={uid} entries={entries} />)}
+
+      {/* Robert project hours */}
+      {showRobert && (
+        <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <div style={{ width: 28, height: 28, borderRadius: '50%', background: TEAM.find(t => t.id === 'robert').color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#001219', fontWeight: 700 }}>RB</span>
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 500, color: FG }}>Robert <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, fontWeight: 400 }}>— projektbasiert</span></div>
+            <div style={{ marginLeft: 'auto', fontFamily: "'Space Mono', monospace", fontSize: 18, fontWeight: 700, color: TEAM.find(t => t.id === 'robert').color }}>
+              {hoursThisYear(entries, 'robert')}h
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {projects.map(p => {
+              const h = hoursForProject(entries, 'robert', p.id)
+              if (!h) return null
+              return (
+                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
+                  <span style={{ color: MUTED, flex: 1 }}>{p.name}</span>
+                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: FG }}>{h}h</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -757,10 +871,19 @@ const TABS = [
   { id: 'abrechnung', label: 'Abrechnung', icon: FileText },
 ]
 
+const ADMIN_TABS = new Set(['statistiken', 'abrechnung'])
+
 export default function TimePage() {
   const [tab, setTab] = useState('erfassen')
   const { entries } = useTime()
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
   const unbilledCount = entries.filter(e => !e.invoice_id).length
+
+  const visibleTabs = TABS.filter(t => !ADMIN_TABS.has(t.id) || isAdmin)
+
+  // If current tab is no longer accessible (e.g. after role change), reset
+  const activeTab = visibleTabs.find(t => t.id === tab) ? tab : 'erfassen'
 
   return (
     <div style={{ padding: 24, maxWidth: 900, margin: '0 auto' }}>
@@ -770,19 +893,19 @@ export default function TimePage() {
 
       {/* Tab bar */}
       <div style={{ display: 'flex', gap: 4, background: 'rgba(255,255,255,0.04)', borderRadius: 8, padding: 4, marginBottom: 24, width: 'fit-content' }}>
-        {TABS.map(({ id, label, icon: Icon }) => (
+        {visibleTabs.map(({ id, label, icon: Icon }) => (
           <button key={id} onClick={() => setTab(id)}
             style={{
               display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', borderRadius: 6, border: 'none',
-              background: tab === id ? A : 'transparent',
-              color: tab === id ? '#001219' : MUTED,
-              cursor: 'pointer', fontSize: 13, fontWeight: tab === id ? 500 : 400,
+              background: activeTab === id ? A : 'transparent',
+              color: activeTab === id ? '#001219' : MUTED,
+              cursor: 'pointer', fontSize: 13, fontWeight: activeTab === id ? 500 : 400,
               fontFamily: "'Space Grotesk', sans-serif",
               position: 'relative',
             }}>
             <Icon size={13} />
             {label}
-            {id === 'abrechnung' && unbilledCount > 0 && tab !== 'abrechnung' && (
+            {id === 'abrechnung' && unbilledCount > 0 && activeTab !== 'abrechnung' && (
               <span style={{ position: 'absolute', top: 4, right: 6, width: 16, height: 16, borderRadius: '50%', background: '#F59E0B', color: '#001219', fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {unbilledCount > 9 ? '9+' : unbilledCount}
               </span>
@@ -791,10 +914,10 @@ export default function TimePage() {
         ))}
       </div>
 
-      {tab === 'erfassen' && <TabErfassen />}
-      {tab === 'uebersicht' && <TabUebersicht />}
-      {tab === 'statistiken' && <TabStatistiken />}
-      {tab === 'abrechnung' && <TabAbrechnung />}
+      {activeTab === 'erfassen' && <TabErfassen />}
+      {activeTab === 'uebersicht' && <TabUebersicht />}
+      {activeTab === 'statistiken' && <TabStatistiken />}
+      {activeTab === 'abrechnung' && <TabAbrechnung />}
     </div>
   )
 }
