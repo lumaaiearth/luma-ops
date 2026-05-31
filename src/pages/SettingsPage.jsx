@@ -1,11 +1,19 @@
 import { useState } from 'react'
+import { Navigate } from 'react-router-dom'
 import { A, SURFACE, BORDER, FG, MUTED } from '../lib/theme.js'
 import { VEHICLES } from '../data/seed.js'
 import { useOps } from '../context/OpsContext.jsx'
 import { useGCal } from '../context/GCalContext.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 import { genId } from '../lib/storage.js'
 import { tgSend } from '../lib/telegram.js'
-import { Car, Truck, Plus, Trash2, Calendar, ExternalLink, AlertTriangle, Send, Check, RefreshCw, Unlink, FolderOpen, Pencil } from 'lucide-react'
+import { Car, Truck, Plus, Trash2, Calendar, ExternalLink, AlertTriangle, Send, Check, RefreshCw, Unlink, FolderOpen, Pencil, X } from 'lucide-react'
+
+const DEFAULT_CHIPS = [
+  'Wochenpflege', 'Rasenmähen', 'Baumpflege', 'Schröpfschnitt',
+  'Mulchen', 'Pflanzung', 'Bewässerung', 'Dokumentation',
+  'Beratung/Meeting', 'Aufräumen', 'Unkrautentfernung', 'Schnittarbeiten',
+]
 
 const INPUT_STYLE = {
   background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`,
@@ -48,6 +56,9 @@ function VehicleCard({ v, onDelete }) {
 }
 
 export default function SettingsPage() {
+  const { user } = useAuth()
+  if (user?.role !== 'admin') return <Navigate to="/dashboard" replace />
+
   const { connected: gcalConnected, ready: gcalReady, syncing: gcalSyncing, calendars, calendarId, connect: gcalConnect, disconnect: gcalDisconnect, setCalendarId, reload: gcalReload } = useGCal()
   const { projects, createProject, updateProject, deleteProject } = useOps()
   const [showAddProject, setShowAddProject] = useState(false)
@@ -60,7 +71,11 @@ export default function SettingsPage() {
   const [showAddVehicle, setShowAddVehicle] = useState(false)
   const [newV, setNewV] = useState({ name: '', model: '', type: 'van', ownership: 'owned', color: '#08AA56' })
   const [gcalUrl, setGcalUrl] = useState(() => localStorage.getItem('luma_gcal_url') || '')
-  const [gcalStatus, setGcalStatus] = useState(null) // null | 'loading' | 'ok' | 'error'
+  const [gcalStatus, setGcalStatus] = useState(null)
+  const [chips, setChips] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('luma_chips')) || DEFAULT_CHIPS } catch { return DEFAULT_CHIPS }
+  })
+  const [newChip, setNewChip] = useState('')
   const [gcalEvents, setGcalEvents] = useState([])
 
   const [tgToken, setTgToken] = useState(() => localStorage.getItem('luma_tg_token') || '')
@@ -90,6 +105,19 @@ export default function SettingsPage() {
     } catch {
       setTgTestStatus(s => ({ ...s, [group]: 'error' }))
     }
+  }
+
+  function saveChips(updated) {
+    setChips(updated)
+    localStorage.setItem('luma_chips', JSON.stringify(updated))
+  }
+
+  function addChip(e) {
+    e.preventDefault()
+    const val = newChip.trim()
+    if (!val || chips.includes(val)) return
+    saveChips([...chips, val])
+    setNewChip('')
   }
 
   function saveVehicles(updated) {
@@ -480,6 +508,42 @@ export default function SettingsPage() {
           {projects.length === 0 && (
             <div style={{ textAlign: 'center', padding: '24px', color: MUTED, fontFamily: "'Space Mono', monospace", fontSize: 12 }}>Noch keine Projekte</div>
           )}
+        </div>
+      </section>
+
+      {/* ── Tätigkeit-Chips ── */}
+      <section style={{ marginBottom: 36 }}>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 14 }}>
+          Tätigkeit Schnellauswahl
+        </div>
+        <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+            {chips.map(chip => (
+              <div key={chip} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 12, border: `1px solid ${BORDER}`, background: 'rgba(255,255,255,0.04)' }}>
+                <span style={{ fontSize: 12, color: FG }}>{chip}</span>
+                <button onClick={() => saveChips(chips.filter(c => c !== chip))}
+                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: MUTED, padding: 0, display: 'flex', alignItems: 'center' }}>
+                  <X size={11} />
+                </button>
+              </div>
+            ))}
+          </div>
+          <form onSubmit={addChip} style={{ display: 'flex', gap: 8 }}>
+            <input
+              style={{ ...INPUT_STYLE, flex: 1 }}
+              value={newChip}
+              onChange={e => setNewChip(e.target.value)}
+              placeholder="Neue Tätigkeit hinzufügen…"
+            />
+            <button type="submit" disabled={!newChip.trim()}
+              style={{ padding: '8px 14px', borderRadius: 6, background: newChip.trim() ? A : 'rgba(255,255,255,0.05)', border: 'none', color: newChip.trim() ? '#001219' : MUTED, cursor: newChip.trim() ? 'pointer' : 'default', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap' }}>
+              + Hinzufügen
+            </button>
+          </form>
+          <button onClick={() => saveChips(DEFAULT_CHIPS)}
+            style={{ marginTop: 10, padding: '5px 10px', borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 11 }}>
+            Zurücksetzen
+          </button>
         </div>
       </section>
 

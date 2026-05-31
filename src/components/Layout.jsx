@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { LayoutDashboard, CalendarDays, ListChecks, Radio, Users, Settings, LogOut, Menu, X, Clock } from 'lucide-react'
+import { LayoutDashboard, CalendarDays, ListChecks, Radio, Users, Settings, LogOut, Menu, X, Clock, Map } from 'lucide-react'
 import { A, BG, SURFACE, BORDER, FG, MUTED } from '../lib/theme.js'
 
 const NAV = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/calendar',  icon: CalendarDays,    label: 'Kalender' },
   { to: '/jobs',      icon: ListChecks,      label: 'Einsätze' },
+  { to: '/map',       icon: Map,             label: 'Karte' },
   { to: '/time',      icon: Clock,           label: 'Zeiten' },
   { to: '/sensors',   icon: Radio,           label: 'Sensoren' },
   { to: '/team',      icon: Users,           label: 'Team' },
@@ -15,7 +16,7 @@ const NAV = [
 ]
 
 
-export default function Layout({ children }) {
+export default function Layout({ children, fullHeight = false }) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -114,7 +115,7 @@ export default function Layout({ children }) {
           </div>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div style={{ flex: 1, overflowY: fullHeight ? 'hidden' : 'auto', display: fullHeight ? 'flex' : 'block', flexDirection: 'column' }}>
           {children}
         </div>
       </div>

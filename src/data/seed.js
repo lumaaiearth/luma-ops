@@ -35,12 +35,12 @@ export const JOB_TYPES = [
 ]
 
 export const PROJECTS_OPS = [
-  { id: 'mv-bew',       name: 'MV Tiny Forest',        location: 'Berlin-Märkisches Viertel', client: 'BEW / Vattenfall' },
-  { id: 'blankenburg',  name: 'BL Blankenburg',         location: 'Berlin-Blankenburg',        client: 'BEW / Vattenfall' },
-  { id: 'h14',          name: 'H14 Hermannstraße',      location: 'Berlin-Neukölln',           client: 'JOPE AG' },
-  { id: 'preussenpark', name: 'Preußenpark',            location: 'Berlin-Charlottenburg',     client: 'Bezirksamt CW' },
-  { id: 'htw',          name: 'HTW Mobile Forests',     location: 'HTW Campus',                client: 'HTW Berlin' },
-  { id: 'langen-enden', name: 'LE Langen Enden',        location: 'Berlin',                    client: 'BEW / Vattenfall' },
+  { id: 'mv-bew',       name: 'MV Tiny Forest',        location: 'Berlin-Märkisches Viertel', client: 'BEW / Vattenfall', lat: 52.5705, lng: 13.3530 },
+  { id: 'blankenburg',  name: 'BL Blankenburg',         location: 'Berlin-Blankenburg',        client: 'BEW / Vattenfall', lat: 52.5747, lng: 13.4560 },
+  { id: 'h14',          name: 'H14 Hermannstraße',      location: 'Berlin-Neukölln',           client: 'JOPE AG',          lat: 52.4792, lng: 13.4292 },
+  { id: 'preussenpark', name: 'Preußenpark',            location: 'Berlin-Charlottenburg',     client: 'Bezirksamt CW',    lat: 52.4974, lng: 13.3065 },
+  { id: 'htw',          name: 'HTW Mobile Forests',     location: 'HTW Campus',                client: 'HTW Berlin',       lat: 52.4575, lng: 13.5264 },
+  { id: 'langen-enden', name: 'LE Langen Enden',        location: 'Langen Enden, Köpenick',   client: 'BEW / Vattenfall', lat: 52.4270, lng: 13.6040 },
 ]
 
 // ISO week dates relative to today for demo

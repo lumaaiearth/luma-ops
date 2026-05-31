@@ -53,11 +53,15 @@ function monthlyActual(entries, userId, year, month) {
     .reduce((s, e) => s + Number(e.hours), 0)
 }
 
-const TAETIGKEIT_CHIPS = [
+const DEFAULT_CHIPS = [
   'Wochenpflege', 'Rasenmähen', 'Baumpflege', 'Schröpfschnitt',
   'Mulchen', 'Pflanzung', 'Bewässerung', 'Dokumentation',
   'Beratung/Meeting', 'Aufräumen', 'Unkrautentfernung', 'Schnittarbeiten',
 ]
+
+function getChips() {
+  try { return JSON.parse(localStorage.getItem('luma_chips')) || DEFAULT_CHIPS } catch { return DEFAULT_CHIPS }
+}
 
 // ── Log Form ──────────────────────────────────────────────────────────────────
 function LogForm({ onSave, prefill, onClose }) {
@@ -137,7 +141,7 @@ function LogForm({ onSave, prefill, onClose }) {
           placeholder="Was wurde gemacht?"
         />
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 6 }}>
-          {TAETIGKEIT_CHIPS.map(chip => (
+          {getChips().map(chip => (
             <button key={chip} type="button" onClick={() => appendChip(chip)}
               style={{ padding: '3px 9px', borderRadius: 12, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 11, fontFamily: "'Space Grotesk', sans-serif", transition: 'border-color 0.15s, color 0.15s' }}
               onMouseEnter={e => { e.target.style.borderColor = A; e.target.style.color = A }}
