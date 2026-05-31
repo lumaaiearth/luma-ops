@@ -53,6 +53,12 @@ function monthlyActual(entries, userId, year, month) {
     .reduce((s, e) => s + Number(e.hours), 0)
 }
 
+const TAETIGKEIT_CHIPS = [
+  'Wochenpflege', 'Rasenmähen', 'Baumpflege', 'Schröpfschnitt',
+  'Mulchen', 'Pflanzung', 'Bewässerung', 'Dokumentation',
+  'Beratung/Meeting', 'Aufräumen', 'Unkrautentfernung', 'Schnittarbeiten',
+]
+
 // ── Log Form ──────────────────────────────────────────────────────────────────
 function LogForm({ onSave, prefill, onClose }) {
   const { jobs, projects } = useOps()
@@ -66,6 +72,7 @@ function LogForm({ onSave, prefill, onClose }) {
   })
 
   const projectJobs = jobs.filter(j => j.project_id === form.project_id && j.status !== 'cancelled')
+  const selectedProject = projects.find(p => p.id === form.project_id)
 
   function submit(e) {
     e.preventDefault()
@@ -73,6 +80,10 @@ function LogForm({ onSave, prefill, onClose }) {
     onSave({ ...form, hours: Number(form.hours), job_id: form.job_id || null })
     if (onClose) onClose()
     else setForm(f => ({ ...f, description: '', hours: '', job_id: '' }))
+  }
+
+  function appendChip(chip) {
+    setForm(f => ({ ...f, description: f.description ? `${f.description}, ${chip}` : chip }))
   }
 
   return (
@@ -84,11 +95,16 @@ function LogForm({ onSave, prefill, onClose }) {
         </select>
       </div>
       <div>
-        <label style={LABEL}>Projekt *</label>
+        <label style={LABEL}>Projekt / Auftraggeber *</label>
         <select style={INPUT} value={form.project_id} onChange={e => setForm(f => ({ ...f, project_id: e.target.value, job_id: '' }))} required>
           <option value="">Projekt wählen</option>
-          {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          {projects.map(p => <option key={p.id} value={p.id}>{p.name}{p.client ? ` · ${p.client}` : ''}</option>)}
         </select>
+        {selectedProject?.client && (
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, marginTop: 4 }}>
+            Auftraggeber: {selectedProject.client}
+          </div>
+        )}
       </div>
       <div>
         <label style={LABEL}>Datum *</label>
@@ -99,18 +115,37 @@ function LogForm({ onSave, prefill, onClose }) {
         <input type="number" min="0.25" max="24" step="0.25" style={INPUT} value={form.hours}
           onChange={e => setForm(f => ({ ...f, hours: e.target.value }))} placeholder="z.B. 4.5" required />
       </div>
-      <div>
-        <label style={LABEL}>Einsatz (optional)</label>
+      <div style={{ gridColumn: '1 / -1' }}>
+        <label style={LABEL}>
+          Kalender-Einsatz
+          <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, marginLeft: 6, color: 'rgba(232,240,245,0.3)', fontSize: 9 }}>
+            — optional, verknüpft Stunden mit einem Job aus dem Kalender
+          </span>
+        </label>
         <select style={INPUT} value={form.job_id} onChange={e => setForm(f => ({ ...f, job_id: e.target.value }))}
           disabled={!form.project_id}>
-          <option value="">Kein Einsatz</option>
-          {projectJobs.map(j => <option key={j.id} value={j.id}>{j.title} ({j.date})</option>)}
+          <option value="">Kein konkreter Einsatz</option>
+          {projectJobs.map(j => <option key={j.id} value={j.id}>{j.title} — {j.date}</option>)}
         </select>
       </div>
-      <div>
+      <div style={{ gridColumn: '1 / -1' }}>
         <label style={LABEL}>Tätigkeit</label>
-        <input style={INPUT} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-          placeholder="Was wurde gemacht?" />
+        <textarea
+          style={{ ...INPUT, height: 72, resize: 'vertical', lineHeight: 1.5 }}
+          value={form.description}
+          onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+          placeholder="Was wurde gemacht?"
+        />
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 6 }}>
+          {TAETIGKEIT_CHIPS.map(chip => (
+            <button key={chip} type="button" onClick={() => appendChip(chip)}
+              style={{ padding: '3px 9px', borderRadius: 12, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 11, fontFamily: "'Space Grotesk', sans-serif", transition: 'border-color 0.15s, color 0.15s' }}
+              onMouseEnter={e => { e.target.style.borderColor = A; e.target.style.color = A }}
+              onMouseLeave={e => { e.target.style.borderColor = BORDER; e.target.style.color = MUTED }}>
+              {chip}
+            </button>
+          ))}
+        </div>
       </div>
       <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
         {onClose && <button type="button" onClick={onClose} style={{ padding: '8px 16px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 13 }}>Abbrechen</button>}
@@ -126,7 +161,6 @@ function LogForm({ onSave, prefill, onClose }) {
 function TabErfassen() {
   const { entries, logTime, deleteEntry } = useTime()
   const { projects } = useOps()
-  const [editId, setEditId] = useState(null)
   const recent = [...entries].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30)
 
   return (
@@ -149,14 +183,18 @@ function TabErfassen() {
             const user = TEAM.find(u => u.id === entry.user_id)
             const project = projects.find(p => p.id === entry.project_id)
             return (
-              <div key={entry.id} style={{ padding: '10px 14px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 6, display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 26, height: 26, borderRadius: '50%', background: user?.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: '#001219', fontWeight: 700 }}>{user?.initials}</span>
+              <div key={entry.id} style={{ padding: '10px 14px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 6, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
+                  <div style={{ width: 26, height: 26, borderRadius: '50%', background: user?.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: '#001219', fontWeight: 700 }}>{user?.initials}</span>
+                  </div>
+                  <span style={{ fontSize: 12, color: FG, fontWeight: 500, minWidth: 42 }}>{user?.name}</span>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 1 }}>
-                    <span style={{ fontSize: 13, color: FG, fontWeight: 500 }}>{entry.hours}h</span>
+                    <span style={{ fontSize: 13, color: FG, fontWeight: 600 }}>{entry.hours}h</span>
                     <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A }}>{project?.name}</span>
+                    {project?.client && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED }}>· {project.client}</span>}
                     {entry.invoice_id && (
                       <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#22EAA7', background: '#22EAA720', padding: '1px 5px', borderRadius: 3 }}>abgerechnet</span>
                     )}
