@@ -34,13 +34,25 @@ export const JOB_TYPES = [
   { id: 'sonstiges',    label: 'Sonstiges',    labelEN: 'Other',         color: '#6B7280' },
 ]
 
+export const SEED_CLIENTS = [
+  { id: 'jope',         name: 'JOPE AG' },
+  { id: 'bew',          name: 'BEW / Vattenfall' },
+  { id: 'stromnetz',    name: 'Stromnetz Berlin' },
+  { id: 'wisag',        name: 'WISAG' },
+  { id: 'miya',         name: 'MIYA' },
+  { id: 'eberswalde',   name: 'Stadt Eberswalde' },
+  { id: 'gruenflaeche', name: 'Grünflächenamt Charlottenburg' },
+  { id: 'loidl',        name: 'Loidl' },
+  { id: 'htw-client',   name: 'HTW Berlin' },
+]
+
 export const PROJECTS_OPS = [
-  { id: 'mv-bew',       name: 'MV Tiny Forest',        location: 'Berlin-Märkisches Viertel', client: 'BEW / Vattenfall', lat: 52.5705, lng: 13.3530 },
-  { id: 'blankenburg',  name: 'BL Blankenburg',         location: 'Berlin-Blankenburg',        client: 'BEW / Vattenfall', lat: 52.5747, lng: 13.4560 },
-  { id: 'h14',          name: 'H14 Hermannstraße',      location: 'Berlin-Neukölln',           client: 'JOPE AG',          lat: 52.4792, lng: 13.4292 },
-  { id: 'preussenpark', name: 'Preußenpark',            location: 'Berlin-Charlottenburg',     client: 'Bezirksamt CW',    lat: 52.4974, lng: 13.3065 },
-  { id: 'htw',          name: 'HTW Mobile Forests',     location: 'HTW Campus',                client: 'HTW Berlin',       lat: 52.4575, lng: 13.5264 },
-  { id: 'langen-enden', name: 'LE Langen Enden',        location: 'Langen Enden, Köpenick',   client: 'BEW / Vattenfall', lat: 52.4270, lng: 13.6040 },
+  { id: 'mv-bew',       name: 'MV Tiny Forest',        location: 'Berlin-Märkisches Viertel', client: 'BEW / Vattenfall', client_id: 'bew',          lat: 52.5705, lng: 13.3530 },
+  { id: 'blankenburg',  name: 'BL Blankenburg',         location: 'Berlin-Blankenburg',        client: 'BEW / Vattenfall', client_id: 'bew',          lat: 52.5747, lng: 13.4560 },
+  { id: 'h14',          name: 'H14 Hermannstraße',      location: 'Berlin-Neukölln',           client: 'JOPE AG',          client_id: 'jope',         lat: 52.4792, lng: 13.4292 },
+  { id: 'preussenpark', name: 'Preußenpark',            location: 'Berlin-Charlottenburg',     client: 'Grünflächenamt Charlottenburg', client_id: 'gruenflaeche', lat: 52.4974, lng: 13.3065 },
+  { id: 'htw',          name: 'HTW Mobile Forests',     location: 'HTW Campus',                client: 'HTW Berlin',       client_id: 'htw-client',   lat: 52.4575, lng: 13.5264 },
+  { id: 'langen-enden', name: 'LE Langen Enden',        location: 'Langen Enden, Köpenick',   client: 'BEW / Vattenfall', client_id: 'bew',          lat: 52.4270, lng: 13.6040 },
 ]
 
 // ISO week dates relative to today for demo

@@ -3,7 +3,7 @@ import { sb, sbUpsert, sbDelete, sbUpdate, sbInsert } from '../lib/supabase.js'
 import { getJobs, saveJobs, getRecurring, saveRecurring, getSensors, saveSensors, getProjects, saveProjects, genId, addDays } from '../lib/storage.js'
 import { tgSend, tgGroups, groupsForUsers } from '../lib/telegram.js'
 import * as gcal from '../lib/gcal.js'
-import { JOB_TYPES } from '../data/seed.js'
+import { JOB_TYPES, SEED_CLIENTS } from '../data/seed.js'
 
 const OpsContext = createContext(null)
 
@@ -34,7 +34,13 @@ export function OpsProvider({ children }) {
         else setRecurringState(getRecurring())
         if (sRows.data?.length) setSensorsState(sRows.data)
         else setSensorsState(getSensors())
-        if (cRows.data) setClientsState(cRows.data)
+        if (cRows.data?.length) {
+          setClientsState(cRows.data)
+        } else if (cRows.data) {
+          // Seed initial clients if table is empty
+          sbUpsert('clients', SEED_CLIENTS).catch(console.error)
+          setClientsState(SEED_CLIENTS)
+        }
       } catch {
         // Offline fallback
         setProjectsState(getProjects())
