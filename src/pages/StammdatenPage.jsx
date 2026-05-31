@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useOps } from '../context/OpsContext.jsx'
-import { A, SURFACE, BORDER, FG, MUTED } from '../lib/theme.js'
+import { A, SURFACE, BORDER, FG, MUTED, CARD, A14, A18, A30 } from '../lib/theme.js'
 import { genId } from '../lib/storage.js'
 import { Plus, Pencil, Trash2, X, Check, MapPin, User, Building2, Phone, Mail } from 'lucide-react'
 
@@ -45,7 +45,7 @@ function ProjectModal({ project, clients, onSave, onClose }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }} />
-      <div onClick={e => e.stopPropagation()} style={{ position: 'relative', background: '#0d1a23', border: `1px solid ${BORDER}`, borderRadius: 8, width: '100%', maxWidth: 500, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}>
+      <div onClick={e => e.stopPropagation()} style={{ position: 'relative', background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8, width: '100%', maxWidth: 500, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', borderBottom: `1px solid ${BORDER}` }}>
           <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: A, letterSpacing: '0.15em', textTransform: 'uppercase' }}>{project ? 'Projekt bearbeiten' : 'Neues Projekt'}</span>
           <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.07)', border: 'none', borderRadius: '50%', width: 30, height: 30, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={14} /></button>
@@ -126,7 +126,7 @@ function ClientModal({ client, onSave, onClose }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }} />
-      <div onClick={e => e.stopPropagation()} style={{ position: 'relative', background: '#0d1a23', border: `1px solid ${BORDER}`, borderRadius: 8, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}>
+      <div onClick={e => e.stopPropagation()} style={{ position: 'relative', background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', borderBottom: `1px solid ${BORDER}` }}>
           <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: A, letterSpacing: '0.15em', textTransform: 'uppercase' }}>{client ? 'Kunde bearbeiten' : 'Neuer Kunde'}</span>
           <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.07)', border: 'none', borderRadius: '50%', width: 30, height: 30, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={14} /></button>
@@ -290,14 +290,14 @@ export default function StammdatenPage() {
             const projectCount = projects.filter(p => p.client_id === c.id).length
             return (
               <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 6, borderLeft: `3px solid ${A}` }}>
-                <div style={{ width: 36, height: 36, borderRadius: '50%', background: `${A}18`, border: `1px solid ${A}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: A18, border: `1px solid ${A30}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <Building2 size={16} color={A} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
                     <span style={{ fontSize: 13, fontWeight: 500, color: FG }}>{c.name}</span>
                     {projectCount > 0 && (
-                      <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: A, background: `${A}14`, padding: '2px 6px', borderRadius: 4 }}>
+                      <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: A, background: A14, padding: '2px 6px', borderRadius: 4 }}>
                         {projectCount} Projekt{projectCount > 1 ? 'e' : ''}
                       </span>
                     )}
@@ -358,7 +358,7 @@ export default function StammdatenPage() {
       {deleteConfirm && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setDeleteConfirm(null)}>
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }} />
-          <div onClick={e => e.stopPropagation()} style={{ position: 'relative', background: '#0d1a23', border: `1px solid rgba(239,68,68,0.3)`, borderRadius: 8, padding: '24px 28px', maxWidth: 380, width: '100%', textAlign: 'center', boxShadow: '0 24px 60px rgba(0,0,0,0.5)' }}>
+          <div onClick={e => e.stopPropagation()} style={{ position: 'relative', background: CARD, border: `1px solid rgba(239,68,68,0.3)`, borderRadius: 8, padding: '24px 28px', maxWidth: 380, width: '100%', textAlign: 'center', boxShadow: '0 24px 60px rgba(0,0,0,0.5)' }}>
             <div style={{ fontSize: 14, color: FG, marginBottom: 8 }}>
               <strong style={{ color: '#ef4444' }}>{deleteConfirm.name}</strong> löschen?
             </div>

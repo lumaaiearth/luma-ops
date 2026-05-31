@@ -3,7 +3,7 @@ import { Plus, Trash2, Check, Clock, TrendingUp, FileText, ChevronLeft, ChevronR
 import { useTime } from '../context/TimeContext.jsx'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
-import { A, SURFACE, BORDER, FG, MUTED } from '../lib/theme.js'
+import { A, SURFACE, BORDER, FG, MUTED, CARD, A08, A18, A20 } from '../lib/theme.js'
 import { TEAM, HOUR_TARGETS } from '../data/seed.js'
 import { genId, isoToday, addDays, weekStart, getWeekDays } from '../lib/storage.js'
 
@@ -526,7 +526,7 @@ function TabAbrechnung() {
           <button
             onClick={() => exportCSV(filteredForExport, invoices, projects)}
             disabled={!filteredForExport.length}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 6, background: filteredForExport.length ? `${A}18` : 'transparent', border: `1px solid ${filteredForExport.length ? A + '50' : BORDER}`, color: filteredForExport.length ? A : MUTED, cursor: filteredForExport.length ? 'pointer' : 'default', fontSize: 12 }}>
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 6, background: filteredForExport.length ? A18 : 'transparent', border: `1px solid ${filteredForExport.length ? A + '50' : BORDER}`, color: filteredForExport.length ? A : MUTED, cursor: filteredForExport.length ? 'pointer' : 'default', fontSize: 12 }}>
             <Download size={12} /> CSV
           </button>
           <button
@@ -584,7 +584,7 @@ function TabAbrechnung() {
       {newInvoice && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }} onClick={() => setNewInvoice(null)} />
-          <div style={{ position: 'relative', background: '#0d1a23', border: `1px solid ${BORDER}`, borderRadius: 8, width: '100%', maxWidth: 460, padding: 24 }}>
+          <div style={{ position: 'relative', background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8, width: '100%', maxWidth: 460, padding: 24 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: A, letterSpacing: '0.15em', textTransform: 'uppercase' }}>Rechnung erstellen</div>
               <button onClick={() => setNewInvoice(null)} style={{ background: 'transparent', border: 'none', color: MUTED, cursor: 'pointer' }}><X size={16} /></button>
@@ -608,7 +608,7 @@ function TabAbrechnung() {
                 <label style={LABEL}>Notizen</label>
                 <input style={INPUT} value={invForm.notes} onChange={e => setInvForm(f => ({ ...f, notes: e.target.value }))} placeholder="z.B. Pflege KW 22" />
               </div>
-              <div style={{ padding: '10px 14px', background: `${A}08`, border: `1px solid ${A}20`, borderRadius: 6, fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED }}>
+              <div style={{ padding: '10px 14px', background: A08, border: `1px solid ${A20}`, borderRadius: 6, fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED }}>
                 {entries.filter(e => newInvoice.entry_ids.includes(e.id)).reduce((s, e) => s + Number(e.hours), 0)}h werden als abgerechnet markiert
               </div>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>

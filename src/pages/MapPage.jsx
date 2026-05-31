@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useOps } from '../context/OpsContext.jsx'
-import { A, BG, SURFACE, BORDER, FG, MUTED } from '../lib/theme.js'
+import { A, BG, SURFACE, BORDER, FG, MUTED, CARD, A10, A14 } from '../lib/theme.js'
 import { TEAM, JOB_TYPES } from '../data/seed.js'
 import { isoToday, addDays } from '../lib/storage.js'
 
@@ -54,7 +54,7 @@ export default function MapPage() {
   }
 
   const POPUP = {
-    background: '#0d1a23',
+    background: CARD,
     border: `1px solid rgba(255,255,255,0.1)`,
     borderRadius: 8,
     padding: '10px 14px',
@@ -71,7 +71,7 @@ export default function MapPage() {
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 10 }}>Karte</div>
           <button
             onClick={() => setShowJobs(v => !v)}
-            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 6, border: `1px solid ${showJobs ? A + '50' : BORDER}`, background: showJobs ? `${A}14` : 'transparent', color: showJobs ? A : MUTED, cursor: 'pointer', fontSize: 12, width: '100%' }}>
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 6, border: `1px solid ${showJobs ? A + '50' : BORDER}`, background: showJobs ? A14 : 'transparent', color: showJobs ? A : MUTED, cursor: 'pointer', fontSize: 12, width: '100%' }}>
             <div style={{ width: 8, height: 8, borderRadius: 2, background: '#F59E0B' }} />
             Einsätze (nächste 14 Tage)
             <span style={{ marginLeft: 'auto', fontFamily: "'Space Mono', monospace", fontSize: 10 }}>{upcomingJobs.length}</span>
@@ -85,7 +85,7 @@ export default function MapPage() {
             const isActive = activeProject === p.id
             return (
               <button key={p.id} onClick={() => focusProject(p)}
-                style={{ display: 'block', width: '100%', padding: '10px 10px', borderRadius: 6, border: `1px solid ${isActive ? A + '40' : 'transparent'}`, background: isActive ? `${A}10` : 'transparent', cursor: 'pointer', textAlign: 'left', marginBottom: 2 }}>
+                style={{ display: 'block', width: '100%', padding: '10px 10px', borderRadius: 6, border: `1px solid ${isActive ? A + '40' : 'transparent'}`, background: isActive ? A10 : 'transparent', cursor: 'pointer', textAlign: 'left', marginBottom: 2 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
                   <div style={{ width: 10, height: 10, borderRadius: '50%', background: A, flexShrink: 0 }} />
                   <span style={{ fontSize: 13, color: FG, fontWeight: isActive ? 500 : 400 }}>{p.name}</span>

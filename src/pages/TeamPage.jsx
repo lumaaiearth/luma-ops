@@ -1,5 +1,5 @@
 import { useOps } from '../context/OpsContext.jsx'
-import { A, SURFACE, BORDER, FG, MUTED } from '../lib/theme.js'
+import { A, SURFACE, BORDER, FG, MUTED, A08, A20 } from '../lib/theme.js'
 import { TEAM, JOB_TYPES } from '../data/seed.js'
 import { isoToday, addDays, formatDate } from '../lib/storage.js'
 
@@ -89,7 +89,7 @@ export default function TeamPage() {
       </div>
 
       {/* Telegram integration note */}
-      <div style={{ padding: '16px 20px', background: `${A}08`, border: `1px solid ${A}20`, borderRadius: 8 }}>
+      <div style={{ padding: '16px 20px', background: A08, border: `1px solid ${A20}`, borderRadius: 8 }}>
         <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>Telegram-Integration</div>
         <div style={{ fontSize: 13, color: MUTED, lineHeight: 1.65 }}>
           Geplant: Neue Einsätze werden automatisch in die passende Gruppe gepostet — Pflege-Jobs → LUMA Pflege, Projektthemen → LUMA PM. Einsatz-Bestätigung und Status-Updates direkt per Telegram möglich.

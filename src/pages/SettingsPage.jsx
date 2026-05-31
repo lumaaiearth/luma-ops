@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { A, SURFACE, BORDER, FG, MUTED } from '../lib/theme.js'
+import { A, SURFACE, BORDER, FG, MUTED, A06, A08, A18, A20 } from '../lib/theme.js'
+import { useTheme, THEMES } from '../context/ThemeContext.jsx'
 import { VEHICLES } from '../data/seed.js'
 import { useOps } from '../context/OpsContext.jsx'
 import { useGCal } from '../context/GCalContext.jsx'
@@ -58,6 +59,7 @@ function VehicleCard({ v, onDelete }) {
 export default function SettingsPage() {
   const { user } = useAuth()
   if (user?.role !== 'admin') return <Navigate to="/dashboard" replace />
+  const { themeId, setTheme } = useTheme()
 
   const { connected: gcalConnected, ready: gcalReady, syncing: gcalSyncing, calendars, calendarId, connect: gcalConnect, disconnect: gcalDisconnect, setCalendarId, reload: gcalReload } = useGCal()
   const { projects, createProject, updateProject, deleteProject } = useOps()
@@ -176,18 +178,52 @@ export default function SettingsPage() {
     <div style={{ padding: 24, maxWidth: 760, margin: '0 auto' }}>
       <h1 style={{ fontSize: 22, fontWeight: 400, color: FG, letterSpacing: '-0.02em', marginBottom: 28 }}>Einstellungen</h1>
 
+      {/* ── Design ── */}
+      <section style={{ marginBottom: 36 }}>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 14 }}>Design</div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          {THEMES.map(t => {
+            const active = themeId === t.id
+            return (
+              <button
+                key={t.id}
+                onClick={() => setTheme(t.id)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 14px', borderRadius: 8, cursor: 'pointer',
+                  border: `1px solid ${active ? A + '80' : BORDER}`,
+                  background: active ? A08 : SURFACE,
+                  transition: 'all 0.15s',
+                }}
+              >
+                {/* Color preview dots */}
+                <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                  <div style={{ width: 18, height: 18, borderRadius: 4, background: t.vars['--luma-bg'], border: '1px solid rgba(255,255,255,0.12)' }} />
+                  <div style={{ width: 18, height: 18, borderRadius: 4, background: t.vars['--luma-surface'], border: '1px solid rgba(255,255,255,0.12)' }} />
+                  <div style={{ width: 18, height: 18, borderRadius: 4, background: t.vars['--luma-a'] }} />
+                </div>
+                <span style={{ fontSize: 13, color: active ? A : FG, fontFamily: "'Space Grotesk', sans-serif", fontWeight: active ? 500 : 400 }}>
+                  {t.name}
+                </span>
+                {active && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: A }}>✓</span>}
+              </button>
+            )
+          })}
+        </div>
+      </section>
+
       {/* ── Fuhrpark ── */}
       <section style={{ marginBottom: 36 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase' }}>Fuhrpark</div>
           <button onClick={() => setShowAddVehicle(v => !v)}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 6, background: showAddVehicle ? `${A}18` : 'transparent', border: `1px solid ${showAddVehicle ? A + '50' : BORDER}`, color: showAddVehicle ? A : MUTED, cursor: 'pointer', fontSize: 12 }}>
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 6, background: showAddVehicle ? A18 : 'transparent', border: `1px solid ${showAddVehicle ? A + '50' : BORDER}`, color: showAddVehicle ? A : MUTED, cursor: 'pointer', fontSize: 12 }}>
             <Plus size={12} /> Fahrzeug / Gerät
           </button>
         </div>
 
         {showAddVehicle && (
-          <form onSubmit={addVehicle} style={{ padding: '16px', background: `${A}08`, border: `1px solid ${A}20`, borderRadius: 8, marginBottom: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <form onSubmit={addVehicle} style={{ padding: '16px', background: A08, border: `1px solid ${A20}`, borderRadius: 8, marginBottom: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
               <label style={LABEL}>Name *</label>
               <input style={INPUT_STYLE} value={newV.name} onChange={e => setNewV(v => ({ ...v, name: e.target.value }))} placeholder="z.B. LUMi" required />
@@ -277,7 +313,7 @@ export default function SettingsPage() {
             </div>
           )}
         </div>
-        <div style={{ padding: '10px 14px', background: `${A}06`, border: `1px solid ${A}18`, borderRadius: 6, marginBottom: 24 }}>
+        <div style={{ padding: '10px 14px', background: A06, border: `1px solid ${A18}`, borderRadius: 6, marginBottom: 24 }}>
           <ul style={{ margin: 0, padding: '0 0 0 16px', fontSize: 12, color: MUTED, lineHeight: 2 }}>
             <li>Neuer Einsatz in luma-ops → erscheint in Google Kalender</li>
             <li>Einsatz verschoben / gelöscht → wird in GCal aktualisiert</li>
@@ -406,7 +442,7 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <div style={{ padding: '10px 14px', background: `${A}06`, border: `1px solid ${A}18`, borderRadius: 6 }}>
+        <div style={{ padding: '10px 14px', background: A06, border: `1px solid ${A18}`, borderRadius: 6 }}>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Wann wird benachrichtigt?</div>
           <ul style={{ margin: 0, padding: '0 0 0 16px', fontSize: 12, color: MUTED, lineHeight: 2 }}>
             <li>Neuer Einsatz mit Jona / Anselm → LUMA Pflege</li>
@@ -422,14 +458,14 @@ export default function SettingsPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase' }}>Projekte</div>
           <button onClick={() => { setShowAddProject(v => !v); setNewP({ name: '', location: '', client: '' }) }}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 6, background: showAddProject ? `${A}18` : 'transparent', border: `1px solid ${showAddProject ? A + '50' : BORDER}`, color: showAddProject ? A : MUTED, cursor: 'pointer', fontSize: 12 }}>
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 6, background: showAddProject ? A18 : 'transparent', border: `1px solid ${showAddProject ? A + '50' : BORDER}`, color: showAddProject ? A : MUTED, cursor: 'pointer', fontSize: 12 }}>
             <Plus size={13} /> Projekt hinzufügen
           </button>
         </div>
 
         {/* Add form */}
         {showAddProject && (
-          <div style={{ padding: '16px', background: `${A}08`, border: `1px solid ${A}20`, borderRadius: 8, marginBottom: 12 }}>
+          <div style={{ padding: '16px', background: A08, border: `1px solid ${A20}`, borderRadius: 8, marginBottom: 12 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
               <div>
                 <label style={LABEL}>Name *</label>
@@ -548,7 +584,7 @@ export default function SettingsPage() {
       </section>
 
       {/* ── Passwords note ── */}
-      <div style={{ padding: '14px 18px', background: `${A}06`, border: `1px solid ${A}18`, borderRadius: 8 }}>
+      <div style={{ padding: '14px 18px', background: A06, border: `1px solid ${A18}`, borderRadius: 8 }}>
         <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>Passwörter</div>
         <div style={{ fontSize: 13, color: MUTED, lineHeight: 1.6 }}>
           Aktuell: alle Accounts mit <code style={{ fontFamily: "'Space Mono', monospace", background: 'rgba(255,255,255,0.07)', padding: '1px 5px', borderRadius: 3 }}>luma2026</code>. Für produktiven Einsatz → Supabase Auth einrichten, dann individuelle Passwörter per E-Mail-Einladung.

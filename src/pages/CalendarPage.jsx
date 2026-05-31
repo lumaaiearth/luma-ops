@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { ChevronLeft, ChevronRight, Plus, CalendarDays } from 'lucide-react'
 import { useOps } from '../context/OpsContext.jsx'
 import { useGCal } from '../context/GCalContext.jsx'
-import { A, SURFACE, BORDER, FG, MUTED } from '../lib/theme.js'
+import { A, SURFACE, BORDER, FG, MUTED, A0a, A0d, A14, A40 } from '../lib/theme.js'
 import JobModal from '../components/JobModal.jsx'
 import { JOB_TYPES, TEAM, VEHICLES } from '../data/seed.js'
 import { isoToday, weekStart, getWeekDays, addDays, formatDate } from '../lib/storage.js'
@@ -299,8 +299,8 @@ export default function CalendarPage() {
                     borderRight: i < 6 ? `1px solid ${BORDER}` : 'none',
                     display: 'flex', flexDirection: 'column',
                     minHeight: 200,
-                    background: isDragOver ? `${A}0d` : 'transparent',
-                    outline: isDragOver ? `2px solid ${A}40` : 'none',
+                    background: isDragOver ? A0d : 'transparent',
+                    outline: isDragOver ? `2px solid ${A40}` : 'none',
                     outlineOffset: -2,
                     transition: 'background 0.1s',
                   }}
@@ -312,7 +312,7 @@ export default function CalendarPage() {
                       padding: '12px 12px 10px',
                       borderBottom: `1px solid ${BORDER}`,
                       cursor: 'pointer',
-                      background: isToday ? `${A}0a` : 'transparent',
+                      background: isToday ? A0a : 'transparent',
                       transition: 'background 0.15s',
                     }}
                     onMouseEnter={e => !isToday && (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
@@ -386,11 +386,11 @@ export default function CalendarPage() {
                   style={{
                     minHeight: 80, padding: '8px', borderRadius: 6,
                     border: `1px solid ${isDragOver ? A + '80' : isToday ? A + '60' : BORDER}`,
-                    background: isDragOver ? `${A}14` : isToday ? `${A}0a` : 'rgba(255,255,255,0.01)',
+                    background: isDragOver ? A14 : isToday ? A0a : 'rgba(255,255,255,0.01)',
                     cursor: 'pointer', transition: 'background 0.1s, border-color 0.1s',
                   }}
-                  onMouseEnter={e => { if (!isDragOver) e.currentTarget.style.background = isToday ? `${A}14` : 'rgba(255,255,255,0.04)' }}
-                  onMouseLeave={e => { if (!isDragOver) e.currentTarget.style.background = isToday ? `${A}0a` : 'rgba(255,255,255,0.01)' }}
+                  onMouseEnter={e => { if (!isDragOver) e.currentTarget.style.background = isToday ? A14 : 'rgba(255,255,255,0.04)' }}
+                  onMouseLeave={e => { if (!isDragOver) e.currentTarget.style.background = isToday ? A0a : 'rgba(255,255,255,0.01)' }}
                 >
                   <div style={{ fontSize: 13, fontWeight: isToday ? 600 : 400, color: isToday ? A : FG, marginBottom: 4 }}>{d.getDate()}</div>
                   {dayJobs.slice(0, 2).map(job => {

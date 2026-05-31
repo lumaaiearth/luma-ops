@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { LayoutDashboard, CalendarDays, ListChecks, Radio, Users, Settings, LogOut, Menu, X, Clock, Map, Database } from 'lucide-react'
-import { A, BG, SURFACE, BORDER, FG, MUTED } from '../lib/theme.js'
+import { A, BG, SURFACE, BORDER, FG, MUTED, A14 } from '../lib/theme.js'
 
 const NAV = [
   { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
@@ -49,7 +49,7 @@ export default function Layout({ children, fullHeight = false }) {
               fontFamily: "'Space Grotesk', sans-serif",
               fontSize: 14, fontWeight: isActive ? 500 : 400,
               color: isActive ? A : MUTED,
-              background: isActive ? `${A}14` : 'transparent',
+              background: isActive ? A14 : 'transparent',
               transition: 'background 0.15s, color 0.15s',
             })}
           >

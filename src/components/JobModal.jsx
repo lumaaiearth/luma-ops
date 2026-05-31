@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import JobPhotos from './JobPhotos.jsx'
 
 const VEHICLES = (() => { try { return JSON.parse(localStorage.getItem('luma_vehicles')) || VEHICLES_DEFAULT } catch { return VEHICLES_DEFAULT } })()
-import { A, SURFACE, BORDER, FG, MUTED } from '../lib/theme.js'
+import { A, SURFACE, BORDER, FG, MUTED, CARD } from '../lib/theme.js'
 import { isoToday, addDays } from '../lib/storage.js'
 
 const INPUT_STYLE = {
@@ -50,7 +50,7 @@ function QuickProjectModal({ clients, onSave, onClose }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
-      <div onClick={e => e.stopPropagation()} style={{ position: 'relative', background: '#0d1a23', border: `1px solid rgba(255,255,255,0.12)`, borderRadius: 8, width: '100%', maxWidth: 380, boxShadow: '0 24px 60px rgba(0,0,0,0.7)', padding: 20 }}>
+      <div onClick={e => e.stopPropagation()} style={{ position: 'relative', background: CARD, border: `1px solid rgba(255,255,255,0.12)`, borderRadius: 8, width: '100%', maxWidth: 380, boxShadow: '0 24px 60px rgba(0,0,0,0.7)', padding: 20 }}>
         <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: '#08AA56', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 14 }}>Neues Projekt</div>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <input style={INPUT} value={name} onChange={e => setName(e.target.value)} placeholder="Projektname *" required autoFocus />
@@ -136,7 +136,7 @@ export default function JobModal({ initialDate, initialJob, onSave, onClose, isR
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          position: 'relative', background: '#0d1a23',
+          position: 'relative', background: CARD,
           border: `1px solid ${BORDER}`, borderRadius: 8,
           width: '100%', maxWidth: 560, maxHeight: '90vh', overflowY: 'auto',
           boxShadow: '0 32px 80px rgba(0,0,0,0.6)',

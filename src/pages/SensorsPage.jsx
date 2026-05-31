@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useOps } from '../context/OpsContext.jsx'
-import { A, SURFACE, BORDER, FG, MUTED } from '../lib/theme.js'
+import { A, SURFACE, BORDER, FG, MUTED, A08, A14, A20 } from '../lib/theme.js'
 import { AlertTriangle, CheckCircle2, RefreshCw, Wifi } from 'lucide-react'
 
 const TYPE_LABELS = { soil_moisture: 'Bodenfeuchte', soil_temp: 'Bodentemperatur', air_temp: 'Lufttemperatur', rainfall: 'Niederschlag' }
@@ -61,7 +61,7 @@ export default function SensorsPage() {
         <div style={{ display: 'flex', gap: 8 }}>
           <button
             onClick={() => setSimulating(s => !s)}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 6, border: `1px solid ${simulating ? A + '60' : BORDER}`, background: simulating ? `${A}14` : 'transparent', color: simulating ? A : MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif" }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 6, border: `1px solid ${simulating ? A + '60' : BORDER}`, background: simulating ? A14 : 'transparent', color: simulating ? A : MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif" }}
           >
             <Wifi size={14} /> {simulating ? 'Live AN' : 'Simulation starten'}
           </button>
@@ -93,7 +93,7 @@ export default function SensorsPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 }}>
             {ps.map(s => {
               const statusColor = s.status === 'critical' ? '#ef4444' : s.status === 'warning' ? '#F59E0B' : A
-              const bgColor = s.status === 'critical' ? '#ef444410' : s.status === 'warning' ? '#F59E0B10' : `${A}08`
+              const bgColor = s.status === 'critical' ? '#ef444410' : s.status === 'warning' ? '#F59E0B10' : A08
               const borderColor2 = s.status === 'critical' ? '#ef444440' : s.status === 'warning' ? '#F59E0B40' : BORDER
               return (
                 <div key={s.id} style={{ padding: '16px 18px', background: bgColor, border: `1px solid ${borderColor2}`, borderRadius: 8 }}>
@@ -130,7 +130,7 @@ export default function SensorsPage() {
       ))}
 
       {/* Integration hint */}
-      <div style={{ marginTop: 16, padding: '16px 20px', background: `${A}08`, border: `1px solid ${A}20`, borderRadius: 8 }}>
+      <div style={{ marginTop: 16, padding: '16px 20px', background: A08, border: `1px solid ${A20}`, borderRadius: 8 }}>
         <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>Sensor-Integration</div>
         <div style={{ fontSize: 13, color: MUTED, lineHeight: 1.6 }}>
           Aktuell: Demo-Daten mit Simulation. Echte Sensoranbindung via MQTT-Broker oder Supabase Realtime — Xiaomi/Govee BLE Sensoren über Raspberry Pi Gateway möglich.

@@ -2,11 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { TEAM } from '../data/seed.js'
-
-const A = '#08AA56'
-const BORDER = 'rgba(255,255,255,0.08)'
-const FG = '#e8f0f5'
-const MUTED = 'rgba(232,240,245,0.5)'
+import { A, BG, BORDER, FG, MUTED, CARD } from '../lib/theme.js'
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -30,7 +26,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: '#080f14' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: BG }}>
       <div style={{ width: '100%', maxWidth: 360 }}>
         {/* Logo */}
         <div style={{ marginBottom: 40, textAlign: 'center' }}>
@@ -39,7 +35,7 @@ export default function LoginPage() {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} style={{ background: '#0d1a23', border: `1px solid ${BORDER}`, borderRadius: 8, padding: 28, marginBottom: 24 }}>
+        <form onSubmit={handleSubmit} style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8, padding: 28, marginBottom: 24 }}>
           <div style={{ marginBottom: 16 }}>
             <label style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>
               Name
@@ -76,7 +72,7 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* Quick access — for dev/testing */}
+        {/* Quick access */}
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', marginBottom: 12 }}>Schnellzugang</div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>

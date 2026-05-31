@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext.jsx'
 import { OpsProvider } from './context/OpsContext.jsx'
 import { GCalProvider } from './context/GCalContext.jsx'
 import { TimeProvider } from './context/TimeContext.jsx'
+import { ThemeProvider } from './context/ThemeContext.jsx'
 import TimePage from './pages/TimePage.jsx'
 import MapPage from './pages/MapPage.jsx'
 import StammdatenPage from './pages/StammdatenPage.jsx'
@@ -44,6 +45,7 @@ function AppRoutes() {
 
 export default function App() {
   return (
+    <ThemeProvider>
     <BrowserRouter basename="/">
       <AuthProvider>
         <GCalProvider>
@@ -55,5 +57,6 @@ export default function App() {
         </GCalProvider>
       </AuthProvider>
     </BrowserRouter>
+    </ThemeProvider>
   )
 }
