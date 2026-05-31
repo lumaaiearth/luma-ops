@@ -1,11 +1,10 @@
 import { useState } from 'react'
 import { X, Repeat, Plus } from 'lucide-react'
-import { TEAM, VEHICLES as VEHICLES_DEFAULT, JOB_TYPES } from '../data/seed.js'
+import { TEAM, JOB_TYPES } from '../data/seed.js'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import JobPhotos from './JobPhotos.jsx'
 
-const VEHICLES = (() => { try { return JSON.parse(localStorage.getItem('luma_vehicles')) || VEHICLES_DEFAULT } catch { return VEHICLES_DEFAULT } })()
 import { A, SURFACE, BORDER, FG, MUTED, CARD } from '../lib/theme.js'
 import { isoToday, addDays } from '../lib/storage.js'
 
@@ -70,7 +69,7 @@ function QuickProjectModal({ clients, onSave, onClose }) {
 }
 
 export default function JobModal({ initialDate, initialJob, onSave, onClose, isRecurring = false }) {
-  const { projects, clients } = useOps()
+  const { projects, clients, vehicles: VEHICLES } = useOps()
   const { user } = useAuth()
   const editing = !!initialJob
   const [showQuickProject, setShowQuickProject] = useState(false)

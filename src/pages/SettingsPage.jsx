@@ -62,21 +62,15 @@ export default function SettingsPage() {
   const { themeId, setTheme } = useTheme()
 
   const { connected: gcalConnected, ready: gcalReady, syncing: gcalSyncing, calendars, calendarId, connect: gcalConnect, disconnect: gcalDisconnect, setCalendarId, reload: gcalReload } = useGCal()
-  const { projects, createProject, updateProject, deleteProject } = useOps()
+  const { projects, createProject, updateProject, deleteProject, vehicles, createVehicle, deleteVehicle, chips, saveChips } = useOps()
   const [showAddProject, setShowAddProject] = useState(false)
   const [newP, setNewP] = useState({ name: '', location: '', client: '' })
   const [editProjectId, setEditProjectId] = useState(null)
   const [editP, setEditP] = useState({})
-  const [vehicles, setVehicles] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('luma_vehicles')) || VEHICLES } catch { return VEHICLES }
-  })
   const [showAddVehicle, setShowAddVehicle] = useState(false)
   const [newV, setNewV] = useState({ name: '', model: '', type: 'van', ownership: 'owned', color: '#08AA56' })
   const [gcalUrl, setGcalUrl] = useState(() => localStorage.getItem('luma_gcal_url') || '')
   const [gcalStatus, setGcalStatus] = useState(null)
-  const [chips, setChips] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('luma_chips')) || DEFAULT_CHIPS } catch { return DEFAULT_CHIPS }
-  })
   const [newChip, setNewChip] = useState('')
   const [gcalEvents, setGcalEvents] = useState([])
 
@@ -109,11 +103,6 @@ export default function SettingsPage() {
     }
   }
 
-  function saveChips(updated) {
-    setChips(updated)
-    localStorage.setItem('luma_chips', JSON.stringify(updated))
-  }
-
   function addChip(e) {
     e.preventDefault()
     const val = newChip.trim()
@@ -122,15 +111,10 @@ export default function SettingsPage() {
     setNewChip('')
   }
 
-  function saveVehicles(updated) {
-    setVehicles(updated)
-    localStorage.setItem('luma_vehicles', JSON.stringify(updated))
-  }
-
-  function addVehicle(e) {
+  async function addVehicle(e) {
     e.preventDefault()
     if (!newV.name) return
-    saveVehicles([...vehicles, { ...newV, id: genId() }])
+    await createVehicle(newV)
     setNewV({ name: '', model: '', type: 'van', ownership: 'owned', color: '#08AA56' })
     setShowAddVehicle(false)
   }
@@ -171,8 +155,8 @@ export default function SettingsPage() {
     }
   }
 
-  const owned = vehicles.filter(v => v.ownership === 'owned')
-  const rental = vehicles.filter(v => v.ownership === 'rental')
+  const owned = (vehicles || []).filter(v => v.ownership === 'owned')
+  const rental = (vehicles || []).filter(v => v.ownership === 'rental')
 
   return (
     <div style={{ padding: 24, maxWidth: 760, margin: '0 auto' }}>
@@ -254,12 +238,12 @@ export default function SettingsPage() {
 
         <div style={{ marginBottom: 6, fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Eigene Fahrzeuge</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
-          {owned.map(v => <VehicleCard key={v.id} v={v} onDelete={() => saveVehicles(vehicles.filter(x => x.id !== v.id))} />)}
+          {owned.map(v => <VehicleCard key={v.id} v={v} onDelete={() => deleteVehicle(v.id)} />)}
         </div>
 
         <div style={{ marginBottom: 6, fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Leihgeräte & externe Fahrzeuge</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {rental.map(v => <VehicleCard key={v.id} v={v} onDelete={() => saveVehicles(vehicles.filter(x => x.id !== v.id))} />)}
+          {rental.map(v => <VehicleCard key={v.id} v={v} onDelete={() => deleteVehicle(v.id)} />)}
           {rental.length === 0 && <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED, padding: '8px 0' }}>Keine Leihgeräte hinterlegt</div>}
         </div>
       </section>
