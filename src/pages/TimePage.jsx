@@ -165,6 +165,7 @@ function TabErfassen() {
 // ── Tab 2: Übersicht ──────────────────────────────────────────────────────────
 function TabUebersicht() {
   const { entries } = useTime()
+  const { projects } = useOps()
   const today = isoToday()
   const [weekOffset, setWeekOffset] = useState(0)
   const currentWeek = weekStart(addDays(today, weekOffset * 7))
