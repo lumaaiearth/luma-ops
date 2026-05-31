@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useIsMobile } from '../lib/useIsMobile.js'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -27,9 +28,11 @@ function FlyTo({ center }) {
 export default function MapPage() {
   const { projects, jobs } = useOps()
   const today = isoToday()
+  const isMobile = useIsMobile()
   const [activeProject, setActiveProject] = useState(null)
   const [showJobs, setShowJobs] = useState(true)
   const [flyTarget, setFlyTarget] = useState(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Upcoming jobs (next 14 days)
   const upcomingJobs = useMemo(() => {
@@ -51,6 +54,7 @@ export default function MapPage() {
   function focusProject(p) {
     setActiveProject(p.id === activeProject ? null : p.id)
     if (p.lat && p.lng) setFlyTarget([p.lat, p.lng])
+    if (isMobile) setSidebarOpen(false)
   }
 
   const POPUP = {
@@ -62,11 +66,8 @@ export default function MapPage() {
     minWidth: 180,
   }
 
-  return (
-    <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
-
-      {/* Sidebar */}
-      <div style={{ width: 260, flexShrink: 0, background: SURFACE, borderRight: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+  const sidebarContent = (
+    <div style={{ width: isMobile ? '100%' : 260, flexShrink: 0, background: SURFACE, borderRight: isMobile ? 'none' : `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100%' }}>
         <div style={{ padding: '20px 16px 14px', borderBottom: `1px solid ${BORDER}` }}>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 10 }}>Karte</div>
           <button
@@ -119,7 +120,14 @@ export default function MapPage() {
             )
           })}
         </div>
-      </div>
+    </div>
+  )
+
+  return (
+    <div style={{ display: 'flex', height: '100%', overflow: 'hidden', position: 'relative' }}>
+
+      {/* Desktop sidebar */}
+      {!isMobile && sidebarContent}
 
       {/* Map */}
       <div style={{ flex: 1, position: 'relative' }}>
@@ -196,7 +204,27 @@ export default function MapPage() {
             )
           })}
         </MapContainer>
+
+        {/* Mobile sidebar toggle */}
+        {isMobile && (
+          <button
+            onClick={() => setSidebarOpen(v => !v)}
+            style={{ position: 'absolute', top: 12, left: 12, zIndex: 1000, background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '8px 14px', color: FG, cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}
+          >
+            {sidebarOpen ? '✕ Schließen' : '☰ Projekte'}
+          </button>
+        )}
       </div>
+
+      {/* Mobile sidebar overlay */}
+      {isMobile && sidebarOpen && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 999 }} onClick={() => setSidebarOpen(false)}>
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
+          <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '80%', maxWidth: 300 }} onClick={e => e.stopPropagation()}>
+            {sidebarContent}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

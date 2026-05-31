@@ -4,6 +4,7 @@ import { A, SURFACE, BORDER, FG, MUTED } from '../lib/theme.js'
 import { JOB_TYPES, TEAM } from '../data/seed.js'
 import { isoToday, addDays, formatDate } from '../lib/storage.js'
 import { AlertTriangle, CheckCircle2, Clock, Repeat } from 'lucide-react'
+import { useIsMobile } from '../lib/useIsMobile.js'
 
 const STATUS_COLORS = { planned: '#6EA8C0', in_progress: A, done: '#22EAA7', cancelled: '#6B7280' }
 const STATUS_LABELS = { planned: 'Geplant', in_progress: 'Läuft', done: 'Erledigt', cancelled: 'Abgesagt' }
@@ -21,6 +22,7 @@ function StatCard({ label, value, sub, color }) {
 export default function DashboardPage() {
   const { jobs, recurring, sensors, projects } = useOps()
   const { user } = useAuth()
+  const isMobile = useIsMobile()
   const today = isoToday()
   const tomorrow = addDays(today, 1)
 
@@ -37,7 +39,7 @@ export default function DashboardPage() {
     .slice(0, 8)
 
   return (
-    <div style={{ padding: 24, maxWidth: 1100, margin: '0 auto' }}>
+    <div style={{ padding: isMobile ? 16 : 24, maxWidth: 1100, margin: '0 auto' }}>
       {/* Greeting */}
       <div style={{ marginBottom: 28 }}>
         <h1 style={{ fontSize: 26, fontWeight: 400, color: FG, letterSpacing: '-0.02em', marginBottom: 4 }}>
@@ -87,7 +89,7 @@ export default function DashboardPage() {
         <StatCard label="Sensoren" value={`${criticalSensors.length + warningSensors.length}`} sub={criticalSensors.length > 0 ? `${criticalSensors.length} kritisch` : 'alles ok'} color={criticalSensors.length > 0 ? '#ef4444' : warningSensors.length > 0 ? '#F59E0B' : undefined} />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 320px', gap: 20, alignItems: 'start' }}>
         {/* Upcoming jobs */}
         <div>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 12 }}>
