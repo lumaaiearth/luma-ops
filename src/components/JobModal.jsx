@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { X, Repeat, MapPin } from 'lucide-react'
 import { TEAM, JOB_TYPES } from '../data/seed.js'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import JobPhotos from './JobPhotos.jsx'
 
-import { A, SURFACE, BORDER, FG, MUTED, CARD, A06, A08 } from '../lib/theme.js'
+import { A, SURFACE, BORDER, FG, MUTED, CARD, A06, A08, A14 } from '../lib/theme.js'
 import { isoToday } from '../lib/storage.js'
 
 const INPUT_STYLE = {
@@ -17,6 +17,71 @@ const INPUT_STYLE = {
 const LABEL_STYLE = {
   fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED,
   letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6, display: 'block',
+}
+
+const TIME_SLOTS = Array.from({ length: 96 }, (_, i) => {
+  const h = Math.floor(i / 4), m = (i % 4) * 15
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+})
+
+function TimePicker({ value, onChange }) {
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef(null)
+  const listRef = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = e => { if (!wrapRef.current?.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  useEffect(() => {
+    if (!open || !listRef.current || !value) return
+    const idx = TIME_SLOTS.indexOf(value)
+    if (idx >= 0) listRef.current.scrollTop = Math.max(0, idx * 36 - 90)
+  }, [open, value])
+
+  return (
+    <div ref={wrapRef} style={{ position: 'relative', flex: 1 }}>
+      <input
+        type="time"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onFocus={() => setOpen(true)}
+        onClick={() => setOpen(true)}
+        style={{ ...INPUT_STYLE, cursor: 'pointer' }}
+      />
+      {open && (
+        <div ref={listRef} style={{
+          position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 400,
+          background: CARD, border: `1px solid ${BORDER}`, borderRadius: 6,
+          maxHeight: 220, overflowY: 'auto',
+          boxShadow: '0 12px 32px rgba(0,0,0,0.55)',
+        }}>
+          {TIME_SLOTS.map(slot => {
+            const sel = slot === value
+            return (
+              <div key={slot}
+                onMouseDown={e => { e.preventDefault(); onChange(slot); setOpen(false) }}
+                style={{
+                  padding: '8px 14px', cursor: 'pointer',
+                  fontFamily: "'Space Mono', monospace", fontSize: 12,
+                  color: sel ? A : FG,
+                  background: sel ? A14 : 'transparent',
+                  borderLeft: sel ? `2px solid ${A}` : '2px solid transparent',
+                }}
+                onMouseEnter={e => { if (!sel) e.currentTarget.style.background = A06 }}
+                onMouseLeave={e => { if (!sel) e.currentTarget.style.background = 'transparent' }}
+              >
+                {slot}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function QuickProjectModal({ clients, onSave, onClose }) {
@@ -276,13 +341,11 @@ export default function JobModal({ initialDate, initialJob, initialStartTime, in
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={LABEL_STYLE}>Von</label>
-              <input type="time" style={INPUT_STYLE} value={form.start_time}
-                onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))} />
+              <TimePicker value={form.start_time} onChange={v => setForm(f => ({ ...f, start_time: v }))} />
             </div>
             <div>
               <label style={LABEL_STYLE}>Bis</label>
-              <input type="time" style={INPUT_STYLE} value={form.end_time}
-                onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))} />
+              <TimePicker value={form.end_time} onChange={v => setForm(f => ({ ...f, end_time: v }))} />
             </div>
           </div>
 
