@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { MapContainer, TileLayer, WMSTileLayer, Marker, Popup, useMap, GeoJSON } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -118,6 +118,7 @@ export default function MapPage() {
   const { projects, jobs, updateProject } = useOps()
   const { user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const today = isoToday()
   const isMobile = useIsMobile()
   const [activeProject, setActiveProject] = useState(null)
@@ -155,6 +156,16 @@ export default function MapPage() {
 
   // Assign colors to projects deterministically
   const projectColor = (p, i) => p.color || PROJECT_COLORS[i % PROJECT_COLORS.length]
+
+  useEffect(() => {
+    const focusId = location.state?.focusProjectId
+    if (!focusId || projects.length === 0) return
+    const p = projects.find(pr => pr.id === focusId)
+    if (p?.lat && p?.lng) {
+      setActiveProject(p.id)
+      setFlyTarget([p.lat, p.lng])
+    }
+  }, [location.state, projects])
 
   function focusProject(p) {
     setActiveProject(p.id === activeProject ? null : p.id)
