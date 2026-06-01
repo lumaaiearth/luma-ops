@@ -8,8 +8,8 @@ import { JOB_TYPES, TEAM, VEHICLES } from '../data/seed.js'
 import { isoToday, weekStart, getWeekDays, addDays } from '../lib/storage.js'
 
 const DAY_NAMES = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
-const HOUR_START = 7
-const HOUR_END = 21
+const HOUR_START = 2
+const HOUR_END = 23
 const PX_PER_HOUR = 72
 const TOTAL_H = (HOUR_END - HOUR_START) * PX_PER_HOUR
 const HOURS = Array.from({ length: HOUR_END - HOUR_START }, (_, i) => HOUR_START + i)
@@ -63,6 +63,7 @@ function getClientColor(job, projects, clients) {
 function EventBlock({ job, projects, clients, onOpen, onDragStart, onDragEnd }) {
   const type = JOB_TYPES.find(t => t.id === job.job_type)
   const clientColor = getClientColor(job, projects, clients)
+  const bgColor = job.color || clientColor
   const typeColor = type?.color || '#08AA56'
   const assignees = TEAM.filter(u => (job.assigned_users || []).includes(u.id))
 
@@ -83,33 +84,33 @@ function EventBlock({ job, projects, clients, onOpen, onDragStart, onDragEnd }) 
         top, height,
         left: `calc(${job.col * colW}% + 2px)`,
         width: `calc(${colW}% - 4px)`,
-        background: `${clientColor}1c`,
-        border: `1px solid ${clientColor}35`,
-        borderLeft: `3px solid ${typeColor}`,
+        background: bgColor,
+        border: '1px solid rgba(0,0,0,0.18)',
+        borderLeft: `3px solid rgba(0,0,0,0.28)`,
         borderRadius: 4,
         padding: compact ? '2px 6px' : '4px 8px',
         overflow: 'hidden',
         cursor: 'grab',
         zIndex: 1,
         boxSizing: 'border-box',
-        transition: 'background 0.1s',
+        transition: 'filter 0.1s',
       }}
-      onMouseEnter={e => e.currentTarget.style.background = `${clientColor}30`}
-      onMouseLeave={e => e.currentTarget.style.background = `${clientColor}1c`}
+      onMouseEnter={e => e.currentTarget.style.filter = 'brightness(1.12)'}
+      onMouseLeave={e => e.currentTarget.style.filter = 'none'}
     >
-      <div style={{ fontSize: 11, fontWeight: 600, color: FG, lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {job.title}
       </div>
       {!compact && (
-        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: typeColor, marginTop: 1 }}>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: 'rgba(255,255,255,0.82)', marginTop: 1 }}>
           {job.start_time}–{job.end_time}
         </div>
       )}
       {!compact && assignees.length > 0 && (
         <div style={{ display: 'flex', gap: 2, marginTop: 3 }}>
           {assignees.slice(0, 4).map(u => (
-            <div key={u.id} style={{ width: 14, height: 14, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 6, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
+            <div key={u.id} style={{ width: 15, height: 15, borderRadius: '50%', background: 'rgba(255,255,255,0.22)', border: '1px solid rgba(255,255,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 6, color: '#fff', fontWeight: 700 }}>{u.initials}</span>
             </div>
           ))}
         </div>
@@ -132,7 +133,7 @@ function AllDayStrip({ jobs, projects, clients, onOpen, date }) {
         const clientColor = getClientColor(job, projects, clients)
         return (
           <div key={job.id} onClick={() => onOpen(job)}
-            style={{ fontSize: 10, color: FG, background: `${clientColor}22`, borderLeft: `2px solid ${type?.color || '#08AA56'}`, borderRadius: 2, padding: '1px 5px', cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            style={{ fontSize: 12, color: FG, background: `${clientColor}22`, borderLeft: `2px solid ${type?.color || '#08AA56'}`, borderRadius: 2, padding: '2px 5px', cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {job.title}
           </div>
         )
@@ -314,8 +315,10 @@ export default function CalendarPage() {
 
           {/* Day-header row (sticky) */}
           <div style={{ display: 'flex', borderBottom: `1px solid ${BORDER}`, flexShrink: 0, background: SURFACE }}>
-            {/* Corner */}
-            <div style={{ width: GUTTER, flexShrink: 0, borderRight: `1px solid ${BORDER}` }} />
+            {/* Corner — timezone label */}
+            <div style={{ width: GUTTER, flexShrink: 0, borderRight: `1px solid ${BORDER}`, display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', paddingBottom: 5, paddingRight: 6 }}>
+              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.05em' }}>GMT+2</span>
+            </div>
             {/* Day headers */}
             {weekDays.map((date, i) => {
               const isToday = date === today
@@ -325,8 +328,8 @@ export default function CalendarPage() {
                   style={{ flex: 1, borderRight: i < 6 ? `1px solid ${BORDER}` : 'none', padding: '8px 6px', cursor: 'pointer', background: isToday ? A0a : 'transparent', textAlign: 'center', userSelect: 'none' }}
                   onMouseEnter={e => { if (!isToday) e.currentTarget.style.background = A06 }}
                   onMouseLeave={e => { if (!isToday) e.currentTarget.style.background = 'transparent' }}>
-                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: isToday ? A : MUTED, letterSpacing: '0.1em' }}>{DAY_NAMES[i]}</div>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: '50%', background: isToday ? A : 'transparent', fontSize: 16, fontWeight: isToday ? 700 : 400, color: isToday ? '#001219' : FG, marginTop: 2 }}>
+                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: isToday ? A : MUTED, letterSpacing: '0.1em' }}>{DAY_NAMES[i]}</div>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: '50%', background: isToday ? A : 'transparent', fontSize: 18, fontWeight: isToday ? 700 : 400, color: isToday ? '#001219' : FG, marginTop: 2 }}>
                     {d.getDate()}
                   </div>
                 </div>
@@ -355,7 +358,7 @@ export default function CalendarPage() {
               {/* Time labels column */}
               <div style={{ width: GUTTER, flexShrink: 0, position: 'relative', borderRight: `1px solid ${BORDER}` }}>
                 {HOURS.map(h => (
-                  <div key={h} style={{ position: 'absolute', top: (h - HOUR_START) * PX_PER_HOUR - 7, right: 8, fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, userSelect: 'none' }}>
+                  <div key={h} style={{ position: 'absolute', top: (h - HOUR_START) * PX_PER_HOUR - 8, right: 8, fontFamily: "'Space Mono', monospace", fontSize: 12, color: MUTED, userSelect: 'none' }}>
                     {String(h).padStart(2, '0')}
                   </div>
                 ))}
@@ -375,13 +378,13 @@ export default function CalendarPage() {
                     onDragLeave={() => setDragOverDate(null)}
                     onDrop={e => handleDrop(e, date)}>
 
-                    {/* Hour grid lines */}
+                    {/* Hour grid lines — subtle, within day column only */}
                     {HOURS.map(h => (
-                      <div key={h} style={{ position: 'absolute', top: (h - HOUR_START) * PX_PER_HOUR, left: 0, right: 0, borderTop: `1px solid ${BORDER}`, pointerEvents: 'none' }} />
+                      <div key={h} style={{ position: 'absolute', top: (h - HOUR_START) * PX_PER_HOUR, left: 0, right: 0, borderTop: '1px solid rgba(255,255,255,0.07)', pointerEvents: 'none' }} />
                     ))}
                     {/* Half-hour lines */}
                     {HOURS.map(h => (
-                      <div key={`h-${h}`} style={{ position: 'absolute', top: (h - HOUR_START) * PX_PER_HOUR + PX_PER_HOUR / 2, left: 0, right: 0, borderTop: `1px dashed ${BORDER}`, opacity: 0.4, pointerEvents: 'none' }} />
+                      <div key={`h-${h}`} style={{ position: 'absolute', top: (h - HOUR_START) * PX_PER_HOUR + PX_PER_HOUR / 2, left: 0, right: 0, borderTop: '1px solid rgba(255,255,255,0.035)', pointerEvents: 'none' }} />
                     ))}
 
                     {/* Current time indicator */}

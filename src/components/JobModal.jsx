@@ -88,6 +88,7 @@ export default function JobModal({ initialDate, initialJob, initialStartTime, in
     assigned_users: initialJob?.assigned_users || [],
     vehicle_ids: initialJob?.vehicle_ids || (initialJob?.vehicle_id ? [initialJob.vehicle_id] : []),
     location: initialJob?.location || '',
+    color: initialJob?.color || '',
     tools: initialJob?.tools || [],
     notes: initialJob?.notes || '',
     interval_days: 14,
@@ -162,6 +163,7 @@ export default function JobModal({ initialDate, initialJob, initialStartTime, in
       vehicle_ids: form.vehicle_ids,
       vehicle_id: form.vehicle_ids[0] || null,
       location: form.location || null,
+      color: form.color || null,
       tools: form.tools,
       notes: form.notes,
       status: 'planned',
@@ -231,10 +233,27 @@ export default function JobModal({ initialDate, initialJob, initialStartTime, in
               )}
             </div>
             <div>
-              <label style={LABEL_STYLE}>Typ</label>
-              <select style={{ ...INPUT_STYLE, borderColor: typeColor + '60', color: typeColor }} value={form.job_type} onChange={e => setForm(f => ({ ...f, job_type: e.target.value }))}>
-                {JOB_TYPES.map(t => <option key={t.id} value={t.id} style={{ color: FG }}>{t.label}</option>)}
-              </select>
+              <label style={LABEL_STYLE}>Typ &amp; Farbe</label>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'stretch' }}>
+                <select style={{ ...INPUT_STYLE, flex: 1, borderColor: typeColor + '60', color: typeColor }} value={form.job_type} onChange={e => setForm(f => ({ ...f, job_type: e.target.value }))}>
+                  {JOB_TYPES.map(t => <option key={t.id} value={t.id} style={{ color: FG }}>{t.label}</option>)}
+                </select>
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <input
+                    type="color"
+                    value={form.color || '#08AA56'}
+                    title={form.color ? 'Benutzerdefinierte Farbe — Doppelklick zum Zurücksetzen' : 'Klick für eigene Eventfarbe (überschreibt Projektfarbe)'}
+                    onChange={e => setForm(f => ({ ...f, color: e.target.value }))}
+                    onDoubleClick={() => setForm(f => ({ ...f, color: '' }))}
+                    style={{ width: 42, height: '100%', minHeight: 42, padding: 3, borderRadius: 6, border: `1px solid ${form.color ? form.color + '80' : BORDER}`, background: SURFACE, cursor: 'pointer', display: 'block' }}
+                  />
+                  {form.color && (
+                    <div style={{ position: 'absolute', top: -6, right: -6, width: 14, height: 14, borderRadius: '50%', background: '#6B7280', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 9, color: '#fff', lineHeight: 1 }}
+                      onClick={() => setForm(f => ({ ...f, color: '' }))}>×</div>
+                  )}
+                </div>
+              </div>
+              {form.color && <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, marginTop: 4 }}>Doppelklick auf Swatch → Projektfarbe</div>}
             </div>
           </div>
 
