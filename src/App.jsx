@@ -16,6 +16,7 @@ import JobsPage from './pages/JobsPage.jsx'
 import SensorsPage from './pages/SensorsPage.jsx'
 import TeamPage from './pages/TeamPage.jsx'
 import SettingsPage from './pages/SettingsPage.jsx'
+import ProjectPage from './pages/ProjectPage.jsx'
 
 function RequireAuth({ children }) {
   const { user } = useAuth()
@@ -38,6 +39,7 @@ function AppRoutes() {
       <Route path="/map" element={<RequireAuth><Layout fullHeight><ErrorBoundary><MapPage /></ErrorBoundary></Layout></RequireAuth>} />
       <Route path="/settings" element={<RequireAuth><Layout><ErrorBoundary><SettingsPage /></ErrorBoundary></Layout></RequireAuth>} />
       <Route path="/data" element={<RequireAuth><Layout><ErrorBoundary><StammdatenPage /></ErrorBoundary></Layout></RequireAuth>} />
+      <Route path="/projects/:id" element={<RequireAuth><Layout><ErrorBoundary><ProjectPage /></ErrorBoundary></Layout></RequireAuth>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   )

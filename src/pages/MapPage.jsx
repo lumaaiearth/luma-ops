@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, useMap, GeoJSON } from 'react-leaflet'
+import { useNavigate } from 'react-router-dom'
+import { MapContainer, TileLayer, WMSTileLayer, Marker, Popup, useMap, GeoJSON } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import '@geoman-io/leaflet-geoman-free'
@@ -10,7 +11,7 @@ import { A, BG, SURFACE, BORDER, FG, MUTED, CARD, A06, A10, A14, A18 } from '../
 import { TEAM, JOB_TYPES } from '../data/seed.js'
 import { isoToday, addDays } from '../lib/storage.js'
 import { useIsMobile } from '../lib/useIsMobile.js'
-import { Layers, Satellite, Map as MapIcon, Pencil, Save, X } from 'lucide-react'
+import { Layers, Satellite, Map as MapIcon, Pencil, Save, X, ExternalLink } from 'lucide-react'
 
 const TILES = {
   satellite: {
@@ -116,6 +117,7 @@ function DrawControl({ project, onSave, onCancel }) {
 export default function MapPage() {
   const { projects, jobs, updateProject } = useOps()
   const { user } = useAuth()
+  const navigate = useNavigate()
   const today = isoToday()
   const isMobile = useIsMobile()
   const [activeProject, setActiveProject] = useState(null)
@@ -123,8 +125,17 @@ export default function MapPage() {
   const [flyTarget, setFlyTarget] = useState(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [tileLayer, setTileLayer] = useState('satellite')
-  const [drawingProject, setDrawingProject] = useState(null) // project being drawn
+  const [drawingProject, setDrawingProject] = useState(null)
+  const [activeLayers, setActiveLayers] = useState(new Set())
   const isAdmin = user?.role === 'admin' || user?.role === 'manager'
+
+  function toggleLayer(id) {
+    setActiveLayers(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
 
   const upcomingJobs = useMemo(() => {
     const limit = addDays(today, 14)
@@ -159,6 +170,15 @@ export default function MapPage() {
 
   const tile = TILES[tileLayer]
 
+  const OPEN_LAYERS = [
+    { id: 'heatisland', label: 'Wärmeinseln', color: '#ef4444',
+      wms: { url: 'https://fbinter.stadt-berlin.de/fb/wms/senstadt/k07_06stadtklima2015', layers: 'fb:k07_06stadtklima2015', format: 'image/png', transparent: true, opacity: 0.55 } },
+    { id: 'biotop', label: 'Biotopkataster', color: '#22EAA7',
+      wms: { url: 'https://fbinter.stadt-berlin.de/fb/wms/senstadt/biotopkataster', layers: 'fb:biotopkataster', format: 'image/png', transparent: true, opacity: 0.6 } },
+    { id: 'gruenflaechen', label: 'Grünflächen', color: '#4ade80',
+      wms: { url: 'https://fbinter.stadt-berlin.de/fb/wms/senstadt/k_gruenanlagenbestand2020_wms', layers: 'fb:gruenanlagenbestand2020', format: 'image/png', transparent: true, opacity: 0.55 } },
+  ]
+
   const sidebarContent = (
     <div style={{ width: isMobile ? '100%' : 260, background: SURFACE, borderRight: isMobile ? 'none' : `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100%' }}>
       <div style={{ padding: '16px 14px 12px', borderBottom: `1px solid ${BORDER}` }}>
@@ -184,7 +204,20 @@ export default function MapPage() {
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '10px 8px' }}>
-        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '4px 8px 8px' }}>Projekte</div>
+        {/* Open data layers */}
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '4px 8px 6px' }}>Open Data Layers</div>
+        {OPEN_LAYERS.map(layer => {
+          const on = activeLayers.has(layer.id)
+          return (
+            <button key={layer.id} onClick={() => toggleLayer(layer.id)}
+              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 6, border: `1px solid ${on ? layer.color + '60' : BORDER}`, background: on ? layer.color + '15' : 'transparent', color: on ? layer.color : MUTED, cursor: 'pointer', fontSize: 12, width: '100%', marginBottom: 3, textAlign: 'left' }}>
+              <div style={{ width: 8, height: 8, borderRadius: 2, background: layer.color, flexShrink: 0 }} />
+              {layer.label}
+              <span style={{ marginLeft: 'auto', fontFamily: "'Space Mono', monospace", fontSize: 9 }}>{on ? 'AN' : 'AUS'}</span>
+            </button>
+          )
+        })}
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '10px 8px 6px' }}>Projekte</div>
         {mappableProjects.map((p, i) => {
           const pJobs = jobsByProject[p.id] || []
           const isActive = activeProject === p.id
@@ -271,6 +304,13 @@ export default function MapPage() {
 
           <TileLayer key={tileLayer} url={tile.url} attribution={tile.attribution} maxZoom={tile.maxZoom} />
 
+          {/* Open data WMS layers */}
+          {OPEN_LAYERS.filter(l => activeLayers.has(l.id)).map(layer => (
+            <WMSTileLayer key={layer.id} url={layer.wms.url} layers={layer.wms.layers}
+              format={layer.wms.format} transparent={layer.wms.transparent} opacity={layer.wms.opacity}
+              version="1.3.0" attribution={`© Senatsverwaltung Berlin`} />
+          ))}
+
           {flyTarget && <FlyTo center={flyTarget} />}
 
           {/* Project GeoJSON polygons */}
@@ -300,6 +340,10 @@ export default function MapPage() {
                         {jobsByProject[p.id].length} Einsatz{jobsByProject[p.id].length > 1 ? 'e' : ''} (14 Tage)
                       </div>
                     )}
+                    <button onClick={() => navigate(`/projects/${p.id}`)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 8, padding: '5px 10px', borderRadius: 5, background: color + '20', border: `1px solid ${color}50`, color, cursor: 'pointer', fontSize: 11, fontFamily: "'Space Grotesk', sans-serif", width: '100%', justifyContent: 'center' }}>
+                      <ExternalLink size={11} /> Projektseite öffnen
+                    </button>
                   </div>
                 </Popup>
               </Marker>
