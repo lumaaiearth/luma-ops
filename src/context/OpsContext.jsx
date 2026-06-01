@@ -83,7 +83,19 @@ export function OpsProvider({ children }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, payload => {
         setJobsState(prev => {
           if (payload.eventType === 'DELETE') return prev.filter(j => j.id !== payload.old.id)
-          if (payload.eventType === 'INSERT') return [...prev.filter(j => j.id !== payload.new.id), payload.new]
+          if (payload.eventType === 'INSERT') {
+            const existing = prev.find(j => j.id === payload.new.id)
+            // Merge: keep local non-null values for fields that Supabase may return null
+            // (can happen briefly after schema migration or if Realtime lags behind upsert)
+            const merged = existing ? {
+              ...payload.new,
+              start_time:  payload.new.start_time  ?? existing.start_time  ?? null,
+              end_time:    payload.new.end_time    ?? existing.end_time    ?? null,
+              vehicle_ids: payload.new.vehicle_ids ?? existing.vehicle_ids ?? [],
+              location:    payload.new.location    ?? existing.location    ?? null,
+            } : payload.new
+            return [...prev.filter(j => j.id !== merged.id), merged]
+          }
           return prev.map(j => j.id === payload.new.id ? payload.new : j)
         })
       })
