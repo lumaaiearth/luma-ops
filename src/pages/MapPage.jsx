@@ -47,7 +47,9 @@ function makePin(color, size = 14) {
 
 function FlyTo({ center }) {
   const map = useMap()
-  if (center) map.flyTo(center, 15, { duration: 1 })
+  useEffect(() => {
+    if (center) map.flyTo(center, 17, { duration: 1.2 })
+  }, [center, map])
   return null
 }
 
