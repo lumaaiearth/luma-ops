@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { LayoutDashboard, CalendarDays, ListChecks, Radio, Users, Settings, LogOut, Menu, X, Clock, Map, Database, MoreHorizontal } from 'lucide-react'
+import { LayoutDashboard, CalendarDays, ListChecks, Radio, Users, Settings, LogOut, Menu, X, Clock, Map, Database, FolderOpen, MoreHorizontal } from 'lucide-react'
 import { A, BG, SURFACE, BORDER, FG, MUTED, A14, A06 } from '../lib/theme.js'
 
 const NAV = [
@@ -11,6 +11,7 @@ const NAV = [
   { to: '/map',        icon: Map,             label: 'Karte' },
   { to: '/time',       icon: Clock,           label: 'Zeiten' },
   { to: '/data',       icon: Database,        label: 'Stammdaten' },
+  { to: '/drive',       icon: FolderOpen,      label: 'Drive' },
   { to: '/sensors',    icon: Radio,           label: 'Sensoren' },
   { to: '/team',       icon: Users,           label: 'Team' },
   { to: '/settings',   icon: Settings,        label: 'Einstellungen' },

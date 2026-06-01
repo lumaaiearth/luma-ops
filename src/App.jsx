@@ -17,6 +17,7 @@ import SensorsPage from './pages/SensorsPage.jsx'
 import TeamPage from './pages/TeamPage.jsx'
 import SettingsPage from './pages/SettingsPage.jsx'
 import ProjectPage from './pages/ProjectPage.jsx'
+import DrivePage from './pages/DrivePage.jsx'
 
 function RequireAuth({ children }) {
   const { user } = useAuth()
@@ -31,7 +32,7 @@ function AppRoutes() {
       <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
       <Route path="/" element={<RequireAuth><Layout><Navigate to="/dashboard" replace /></Layout></RequireAuth>} />
       <Route path="/dashboard" element={<RequireAuth><Layout><ErrorBoundary><DashboardPage /></ErrorBoundary></Layout></RequireAuth>} />
-      <Route path="/calendar" element={<RequireAuth><Layout><ErrorBoundary><CalendarPage /></ErrorBoundary></Layout></RequireAuth>} />
+      <Route path="/calendar" element={<RequireAuth><Layout fullHeight><ErrorBoundary><CalendarPage /></ErrorBoundary></Layout></RequireAuth>} />
       <Route path="/jobs" element={<RequireAuth><Layout><ErrorBoundary><JobsPage /></ErrorBoundary></Layout></RequireAuth>} />
       <Route path="/sensors" element={<RequireAuth><Layout><ErrorBoundary><SensorsPage /></ErrorBoundary></Layout></RequireAuth>} />
       <Route path="/team" element={<RequireAuth><Layout><ErrorBoundary><TeamPage /></ErrorBoundary></Layout></RequireAuth>} />
@@ -39,6 +40,7 @@ function AppRoutes() {
       <Route path="/map" element={<RequireAuth><Layout fullHeight><ErrorBoundary><MapPage /></ErrorBoundary></Layout></RequireAuth>} />
       <Route path="/settings" element={<RequireAuth><Layout><ErrorBoundary><SettingsPage /></ErrorBoundary></Layout></RequireAuth>} />
       <Route path="/data" element={<RequireAuth><Layout><ErrorBoundary><StammdatenPage /></ErrorBoundary></Layout></RequireAuth>} />
+      <Route path="/drive" element={<RequireAuth><Layout><ErrorBoundary><DrivePage /></ErrorBoundary></Layout></RequireAuth>} />
       <Route path="/projects/:id" element={<RequireAuth><Layout><ErrorBoundary><ProjectPage /></ErrorBoundary></Layout></RequireAuth>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
