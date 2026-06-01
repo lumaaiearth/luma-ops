@@ -46,8 +46,8 @@ export default function JobPhotos({ jobId, uploadedBy }) {
         const blob = await compressImage(file)
         const url = await sbUploadPhoto(jobId, photoId, blob)
         const row = { id: photoId, job_id: jobId, url, uploaded_by: uploadedBy, created_at: new Date().toISOString() }
-        await sbInsert('job_photos', row)
         setPhotos(prev => [...prev, row])
+        sbInsert('job_photos', row).catch(console.error)
       } catch (e) {
         console.error('Upload failed:', e)
       }

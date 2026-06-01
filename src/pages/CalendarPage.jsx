@@ -159,7 +159,9 @@ export default function CalendarPage() {
   })
   const scrollRef = useRef(null)
   const dragJob = useRef(null)
+  const dragOffsetMin = useRef(0)
   const [dragOverDate, setDragOverDate] = useState(null)
+  const [dragPreview, setDragPreview] = useState(null) // { date, startMin, endMin, color }
 
   const weekDays = getWeekDays(currentWeek)
 
@@ -194,18 +196,70 @@ export default function CalendarPage() {
     setCurrentMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
   }
 
-  function handleDragStart(e, job) { dragJob.current = job; e.dataTransfer.effectAllowed = 'move' }
-  function handleDragEnd() { dragJob.current = null; setDragOverDate(null) }
-  function handleDragOver(e, date) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverDate(date) }
+  function calcDropTime(e) {
+    if (!scrollRef.current) return null
+    const rect = scrollRef.current.getBoundingClientRect()
+    const relY = e.clientY - rect.top + scrollRef.current.scrollTop
+    const rawMin = (relY / PX_PER_HOUR) * 60 + HOUR_START * 60 - dragOffsetMin.current
+    return Math.round(rawMin / 15) * 15
+  }
+
+  function handleDragStart(e, job) {
+    dragJob.current = job
+    e.dataTransfer.effectAllowed = 'move'
+    if (job.start_time && job.end_time) {
+      const rect = e.currentTarget.getBoundingClientRect()
+      const yInEvent = e.clientY - rect.top
+      dragOffsetMin.current = Math.max(0, Math.round((yInEvent / PX_PER_HOUR) * 60 / 15) * 15)
+    } else {
+      dragOffsetMin.current = 0
+    }
+  }
+
+  function handleDragEnd() {
+    dragJob.current = null
+    dragOffsetMin.current = 0
+    setDragOverDate(null)
+    setDragPreview(null)
+  }
+
+  function handleDragOver(e, date) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverDate(date)
+    const job = dragJob.current
+    if (!job?.start_time || !job?.end_time) return
+    const snappedStart = calcDropTime(e)
+    if (snappedStart === null) return
+    const clampedStart = Math.max(HOUR_START * 60, Math.min(snappedStart, HOUR_END * 60 - 30))
+    const duration = timeToMin(job.end_time) - timeToMin(job.start_time)
+    const endMin = Math.min(clampedStart + duration, HOUR_END * 60)
+    setDragPreview({ date, startMin: clampedStart, endMin, color: job.color || '#6B7280' })
+  }
+
   function handleDrop(e, targetDate) {
-    e.preventDefault(); setDragOverDate(null)
-    const job = dragJob.current; dragJob.current = null
-    if (!job || job.date === targetDate) return
+    e.preventDefault()
+    setDragOverDate(null)
+    setDragPreview(null)
+    const job = dragJob.current
+    dragJob.current = null
+    dragOffsetMin.current = 0
+    if (!job) return
     const changes = { date: targetDate }
+    if (job.start_time && job.end_time) {
+      const snappedStart = calcDropTime(e)
+      if (snappedStart !== null) {
+        const clampedStart = Math.max(HOUR_START * 60, Math.min(snappedStart, HOUR_END * 60 - 30))
+        const duration = timeToMin(job.end_time) - timeToMin(job.start_time)
+        changes.start_time = minToTime(clampedStart)
+        changes.end_time = minToTime(Math.min(clampedStart + duration, HOUR_END * 60))
+      }
+    }
     if (job.date_end && job.date_end > job.date) {
       const span = Math.round((new Date(job.date_end + 'T00:00:00') - new Date(job.date + 'T00:00:00')) / 86400000)
       changes.date_end = addDays(targetDate, span)
     }
+    if (job.date === targetDate && changes.start_time === job.start_time && !changes.date_end) return
     updateJob(job.id, changes)
   }
 
@@ -375,7 +429,7 @@ export default function CalendarPage() {
                     style={{ flex: 1, position: 'relative', borderRight: i < 6 ? `1px solid ${BORDER}` : 'none', background: isDragOver ? A0d : isToday ? `${A}06` : 'transparent', transition: 'background 0.1s', cursor: 'crosshair' }}
                     onClick={e => handleColumnClick(e, date)}
                     onDragOver={e => handleDragOver(e, date)}
-                    onDragLeave={() => setDragOverDate(null)}
+                    onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) { setDragOverDate(null); setDragPreview(null) } }}
                     onDrop={e => handleDrop(e, date)}>
 
                     {/* Hour grid lines — subtle, within day column only */}
@@ -391,6 +445,30 @@ export default function CalendarPage() {
                     {isToday && nowTop > 0 && nowTop < TOTAL_H && (
                       <div style={{ position: 'absolute', top: nowTop, left: -1, right: 0, height: 2, background: A, pointerEvents: 'none', zIndex: 2 }}>
                         <div style={{ position: 'absolute', left: -3, top: -3, width: 8, height: 8, borderRadius: '50%', background: A }} />
+                      </div>
+                    )}
+
+                    {/* Drag ghost preview */}
+                    {dragPreview && dragPreview.date === date && (
+                      <div style={{
+                        position: 'absolute',
+                        top: (dragPreview.startMin / 60 - HOUR_START) * PX_PER_HOUR,
+                        height: Math.max(26, ((dragPreview.endMin - dragPreview.startMin) / 60) * PX_PER_HOUR - 2),
+                        left: 2, right: 2,
+                        background: dragPreview.color,
+                        opacity: 0.45,
+                        borderRadius: 4,
+                        border: '2px dashed rgba(255,255,255,0.6)',
+                        boxSizing: 'border-box',
+                        pointerEvents: 'none',
+                        zIndex: 3,
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        padding: '3px 6px',
+                      }}>
+                        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: '#fff', fontWeight: 700 }}>
+                          {minToTime(dragPreview.startMin)}–{minToTime(dragPreview.endMin)}
+                        </span>
                       </div>
                     )}
 
