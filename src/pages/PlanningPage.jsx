@@ -723,50 +723,65 @@ function PlantGallery({ plant }) {
   )
 }
 
+function CardThumb({ plant: p }) {
+  const [error, setError] = useState(false)
+  if (!p.wiki_img || error) return (
+    <div style={{ height: 110, background: p.bluete_farbe ? p.bluete_farbe + '22' : BORDER, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 36, height: 36, borderRadius: '50%', background: p.bluete_farbe || A, opacity: 0.5 }} />
+    </div>
+  )
+  return (
+    <img src={p.wiki_img} alt={p.latin}
+      style={{ width: '100%', height: 110, objectFit: 'cover', display: 'block' }}
+      onError={() => setError(true)} />
+  )
+}
+
 function PlantCard({ plant: p, expanded, onToggle, onAdd, inPlan, isMobile, L, shadow, cardBg }) {
   return (
     <div onClick={isMobile ? onToggle : undefined} style={{ background: cardBg, borderRadius: 10, boxShadow: shadow, overflow: 'hidden', cursor: isMobile ? 'pointer' : 'default' }}>
-      <div style={{ height: 3, background: p.bluete_farbe || '#888', opacity: 0.75 }} />
-      <div style={{ padding: '13px 15px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
-              {p.heimisch && <span style={{ fontSize: 9, background: '#047A3C18', color: '#047A3C', border: '1px solid #047A3C30', padding: '1px 6px', borderRadius: 100, fontWeight: 700, flexShrink: 0 }}>heimisch</span>}
-            </div>
-            <div style={{ fontSize: 10, fontStyle: 'italic', color: MUTED, marginBottom: 8 }}>{p.latin}</div>
-
-            {/* Badges */}
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 7 }}>
-              <MBadge emoji="☀️" label={p.licht.map(l => LICHT_LABELS[l]).join('/')} L={L} />
-              <MBadge emoji="💧" label={p.wasser.map(w => WASSER_LABELS[w]).join('/')} L={L} />
-              <MBadge emoji="📏" label={`${p.hoehe[0]}–${p.hoehe[1]}cm`} L={L} />
-              <MBadge emoji="🌸" label={`${MONTHS[p.bluete_monate[0]-1]}–${MONTHS[p.bluete_monate[p.bluete_monate.length-1]-1]}`} L={L} />
-              {p.pflanzabstand && <MBadge emoji="↔️" label={`${p.pflanzabstand}cm`} L={L} />}
-            </div>
-
-            {/* Eco row */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              {p.bienen && <span title="Bienen">🐝</span>}
-              {p.tagfalter && <span title="Tagfalter">🦋</span>}
-              {p.nachtfalter && <span title="Nachtfalter">🌙</span>}
-              {p.raupenfutter && <span title="Raupenfutterpflanze">🐛</span>}
-              {p.kaefer && <span title="Käfer">🪲</span>}
-              {p.voegel && <span title="Vögel">🐦</span>}
-              <div style={{ marginLeft: 4, display: 'flex', gap: 1 }}>
-                {[1,2,3,4,5].map(i => <div key={i} style={{ width: 5, height: 5, borderRadius: 1, background: i <= (p.nektar || p.insekten || 0) ? A : BORDER, opacity: i <= (p.nektar || p.insekten || 0) ? 1 : 0.35 }} />)}
-              </div>
-              <span style={{ fontSize: 9, color: MUTED }}>Nektar</span>
-            </div>
+      <div style={{ position: 'relative' }}>
+        <CardThumb plant={p} />
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 40, background: 'linear-gradient(transparent, rgba(0,0,0,0.45))' }} />
+        <button onClick={e => { e.stopPropagation(); onAdd() }} style={{
+          position: 'absolute', top: 8, right: 8,
+          width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+          background: inPlan ? '#047A3C' : 'rgba(0,0,0,0.45)', border: 'none',
+          color: '#fff', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700,
+        }}>{inPlan ? inPlan.count : <Plus size={13} />}</button>
+        <div style={{ position: 'absolute', bottom: 6, left: 10, right: 44, overflow: 'hidden' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{p.name}</div>
+        </div>
+      </div>
+      <div style={{ height: 2, background: p.bluete_farbe || '#888', opacity: 0.7 }} />
+      <div style={{ padding: '10px 13px' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
+            <div style={{ fontSize: 10, fontStyle: 'italic', color: MUTED, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.latin}</div>
+            {p.heimisch && <span style={{ fontSize: 8, background: '#047A3C18', color: '#047A3C', border: '1px solid #047A3C30', padding: '1px 5px', borderRadius: 100, fontWeight: 700, flexShrink: 0 }}>heimisch</span>}
           </div>
 
-          {/* Add btn */}
-          <button onClick={e => { e.stopPropagation(); onAdd() }} style={{
-            width: 30, height: 30, borderRadius: 8, flexShrink: 0,
-            background: inPlan ? '#047A3C' : A14, border: `1px solid ${inPlan ? '#047A3C' : A20}`,
-            color: inPlan ? '#fff' : A, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700,
-          }}>{inPlan ? inPlan.count : <Plus size={13} />}</button>
+          {/* Badges */}
+          <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginBottom: 6 }}>
+            <MBadge emoji="☀️" label={p.licht.map(l => LICHT_LABELS[l]).join('/')} L={L} />
+            <MBadge emoji="💧" label={p.wasser.map(w => WASSER_LABELS[w]).join('/')} L={L} />
+            <MBadge emoji="📏" label={`${p.hoehe[0]}–${p.hoehe[1]}cm`} L={L} />
+            <MBadge emoji="🌸" label={`${MONTHS[p.bluete_monate[0]-1]}–${MONTHS[p.bluete_monate[p.bluete_monate.length-1]-1]}`} L={L} />
+          </div>
+
+          {/* Eco row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            {p.bienen && <span title="Bienen" style={{ fontSize: 13 }}>🐝</span>}
+            {p.tagfalter && <span title="Tagfalter" style={{ fontSize: 13 }}>🦋</span>}
+            {p.nachtfalter && <span title="Nachtfalter" style={{ fontSize: 13 }}>🌙</span>}
+            {p.raupenfutter && <span title="Raupenfutterpflanze" style={{ fontSize: 13 }}>🐛</span>}
+            {p.kaefer && <span title="Käfer" style={{ fontSize: 13 }}>🪲</span>}
+            {p.voegel && <span title="Vögel" style={{ fontSize: 13 }}>🐦</span>}
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 1 }}>
+              {[1,2,3,4,5].map(i => <div key={i} style={{ width: 5, height: 5, borderRadius: 1, background: i <= (p.nektar || p.insekten || 0) ? A : BORDER, opacity: i <= (p.nektar || p.insekten || 0) ? 1 : 0.3 }} />)}
+            </div>
+          </div>
         </div>
 
         {/* Toggle — desktop only; mobile uses full-card tap → bottom sheet */}
