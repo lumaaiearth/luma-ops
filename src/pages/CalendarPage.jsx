@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { ChevronLeft, ChevronRight, Plus, CalendarDays } from 'lucide-react'
 import { useOps } from '../context/OpsContext.jsx'
 import { useGCal } from '../context/GCalContext.jsx'
@@ -60,69 +60,70 @@ function getClientColor(job, projects, clients) {
   return cl?.color || '#6B7280'
 }
 
-function EventBlock({ job, projects, clients, onOpen, onDragStart, onDragEnd }) {
+function EventBlock({ job, projects, clients, onOpen, onPointerDown, isGhost }) {
   const type = JOB_TYPES.find(t => t.id === job.job_type)
   const clientColor = getClientColor(job, projects, clients)
   const bgColor = job.color || clientColor
-  const typeColor = type?.color || '#08AA56'
   const assignees = TEAM.filter(u => (job.assigned_users || []).includes(u.id))
 
   const top = (job.sm / 60 - HOUR_START) * PX_PER_HOUR
   const height = Math.max(26, ((job.em - job.sm) / 60) * PX_PER_HOUR - 2)
   const colW = 100 / job.numCols
-  const compact = height < 46
+  const compact = height < 56
 
   return (
     <div
-      draggable
-      onClick={e => { e.stopPropagation(); onOpen(job) }}
-      onDragStart={e => { e.stopPropagation(); onDragStart(e, job) }}
-      onDragEnd={onDragEnd}
+      onPointerDown={e => { if (e.button === 0) onPointerDown(e, job) }}
+      onClick={e => { e.stopPropagation(); if (!isGhost) onOpen(job) }}
       title={`${job.title} · ${job.start_time}–${job.end_time}`}
       style={{
         position: 'absolute',
         top, height,
         left: `calc(${job.col * colW}% + 2px)`,
         width: `calc(${colW}% - 4px)`,
-        background: bgColor,
-        border: '1px solid rgba(0,0,0,0.18)',
-        borderLeft: `3px solid rgba(0,0,0,0.28)`,
-        borderRadius: 4,
-        padding: compact ? '2px 6px' : '5px 8px',
+        background: isGhost ? 'transparent' : bgColor,
+        border: isGhost ? `2px dashed ${bgColor}` : '1px solid rgba(0,0,0,0.18)',
+        borderLeft: isGhost ? `3px dashed ${bgColor}` : `3px solid rgba(0,0,0,0.28)`,
+        borderRadius: 5,
+        padding: compact ? '3px 7px' : '6px 9px',
         overflow: 'hidden',
-        cursor: 'grab',
-        zIndex: 1,
+        cursor: isGhost ? 'default' : 'grab',
+        zIndex: isGhost ? 0 : 1,
         boxSizing: 'border-box',
-        transition: 'filter 0.1s',
+        opacity: isGhost ? 0.35 : 1,
+        transition: 'opacity 0.15s',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'flex-start',
-        gap: 1,
+        gap: 2,
+        userSelect: 'none',
       }}
-      onMouseEnter={e => e.currentTarget.style.filter = 'brightness(1.12)'}
-      onMouseLeave={e => e.currentTarget.style.filter = 'none'}
     >
-      <div style={{ fontSize: compact ? 11 : 13, fontWeight: 700, color: '#fff', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
-        {job.title}
-      </div>
-      {!compact && job.start_time && (
-        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: 'rgba(255,255,255,0.85)', lineHeight: 1 }}>
-          {job.start_time}{job.end_time ? `–${job.end_time}` : ''}
-        </div>
-      )}
-      {!compact && job.location && (
-        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: 'rgba(255,255,255,0.7)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', lineHeight: 1 }}>
-          {job.location.split(',')[0]}
-        </div>
-      )}
-      {assignees.length > 0 && (
-        <div style={{ display: 'flex', gap: 3, marginTop: compact ? 0 : 2, flexWrap: 'nowrap' }}>
-          {assignees.slice(0, 5).map(u => (
-            <div key={u.id} title={u.name} style={{ width: compact ? 16 : 20, height: compact ? 16 : 20, borderRadius: '50%', background: 'rgba(0,0,0,0.28)', border: '1.5px solid rgba(255,255,255,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: compact ? 7 : 9, color: '#fff', fontWeight: 700, lineHeight: 1 }}>{u.initials}</span>
+      {!isGhost && (
+        <>
+          <div style={{ fontSize: compact ? 12 : 14, fontWeight: 700, color: '#fff', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
+            {job.title}
+          </div>
+          {job.start_time && (
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: compact ? 11 : 13, color: 'rgba(255,255,255,0.92)', lineHeight: 1, fontWeight: 600 }}>
+              {job.start_time}{job.end_time ? `–${job.end_time}` : ''}
             </div>
-          ))}
-        </div>
+          )}
+          {!compact && job.location && (
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: 'rgba(255,255,255,0.7)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', lineHeight: 1 }}>
+              📍 {job.location.split(',')[0]}
+            </div>
+          )}
+          {assignees.length > 0 && (
+            <div style={{ display: 'flex', gap: 3, marginTop: compact ? 0 : 2, flexWrap: 'nowrap' }}>
+              {assignees.slice(0, 5).map(u => (
+                <div key={u.id} title={u.name} style={{ width: compact ? 16 : 20, height: compact ? 16 : 20, borderRadius: '50%', background: 'rgba(0,0,0,0.28)', border: '1.5px solid rgba(255,255,255,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: compact ? 7 : 9, color: '#fff', fontWeight: 700, lineHeight: 1 }}>{u.initials}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   )
@@ -167,10 +168,15 @@ export default function CalendarPage() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
   })
   const scrollRef = useRef(null)
+  const gridContainerRef = useRef(null)
+  // ── Pointer drag state ──
+  const dragState = useRef(null) // { job, offsetMin, startX, startY, moved }
+  const [dragLive, setDragLive] = useState(null) // { job, date, startMin, endMin, clientX, clientY }
+  // legacy refs (kept for month-view HTML5 drag)
   const dragJob = useRef(null)
   const dragOffsetMin = useRef(0)
   const [dragOverDate, setDragOverDate] = useState(null)
-  const [dragPreview, setDragPreview] = useState(null) // { date, startMin, endMin, color }
+  const [dragPreview, setDragPreview] = useState(null)
 
   const weekDays = getWeekDays(currentWeek)
 
@@ -205,6 +211,73 @@ export default function CalendarPage() {
     setCurrentMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
   }
 
+  // ── Pointer drag helpers ──
+  function calcTimeFromPointer(clientY) {
+    if (!scrollRef.current) return null
+    const rect = scrollRef.current.getBoundingClientRect()
+    const relY = clientY - rect.top + scrollRef.current.scrollTop
+    const rawMin = (relY / PX_PER_HOUR) * 60 + HOUR_START * 60
+    return Math.round(rawMin / 15) * 15
+  }
+
+  function calcDateFromPointer(clientX) {
+    if (!gridContainerRef.current) return weekDays[0]
+    const rect = gridContainerRef.current.getBoundingClientRect()
+    const colW = (rect.width - GUTTER) / 7
+    const relX = clientX - rect.left - GUTTER
+    const idx = Math.max(0, Math.min(6, Math.floor(relX / colW)))
+    return weekDays[idx]
+  }
+
+  function handleEventPointerDown(e, job) {
+    e.stopPropagation()
+    e.preventDefault()
+    if (!job.start_time || !job.end_time) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const yInEvent = e.clientY - rect.top
+    const offsetMin = Math.max(0, Math.round((yInEvent / PX_PER_HOUR) * 60 / 15) * 15)
+    dragState.current = { job, offsetMin, startX: e.clientX, startY: e.clientY, moved: false }
+  }
+
+  useEffect(() => {
+    function onMove(e) {
+      const ds = dragState.current
+      if (!ds) return
+      const dx = e.clientX - ds.startX, dy = e.clientY - ds.startY
+      if (!ds.moved && Math.sqrt(dx*dx+dy*dy) < 5) return
+      ds.moved = true
+      const rawStart = calcTimeFromPointer(e.clientY)
+      if (rawStart === null) return
+      const startMin = Math.max(HOUR_START * 60, Math.min(rawStart - ds.offsetMin, HOUR_END * 60 - 30))
+      const duration = timeToMin(ds.job.end_time) - timeToMin(ds.job.start_time)
+      const endMin = Math.min(startMin + duration, HOUR_END * 60)
+      const date = calcDateFromPointer(e.clientX)
+      setDragLive({ job: ds.job, date, startMin, endMin, clientX: e.clientX, clientY: e.clientY })
+    }
+    function onUp(e) {
+      const ds = dragState.current
+      dragState.current = null
+      if (!ds) return
+      if (!ds.moved) { setDragLive(null); return }
+      setDragLive(null)
+      const rawStart = calcTimeFromPointer(e.clientY)
+      if (rawStart === null) return
+      const startMin = Math.max(HOUR_START * 60, Math.min(rawStart - ds.offsetMin, HOUR_END * 60 - 30))
+      const duration = timeToMin(ds.job.end_time) - timeToMin(ds.job.start_time)
+      const endMin = Math.min(startMin + duration, HOUR_END * 60)
+      const date = calcDateFromPointer(e.clientX)
+      updateJob(ds.job.id, {
+        date,
+        start_time: minToTime(startMin),
+        end_time: minToTime(endMin),
+      })
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    return () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp) }
+  }, [weekDays])
+
+  // Legacy for month-view HTML5 drag (kept)
   function calcDropTime(e) {
     if (!scrollRef.current) return null
     const rect = scrollRef.current.getBoundingClientRect()
@@ -212,64 +285,18 @@ export default function CalendarPage() {
     const rawMin = (relY / PX_PER_HOUR) * 60 + HOUR_START * 60 - dragOffsetMin.current
     return Math.round(rawMin / 15) * 15
   }
-
   function handleDragStart(e, job) {
     dragJob.current = job
     e.dataTransfer.effectAllowed = 'move'
-    if (job.start_time && job.end_time) {
-      const rect = e.currentTarget.getBoundingClientRect()
-      const yInEvent = e.clientY - rect.top
-      dragOffsetMin.current = Math.max(0, Math.round((yInEvent / PX_PER_HOUR) * 60 / 15) * 15)
-    } else {
-      dragOffsetMin.current = 0
-    }
-  }
-
-  function handleDragEnd() {
-    dragJob.current = null
     dragOffsetMin.current = 0
-    setDragOverDate(null)
-    setDragPreview(null)
   }
-
-  function handleDragOver(e, date) {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-    setDragOverDate(date)
-    const job = dragJob.current
-    if (!job?.start_time || !job?.end_time) return
-    const snappedStart = calcDropTime(e)
-    if (snappedStart === null) return
-    const clampedStart = Math.max(HOUR_START * 60, Math.min(snappedStart, HOUR_END * 60 - 30))
-    const duration = timeToMin(job.end_time) - timeToMin(job.start_time)
-    const endMin = Math.min(clampedStart + duration, HOUR_END * 60)
-    setDragPreview({ date, startMin: clampedStart, endMin, color: job.color || '#6B7280' })
-  }
-
+  function handleDragEnd() { dragJob.current = null; dragOffsetMin.current = 0; setDragOverDate(null) }
+  function handleDragOver(e, date) { e.preventDefault(); setDragOverDate(date) }
   function handleDrop(e, targetDate) {
-    e.preventDefault()
-    setDragOverDate(null)
-    setDragPreview(null)
-    const job = dragJob.current
-    dragJob.current = null
-    dragOffsetMin.current = 0
+    e.preventDefault(); setDragOverDate(null)
+    const job = dragJob.current; dragJob.current = null
     if (!job) return
-    const changes = { date: targetDate }
-    if (job.start_time && job.end_time) {
-      const snappedStart = calcDropTime(e)
-      if (snappedStart !== null) {
-        const clampedStart = Math.max(HOUR_START * 60, Math.min(snappedStart, HOUR_END * 60 - 30))
-        const duration = timeToMin(job.end_time) - timeToMin(job.start_time)
-        changes.start_time = minToTime(clampedStart)
-        changes.end_time = minToTime(Math.min(clampedStart + duration, HOUR_END * 60))
-      }
-    }
-    if (job.date_end && job.date_end > job.date) {
-      const span = Math.round((new Date(job.date_end + 'T00:00:00') - new Date(job.date + 'T00:00:00')) / 86400000)
-      changes.date_end = addDays(targetDate, span)
-    }
-    if (job.date === targetDate && changes.start_time === job.start_time && !changes.date_end) return
-    updateJob(job.id, changes)
+    updateJob(job.id, { date: targetDate })
   }
 
   function handleColumnClick(e, date) {
@@ -415,8 +442,43 @@ export default function CalendarPage() {
           )}
 
           {/* Scrollable time grid */}
-          <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
-            <div style={{ display: 'flex', minWidth: 600, position: 'relative', height: TOTAL_H }}>
+          <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', overflowX: 'auto', position: 'relative' }}>
+
+            {/* ── FLOATING DRAG ELEMENT ── */}
+            {dragLive && (() => {
+              const dl = dragLive
+              const bgColor = dl.job.color || getClientColor(dl.job, projects, clients)
+              const duration = dl.endMin - dl.startMin
+              const h = Math.max(40, (duration / 60) * PX_PER_HOUR)
+              return (
+                <div style={{
+                  position: 'fixed',
+                  left: dl.clientX + 12,
+                  top: dl.clientY - 20,
+                  width: 180,
+                  height: h,
+                  background: bgColor,
+                  borderRadius: 7,
+                  border: '2px solid rgba(255,255,255,0.35)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.45)',
+                  padding: '7px 10px',
+                  zIndex: 9999,
+                  pointerEvents: 'none',
+                  display: 'flex', flexDirection: 'column', gap: 3,
+                  opacity: 0.97,
+                }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{dl.job.title}</div>
+                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 15, color: '#fff', fontWeight: 800, letterSpacing: '-0.02em' }}>
+                    {minToTime(dl.startMin)}–{minToTime(dl.endMin)}
+                  </div>
+                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: 'rgba(255,255,255,0.75)' }}>
+                    {new Date(dl.date + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })}
+                  </div>
+                </div>
+              )
+            })()}
+
+            <div ref={gridContainerRef} style={{ display: 'flex', minWidth: 600, position: 'relative', height: TOTAL_H }}>
 
               {/* Time labels column */}
               <div style={{ width: GUTTER, flexShrink: 0, position: 'relative', borderRight: `1px solid ${BORDER}` }}>
@@ -457,35 +519,40 @@ export default function CalendarPage() {
                       </div>
                     )}
 
-                    {/* Drag ghost preview */}
-                    {dragPreview && dragPreview.date === date && (
+                    {/* Drop target highlight */}
+                    {dragLive && dragLive.date === date && (
                       <div style={{
                         position: 'absolute',
-                        top: (dragPreview.startMin / 60 - HOUR_START) * PX_PER_HOUR,
-                        height: Math.max(26, ((dragPreview.endMin - dragPreview.startMin) / 60) * PX_PER_HOUR - 2),
+                        top: (dragLive.startMin / 60 - HOUR_START) * PX_PER_HOUR,
+                        height: Math.max(26, ((dragLive.endMin - dragLive.startMin) / 60) * PX_PER_HOUR - 2),
                         left: 2, right: 2,
-                        background: dragPreview.color,
-                        opacity: 0.45,
-                        borderRadius: 4,
-                        border: '2px dashed rgba(255,255,255,0.6)',
+                        border: `2px solid ${dragLive.job.color || A}`,
+                        borderRadius: 5,
                         boxSizing: 'border-box',
                         pointerEvents: 'none',
-                        zIndex: 3,
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        padding: '3px 6px',
-                      }}>
-                        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: '#fff', fontWeight: 700 }}>
-                          {minToTime(dragPreview.startMin)}–{minToTime(dragPreview.endMin)}
-                        </span>
-                      </div>
+                        zIndex: 2,
+                        opacity: 0.5,
+                      }} />
                     )}
 
-                    {/* Event blocks */}
-                    {timedJobs.map(job => (
-                      <EventBlock key={job.id} job={job} projects={projects} clients={clients}
-                        onOpen={openJob} onDragStart={handleDragStart} onDragEnd={handleDragEnd} />
-                    ))}
+                    {/* Event blocks — ghost for dragged, normal for rest */}
+                    {timedJobs.map(job => {
+                      const isBeingDragged = dragLive?.job?.id === job.id
+                      return (
+                        <>
+                          {/* Ghost at original position while dragging */}
+                          {isBeingDragged && (
+                            <EventBlock key={job.id + '-ghost'} job={job} projects={projects} clients={clients}
+                              onOpen={openJob} onPointerDown={() => {}} isGhost />
+                          )}
+                          {/* Normal block (hidden while dragging this job) */}
+                          {!isBeingDragged && (
+                            <EventBlock key={job.id} job={job} projects={projects} clients={clients}
+                              onOpen={openJob} onPointerDown={handleEventPointerDown} isGhost={false} />
+                          )}
+                        </>
+                      )
+                    })}
                   </div>
                 )
               })}
