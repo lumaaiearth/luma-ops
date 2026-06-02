@@ -529,36 +529,43 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
 
 /* ─── PLANT CARD ─────────────────────────────────────────────────────────── */
 /* ─── WIKIPEDIA PLANT IMAGE ─────────────────────────────────────────────── */
+async function fetchWikiImage(title) {
+  const t = encodeURIComponent(title.replace(/ /g, '_').replace(/×/g, 'x'))
+  for (const lang of ['de', 'en']) {
+    try {
+      const r = await fetch(`https://${lang}.wikipedia.org/w/api.php?action=query&titles=${t}&prop=pageimages&format=json&pithumbsize=600&origin=*`)
+      const data = await r.json()
+      const page = Object.values(data?.query?.pages || {})[0]
+      if (page?.thumbnail?.source) return page.thumbnail.source
+    } catch { /* try next */ }
+  }
+  return null
+}
+
 function PlantImage({ latin }) {
   const key = `floralis_img_${latin}`
   const [src, setSrc] = useState(() => {
     const c = localStorage.getItem(key)
     if (c === 'none') return null
-    return c || undefined  // undefined = not yet fetched
+    return c || undefined
   })
 
   useEffect(() => {
     if (src !== undefined) return
-    const title = latin.replace(/ /g, '_').replace(/×/g, 'x')
-    fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(title)}&prop=pageimages&format=json&pithumbsize=500&origin=*`)
-      .then(r => r.json())
-      .then(data => {
-        const page = Object.values(data?.query?.pages || {})[0]
-        const imgSrc = page?.thumbnail?.source || null
-        setSrc(imgSrc)
-        localStorage.setItem(key, imgSrc || 'none')
-      })
-      .catch(() => { setSrc(null); localStorage.setItem(key, 'none') })
+    fetchWikiImage(latin).then(imgSrc => {
+      setSrc(imgSrc)
+      localStorage.setItem(key, imgSrc || 'none')
+    })
   }, [latin])
 
   if (src === undefined) return (
-    <div style={{ width: '100%', height: 130, background: BORDER, borderRadius: 7, opacity: 0.3, marginBottom: 10 }} />
+    <div style={{ width: '100%', height: 140, background: BORDER, borderRadius: 7, opacity: 0.25, marginBottom: 10 }} />
   )
   if (!src) return null
   return (
     <img src={src} alt={latin}
-      style={{ width: '100%', height: 130, objectFit: 'cover', borderRadius: 7, marginBottom: 10, display: 'block' }}
-      onError={() => setSrc(null)} />
+      style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 7, marginBottom: 10, display: 'block' }}
+      onError={() => { setSrc(null); localStorage.setItem(key, 'none') }} />
   )
 }
 
@@ -625,11 +632,21 @@ function PlantCard({ plant: p, expanded, onToggle, onAdd, inPlan, L, shadow, car
                 <span style={{ fontSize: 10, color: MUTED }}>{p.raupenfutter_arten.join(', ')}</span>
               </div>
             )}
-            {p.ph_min && <div style={{ fontSize: 10, color: MUTED, marginBottom: 4 }}>🧪 pH {p.ph_min}–{p.ph_max} · {p.drainage || '–'}</div>}
-            <a href={p.naturadb_url} target="_blank" rel="noopener noreferrer"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: A, fontWeight: 600, textDecoration: 'none' }}>
-              <ExternalLink size={11} /> naturaDB
-            </a>
+            {p.ph_min && <div style={{ fontSize: 10, color: MUTED, marginBottom: 8 }}>🧪 pH {p.ph_min}–{p.ph_max} · {p.drainage || '–'}</div>}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <a href={`https://de.wikipedia.org/wiki/${p.latin.replace(/ /g,'_')}`} target="_blank" rel="noopener noreferrer"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: A, fontWeight: 600, textDecoration: 'none' }}>
+                <ExternalLink size={11} /> Wikipedia
+              </a>
+              <a href={`https://www.floraweb.de/pflanzenarten/suche.xsql?taxname=${encodeURIComponent(p.latin)}`} target="_blank" rel="noopener noreferrer"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: MUTED, fontWeight: 600, textDecoration: 'none' }}>
+                <ExternalLink size={11} /> FloraWeb
+              </a>
+              {p.naturadb_url && <a href={p.naturadb_url} target="_blank" rel="noopener noreferrer"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: MUTED, fontWeight: 600, textDecoration: 'none' }}>
+                <ExternalLink size={11} /> naturaDB
+              </a>}
+            </div>
           </div>
         )}
       </div>
