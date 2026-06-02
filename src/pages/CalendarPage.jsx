@@ -249,9 +249,9 @@ export default function CalendarPage() {
 
   // ── Pointer drag helpers ──
   function calcTimeFromPointer(clientY) {
-    if (!scrollRef.current) return null
-    const rect = scrollRef.current.getBoundingClientRect()
-    const relY = clientY - rect.top + scrollRef.current.scrollTop
+    if (!gridContainerRef.current) return null
+    const rect = gridContainerRef.current.getBoundingClientRect()
+    const relY = clientY - rect.top
     const rawMin = (relY / PX_PER_HOUR) * 60 + HOUR_START * 60
     return Math.round(rawMin / 15) * 15
   }
@@ -478,51 +478,55 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {/* ── Week / 5-Day / 3-Day time-grid view ── */}
-      {(view === 'week' || view === '3day' || view === '5day') && (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* ── Week / 5-Day / 3-Day / 1-Day time-grid view ── */}
+      {(view === 'week' || view === '3day' || view === '5day' || view === '1day') && (
+        <div style={{ flex: 1, overflow: 'hidden' }}>
 
-          {/* Day-header row (sticky) */}
-          <div style={{ display: 'flex', borderBottom: `1px solid ${BORDER}`, flexShrink: 0, background: SURFACE }}>
-            {/* Corner — timezone label */}
-            <div style={{ width: GUTTER, flexShrink: 0, borderRight: `1px solid ${BORDER}`, display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', paddingBottom: 5, paddingRight: 6 }}>
-              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.05em' }}>GMT+2</span>
-            </div>
-            {/* Day headers */}
-            {activeDays.map((date, i) => {
-              const isToday = date === today
-              const d = new Date(date + 'T00:00:00')
-              const dayName = d.toLocaleDateString('de-DE', { weekday: 'short' })
-              return (
-                <div key={date} onClick={() => setModal({ date })}
-                  style={{ flex: 1, borderRight: i < activeDays.length - 1 ? `1px solid ${BORDER}` : 'none', padding: isMobile ? '6px 4px' : '8px 6px', cursor: 'pointer', background: isToday ? A0a : 'transparent', textAlign: 'center', userSelect: 'none' }}
-                  onMouseEnter={e => { if (!isToday) e.currentTarget.style.background = A06 }}
-                  onMouseLeave={e => { if (!isToday) e.currentTarget.style.background = 'transparent' }}>
-                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: isMobile ? 10 : 11, color: isToday ? A : MUTED, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{dayName}</div>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: isMobile ? 28 : 30, height: isMobile ? 28 : 30, borderRadius: '50%', background: isToday ? A : 'transparent', fontSize: isMobile ? 16 : 18, fontWeight: isToday ? 700 : 400, color: isToday ? '#001219' : FG, marginTop: 2 }}>
-                    {d.getDate()}
-                  </div>
+          {/* Single scrollable container — header sticky inside so columns always align */}
+          <div ref={scrollRef} style={{ height: '100%', overflowY: 'auto', overflowX: 'auto', position: 'relative' }}>
+            <div style={{ minWidth: 600, display: 'flex', flexDirection: 'column' }}>
+
+            {/* Sticky header block: day names + all-day strip */}
+            <div style={{ position: 'sticky', top: 0, zIndex: 20, background: SURFACE }}>
+              {/* Day-header row */}
+              <div style={{ display: 'flex', borderBottom: `1px solid ${BORDER}` }}>
+                {/* Corner — timezone label */}
+                <div style={{ width: GUTTER, flexShrink: 0, borderRight: `1px solid ${BORDER}`, display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', paddingBottom: 5, paddingRight: 6 }}>
+                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.05em' }}>GMT+2</span>
                 </div>
-              )
-            })}
-          </div>
-
-          {/* All-day strip */}
-          {hasAllDay && (
-            <div style={{ display: 'flex', borderBottom: `1px solid ${BORDER}`, flexShrink: 0, background: SURFACE }}>
-              <div style={{ width: GUTTER, flexShrink: 0, borderRight: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '2px 6px 2px 0' }}>
-                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: MUTED }}>ganztags</span>
+                {/* Day headers */}
+                {activeDays.map((date, i) => {
+                  const isToday = date === today
+                  const d = new Date(date + 'T00:00:00')
+                  const dayName = d.toLocaleDateString('de-DE', { weekday: 'short' })
+                  return (
+                    <div key={date} onClick={() => setModal({ date })}
+                      style={{ flex: 1, borderRight: i < activeDays.length - 1 ? `1px solid ${BORDER}` : 'none', padding: isMobile ? '6px 4px' : '8px 6px', cursor: 'pointer', background: isToday ? A0a : 'transparent', textAlign: 'center', userSelect: 'none' }}
+                      onMouseEnter={e => { if (!isToday) e.currentTarget.style.background = A06 }}
+                      onMouseLeave={e => { if (!isToday) e.currentTarget.style.background = 'transparent' }}>
+                      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: isMobile ? 10 : 11, color: isToday ? A : MUTED, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{dayName}</div>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: isMobile ? 28 : 30, height: isMobile ? 28 : 30, borderRadius: '50%', background: isToday ? A : 'transparent', fontSize: isMobile ? 16 : 18, fontWeight: isToday ? 700 : 400, color: isToday ? '#001219' : FG, marginTop: 2 }}>
+                        {d.getDate()}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
-              {activeDays.map((date, i) => (
-                <div key={date} style={{ flex: 1, borderRight: i < activeDays.length - 1 ? `1px solid ${BORDER}` : 'none', minHeight: 24 }}>
-                  <AllDayStrip jobs={jobs} projects={projects} clients={clients} date={date} onOpen={openJob} />
-                </div>
-              ))}
-            </div>
-          )}
 
-          {/* Scrollable time grid */}
-          <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', overflowX: 'auto', position: 'relative' }}>
+              {/* All-day strip */}
+              {hasAllDay && (
+                <div style={{ display: 'flex', borderBottom: `1px solid ${BORDER}` }}>
+                  <div style={{ width: GUTTER, flexShrink: 0, borderRight: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '2px 6px 2px 0' }}>
+                    <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: MUTED }}>ganztags</span>
+                  </div>
+                  {activeDays.map((date, i) => (
+                    <div key={date} style={{ flex: 1, borderRight: i < activeDays.length - 1 ? `1px solid ${BORDER}` : 'none', minHeight: 24 }}>
+                      <AllDayStrip jobs={jobs} projects={projects} clients={clients} date={date} onOpen={openJob} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>{/* /sticky header */}
 
             {/* ── FLOATING DRAG ELEMENT ── */}
             {dragLive && (() => {
@@ -558,7 +562,7 @@ export default function CalendarPage() {
               )
             })()}
 
-            <div ref={gridContainerRef} style={{ display: 'flex', minWidth: 600, position: 'relative', height: TOTAL_H }}>
+            <div ref={gridContainerRef} style={{ display: 'flex', position: 'relative', height: TOTAL_H }}>
 
               {/* Time labels column */}
               <div style={{ width: GUTTER, flexShrink: 0, position: 'relative', borderRight: `1px solid ${BORDER}` }}>
@@ -659,7 +663,8 @@ export default function CalendarPage() {
                 )
               })}
             </div>
-          </div>
+            </div>{/* /minWidth wrapper */}
+          </div>{/* /scrollRef */}
         </div>
       )}
 
