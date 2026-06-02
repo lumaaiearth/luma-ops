@@ -484,14 +484,14 @@ export default function CalendarPage() {
 
           {/* Single scrollable container — header sticky inside so columns always align */}
           <div ref={scrollRef} style={{ height: '100%', overflowY: 'auto', overflowX: 'auto', position: 'relative' }}>
-            <div style={{ minWidth: 600, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ minWidth: activeDays.length === 1 ? '100%' : 600, display: 'flex', flexDirection: 'column' }}>
 
             {/* Sticky header block: day names + all-day strip */}
             <div style={{ position: 'sticky', top: 0, zIndex: 20, background: SURFACE }}>
               {/* Day-header row */}
               <div style={{ display: 'flex', borderBottom: `1px solid ${BORDER}` }}>
-                {/* Corner — timezone label */}
-                <div style={{ width: GUTTER, flexShrink: 0, borderRight: `1px solid ${BORDER}`, display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', paddingBottom: 5, paddingRight: 6 }}>
+                {/* Corner — timezone label, sticky-left */}
+                <div style={{ width: GUTTER, flexShrink: 0, position: 'sticky', left: 0, zIndex: 21, background: SURFACE, borderRight: `1px solid ${BORDER}`, display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', paddingBottom: 5, paddingRight: 6 }}>
                   <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.05em' }}>GMT+2</span>
                 </div>
                 {/* Day headers */}
@@ -516,7 +516,7 @@ export default function CalendarPage() {
               {/* All-day strip */}
               {hasAllDay && (
                 <div style={{ display: 'flex', borderBottom: `1px solid ${BORDER}` }}>
-                  <div style={{ width: GUTTER, flexShrink: 0, borderRight: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '2px 6px 2px 0' }}>
+                  <div style={{ width: GUTTER, flexShrink: 0, position: 'sticky', left: 0, zIndex: 21, background: SURFACE, borderRight: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '2px 6px 2px 0' }}>
                     <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: MUTED }}>ganztags</span>
                   </div>
                   {activeDays.map((date, i) => (
@@ -564,8 +564,8 @@ export default function CalendarPage() {
 
             <div ref={gridContainerRef} style={{ display: 'flex', position: 'relative', height: TOTAL_H }}>
 
-              {/* Time labels column */}
-              <div style={{ width: GUTTER, flexShrink: 0, position: 'relative', borderRight: `1px solid ${BORDER}` }}>
+              {/* Time labels column — sticky-left so it stays visible during horizontal scroll */}
+              <div style={{ width: GUTTER, flexShrink: 0, position: 'sticky', left: 0, zIndex: 10, background: BG, borderRight: `1px solid ${BORDER}` }}>
                 {HOURS.map(h => (
                   <div key={h} style={{ position: 'absolute', top: (h - HOUR_START) * PX_PER_HOUR - 8, right: 8, fontFamily: "'Space Mono', monospace", fontSize: 12, color: MUTED, userSelect: 'none' }}>
                     {String(h).padStart(2, '0')}

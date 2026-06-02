@@ -35,14 +35,21 @@ export function formatDate(iso) {
   return d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })
 }
 
+function toLocalIso(d) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 export function isoToday() {
-  return new Date().toISOString().slice(0, 10)
+  return toLocalIso(new Date())
 }
 
 export function addDays(iso, n) {
   const d = new Date(iso + 'T00:00:00')
   d.setDate(d.getDate() + n)
-  return d.toISOString().slice(0, 10)
+  return toLocalIso(d)
 }
 
 export function weekStart(iso) {
@@ -50,7 +57,7 @@ export function weekStart(iso) {
   const day = d.getDay()
   const diff = day === 0 ? -6 : 1 - day
   d.setDate(d.getDate() + diff)
-  return d.toISOString().slice(0, 10)
+  return toLocalIso(d)
 }
 
 export function getWeekDays(startIso) {
