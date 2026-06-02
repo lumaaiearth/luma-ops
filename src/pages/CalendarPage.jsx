@@ -184,6 +184,7 @@ export default function CalendarPage() {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
   })
+  const [selectedMonthDate, setSelectedMonthDate] = useState(today)
   const scrollRef = useRef(null)
   const gridContainerRef = useRef(null)
   // ── Pointer drag state ──
@@ -669,7 +670,7 @@ export default function CalendarPage() {
       )}
 
       {/* ── Month view ── */}
-      {view === 'month' && (
+      {view === 'month' && !isMobile && (
         <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 8 }}>
             {DAY_NAMES.map(d => (
@@ -711,6 +712,96 @@ export default function CalendarPage() {
                 </div>
               )
             })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Month view mobile (iOS-style) ── */}
+      {view === 'month' && isMobile && (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {/* Compact dot calendar */}
+          <div style={{ padding: '8px 12px 4px', flexShrink: 0 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 4 }}>
+              {DAY_NAMES.map(d => (
+                <div key={d} style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, textAlign: 'center', padding: '2px 0' }}>{d}</div>
+              ))}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
+              {getMonthDays().map((date, i) => {
+                if (!date) return <div key={`empty-${i}`} />
+                const isToday = date === today
+                const isSelected = date === selectedMonthDate
+                const dayJobs = jobsForDate(date)
+                const d = new Date(date + 'T00:00:00')
+                const dotColors = dayJobs.slice(0, 3).map(job => {
+                  const type = JOB_TYPES.find(t => t.id === job.job_type)
+                  return getClientColor(job, projects, clients) || type?.color || A
+                })
+                return (
+                  <div key={date}
+                    onClick={() => setSelectedMonthDate(date)}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '3px 0', cursor: 'pointer', borderRadius: 6, background: isSelected && !isToday ? A14 : 'transparent' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: '50%', background: isToday ? A : 'transparent', fontSize: 13, fontWeight: isToday || isSelected ? 600 : 400, color: isToday ? '#001219' : isSelected ? A : FG }}>
+                      {d.getDate()}
+                    </div>
+                    <div style={{ display: 'flex', gap: 2, height: 5, alignItems: 'center' }}>
+                      {dotColors.map((c, idx) => (
+                        <div key={idx} style={{ width: 4, height: 4, borderRadius: '50%', background: c }} />
+                      ))}
+                      {dayJobs.length > 3 && <div style={{ width: 4, height: 4, borderRadius: '50%', background: MUTED }} />}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div style={{ height: 1, background: BORDER, flexShrink: 0 }} />
+
+          {/* Selected day event list */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '12px 12px 0' }}>
+            {(() => {
+              const selJobs = jobsForDate(selectedMonthDate)
+              const selD = new Date(selectedMonthDate + 'T00:00:00')
+              const label = selD.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })
+              return (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                    <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 13, fontWeight: 500, color: FG }}>{label}</div>
+                    <button onClick={() => setModal({ date: selectedMonthDate })}
+                      style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                      <Plus size={12} /> Einsatz
+                    </button>
+                  </div>
+                  {selJobs.length === 0 && (
+                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED, textAlign: 'center', marginTop: 32 }}>Keine Einsätze</div>
+                  )}
+                  {selJobs.map(job => {
+                    const type = JOB_TYPES.find(t => t.id === job.job_type)
+                    const clientColor = getClientColor(job, projects, clients)
+                    return (
+                      <div key={job.id}
+                        onClick={() => openJob(job)}
+                        style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 8, background: SURFACE, border: `1px solid ${BORDER}`, marginBottom: 8, cursor: 'pointer' }}>
+                        <div style={{ width: 3, alignSelf: 'stretch', borderRadius: 2, background: type?.color || A, flexShrink: 0 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 500, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.title}</div>
+                          {(job.start_time || job.location) && (
+                            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, marginTop: 2 }}>
+                              {job.start_time && <span>{job.start_time}{job.end_time ? ` – ${job.end_time}` : ''}</span>}
+                              {job.start_time && job.location && <span style={{ margin: '0 4px' }}>·</span>}
+                              {job.location && <span>{job.location}</span>}
+                            </div>
+                          )}
+                        </div>
+                        {clientColor && <div style={{ width: 8, height: 8, borderRadius: '50%', background: clientColor, flexShrink: 0, marginTop: 4 }} />}
+                      </div>
+                    )
+                  })}
+                </>
+              )
+            })()}
           </div>
         </div>
       )}
