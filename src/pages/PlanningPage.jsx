@@ -1,51 +1,93 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { A, SURFACE, BORDER, FG, MUTED, BG, A14, A20 } from '../lib/theme.js'
 import { useTheme } from '../context/ThemeContext.jsx'
-import { PLANTS, filterPlants, LICHT_LABELS, WASSER_LABELS, BODEN_LABELS, TYPE_LABELS, MONTHS } from '../data/plants.js'
-import { Leaf, Search, Plus, Minus, ExternalLink, Sun, Droplets, Sprout, Bug, X, ChevronDown, ChevronUp, Filter, Download } from 'lucide-react'
+import { PLANTS, filterPlants, LICHT_LABELS, WASSER_LABELS, BODEN_LABELS, TYPE_LABELS, MONTHS, DRAINAGE_LABELS, WUCHSFORM_LABELS } from '../data/plants.js'
+import {
+  Leaf, Search, Plus, Minus, ExternalLink, X, ChevronDown, ChevronUp,
+  Filter, Download, SlidersHorizontal, Ruler, Grid3x3, Info,
+  Sun, Droplets, FlaskConical, Bug, Bird, Flower, Sprout, TreePine,
+} from 'lucide-react'
 
-/* ─── CONSTANTS ─────────────────────────────────────────────────────────── */
+/* ─── OPTION SETS ───────────────────────────────────────────────────────── */
 const LICHT_OPTS = [
-  { value: 1, label: 'Vollsonne', emoji: '☀️', desc: '>6h täglich' },
-  { value: 2, label: 'Halbschatten', emoji: '⛅', desc: '3–6h täglich' },
-  { value: 3, label: 'Schatten', emoji: '🌥️', desc: '<3h täglich' },
+  { value: 1, label: 'Vollsonne', emoji: '☀️', desc: '>6h' },
+  { value: 2, label: 'Halbschatten', emoji: '⛅', desc: '3–6h' },
+  { value: 3, label: 'Schatten', emoji: '🌥️', desc: '<3h' },
 ]
 const WASSER_OPTS = [
-  { value: 1, label: 'Trocken', emoji: '🏜️', desc: 'Sandboden, kein Zusatzwasser' },
-  { value: 2, label: 'Mäßig feucht', emoji: '💧', desc: 'Gelegentlich gießen' },
-  { value: 3, label: 'Feucht', emoji: '🌊', desc: 'Regelmäßig feucht' },
+  { value: 1, label: 'Trocken', emoji: '🏜️', desc: 'Sandboden' },
+  { value: 2, label: 'Mäßig', emoji: '💧', desc: 'normal' },
+  { value: 3, label: 'Feucht', emoji: '🌊', desc: 'nass' },
 ]
 const BODEN_OPTS = [
-  { value: 'sandy', label: 'Sandig', emoji: '🏖️', desc: 'Brandenburg-Sandboden' },
-  { value: 'loamy', label: 'Lehmig', emoji: '🧱', desc: 'Normaler Gartenboden' },
-  { value: 'clay', label: 'Tonig', emoji: '🪨', desc: 'Schwerer Boden' },
-  { value: 'humus', label: 'Humusreich', emoji: '🌿', desc: 'Waldboden, Kompost' },
+  { value: 'sandy', label: 'Sand', emoji: '🏖️' },
+  { value: 'loamy', label: 'Lehm', emoji: '🧱' },
+  { value: 'clay', label: 'Ton', emoji: '🪨' },
+  { value: 'humus', label: 'Humus', emoji: '🌿' },
 ]
-const TYPE_OPTS = Object.entries(TYPE_LABELS).map(([v, l]) => ({ value: v, label: l }))
-const INSECT_EMOJIS = { bienen: '🐝', schmetterlinge: '🦋', voegel: '🐦' }
+const DRAINAGE_OPTS = [
+  { value: null, label: 'Alle' },
+  { value: 'durchlässig', label: 'Durchlässig' },
+  { value: 'normal', label: 'Normal' },
+  { value: 'stauend', label: 'Stauend' },
+]
+const PH_OPTS = [
+  { value: null, label: 'Alle' },
+  { value: 5.0, label: 'Sauer (<5.5)' },
+  { value: 6.5, label: 'Neutral (5.5–7)' },
+  { value: 7.5, label: 'Alkalisch (>7)' },
+]
+const TYPE_OPTS = Object.entries(TYPE_LABELS || {}).map(([v, l]) => ({ value: v, label: l }))
+const WUCHSFORM_OPTS = Object.entries(WUCHSFORM_LABELS || {}).map(([v, l]) => ({ value: v, label: l }))
 
-/* ─── COMPONENT ─────────────────────────────────────────────────────────── */
+/* ─── MAIN ──────────────────────────────────────────────────────────────── */
 export default function PlanningPage() {
   const { themeId } = useTheme()
   const L = themeId === 'light'
 
-  // Filter state
-  const [licht, setLicht] = useState(1)
-  const [wasser, setWasser] = useState(1)
-  const [boden, setBoden] = useState('sandy')
+  // ── Filters
+  const [licht, setLicht] = useState(null)
+  const [wasser, setWasser] = useState(null)
+  const [boden, setBoden] = useState(null)
   const [types, setTypes] = useState([])
+  const [wuchsformen, setWuchsformen] = useState([])
+  const [drainage, setDrainage] = useState(null)
+  const [ph, setPh] = useState(null)
+  const [onlyHeimisch, setOnlyHeimisch] = useState(false)
+  const [onlyRaupen, setOnlyRaupen] = useState(false)
+  const [onlyTagfalter, setOnlyTagfalter] = useState(false)
+  const [onlyBienen, setOnlyBienen] = useState(false)
   const [search, setSearch] = useState('')
-  const [showFilters, setShowFilters] = useState(false)
+  const [filterPanelOpen, setFilterPanelOpen] = useState(true)
+  const [activeFilters, setActiveFilters] = useState('standort') // 'standort'|'biologie'|'boden'
 
-  // Plan state
+  // ── Plan
   const [plan, setPlan] = useState([])
-  const [activeTab, setActiveTab] = useState('suche') // 'suche' | 'plan'
+  const [activeTab, setActiveTab] = useState('suche')
   const [expandedPlant, setExpandedPlant] = useState(null)
 
-  const filtered = useMemo(() =>
-    filterPlants({ licht, wasser, boden, types: types.length ? types : null, searchTerm: search }),
-    [licht, wasser, boden, types, search]
-  )
+  // ── Beetplaner
+  const [beetW, setBeetW] = useState(4)
+  const [beetH, setBeetH] = useState(2)
+  const [beetForm, setBeetForm] = useState('rechteck') // 'rechteck'|'oval'
+
+  const filtered = useMemo(() => {
+    const available = typeof filterPlants === 'function' ? filterPlants({
+      licht, wasser, boden,
+      types: types.length ? types : null,
+      wuchsform: wuchsformen.length ? wuchsformen[0] : null,
+      drainage,
+      ph,
+      searchTerm: search,
+    }) : PLANTS
+    return available.filter(p => {
+      if (onlyHeimisch && !p.heimisch) return false
+      if (onlyRaupen && !p.raupenfutter) return false
+      if (onlyTagfalter && !p.tagfalter) return false
+      if (onlyBienen && !p.bienen) return false
+      return true
+    })
+  }, [licht, wasser, boden, types, wuchsformen, drainage, ph, search, onlyHeimisch, onlyRaupen, onlyTagfalter, onlyBienen])
 
   function addToPlan(plant) {
     setPlan(prev => {
@@ -54,41 +96,41 @@ export default function PlanningPage() {
       return [...prev, { ...plant, count: 1 }]
     })
   }
-  function removeFromPlan(id) {
-    setPlan(prev => {
-      const ex = prev.find(p => p.id === id)
-      if (ex?.count > 1) return prev.map(p => p.id === id ? { ...p, count: p.count - 1 } : p)
-      return prev.filter(p => p.id !== id)
-    })
+  function setCount(id, count) {
+    if (count <= 0) setPlan(prev => prev.filter(p => p.id !== id))
+    else setPlan(prev => prev.map(p => p.id === id ? { ...p, count } : p))
   }
-  function clearPlan() { setPlan([]) }
 
   const totalPlants = plan.reduce((s, p) => s + p.count, 0)
+  const beetArea = beetForm === 'oval'
+    ? Math.PI * (beetW / 2) * (beetH / 2)
+    : beetW * beetH
 
-  const cardShadow = L ? '0 1px 4px rgba(0,0,0,0.08), 0 0 0 1.5px rgba(0,0,0,0.07)' : `0 0 0 1px ${BORDER}`
+  const cardBg = L ? '#fff' : SURFACE
+  const shadow = L ? '0 1px 4px rgba(0,0,0,0.08), 0 0 0 1.5px rgba(0,0,0,0.07)' : `0 0 0 1px ${BORDER}`
+
+  const activeFilterCount = [licht, wasser, boden, drainage, ph, ...types, ...wuchsformen,
+    onlyHeimisch && 'h', onlyRaupen && 'r', onlyTagfalter && 't', onlyBienen && 'b'
+  ].filter(Boolean).length
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-      {/* Header */}
-      <div style={{ padding: '20px 24px 0', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
-          <div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: A14, border: `1px solid ${A20}`, borderRadius: 100, padding: '3px 12px', marginBottom: 8 }}>
-              <Leaf size={11} color={A} />
-              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, letterSpacing: '0.1em', textTransform: 'uppercase' }}>naturaDB · Brandenburger Sandboden</span>
+      {/* ── HEADER ─────────────────────────────────────────────────────── */}
+      <div style={{ padding: '16px 24px 0', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: A14, border: `1px solid ${A20}`, borderRadius: 8, padding: '5px 12px' }}>
+              <Leaf size={12} color={A} />
+              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: L ? 700 : 400 }}>
+                Pflanzplanung · {PLANTS.length} Arten
+              </span>
             </div>
-            <h1 style={{ fontSize: 22, fontWeight: L ? 800 : 400, color: FG, letterSpacing: '-0.03em', margin: 0 }}>Pflanzplanung</h1>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <TabBtn label="🔍 Pflanzen suchen" active={activeTab === 'suche'} onClick={() => setActiveTab('suche')} L={L} />
-            <TabBtn
-              label={`🌱 Mein Plan ${totalPlants > 0 ? `(${totalPlants})` : ''}`}
-              active={activeTab === 'plan'}
-              onClick={() => setActiveTab('plan')}
-              L={L}
-              highlight={totalPlants > 0}
-            />
+          <div style={{ display: 'flex', gap: 6 }}>
+            <TabBtn label="🔍 Suchen" active={activeTab === 'suche'} onClick={() => setActiveTab('suche')} L={L} />
+            <TabBtn label={`📋 Plan${totalPlants > 0 ? ` (${totalPlants})` : ''}`} active={activeTab === 'plan'} onClick={() => setActiveTab('plan')} L={L} dot={totalPlants > 0 && activeTab !== 'plan'} />
+            <TabBtn label="🌿 Beet" active={activeTab === 'beet'} onClick={() => setActiveTab('beet')} L={L} />
           </div>
         </div>
       </div>
@@ -97,81 +139,106 @@ export default function PlanningPage() {
       {activeTab === 'suche' && (
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
-          {/* Standort-Konfigurator */}
+          {/* Filter Panel */}
           <div style={{ padding: '0 24px', flexShrink: 0 }}>
-            <div style={{ background: SURFACE, border: `1.5px solid ${BORDER}`, borderRadius: 12, padding: '16px 20px', marginBottom: 12, boxShadow: L ? '0 1px 4px rgba(0,0,0,0.06)' : 'none' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                <Filter size={13} color={MUTED} />
-                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: L ? 700 : 400 }}>Standort konfigurieren</span>
-                <span style={{ marginLeft: 'auto', fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, letterSpacing: '0.05em' }}>{filtered.length} Pflanzen</span>
+            <div style={{ background: SURFACE, border: `1.5px solid ${BORDER}`, borderRadius: 12, marginBottom: 12, overflow: 'hidden', boxShadow: L ? '0 1px 4px rgba(0,0,0,0.06)' : 'none' }}>
+
+              {/* Filter header */}
+              <div
+                onClick={() => setFilterPanelOpen(o => !o)}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', cursor: 'pointer', userSelect: 'none' }}>
+                <SlidersHorizontal size={13} color={MUTED} />
+                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: L ? 700 : 400, flex: 1 }}>
+                  Filter {activeFilterCount > 0 && <span style={{ color: A }}>· {activeFilterCount} aktiv</span>}
+                </span>
+                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A }}>
+                  {filtered.length}/{PLANTS.length} Pflanzen
+                </span>
+                {filterPanelOpen ? <ChevronUp size={13} color={MUTED} /> : <ChevronDown size={13} color={MUTED} />}
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-                {/* Licht */}
-                <div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>☀️ Licht</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {LICHT_OPTS.map(o => (
-                      <StandortBtn key={o.value} opt={o} active={licht === o.value} onClick={() => setLicht(o.value)} color="#d97706" L={L} />
+              {filterPanelOpen && (
+                <div style={{ borderTop: `1px solid ${BORDER}`, padding: '14px 16px' }}>
+                  {/* Sub-tabs */}
+                  <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+                    {[['standort', '📍 Standort'], ['biologie', '🐝 Biologie'], ['boden', '🌍 Boden & Art']].map(([k, l]) => (
+                      <button key={k} onClick={() => setActiveFilters(k)} style={{
+                        padding: '5px 12px', borderRadius: 6, fontSize: 11, fontWeight: activeFilters === k ? 700 : (L ? 500 : 400),
+                        border: activeFilters === k ? `1.5px solid ${A}` : `1px solid ${BORDER}`,
+                        background: activeFilters === k ? A14 : 'transparent', color: activeFilters === k ? A : MUTED, cursor: 'pointer',
+                      }}>{l}</button>
                     ))}
                   </div>
-                </div>
-                {/* Wasser */}
-                <div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>💧 Wasser</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {WASSER_OPTS.map(o => (
-                      <StandortBtn key={o.value} opt={o} active={wasser === o.value} onClick={() => setWasser(o.value)} color="#0ea5e9" L={L} />
-                    ))}
-                  </div>
-                </div>
-                {/* Boden */}
-                <div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>🌍 Boden</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {BODEN_OPTS.map(o => (
-                      <StandortBtn key={o.value} opt={o} active={boden === o.value} onClick={() => setBoden(o.value)} color="#92400e" L={L} />
-                    ))}
-                  </div>
-                </div>
-              </div>
 
-              {/* Typ + Suche */}
-              <div style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: 1 }}>
-                  {TYPE_OPTS.map(o => (
-                    <TypeChip
-                      key={o.value}
-                      label={o.label}
-                      active={types.includes(o.value)}
-                      onClick={() => setTypes(prev => prev.includes(o.value) ? prev.filter(t => t !== o.value) : [...prev, o.value])}
-                      L={L}
+                  {/* STANDORT filters */}
+                  {activeFilters === 'standort' && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+                      <FilterGroup label="☀️ Licht" opts={LICHT_OPTS} selected={licht} onSelect={v => setLicht(licht === v ? null : v)} color="#d97706" L={L} />
+                      <FilterGroup label="💧 Wasser" opts={WASSER_OPTS} selected={wasser} onSelect={v => setWasser(wasser === v ? null : v)} color="#0ea5e9" L={L} />
+                      <FilterGroup label="🌍 Boden" opts={BODEN_OPTS} selected={boden} onSelect={v => setBoden(boden === v ? null : v)} color="#92400e" L={L} />
+                    </div>
+                  )}
+
+                  {/* BIOLOGIE filters */}
+                  {activeFilters === 'biologie' && (
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <BioToggle label="🐝 Bienen" active={onlyBienen} onClick={() => setOnlyBienen(v => !v)} L={L} />
+                      <BioToggle label="🦋 Tagfalter" active={onlyTagfalter} onClick={() => setOnlyTagfalter(v => !v)} L={L} />
+                      <BioToggle label="🐛 Raupenfutter" active={onlyRaupen} onClick={() => setOnlyRaupen(v => !v)} L={L} />
+                      <BioToggle label="🏡 Heimisch" active={onlyHeimisch} onClick={() => setOnlyHeimisch(v => !v)} L={L} />
+                    </div>
+                  )}
+
+                  {/* BODEN & ART filters */}
+                  {activeFilters === 'boden' && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                      <div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>🧪 Drainage</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          {DRAINAGE_OPTS.map(o => (
+                            <button key={String(o.value)} onClick={() => setDrainage(drainage === o.value ? null : o.value)} style={{
+                              padding: '6px 10px', borderRadius: 6, fontSize: 12, textAlign: 'left', cursor: 'pointer',
+                              fontWeight: drainage === o.value ? 700 : (L ? 500 : 400),
+                              border: drainage === o.value ? `1.5px solid #92400e` : `1px solid ${BORDER}`,
+                              background: drainage === o.value ? '#92400e14' : 'transparent',
+                              color: drainage === o.value ? '#92400e' : MUTED,
+                            }}>{o.label}</button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>🌿 Typ</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          {TYPE_OPTS.map(o => (
+                            <TypeToggle key={o.value} label={o.label} active={types.includes(o.value)} onClick={() => setTypes(prev => prev.includes(o.value) ? prev.filter(t => t !== o.value) : [...prev, o.value])} L={L} />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Search */}
+                  <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, background: L ? 'rgba(0,0,0,0.05)' : BG, borderRadius: 8, padding: '8px 12px', border: `1px solid ${BORDER}` }}>
+                    <Search size={13} color={MUTED} />
+                    <input
+                      value={search}
+                      onChange={e => setSearch(e.target.value)}
+                      placeholder="Name, Latein oder Art suchen..."
+                      style={{ background: 'none', border: 'none', outline: 'none', color: FG, fontSize: 13, width: '100%' }}
                     />
-                  ))}
+                    {search && <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', color: MUTED, cursor: 'pointer', padding: 0 }}><X size={12} /></button>}
+                  </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: L ? 'rgba(0,0,0,0.05)' : BG, borderRadius: 8, padding: '7px 12px', border: `1px solid ${BORDER}`, minWidth: 180 }}>
-                  <Search size={13} color={MUTED} />
-                  <input
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    placeholder="Name oder Latein..."
-                    style={{ background: 'none', border: 'none', outline: 'none', color: FG, fontSize: 13, width: '100%' }}
-                  />
-                  {search && <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', color: MUTED, cursor: 'pointer', padding: 0 }}><X size={12} /></button>}
-                </div>
-              </div>
+              )}
             </div>
           </div>
 
-          {/* Plant List */}
+          {/* Plant Grid */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '0 24px 24px' }}>
             {filtered.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '48px 0', color: MUTED, fontSize: 14 }}>
-                Keine Pflanzen gefunden für diese Kombination 🌵<br />
-                <span style={{ fontSize: 12, opacity: 0.7 }}>Probiere einen anderen Standort</span>
-              </div>
+              <EmptyState msg="Keine Pflanzen für diese Kombination 🌵" sub="Probiere andere Filter" />
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 10 }}>
                 {filtered.map(plant => (
                   <PlantCard
                     key={plant.id}
@@ -180,8 +247,7 @@ export default function PlanningPage() {
                     onToggle={() => setExpandedPlant(expandedPlant === plant.id ? null : plant.id)}
                     onAdd={() => addToPlan(plant)}
                     inPlan={plan.find(p => p.id === plant.id)}
-                    L={L}
-                    cardShadow={cardShadow}
+                    L={L} shadow={shadow} cardBg={cardBg}
                   />
                 ))}
               </div>
@@ -194,167 +260,335 @@ export default function PlanningPage() {
       {activeTab === 'plan' && (
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: '0 24px 24px' }}>
           {plan.length === 0 ? (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: MUTED, gap: 12 }}>
-              <div style={{ fontSize: 48 }}>🌱</div>
-              <div style={{ fontSize: 15, fontWeight: L ? 700 : 400, color: FG }}>Noch keine Pflanzen im Plan</div>
-              <div style={{ fontSize: 13, color: MUTED }}>Geh zur Suche und füge Pflanzen hinzu</div>
-              <button onClick={() => setActiveTab('suche')} style={{ marginTop: 8, background: A14, border: `1px solid ${A20}`, color: A, borderRadius: 8, padding: '8px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-                Zur Pflanzensuche →
-              </button>
-            </div>
+            <EmptyState msg="Plan ist noch leer 🌱" sub="Pflanzen suchen und hinzufügen" action={() => setActiveTab('suche')} actionLabel="Zur Suche →" />
           ) : (
-            <div style={{ flex: 1, overflowY: 'auto' }}>
-              {/* Summary */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px,1fr))', gap: 10, marginBottom: 20, paddingTop: 4 }}>
-                <StatCard label="Pflanzen gesamt" value={totalPlants} emoji="🌱" L={L} color={A} />
-                <StatCard label="Arten" value={plan.length} emoji="🔢" L={L} color="#8b5cf6" />
-                <StatCard label="Heimisch" value={plan.filter(p => p.heimisch).length} emoji="🏡" L={L} color="#047A3C" />
-                <StatCard label="⌀ Insektenwert" value={(plan.reduce((s,p) => s+p.insekten,0)/plan.length).toFixed(1)} emoji="🐝" L={L} color="#d97706" />
+            <div style={{ flex: 1, overflowY: 'auto', paddingTop: 4 }}>
+
+              {/* Stats */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px,1fr))', gap: 10, marginBottom: 16 }}>
+                <StatCard label="Pflanzen gesamt" value={totalPlants} emoji="🌱" color={A} L={L} shadow={shadow} />
+                <StatCard label="Arten" value={plan.length} emoji="🔢" color="#8b5cf6" L={L} shadow={shadow} />
+                <StatCard label="Heimisch" value={plan.filter(p => p.heimisch).length} emoji="🏡" color="#047A3C" L={L} shadow={shadow} />
+                <StatCard label="Ø Nektar" value={plan.filter(p=>p.nektar).length ? (plan.reduce((s,p)=>s+(p.nektar||0),0)/plan.filter(p=>p.nektar).length).toFixed(1) : '–'} emoji="🍯" color="#d97706" L={L} shadow={shadow} />
+                <StatCard label="Raupenfutter" value={plan.filter(p => p.raupenfutter).length} emoji="🐛" color="#10b981" L={L} shadow={shadow} />
               </div>
 
               {/* Blühkalender */}
-              <div style={{ background: SURFACE, border: `1.5px solid ${BORDER}`, borderRadius: 12, padding: 20, marginBottom: 16, boxShadow: L ? '0 1px 4px rgba(0,0,0,0.06)' : 'none' }}>
-                <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 14, fontWeight: L ? 700 : 400 }}>📅 Blühkalender</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12,1fr)', gap: 2 }}>
-                  {MONTHS.map((m, mi) => {
-                    const monthPlants = plan.filter(p => p.bluete_monate.includes(mi + 1))
-                    return (
-                      <div key={m}>
-                        <div style={{ fontSize: 9, color: MUTED, textAlign: 'center', marginBottom: 4, fontFamily: "'Space Mono', monospace", fontWeight: L ? 700 : 400 }}>{m}</div>
-                        <div style={{ minHeight: 40, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          {monthPlants.slice(0,3).map(p => (
-                            <div key={p.id} title={p.name} style={{
-                              height: 8, borderRadius: 2,
-                              background: p.bluete_farbe || A,
-                              opacity: 0.85,
-                            }} />
-                          ))}
-                          {monthPlants.length > 3 && (
-                            <div style={{ fontSize: 8, color: MUTED, textAlign: 'center' }}>+{monthPlants.length - 3}</div>
-                          )}
-                        </div>
-                        <div style={{ fontSize: 8, color: monthPlants.length > 0 ? A : MUTED, textAlign: 'center', marginTop: 2, fontWeight: 700 }}>
-                          {monthPlants.length > 0 ? monthPlants.length : '·'}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
+              <BloomCalendar plan={plan} L={L} shadow={shadow} />
 
-              {/* Plant list */}
-              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10, fontWeight: L ? 700 : 400 }}>
-                Pflanzliste
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-                {plan.map(plant => (
-                  <PlanRow key={plant.id} plant={plant} onAdd={() => addToPlan(plant)} onRemove={() => removeFromPlan(plant.id)} L={L} cardShadow={cardShadow} />
+              {/* Plant Rows */}
+              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', margin: '16px 0 8px', fontWeight: L ? 700 : 400 }}>Pflanzliste</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
+                {plan.map(p => (
+                  <PlanRow key={p.id} plant={p} onAdd={() => addToPlan(p)} onRemove={() => setCount(p.id, p.count - 1)} L={L} shadow={shadow} cardBg={cardBg} />
                 ))}
               </div>
 
-              {/* Actions */}
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button
-                  onClick={() => {
-                    const lines = ['Pflanzplan – Luma Biome', '='.repeat(40), '',
-                      ...plan.map(p => `${p.count}x  ${p.name} (${p.latin})`),
-                      '', `Gesamt: ${totalPlants} Pflanzen`
-                    ]
-                    const blob = new Blob([lines.join('\n')], { type: 'text/plain' })
-                    const a = document.createElement('a')
-                    a.href = URL.createObjectURL(blob)
-                    a.download = 'pflanzplan-luma.txt'
-                    a.click()
-                  }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, background: A14, border: `1px solid ${A20}`, color: A, borderRadius: 8, padding: '9px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-                  <Download size={13} /> Plan exportieren
+              {/* Export */}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button onClick={() => exportPlan(plan)} style={{ display: 'flex', alignItems: 'center', gap: 8, background: A14, border: `1px solid ${A20}`, color: A, borderRadius: 8, padding: '9px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                  <Download size={13} /> Plan exportieren (.txt)
                 </button>
-                <button onClick={clearPlan} style={{ background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, padding: '9px 18px', cursor: 'pointer', fontSize: 13 }}>
+                <button onClick={() => setPlan([])} style={{ background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, padding: '9px 16px', cursor: 'pointer', fontSize: 13 }}>
                   Plan leeren
+                </button>
+                <button onClick={() => setActiveTab('beet')} style={{ background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, padding: '9px 16px', cursor: 'pointer', fontSize: 13 }}>
+                  🌿 Im Beet planen →
                 </button>
               </div>
             </div>
           )}
         </div>
       )}
+
+      {/* ── TAB: BEETPLANER ────────────────────────────────────────────── */}
+      {activeTab === 'beet' && (
+        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: '0 24px 24px' }}>
+          <BeetPlaner
+            plan={plan}
+            beetW={beetW} setBeetW={setBeetW}
+            beetH={beetH} setBeetH={setBeetH}
+            beetForm={beetForm} setBeetForm={setBeetForm}
+            beetArea={beetArea}
+            L={L} shadow={shadow} cardBg={cardBg}
+            onAddMore={() => setActiveTab('suche')}
+          />
+        </div>
+      )}
     </div>
   )
 }
 
-/* ─── SUB-COMPONENTS ────────────────────────────────────────────────────── */
+/* ─── BLÜHKALENDER ──────────────────────────────────────────────────────── */
+function BloomCalendar({ plan, L, shadow }) {
+  return (
+    <div style={{ background: L ? '#fff' : SURFACE, borderRadius: 12, padding: '16px 18px', boxShadow: shadow, marginBottom: 4 }}>
+      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 14, fontWeight: L ? 700 : 400 }}>📅 Blühkalender</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12,1fr)', gap: 3 }}>
+        {MONTHS.map((m, mi) => {
+          const mp = plan.filter(p => p.bluete_monate?.includes(mi + 1))
+          const intensity = mp.length / Math.max(plan.length, 1)
+          return (
+            <div key={m} style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 8, color: MUTED, marginBottom: 4, fontFamily: "'Space Mono', monospace", fontWeight: L ? 700 : 400 }}>{m}</div>
+              <div style={{
+                height: 32, borderRadius: 4,
+                background: mp.length > 0
+                  ? `linear-gradient(180deg, ${mp[0]?.bluete_farbe || A} 0%, ${mp[1]?.bluete_farbe || A} 100%)`
+                  : (L ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.04)'),
+                opacity: mp.length > 0 ? 0.7 + intensity * 0.3 : 1,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {mp.length > 0 && <span style={{ fontSize: 9, fontWeight: 700, color: '#fff', textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>{mp.length}</span>}
+              </div>
+              <div style={{ fontSize: 8, color: mp.length > 0 ? A : MUTED, marginTop: 3, fontWeight: 700 }}>{mp.length > 0 ? mp.length : '·'}</div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
-function PlantCard({ plant, expanded, onToggle, onAdd, inPlan, L, cardShadow }) {
-  const insectCount = [plant.bienen, plant.schmetterlinge, plant.voegel].filter(Boolean).length
+/* ─── BEETPLANER ─────────────────────────────────────────────────────────── */
+function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetForm, beetArea, L, shadow, cardBg, onAddMore }) {
+  const canvasRef = useRef(null)
+
+  // Calculate plant distribution
+  const plantsWithPlacement = useMemo(() => {
+    const result = []
+    let x = 0, y = 0
+    plan.forEach(plant => {
+      const spacing = (plant.pflanzabstand || 40) / 100 // in meters
+      for (let i = 0; i < plant.count; i++) {
+        result.push({ ...plant, px: x, py: y })
+        x += spacing
+        if (x > beetW - spacing / 2) { x = 0; y += spacing }
+      }
+    })
+    return result
+  }, [plan, beetW])
+
+  const totalNeeded = plan.reduce((s, p) => {
+    const ppm = 1 / Math.pow((p.pflanzabstand || 40) / 100, 2)
+    return s + Math.round(beetArea * ppm * (1 / plan.length))
+  }, 0)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    const W = canvas.width, H = canvas.height
+    const scaleX = W / beetW, scaleY = H / beetH
+
+    ctx.clearRect(0, 0, W, H)
+
+    // Background
+    ctx.fillStyle = L ? '#f0fdf4' : '#0e1c0f'
+    if (beetForm === 'oval') {
+      ctx.beginPath()
+      ctx.ellipse(W / 2, H / 2, W / 2 - 2, H / 2 - 2, 0, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.strokeStyle = L ? 'rgba(4,122,60,0.4)' : 'rgba(16,185,129,0.3)'
+      ctx.lineWidth = 2
+      ctx.stroke()
+    } else {
+      ctx.fillRect(2, 2, W - 4, H - 4)
+      ctx.strokeStyle = L ? 'rgba(4,122,60,0.4)' : 'rgba(16,185,129,0.3)'
+      ctx.lineWidth = 2
+      ctx.strokeRect(2, 2, W - 4, H - 4)
+    }
+
+    // Grid lines
+    ctx.strokeStyle = L ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.05)'
+    ctx.lineWidth = 1
+    for (let gx = 0; gx <= beetW; gx++) {
+      ctx.beginPath(); ctx.moveTo(gx * scaleX, 0); ctx.lineTo(gx * scaleX, H); ctx.stroke()
+    }
+    for (let gy = 0; gy <= beetH; gy++) {
+      ctx.beginPath(); ctx.moveTo(0, gy * scaleY); ctx.lineTo(W, gy * scaleY); ctx.stroke()
+    }
+
+    // Plants
+    plantsWithPlacement.forEach(p => {
+      if (p.px > beetW || p.py > beetH) return
+      const cx = p.px * scaleX + (p.pflanzabstand || 40) / 100 * scaleX / 2
+      const cy = p.py * scaleY + (p.pflanzabstand || 40) / 100 * scaleY / 2
+      const r = Math.max(4, ((p.ausbreitung || p.pflanzabstand || 40) / 100 * scaleX) / 2 - 2)
+      ctx.beginPath()
+      ctx.arc(cx, cy, r, 0, Math.PI * 2)
+      ctx.fillStyle = (p.bluete_farbe || '#10b981') + 'cc'
+      ctx.fill()
+      ctx.strokeStyle = (p.bluete_farbe || '#10b981')
+      ctx.lineWidth = 1.5
+      ctx.stroke()
+    })
+  }, [plantsWithPlacement, beetW, beetH, beetForm, L])
 
   return (
-    <div style={{
-      background: L ? '#fff' : SURFACE,
-      borderRadius: 10, boxShadow: cardShadow,
-      overflow: 'hidden', transition: 'box-shadow 0.18s',
-    }}>
-      {/* Bloom color stripe */}
-      <div style={{ height: 3, background: plant.bluete_farbe || '#888', opacity: 0.7 }} />
+    <div style={{ flex: 1, overflowY: 'auto', paddingTop: 4 }}>
+      {/* Beet Controls */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px,1fr))', gap: 12, marginBottom: 16 }}>
+        <div style={{ background: cardBg, borderRadius: 10, padding: '16px', boxShadow: shadow }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>📐 Beetgröße</div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <label style={{ flex: 1 }}>
+              <div style={{ fontSize: 10, color: MUTED, marginBottom: 4 }}>Breite (m)</div>
+              <input type="number" min={0.5} max={20} step={0.5} value={beetW}
+                onChange={e => setBeetW(+e.target.value)}
+                style={{ width: '100%', background: L ? 'rgba(0,0,0,0.05)' : BG, border: `1px solid ${BORDER}`, borderRadius: 6, padding: '7px 10px', color: FG, fontSize: 14, fontWeight: 700 }} />
+            </label>
+            <label style={{ flex: 1 }}>
+              <div style={{ fontSize: 10, color: MUTED, marginBottom: 4 }}>Tiefe (m)</div>
+              <input type="number" min={0.5} max={20} step={0.5} value={beetH}
+                onChange={e => setBeetH(+e.target.value)}
+                style={{ width: '100%', background: L ? 'rgba(0,0,0,0.05)' : BG, border: `1px solid ${BORDER}`, borderRadius: 6, padding: '7px 10px', color: FG, fontSize: 14, fontWeight: 700 }} />
+            </label>
+          </div>
+        </div>
+        <div style={{ background: cardBg, borderRadius: 10, padding: '16px', boxShadow: shadow }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>🟢 Form</div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {[['rechteck', '▬ Rechteck'], ['oval', '⬭ Oval']].map(([v, l]) => (
+              <button key={v} onClick={() => setBeetForm(v)} style={{
+                flex: 1, padding: '8px', borderRadius: 7, fontSize: 12, cursor: 'pointer', fontWeight: beetForm === v ? 700 : (L ? 500 : 400),
+                border: beetForm === v ? `1.5px solid ${A}` : `1px solid ${BORDER}`,
+                background: beetForm === v ? A14 : 'transparent', color: beetForm === v ? A : MUTED,
+              }}>{l}</button>
+            ))}
+          </div>
+        </div>
+        <div style={{ background: cardBg, borderRadius: 10, padding: '16px', boxShadow: shadow }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>📊 Fläche</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: A, letterSpacing: '-0.02em' }}>{beetArea.toFixed(1)} m²</div>
+          <div style={{ fontSize: 11, color: MUTED, marginTop: 4 }}>{plan.length > 0 ? `~${Math.round(beetArea * 3)} Pflanzen bei Ø30cm Abstand` : 'Pflanzen zum Plan hinzufügen'}</div>
+        </div>
+      </div>
 
-      <div style={{ padding: '14px 16px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+      {plan.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '40px 0', color: MUTED }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>🌿</div>
+          <div style={{ fontSize: 14, color: FG, marginBottom: 6, fontWeight: L ? 700 : 400 }}>Noch keine Pflanzen im Plan</div>
+          <button onClick={onAddMore} style={{ background: A14, border: `1px solid ${A20}`, color: A, borderRadius: 8, padding: '8px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>Pflanzen suchen →</button>
+        </div>
+      ) : (
+        <>
+          {/* Canvas */}
+          <div style={{ background: cardBg, borderRadius: 12, padding: 16, boxShadow: shadow, marginBottom: 16 }}>
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12, fontWeight: L ? 700 : 400 }}>
+              🗺️ Pflanzverteilung — {beetW}m × {beetH}m
+            </div>
+            <canvas
+              ref={canvasRef}
+              width={Math.min(800, beetW * 80)}
+              height={Math.min(400, beetH * 80)}
+              style={{ width: '100%', borderRadius: 8, display: 'block', maxHeight: 300 }}
+            />
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+              {plan.map(p => (
+                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: p.bluete_farbe || A, flexShrink: 0 }} />
+                  <span style={{ color: FG, fontWeight: L ? 600 : 400 }}>{p.name}</span>
+                  <span style={{ color: MUTED }}>({p.count}×)</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Pflanzabstandstabelle */}
+          <div style={{ background: cardBg, borderRadius: 12, padding: '16px 18px', boxShadow: shadow }}>
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12, fontWeight: L ? 700 : 400 }}>
+              📏 Pflanzabstände & Mengen
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {plan.map(p => {
+                const spacing = p.pflanzabstand || 40
+                const ppm = 1 / Math.pow(spacing / 100, 2)
+                const rec = Math.round(beetArea * ppm * (1 / plan.length))
+                return (
+                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.bluete_farbe || A, flexShrink: 0 }} />
+                    <span style={{ flex: 1, color: FG, fontWeight: L ? 600 : 400 }}>{p.name}</span>
+                    <span style={{ color: MUTED, fontFamily: "'Space Mono', monospace", fontSize: 10 }}>Ø {spacing}cm</span>
+                    <span style={{ color: A, fontWeight: 700, minWidth: 40, textAlign: 'right' }}>{p.count}×</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+/* ─── PLANT CARD ─────────────────────────────────────────────────────────── */
+function PlantCard({ plant: p, expanded, onToggle, onAdd, inPlan, L, shadow, cardBg }) {
+  return (
+    <div style={{ background: cardBg, borderRadius: 10, boxShadow: shadow, overflow: 'hidden' }}>
+      <div style={{ height: 3, background: p.bluete_farbe || '#888', opacity: 0.75 }} />
+      <div style={{ padding: '13px 15px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-              <span style={{ fontSize: 18 }}>{plant.bild_emoji}</span>
-              <span style={{ fontSize: 14, fontWeight: 700, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{plant.name}</span>
-              {plant.heimisch && <span style={{ fontSize: 9, background: '#047A3C18', color: '#047A3C', border: '1px solid #047A3C30', padding: '1px 6px', borderRadius: 100, fontWeight: 700, flexShrink: 0 }}>heimisch</span>}
+              <span style={{ fontSize: 16 }}>{p.bild_emoji || '🌿'}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+              {p.heimisch && <span style={{ fontSize: 9, background: '#047A3C18', color: '#047A3C', border: '1px solid #047A3C30', padding: '1px 6px', borderRadius: 100, fontWeight: 700, flexShrink: 0 }}>heimisch</span>}
             </div>
-            <div style={{ fontSize: 11, fontStyle: 'italic', color: MUTED, marginBottom: 8 }}>{plant.latin}</div>
+            <div style={{ fontSize: 10, fontStyle: 'italic', color: MUTED, marginBottom: 8 }}>{p.latin}</div>
 
             {/* Badges */}
-            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 8 }}>
-              <Badge emoji="☀️" label={plant.licht.map(l => LICHT_LABELS[l]).join('/')} L={L} />
-              <Badge emoji="💧" label={plant.wasser.map(w => WASSER_LABELS[w]).join('/')} L={L} />
-              <Badge emoji="📏" label={`${plant.hoehe[0]}–${plant.hoehe[1]}cm`} L={L} />
-              <Badge emoji="🌸" label={`${MONTHS[plant.bluete_monate[0]-1]}–${MONTHS[plant.bluete_monate[plant.bluete_monate.length-1]-1]}`} L={L} />
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 7 }}>
+              <MBadge emoji="☀️" label={p.licht.map(l => LICHT_LABELS[l]).join('/')} L={L} />
+              <MBadge emoji="💧" label={p.wasser.map(w => WASSER_LABELS[w]).join('/')} L={L} />
+              <MBadge emoji="📏" label={`${p.hoehe[0]}–${p.hoehe[1]}cm`} L={L} />
+              <MBadge emoji="🌸" label={`${MONTHS[p.bluete_monate[0]-1]}–${MONTHS[p.bluete_monate[p.bluete_monate.length-1]-1]}`} L={L} />
+              {p.pflanzabstand && <MBadge emoji="↔️" label={`${p.pflanzabstand}cm`} L={L} />}
             </div>
 
-            {/* Insect row */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ display: 'flex', gap: 3 }}>
-                {plant.bienen && <span title="Bienen" style={{ fontSize: 13 }}>🐝</span>}
-                {plant.schmetterlinge && <span title="Schmetterlinge" style={{ fontSize: 13 }}>🦋</span>}
-                {plant.voegel && <span title="Vögel" style={{ fontSize: 13 }}>🐦</span>}
+            {/* Eco row */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {p.bienen && <span title="Bienen">🐝</span>}
+              {p.tagfalter && <span title="Tagfalter">🦋</span>}
+              {p.nachtfalter && <span title="Nachtfalter">🌙</span>}
+              {p.raupenfutter && <span title="Raupenfutterpflanze">🐛</span>}
+              {p.kaefer && <span title="Käfer">🪲</span>}
+              {p.voegel && <span title="Vögel">🐦</span>}
+              <div style={{ marginLeft: 4, display: 'flex', gap: 1 }}>
+                {[1,2,3,4,5].map(i => <div key={i} style={{ width: 5, height: 5, borderRadius: 1, background: i <= (p.nektar || p.insekten || 0) ? A : BORDER, opacity: i <= (p.nektar || p.insekten || 0) ? 1 : 0.35 }} />)}
               </div>
-              <InsectBar value={plant.insekten} />
+              <span style={{ fontSize: 9, color: MUTED }}>Nektar</span>
             </div>
           </div>
 
           {/* Add btn */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end', flexShrink: 0 }}>
-            <button
-              onClick={onAdd}
-              style={{
-                width: 30, height: 30, borderRadius: 8,
-                background: inPlan ? '#047A3C' : A14,
-                border: `1px solid ${inPlan ? '#047A3C' : A20}`,
-                color: inPlan ? '#fff' : A,
-                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 14, fontWeight: 700,
-              }}>
-              {inPlan ? inPlan.count : <Plus size={14} />}
-            </button>
-          </div>
+          <button onClick={onAdd} style={{
+            width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+            background: inPlan ? '#047A3C' : A14, border: `1px solid ${inPlan ? '#047A3C' : A20}`,
+            color: inPlan ? '#fff' : A, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700,
+          }}>{inPlan ? inPlan.count : <Plus size={13} />}</button>
         </div>
 
         {/* Toggle */}
-        <button
-          onClick={onToggle}
-          style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', color: MUTED, fontSize: 11, cursor: 'pointer', padding: '4px 0 0', marginTop: 4 }}>
-          {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+        <button onClick={onToggle} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', color: MUTED, fontSize: 10, cursor: 'pointer', padding: '5px 0 0', marginTop: 2 }}>
+          {expanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
           {expanded ? 'Weniger' : 'Details'}
         </button>
 
         {expanded && (
           <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BORDER}` }}>
-            <p style={{ fontSize: 12.5, color: MUTED, lineHeight: 1.65, marginBottom: 10 }}>{plant.beschreibung}</p>
-            <a href={plant.naturadb_url} target="_blank" rel="noopener noreferrer"
+            <p style={{ fontSize: 12, color: MUTED, lineHeight: 1.65, marginBottom: 8 }}>{p.beschreibung}</p>
+            {p.raupenfutter && p.raupenfutter_arten?.length > 0 && (
+              <div style={{ marginBottom: 8 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#10b981' }}>🐛 Raupenfutter für: </span>
+                <span style={{ fontSize: 10, color: MUTED }}>{p.raupenfutter_arten.join(', ')}</span>
+              </div>
+            )}
+            {p.ph_min && <div style={{ fontSize: 10, color: MUTED, marginBottom: 4 }}>🧪 pH {p.ph_min}–{p.ph_max} · {p.drainage || '–'}</div>}
+            <a href={p.naturadb_url} target="_blank" rel="noopener noreferrer"
               style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: A, fontWeight: 600, textDecoration: 'none' }}>
-              <ExternalLink size={11} /> naturaDB ansehen
+              <ExternalLink size={11} /> naturaDB
             </a>
           </div>
         )}
@@ -363,126 +597,138 @@ function PlantCard({ plant, expanded, onToggle, onAdd, inPlan, L, cardShadow }) 
   )
 }
 
-function PlanRow({ plant, onAdd, onRemove, L, cardShadow }) {
+/* ─── PLAN ROW ──────────────────────────────────────────────────────────── */
+function PlanRow({ plant: p, onAdd, onRemove, L, shadow, cardBg }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: L ? '#fff' : SURFACE, borderRadius: 10, padding: '12px 16px', boxShadow: cardShadow }}>
-      <div style={{ width: 12, height: 12, borderRadius: '50%', background: plant.bluete_farbe || '#888', flexShrink: 0, opacity: 0.8 }} />
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: cardBg, borderRadius: 9, padding: '10px 14px', boxShadow: shadow }}>
+      <div style={{ width: 10, height: 10, borderRadius: '50%', background: p.bluete_farbe || A, flexShrink: 0, opacity: 0.85 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: FG }}>{plant.name}</div>
-        <div style={{ fontSize: 11, fontStyle: 'italic', color: MUTED }}>{plant.latin}</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: FG }}>{p.name}</div>
+        <div style={{ fontSize: 10, fontStyle: 'italic', color: MUTED }}>{p.latin}</div>
       </div>
-      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED }}>
-        {plant.hoehe[0]}–{plant.hoehe[1]}cm
+      <div style={{ display: 'flex', gap: 4, fontSize: 12 }}>
+        {p.bienen && '🐝'}{p.tagfalter && '🦋'}{p.raupenfutter && '🐛'}{p.voegel && '🐦'}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-        {plant.bienen && '🐝'}{plant.schmetterlinge && '🦋'}{plant.voegel && '🐦'}
-      </div>
-      {/* Counter */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <button onClick={onRemove} style={{ width: 26, height: 26, borderRadius: 6, background: 'none', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Minus size={12} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+        <button onClick={onRemove} style={{ width: 24, height: 24, borderRadius: 6, background: 'none', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Minus size={11} />
         </button>
-        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 14, fontWeight: 700, color: FG, minWidth: 20, textAlign: 'center' }}>{plant.count}</span>
-        <button onClick={onAdd} style={{ width: 26, height: 26, borderRadius: 6, background: A14, border: `1px solid ${A20}`, color: A, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Plus size={12} />
+        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 14, fontWeight: 700, color: FG, minWidth: 20, textAlign: 'center' }}>{p.count}</span>
+        <button onClick={onAdd} style={{ width: 24, height: 24, borderRadius: 6, background: A14, border: `1px solid ${A20}`, color: A, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Plus size={11} />
         </button>
       </div>
-      <a href={plant.naturadb_url} target="_blank" rel="noopener noreferrer" style={{ color: MUTED, display: 'flex' }}>
-        <ExternalLink size={13} />
+      <a href={p.naturadb_url} target="_blank" rel="noopener noreferrer" style={{ color: MUTED, display: 'flex' }}>
+        <ExternalLink size={12} />
       </a>
     </div>
   )
 }
 
 /* ─── HELPERS ───────────────────────────────────────────────────────────── */
-
-function TabBtn({ label, active, onClick, L, highlight }) {
+function TabBtn({ label, active, onClick, L, dot }) {
   return (
     <button onClick={onClick} style={{
-      padding: '8px 16px', borderRadius: 8, fontSize: 13,
-      fontWeight: L ? 700 : (active ? 600 : 400),
-      border: active ? `1.5px solid ${A}` : `1px solid ${BORDER}`,
-      background: active ? A14 : 'transparent',
-      color: active ? A : MUTED,
-      cursor: 'pointer',
-      position: 'relative',
-    }}>
-      {label}
-      {highlight && !active && <span style={{ position: 'absolute', top: -4, right: -4, width: 8, height: 8, borderRadius: '50%', background: '#047A3C' }} />}
-    </button>
-  )
-}
-
-function StandortBtn({ opt, active, onClick, color, L }) {
-  return (
-    <button onClick={onClick} style={{
-      display: 'flex', alignItems: 'center', gap: 8,
-      padding: '7px 10px', borderRadius: 7, fontSize: 12,
-      fontWeight: active ? (L ? 700 : 600) : (L ? 500 : 400),
-      border: active ? `1.5px solid ${color}` : `1px solid ${BORDER}`,
-      background: active ? `${color}12` : 'transparent',
-      color: active ? color : MUTED,
-      cursor: 'pointer', textAlign: 'left', width: '100%',
-    }}>
-      <span style={{ fontSize: 14 }}>{opt.emoji}</span>
-      <span>{opt.label}</span>
-      {opt.desc && <span style={{ fontSize: 10, opacity: 0.65, marginLeft: 'auto' }}>{opt.desc}</span>}
-    </button>
-  )
-}
-
-function TypeChip({ label, active, onClick, L }) {
-  return (
-    <button onClick={onClick} style={{
-      padding: '4px 10px', borderRadius: 100, fontSize: 11,
+      padding: '7px 14px', borderRadius: 8, fontSize: 12, position: 'relative',
       fontWeight: active ? 700 : (L ? 500 : 400),
       border: active ? `1.5px solid ${A}` : `1px solid ${BORDER}`,
-      background: active ? A14 : 'transparent',
-      color: active ? A : MUTED,
-      cursor: 'pointer',
+      background: active ? A14 : 'transparent', color: active ? A : MUTED, cursor: 'pointer',
+    }}>
+      {label}
+      {dot && <span style={{ position: 'absolute', top: -3, right: -3, width: 7, height: 7, borderRadius: '50%', background: '#047A3C' }} />}
+    </button>
+  )
+}
+
+function FilterGroup({ label, opts, selected, onSelect, color, L }) {
+  return (
+    <div>
+      <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 7 }}>{label}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {opts.map(o => (
+          <button key={o.value} onClick={() => onSelect(o.value)} style={{
+            display: 'flex', alignItems: 'center', gap: 7, padding: '6px 9px', borderRadius: 7, fontSize: 12,
+            textAlign: 'left', cursor: 'pointer', width: '100%',
+            fontWeight: selected === o.value ? 700 : (L ? 500 : 400),
+            border: selected === o.value ? `1.5px solid ${color}` : `1px solid ${BORDER}`,
+            background: selected === o.value ? `${color}12` : 'transparent',
+            color: selected === o.value ? color : MUTED,
+          }}>
+            <span>{o.emoji}</span>
+            <span style={{ flex: 1 }}>{o.label}</span>
+            {o.desc && <span style={{ fontSize: 9, opacity: 0.6 }}>{o.desc}</span>}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function BioToggle({ label, active, onClick, L }) {
+  return (
+    <button onClick={onClick} style={{
+      padding: '7px 14px', borderRadius: 100, fontSize: 12, cursor: 'pointer',
+      fontWeight: active ? 700 : (L ? 500 : 400),
+      border: active ? `1.5px solid ${A}` : `1px solid ${BORDER}`,
+      background: active ? A14 : 'transparent', color: active ? A : MUTED,
     }}>{label}</button>
   )
 }
 
-function Badge({ emoji, label, L }) {
+function TypeToggle({ label, active, onClick, L }) {
+  return (
+    <button onClick={onClick} style={{
+      padding: '5px 9px', borderRadius: 6, fontSize: 11, cursor: 'pointer', textAlign: 'left',
+      fontWeight: active ? 700 : (L ? 500 : 400),
+      border: active ? `1.5px solid ${A}` : `1px solid ${BORDER}`,
+      background: active ? A14 : 'transparent', color: active ? A : MUTED,
+    }}>{label}</button>
+  )
+}
+
+function MBadge({ emoji, label, L }) {
   return (
     <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 4,
-      fontSize: 10, color: MUTED, fontWeight: L ? 600 : 400,
-      background: L ? 'rgba(0,0,0,0.05)' : BG,
-      padding: '2px 7px', borderRadius: 100,
-      border: L ? '1px solid rgba(0,0,0,0.07)' : 'none',
-    }}>
-      <span>{emoji}</span>{label}
-    </span>
+      display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 9, color: MUTED,
+      fontWeight: L ? 600 : 400, background: L ? 'rgba(0,0,0,0.05)' : BG,
+      padding: '2px 6px', borderRadius: 100, border: L ? '1px solid rgba(0,0,0,0.07)' : 'none',
+    }}><span>{emoji}</span>{label}</span>
   )
 }
 
-function InsectBar({ value }) {
+function StatCard({ label, value, emoji, color, L, shadow }) {
   return (
-    <div style={{ display: 'flex', gap: 2 }}>
-      {[1,2,3,4,5].map(i => (
-        <div key={i} style={{
-          width: 6, height: 6, borderRadius: 1,
-          background: i <= value ? A : BORDER,
-          opacity: i <= value ? 1 : 0.4,
-        }} />
-      ))}
-    </div>
-  )
-}
-
-function StatCard({ label, value, emoji, L, color }) {
-  return (
-    <div style={{
-      background: L ? '#fff' : SURFACE,
-      border: `1.5px solid ${BORDER}`, borderRadius: 10,
-      padding: '14px 16px', textAlign: 'center',
-      boxShadow: L ? '0 1px 4px rgba(0,0,0,0.06)' : 'none',
-    }}>
+    <div style={{ background: L ? '#fff' : SURFACE, border: `1.5px solid ${BORDER}`, borderRadius: 10, padding: '13px 14px', textAlign: 'center', boxShadow: L ? '0 1px 4px rgba(0,0,0,0.06)' : 'none' }}>
       <div style={{ fontSize: 18, marginBottom: 4 }}>{emoji}</div>
       <div style={{ fontSize: 20, fontWeight: 800, color, letterSpacing: '-0.02em' }}>{value}</div>
-      <div style={{ fontSize: 10, color: MUTED, fontWeight: L ? 600 : 400, marginTop: 2 }}>{label}</div>
+      <div style={{ fontSize: 9, color: MUTED, fontWeight: L ? 600 : 400, marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
     </div>
   )
+}
+
+function EmptyState({ msg, sub, action, actionLabel }) {
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: MUTED, gap: 8, padding: '40px 0' }}>
+      <div style={{ fontSize: 40 }}>🌵</div>
+      <div style={{ fontSize: 14, fontWeight: 600, color: FG }}>{msg}</div>
+      <div style={{ fontSize: 12, color: MUTED }}>{sub}</div>
+      {action && <button onClick={action} style={{ marginTop: 8, background: A14, border: `1px solid ${A20}`, color: A, borderRadius: 8, padding: '8px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>{actionLabel}</button>}
+    </div>
+  )
+}
+
+function exportPlan(plan) {
+  const lines = [
+    'PFLANZPLAN — LUMA BIOME',
+    '='.repeat(50), '',
+    'PFLANZLISTE:',
+    ...plan.map(p => `  ${p.count}x  ${p.name} (${p.latin})\n       Licht: ${p.licht.map(l => LICHT_LABELS[l]).join('/')} | Wasser: ${p.wasser.map(w => WASSER_LABELS[w]).join('/')} | Abstand: ${p.pflanzabstand || 40}cm`),
+    '',
+    `GESAMT: ${plan.reduce((s, p) => s + p.count, 0)} Pflanzen (${plan.length} Arten)`,
+  ]
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = 'pflanzplan-luma.txt'
+  a.click()
 }
