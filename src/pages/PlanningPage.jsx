@@ -279,8 +279,8 @@ export default function PlanningPage() {
                 <div style={{ overflowY: 'auto', padding: '0 20px 40px' }}>
                   {/* Color bar */}
                   <div style={{ height: 4, background: sheetPlant.bluete_farbe || A, borderRadius: 2, marginBottom: 16, opacity: 0.8 }} />
-                  {/* Plant image */}
-                  <PlantImage latin={sheetPlant.latin} />
+                  {/* Plant image gallery */}
+                  <PlantGallery plant={sheetPlant} />
                   {/* Name */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                     <div>
@@ -610,64 +610,116 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
 }
 
 /* ─── PLANT CARD ─────────────────────────────────────────────────────────── */
-/* ─── WIKIPEDIA PLANT IMAGE ─────────────────────────────────────────────── */
-async function fetchWikiImage(title) {
-  const t = encodeURIComponent(title.replace(/ /g, '_'))
-  // 1. Try Wikipedia REST API (better CORS, returns thumbnail directly)
-  for (const lang of ['de', 'en']) {
-    try {
-      const r = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${t}`)
-      if (r.ok) {
-        const d = await r.json()
-        if (d?.thumbnail?.source) return d.thumbnail.source
-        if (d?.originalimage?.source) return d.originalimage.source
-      }
-    } catch { /* try next */ }
+/* ─── PLANT IMAGE + GALLERY ─────────────────────────────────────────────── */
+async function fetchMoreWikiImages(latin, primaryUrl) {
+  const t = encodeURIComponent(latin.replace(/ /g, '_'))
+  try {
+    const r = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${t}&prop=images&format=json&origin=*&imlimit=20`)
+    if (!r.ok) return [primaryUrl]
+    const d = await r.json()
+    const page = Object.values(d?.query?.pages || {})[0]
+    if (!page?.images) return [primaryUrl]
+
+    const candidates = page.images
+      .map(i => i.title)
+      .filter(t => /\.(jpg|jpeg|png)$/i.test(t))
+      .filter(t => !/Flag_|Icon_|Logo_|Map_|Stub_|Pictogram|Symbol|Arrow|Button|Disambig/i.test(t))
+      .slice(0, 10)
+
+    if (!candidates.length) return [primaryUrl]
+
+    const r2 = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${candidates.map(c => encodeURIComponent(c)).join('|')}&prop=imageinfo&iiprop=url&iiurlwidth=800&format=json&origin=*`)
+    if (!r2.ok) return [primaryUrl]
+    const d2 = await r2.json()
+    const extraUrls = Object.values(d2?.query?.pages || {})
+      .map(p => p?.imageinfo?.[0]?.thumburl || p?.imageinfo?.[0]?.url)
+      .filter(Boolean)
+      .filter(u => u !== primaryUrl && u.includes('wikimedia'))
+
+    return [primaryUrl, ...extraUrls].slice(0, 5)
+  } catch {
+    return [primaryUrl]
   }
-  // 2. Fallback: MediaWiki API with CORS header
-  for (const lang of ['de', 'en']) {
-    try {
-      const r = await fetch(`https://${lang}.wikipedia.org/w/api.php?action=query&titles=${t}&prop=pageimages&format=json&pithumbsize=800&origin=*`)
-      if (r.ok) {
-        const d = await r.json()
-        const page = Object.values(d?.query?.pages || {})[0]
-        if (page?.thumbnail?.source) return page.thumbnail.source
-      }
-    } catch { /* give up */ }
-  }
-  return null
 }
 
-function PlantImage({ latin }) {
-  const key = `floralis_img2_${latin}` // v2: switched to REST API
-  const [src, setSrc] = useState(() => {
-    const c = localStorage.getItem(key)
-    if (c === 'none') return null
-    return c || undefined
-  })
-
-  useEffect(() => {
-    if (src !== undefined) return
-    fetchWikiImage(latin).then(imgSrc => {
-      setSrc(imgSrc)
-      localStorage.setItem(key, imgSrc || 'none')
-    })
-  }, [latin])
-
-  if (src === undefined) return (
-    <div style={{ width: '100%', height: 100, background: BORDER, borderRadius: 8, opacity: 0.2, marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, opacity: 0.6 }}>Bild lädt…</span>
-    </div>
-  )
-  if (!src) return (
-    <div style={{ width: '100%', height: 60, background: BORDER, borderRadius: 8, opacity: 0.1, marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, opacity: 0.5 }}>Kein Bild verfügbar</span>
+function PlantImage({ plant }) {
+  const [error, setError] = useState(false)
+  if (!plant.wiki_img || error) return (
+    <div style={{ width: '100%', height: 60, background: BORDER, borderRadius: 8, opacity: 0.12, marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, opacity: 0.4 }}>Kein Bild</span>
     </div>
   )
   return (
-    <img src={src} alt={latin}
+    <img src={plant.wiki_img} alt={plant.latin}
       style={{ width: '100%', height: 180, objectFit: 'cover', borderRadius: 8, marginBottom: 12, display: 'block' }}
-      onError={() => { setSrc(null); localStorage.setItem(key, 'none') }} />
+      onError={() => setError(true)} />
+  )
+}
+
+function PlantGallery({ plant }) {
+  const [images, setImages] = useState(plant.wiki_img ? [plant.wiki_img] : [])
+  const [idx, setIdx] = useState(0)
+  const touchStartX = useRef(null)
+
+  useEffect(() => {
+    if (!plant.wiki_img) return
+    fetchMoreWikiImages(plant.latin, plant.wiki_img).then(imgs => setImages(imgs))
+  }, [plant.latin, plant.wiki_img])
+
+  const prev = () => setIdx(i => (i - 1 + images.length) % images.length)
+  const next = () => setIdx(i => (i + 1) % images.length)
+
+  const onTouchStart = e => { touchStartX.current = e.touches[0].clientX }
+  const onTouchEnd = e => {
+    if (touchStartX.current === null) return
+    const dx = e.changedTouches[0].clientX - touchStartX.current
+    if (dx < -40) next()
+    else if (dx > 40) prev()
+    touchStartX.current = null
+  }
+
+  const handleImgError = () => {
+    setImages(imgs => {
+      const next = imgs.filter((_, i) => i !== idx)
+      return next.length ? next : []
+    })
+    setIdx(i => Math.max(0, i - 1))
+  }
+
+  if (images.length === 0) return (
+    <div style={{ width: '100%', height: 200, background: BORDER, borderRadius: 12, opacity: 0.12, marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>Kein Bild verfügbar</span>
+    </div>
+  )
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden' }}
+        onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        <img src={images[idx]} alt={plant.latin}
+          style={{ width: '100%', height: 220, objectFit: 'cover', display: 'block' }}
+          onError={handleImgError} />
+        {images.length > 1 && (
+          <>
+            <button onClick={prev}
+              style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.45)', border: 'none', color: '#fff', width: 34, height: 34, borderRadius: '50%', cursor: 'pointer', fontSize: 20, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
+            <button onClick={next}
+              style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.45)', border: 'none', color: '#fff', width: 34, height: 34, borderRadius: '50%', cursor: 'pointer', fontSize: 20, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
+            <div style={{ position: 'absolute', bottom: 8, right: 10, background: 'rgba(0,0,0,0.45)', borderRadius: 10, padding: '2px 8px', fontSize: 11, color: '#fff' }}>
+              {idx + 1} / {images.length}
+            </div>
+          </>
+        )}
+      </div>
+      {images.length > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 5, marginTop: 8 }}>
+          {images.map((_, i) => (
+            <div key={i} onClick={() => setIdx(i)}
+              style={{ width: i === idx ? 18 : 6, height: 6, borderRadius: 3, background: i === idx ? A : BORDER, cursor: 'pointer', transition: 'width 0.2s ease' }} />
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -730,7 +782,7 @@ function PlantCard({ plant: p, expanded, onToggle, onAdd, inPlan, isMobile, L, s
 
         {expanded && (
           <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BORDER}` }}>
-            <PlantImage latin={p.latin} />
+            <PlantImage plant={p} />
             <p style={{ fontSize: 12, color: MUTED, lineHeight: 1.65, marginBottom: 8 }}>{p.beschreibung}</p>
             {p.raupenfutter && p.raupenfutter_arten?.length > 0 && (
               <div style={{ marginBottom: 8 }}>

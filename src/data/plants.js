@@ -19,6 +19,7 @@ export const PLANTS = [
     pflanzabstand: 35, ausbreitung: 35, heimisch: true,
     beschreibung: 'Klassiker für trockene Standorte. Violette Ähren, mehrfach blühend bei Rückschnitt.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/salvia-nemorosa/', bild_emoji: '💜',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ac/Salvia_nemorosa_sl37.jpg/330px-Salvia_nemorosa_sl37.jpg',
   },
   {
     id: 'salvia-pratensis', name: 'Wiesensalbei', latin: 'Salvia pratensis',
@@ -31,6 +32,7 @@ export const PLANTS = [
     pflanzabstand: 30, ausbreitung: 30, heimisch: true,
     beschreibung: 'Intensiv blauviolett, extrem trockenresistent, wertvoll für Wildbienen.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/salvia-pratensis/', bild_emoji: '💜',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/51/Salvia_pratensis_LC0340.jpg/330px-Salvia_pratensis_LC0340.jpg',
   },
   {
     id: 'echium-vulgare', name: 'Gewöhnlicher Natternkopf', latin: 'Echium vulgare',
@@ -43,6 +45,7 @@ export const PLANTS = [
     pflanzabstand: 40, ausbreitung: 35, heimisch: true,
     beschreibung: 'Bienenmagnet Nr. 1 auf Sandboden. Blaue Blüten, zweijährig, sät sich selbst aus.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/echium-vulgare/', bild_emoji: '💙',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/Echium_vulgare_helgoland01.jpg/330px-Echium_vulgare_helgoland01.jpg',
   },
   {
     id: 'thymus-serpyllum', name: 'Sand-Thymian', latin: 'Thymus serpyllum',
@@ -55,6 +58,7 @@ export const PLANTS = [
     pflanzabstand: 25, ausbreitung: 40, heimisch: true,
     beschreibung: 'Perfekter Bodendecker für Sandboden. Dicht kriechend, massenhaft rosa Blüten.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/thymus-serpyllum/', bild_emoji: '🌸',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/20150520Thymus_serpyllum4.jpg/330px-20150520Thymus_serpyllum4.jpg',
   },
   {
     id: 'scabiosa-columbaria', name: 'Tauben-Skabiose', latin: 'Scabiosa columbaria',
@@ -67,6 +71,7 @@ export const PLANTS = [
     pflanzabstand: 30, ausbreitung: 30, heimisch: true,
     beschreibung: 'Lila Pincushion-Blüten über Monate. Schmetterlings- und Bienenmagnet auf Magerstandorten.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/scabiosa-columbaria/', bild_emoji: '🪻',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/Scabiosa_columbaria_%281%29.JPG/330px-Scabiosa_columbaria_%281%29.JPG',
   },
   {
     id: 'centaurea-scabiosa', name: 'Skabiosen-Flockenblume', latin: 'Centaurea scabiosa',
@@ -79,6 +84,7 @@ export const PLANTS = [
     pflanzabstand: 40, ausbreitung: 40, heimisch: true,
     beschreibung: 'Große violette Blütenköpfe. Samen für Vögel. Sehr robust auf Sandboden.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/centaurea-scabiosa/', bild_emoji: '🌺',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Centaurea_scabiosa_flower.jpg/330px-Centaurea_scabiosa_flower.jpg',
   },
   {
     id: 'centaurea-cyanus', name: 'Kornblume', latin: 'Centaurea cyanus',
@@ -91,6 +97,7 @@ export const PLANTS = [
     pflanzabstand: 15, ausbreitung: 15, heimisch: true,
     beschreibung: 'Klassisch blaue Feldblume. Sät sich selbst aus, bildet dichte Blühteppiche.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/centaurea-cyanus/', bild_emoji: '💙',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1d/Kornblume02.JPG/330px-Kornblume02.JPG',
   },
   {
     id: 'leucanthemum-vulgare', name: 'Wiesen-Margerite', latin: 'Leucanthemum vulgare',
@@ -103,6 +110,7 @@ export const PLANTS = [
     pflanzabstand: 30, ausbreitung: 30, heimisch: true,
     beschreibung: 'Weiße Klassikerin der Magerwiesen. Langlebig, robust, bildet dichte Horste.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/leucanthemum-vulgare/', bild_emoji: '🌼',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c9/Illustration_Chrysanthemum_leucanthemum0.jpg/330px-Illustration_Chrysanthemum_leucanthemum0.jpg',
   },
   {
     id: 'achillea-millefolium', name: 'Gewöhnliche Schafgarbe', latin: 'Achillea millefolium',
@@ -115,6 +123,7 @@ export const PLANTS = [
     pflanzabstand: 30, ausbreitung: 40, heimisch: true,
     beschreibung: 'Universalstaude. Verträgt extremste Trockenheit. Doldenblüten über Monate.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/achillea-millefolium/', bild_emoji: '🌿',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/00/Achillea_millefiolium_sp3.JPG/330px-Achillea_millefiolium_sp3.JPG',
   },
   {
     id: 'verbascum-thapsus', name: 'Großblütige Königskerze', latin: 'Verbascum thapsus',
@@ -127,6 +136,7 @@ export const PLANTS = [
     pflanzabstand: 60, ausbreitung: 40, heimisch: true,
     beschreibung: 'Majestätische goldgelbe Blütenkerze bis 1,80m. Sät sich selbst aus. Bienenparadies.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/verbascum-thapsus/', bild_emoji: '🌻',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/20130712Koenigskerze_Hockenheim.jpg/330px-20130712Koenigskerze_Hockenheim.jpg',
   },
   {
     id: 'origanum-vulgare', name: 'Oregano / Gewöhnlicher Dost', latin: 'Origanum vulgare',
@@ -139,6 +149,7 @@ export const PLANTS = [
     pflanzabstand: 35, ausbreitung: 45, heimisch: true,
     beschreibung: 'Bienenmagnet und Küchenkraut. Massenhaft rosa Blüten, extrem trockenresistent.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/origanum-vulgare/', bild_emoji: '🌿',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/ORIGANUM_VULGARE_-_SANT_JUST_-_IB-230_%28Orenga%29.JPG/330px-ORIGANUM_VULGARE_-_SANT_JUST_-_IB-230_%28Orenga%29.JPG',
   },
   {
     id: 'hypericum-perforatum', name: 'Echtes Johanniskraut', latin: 'Hypericum perforatum',
@@ -151,6 +162,7 @@ export const PLANTS = [
     pflanzabstand: 30, ausbreitung: 30, heimisch: true,
     beschreibung: 'Gelbe Sternblüten. Heilpflanze, guter Pollenspender. Gedeiht auf kargem Sandboden.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/hypericum-perforatum/', bild_emoji: '⭐',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Hypericum_perforatum_Dziurawiec_zwyczajny_2020-07-12_02.jpg/330px-Hypericum_perforatum_Dziurawiec_zwyczajny_2020-07-12_02.jpg',
   },
   {
     id: 'dianthus-carthusianorum', name: 'Karthäuser-Nelke', latin: 'Dianthus carthusianorum',
@@ -163,6 +175,7 @@ export const PLANTS = [
     pflanzabstand: 25, ausbreitung: 20, heimisch: true,
     beschreibung: 'Tief rote Nelkenblüten auf Sanddünen. Schmetterlingspflanze par excellence.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/dianthus-carthusianorum/', bild_emoji: '🌹',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/Dianthus_carthusianorum_Jakobikirchplatz_Rostock_HBP_2010-06-30_cropped.jpg/330px-Dianthus_carthusianorum_Jakobikirchplatz_Rostock_HBP_2010-06-30_cropped.jpg',
   },
   {
     id: 'sedum-acre', name: 'Scharfer Mauerpfeffer', latin: 'Sedum acre',
@@ -175,6 +188,7 @@ export const PLANTS = [
     pflanzabstand: 20, ausbreitung: 30, heimisch: true,
     beschreibung: 'Perfekter Bodendecker für Sand. Gelbe Blütensterne, sukkulent, braucht kein Wasser.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/sedum-acre/', bild_emoji: '🌟',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/Sedum_acre_single_-_Niitv%C3%A4lja.jpg/330px-Sedum_acre_single_-_Niitv%C3%A4lja.jpg',
   },
   {
     id: 'hylotelephium-telephium', name: 'Große Fetthenne', latin: 'Hylotelephium telephium',
@@ -187,6 +201,7 @@ export const PLANTS = [
     pflanzabstand: 35, ausbreitung: 40, heimisch: true,
     beschreibung: 'Herbstblüher der Spitzenklasse. Rosa-rote Dolden wenn andere Pflanzen abblühen.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/hylotelephium-telephium/', bild_emoji: '🌸',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/77/Sedum_telephium_ssp_maximum_1.jpg/330px-Sedum_telephium_ssp_maximum_1.jpg',
   },
   {
     id: 'knautia-arvensis', name: 'Acker-Witwenblume', latin: 'Knautia arvensis',
@@ -199,6 +214,7 @@ export const PLANTS = [
     pflanzabstand: 30, ausbreitung: 30, heimisch: true,
     beschreibung: 'Lila Pincushion-Blüten von Juni bis Oktober. Typisch an Brandenburger Feldrainen.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/knautia-arvensis/', bild_emoji: '🪻',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/Knautia_arvensis_inflorescence_%28top_view%29_-_Keila.jpg/330px-Knautia_arvensis_inflorescence_%28top_view%29_-_Keila.jpg',
   },
   {
     id: 'linaria-vulgaris', name: 'Gemeines Leinkraut', latin: 'Linaria vulgaris',
@@ -211,6 +227,7 @@ export const PLANTS = [
     pflanzabstand: 25, ausbreitung: 25, heimisch: true,
     beschreibung: 'Gelb-orange Löwenmäulchen auf Sandboden. Breitet sich aus, typische Ruderalflora.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/linaria-vulgaris/', bild_emoji: '💛',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/Common_Toadflax_-_Linaria_vulgaris_-_geograph.org.uk_-_215978.jpg/330px-Common_Toadflax_-_Linaria_vulgaris_-_geograph.org.uk_-_215978.jpg',
   },
   {
     id: 'papaver-rhoeas', name: 'Klatschmohn', latin: 'Papaver rhoeas',
@@ -223,6 +240,7 @@ export const PLANTS = [
     pflanzabstand: 20, ausbreitung: 20, heimisch: true,
     beschreibung: 'Leuchtend roter Klassiker der Feldränder. Samen für Vögel, sät sich jährlich aus.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/papaver-rhoeas/', bild_emoji: '🌺',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/Papaver_rhoeas_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-101.jpg/330px-Papaver_rhoeas_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-101.jpg',
   },
   {
     id: 'campanula-rotundifolia', name: 'Rundblättrige Glockenblume', latin: 'Campanula rotundifolia',
@@ -235,6 +253,7 @@ export const PLANTS = [
     pflanzabstand: 20, ausbreitung: 20, heimisch: true,
     beschreibung: 'Zartes blaues Glöckchen. Sehr robust auf Sandboden, langlebig.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/campanula-rotundifolia/', bild_emoji: '🔔',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b1/Campanula_rotundifolia_W.jpg/330px-Campanula_rotundifolia_W.jpg',
   },
   {
     id: 'pulsatilla-vulgaris', name: 'Gewöhnliche Küchenschelle', latin: 'Pulsatilla vulgaris',
@@ -247,6 +266,7 @@ export const PLANTS = [
     pflanzabstand: 25, ausbreitung: 25, heimisch: true,
     beschreibung: 'Frühjahrsbote auf Sandboden. Tiefviolette Blüten im März/April. Schutzbedürftig.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/pulsatilla-vulgaris/', bild_emoji: '🟣',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Anemone_pulsatilla_MS_0164.jpg/330px-Anemone_pulsatilla_MS_0164.jpg',
   },
   {
     id: 'artemisia-campestris', name: 'Feld-Beifuß', latin: 'Artemisia campestris',
@@ -259,6 +279,7 @@ export const PLANTS = [
     pflanzabstand: 40, ausbreitung: 30, heimisch: true,
     beschreibung: 'Silbrig-grünes Steppengras des Sandbodens. Wichtig für Nachtfalter und Käfer.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/artemisia-campestris/', bild_emoji: '🌾',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ec/Artemisia_campestris_Sturm34.jpg/330px-Artemisia_campestris_Sturm34.jpg',
   },
 
   // ═══════════════════════════════════════════════════════════
@@ -275,6 +296,7 @@ export const PLANTS = [
     pflanzabstand: 50, ausbreitung: 60, heimisch: true,
     beschreibung: 'KRITISCH für Wiesenknopf-Ameisenbläulinge. Dunkelrote Knöpfchen. Feuchte Wiesen.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/sanguisorba-officinalis/', bild_emoji: '🔴',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Toten_1.jpg/330px-Toten_1.jpg',
   },
   {
     id: 'lythrum-salicaria', name: 'Gewöhnlicher Blutweiderich', latin: 'Lythrum salicaria',
@@ -287,6 +309,7 @@ export const PLANTS = [
     pflanzabstand: 60, ausbreitung: 60, heimisch: true,
     beschreibung: 'Magenta-pink, für feuchte Standorte. Massiver Bienenmagnet. Teichrand ideal.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/lythrum-salicaria/', bild_emoji: '🌺',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/Lythrum_salicaria_-_Blutweiderich_0507241.jpg/330px-Lythrum_salicaria_-_Blutweiderich_0507241.jpg',
   },
   {
     id: 'filipendula-vulgaris', name: 'Kleines Mädesüß', latin: 'Filipendula vulgaris',
@@ -299,6 +322,7 @@ export const PLANTS = [
     pflanzabstand: 35, ausbreitung: 35, heimisch: true,
     beschreibung: 'Duftende weiße Schaumblüten. Für trockene Kalkstandorte und Sandmagerwiesen.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/filipendula-vulgaris/', bild_emoji: '🤍',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/01/Filipendula_vulgaris_%27Dropwort%27_%28Rosaceae%29_plant.JPG/330px-Filipendula_vulgaris_%27Dropwort%27_%28Rosaceae%29_plant.JPG',
   },
 
   // ═══════════════════════════════════════════════════════════
@@ -315,6 +339,7 @@ export const PLANTS = [
     pflanzabstand: 20, ausbreitung: 20, heimisch: true,
     beschreibung: 'Kompaktes Polstergras. Raupenfutterpflanze für Grasfalter. Ideal als Füllgras.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/festuca-ovina/', bild_emoji: '🌾',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/Ovsyanica_ovechya.jpg/330px-Ovsyanica_ovechya.jpg',
   },
   {
     id: 'stipa-capillata', name: 'Haargras', latin: 'Stipa capillata',
@@ -327,6 +352,7 @@ export const PLANTS = [
     pflanzabstand: 50, ausbreitung: 40, heimisch: true,
     beschreibung: 'Spektakuläres Silbergras. Lange fedrige Grannen im Wind. Typisch Brandenburger Sandheiden.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/stipa-capillata/', bild_emoji: '🌾',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Stipa_capillata_%28hillside%29.jpg/330px-Stipa_capillata_%28hillside%29.jpg',
   },
   {
     id: 'stipa-pennata', name: 'Federgras', latin: 'Stipa pennata',
@@ -339,6 +365,7 @@ export const PLANTS = [
     pflanzabstand: 40, ausbreitung: 30, heimisch: true,
     beschreibung: 'Schöner als Stipa capillata. Weiß-silberne seidige Grannen, Kalksandboden.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/stipa-pennata/', bild_emoji: '🌾',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3d/Stipa_pennata_ss._orig._sl27.jpg/330px-Stipa_pennata_ss._orig._sl27.jpg',
   },
   {
     id: 'koeleria-macrantha', name: 'Zierliche Koeleria', latin: 'Koeleria macrantha',
@@ -351,6 +378,7 @@ export const PLANTS = [
     pflanzabstand: 25, ausbreitung: 20, heimisch: true,
     beschreibung: 'Zierliches Trockengras der Sandheiden. Wichtige Raupenfutterpflanze.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/koeleria-macrantha/', bild_emoji: '🌾',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/Koeleria_macrantha_sl9.jpg/330px-Koeleria_macrantha_sl9.jpg',
   },
   {
     id: 'molinia-caerulea', name: 'Blaues Pfeifengras', latin: 'Molinia caerulea',
@@ -363,6 +391,7 @@ export const PLANTS = [
     pflanzabstand: 50, ausbreitung: 60, heimisch: true,
     beschreibung: 'Prächtige Herbstfärbung gold-orange. Für Moorheiden und saure Böden.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/molinia-caerulea/', bild_emoji: '🌾',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/40/Molinia_coerulea_%E2%80%94_Flora_Batava_%E2%80%94_Volume_v10.jpg/330px-Molinia_coerulea_%E2%80%94_Flora_Batava_%E2%80%94_Volume_v10.jpg',
   },
   {
     id: 'deschampsia-cespitosa', name: 'Rasenschmiele', latin: 'Deschampsia cespitosa',
@@ -375,6 +404,7 @@ export const PLANTS = [
     pflanzabstand: 50, ausbreitung: 60, heimisch: true,
     beschreibung: 'Großes Schatten-Gras. Silbrig glitzernder Ährenflor. Wichtig für Waldvögel.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/deschampsia-cespitosa/', bild_emoji: '🌾',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/eb/DeschampsiaCespitosa1.jpg/330px-DeschampsiaCespitosa1.jpg',
   },
 
   // ═══════════════════════════════════════════════════════════
@@ -391,6 +421,7 @@ export const PLANTS = [
     pflanzabstand: 100, ausbreitung: 150, heimisch: true,
     beschreibung: 'Strahlend gelb im Frühling. Bindet Stickstoff, fixiert Sandboden. Bienenparadies.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/cytisus-scoparius/', bild_emoji: '🌼',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6a/Cytisus_scoparius3.jpg/330px-Cytisus_scoparius3.jpg',
   },
   {
     id: 'hippophae-rhamnoides', name: 'Sanddorn', latin: 'Hippophae rhamnoides',
@@ -403,6 +434,7 @@ export const PLANTS = [
     pflanzabstand: 200, ausbreitung: 300, heimisch: true,
     beschreibung: 'DER Sandboden-Strauch. Orange Beeren reich an Vitamin C. Braucht männliche Pflanze.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/hippophae-rhamnoides/', bild_emoji: '🟠',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Hippophae_rhamnoides-01_%28xndr%29.JPG/330px-Hippophae_rhamnoides-01_%28xndr%29.JPG',
   },
   {
     id: 'rosa-canina', name: 'Hundsrose', latin: 'Rosa canina',
@@ -415,6 +447,7 @@ export const PLANTS = [
     pflanzabstand: 150, ausbreitung: 200, heimisch: true,
     beschreibung: 'Einheimische Wildrose. Rosa Blüten, rote Hagebutten. Vogelschutzstrauch par excellence.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/rosa-canina/', bild_emoji: '🌹',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/Rosa_canina_6.JPG/330px-Rosa_canina_6.JPG',
   },
   {
     id: 'sambucus-nigra', name: 'Schwarzer Holunder', latin: 'Sambucus nigra',
@@ -427,6 +460,7 @@ export const PLANTS = [
     pflanzabstand: 200, ausbreitung: 300, heimisch: true,
     beschreibung: 'Universalstrauch. Blüten für Holundersaft, Beeren für Vögel. Extrem robust.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/sambucus-nigra/', bild_emoji: '🫐',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/61/Sambucus_nigra_004.jpg/330px-Sambucus_nigra_004.jpg',
   },
   {
     id: 'prunus-spinosa', name: 'Schlehe', latin: 'Prunus spinosa',
@@ -439,6 +473,7 @@ export const PLANTS = [
     pflanzabstand: 150, ausbreitung: 200, heimisch: true,
     beschreibung: 'Frühblühender Vogelschutzstrauch. Weiße Blüten vor Blattaustrieb. Schlehen für Herbst.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/prunus-spinosa/', bild_emoji: '⚪',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Schlehdorn_%28Prunus_spinosa%29_Nationalpark_Donau-Auen_Orth_an_der_Donau_2012_c.jpg/330px-Schlehdorn_%28Prunus_spinosa%29_Nationalpark_Donau-Auen_Orth_an_der_Donau_2012_c.jpg',
   },
   {
     id: 'cornus-sanguinea', name: 'Roter Hartriegel', latin: 'Cornus sanguinea',
@@ -451,6 +486,7 @@ export const PLANTS = [
     pflanzabstand: 150, ausbreitung: 200, heimisch: true,
     beschreibung: 'Leuchtend rote Zweige im Winter. Schwarze Beeren für Vögel. Tolle Herbstfärbung.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/cornus-sanguinea/', bild_emoji: '🔴',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/Cornus_sanguinea_PID1300-3.jpg/330px-Cornus_sanguinea_PID1300-3.jpg',
   },
   {
     id: 'crataegus-monogyna', name: 'Eingriffeliger Weißdorn', latin: 'Crataegus monogyna',
@@ -463,6 +499,7 @@ export const PLANTS = [
     pflanzabstand: 200, ausbreitung: 300, heimisch: true,
     beschreibung: 'Artenreichster heimischer Strauch — über 150 Insektenarten. Dornige Hecke, rote Beeren.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/crataegus-monogyna/', bild_emoji: '🌸',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/79/Crataegus_monogyna_-_Common_hawthorn.jpg/330px-Crataegus_monogyna_-_Common_hawthorn.jpg',
   },
   {
     id: 'viburnum-opulus', name: 'Gewöhnlicher Schneeball', latin: 'Viburnum opulus',
@@ -475,6 +512,7 @@ export const PLANTS = [
     pflanzabstand: 200, ausbreitung: 300, heimisch: true,
     beschreibung: 'Weiße Blütendolden, rote Beeren. Herbstfärbung spektakulär. Für feuchte Standorte.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/viburnum-opulus/', bild_emoji: '⚪',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7d/Illustration_Viburnum_opulus0.jpg/330px-Illustration_Viburnum_opulus0.jpg',
   },
   {
     id: 'frangula-alnus', name: 'Faulbaum', latin: 'Frangula alnus',
@@ -487,6 +525,7 @@ export const PLANTS = [
     pflanzabstand: 150, ausbreitung: 200, heimisch: true,
     beschreibung: 'KRITISCH für Zitronenfalter! Einzige Wirtspflanze. Auch Kreuzbeere als Alternative.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/frangula-alnus/', bild_emoji: '🍋',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Rhamnus_frangula_03_ies.jpg/330px-Rhamnus_frangula_03_ies.jpg',
   },
   {
     id: 'corylus-avellana', name: 'Haselnuss', latin: 'Corylus avellana',
@@ -499,6 +538,7 @@ export const PLANTS = [
     pflanzabstand: 200, ausbreitung: 300, heimisch: true,
     beschreibung: 'Frühester Pollenspender (Februar). Wichtig für Hummeln die früh aus dem Winter kommen.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/corylus-avellana/', bild_emoji: '🌰',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/Illustration_Corylus_avellana0.jpg/330px-Illustration_Corylus_avellana0.jpg',
   },
   {
     id: 'euonymus-europaeus', name: 'Gewöhnliches Pfaffenhütchen', latin: 'Euonymus europaeus',
@@ -511,6 +551,7 @@ export const PLANTS = [
     pflanzabstand: 150, ausbreitung: 200, heimisch: true,
     beschreibung: 'Leuchtend rosa-orange Früchte. Spectacular Herbstfärbung. Vogelschutzstrauch.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/euonymus-europaeus/', bild_emoji: '🟠',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/City_of_Vienna%2CAustria_in_2019.34.jpg/330px-City_of_Vienna%2CAustria_in_2019.34.jpg',
   },
 
   // ═══════════════════════════════════════════════════════════
@@ -527,6 +568,7 @@ export const PLANTS = [
     pflanzabstand: 600, ausbreitung: 2000, heimisch: true,
     beschreibung: 'Artenreichster heimischer Baum. 300+ Insektenarten. Unverzichtbar für Miyawaki-Wald.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/quercus-robur/', bild_emoji: '🌳',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c6/Quercus_robur_Sturm31.jpg/330px-Quercus_robur_Sturm31.jpg',
   },
   {
     id: 'betula-pendula', name: 'Hänge-Birke', latin: 'Betula pendula',
@@ -539,6 +581,7 @@ export const PLANTS = [
     pflanzabstand: 400, ausbreitung: 1000, heimisch: true,
     beschreibung: 'Pionierbaum auf Sandboden. Schnellwachsend, frühzeitig Laubfall, ideal für Miyawaki-Start.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/betula-pendula/', bild_emoji: '🌲',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/Chmielno_brzoza.jpg/330px-Chmielno_brzoza.jpg',
   },
   {
     id: 'sorbus-aucuparia', name: 'Vogelbeere / Eberesche', latin: 'Sorbus aucuparia',
@@ -551,6 +594,7 @@ export const PLANTS = [
     pflanzabstand: 300, ausbreitung: 500, heimisch: true,
     beschreibung: 'Rote Beeren für Zugvögel (September-Oktober). Wächst auch auf armem Sandboden.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/sorbus-aucuparia/', bild_emoji: '🔴',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f6/Sorbus_aucuparia_on_Y_Garn.jpg/330px-Sorbus_aucuparia_on_Y_Garn.jpg',
   },
   {
     id: 'carpinus-betulus', name: 'Hainbuche', latin: 'Carpinus betulus',
@@ -563,6 +607,7 @@ export const PLANTS = [
     pflanzabstand: 400, ausbreitung: 800, heimisch: true,
     beschreibung: 'Optimaler Unterbau-Baum für Halbschatten. Heckenbaum, hält Laub im Winter.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/carpinus-betulus/', bild_emoji: '🍃',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cc/Illustration_Carpinus_betulus_1.jpg/330px-Illustration_Carpinus_betulus_1.jpg',
   },
   {
     id: 'acer-campestre', name: 'Feldahorn', latin: 'Acer campestre',
@@ -575,6 +620,7 @@ export const PLANTS = [
     pflanzabstand: 300, ausbreitung: 600, heimisch: true,
     beschreibung: 'Wichtigster Frühjahrsnektarbaum! Bienenbaum Nr. 1. Prächtige Herbstfärbung gelb-orange.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/acer-campestre/', bild_emoji: '🍁',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Acer_campestre_Weinsberg_20070419_1.jpg/330px-Acer_campestre_Weinsberg_20070419_1.jpg',
   },
   {
     id: 'pinus-sylvestris', name: 'Waldkiefer', latin: 'Pinus sylvestris',
@@ -587,6 +633,7 @@ export const PLANTS = [
     pflanzabstand: 500, ausbreitung: 1500, heimisch: true,
     beschreibung: 'Dominanter Baum des Brandenburger Sandbodens. Massiver Pollenspender im Frühling.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/pinus-sylvestris/', bild_emoji: '🌲',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Illustration_Pinus_sylvestris0_new.jpg/330px-Illustration_Pinus_sylvestris0_new.jpg',
   },
   {
     id: 'populus-tremula', name: 'Zitterpappel / Espe', latin: 'Populus tremula',
@@ -599,6 +646,7 @@ export const PLANTS = [
     pflanzabstand: 400, ausbreitung: 800, heimisch: true,
     beschreibung: 'Schnellwachsender Pionier. Frühster Pollenspender für Bienen. Wichtig für Eisvögel.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/populus-tremula/', bild_emoji: '🌳',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e2/Populus_tremula_004.jpg/330px-Populus_tremula_004.jpg',
   },
 
   // ═══════════════════════════════════════════════════════════
@@ -615,6 +663,7 @@ export const PLANTS = [
     pflanzabstand: 40, ausbreitung: 50, heimisch: true,
     beschreibung: 'Leuchtend magentarote Blüten. Robuste Polsterstaude. Tolle Herbstfärbung.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/geranium-sanguineum/', bild_emoji: '❤️',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Geranium_sanguineum004.jpg/330px-Geranium_sanguineum004.jpg',
   },
   {
     id: 'geranium-pratense', name: 'Wiesen-Storchschnabel', latin: 'Geranium pratense',
@@ -627,6 +676,7 @@ export const PLANTS = [
     pflanzabstand: 45, ausbreitung: 50, heimisch: true,
     beschreibung: 'Blaue-violette Blüten, wichtig für Wiesenfalter. Langlebig und ausbreitend.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/geranium-pratense/', bild_emoji: '💜',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/Kakost_1.jpg/330px-Kakost_1.jpg',
   },
   {
     id: 'primula-veris', name: 'Echte Schlüsselblume', latin: 'Primula veris',
@@ -639,6 +689,7 @@ export const PLANTS = [
     pflanzabstand: 20, ausbreitung: 20, heimisch: true,
     beschreibung: 'Frühjahrsbote für Hummeln und Honigbienen. Wichtige Frühjahrsnektarpflanze.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/primula-veris/', bild_emoji: '💛',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Primula_veris_0x.JPG/330px-Primula_veris_0x.JPG',
   },
   {
     id: 'digitalis-purpurea', name: 'Roter Fingerhut', latin: 'Digitalis purpurea',
@@ -651,6 +702,7 @@ export const PLANTS = [
     pflanzabstand: 50, ausbreitung: 40, heimisch: true,
     beschreibung: 'Majestätische pinke Kerze für Halbschatten. Bienenparadies, zweijährig, giftig!',
     naturadb_url: 'https://www.naturadb.de/pflanzen/digitalis-purpurea/', bild_emoji: '🟣',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/27/Digitalis_purpurea_01.jpg/330px-Digitalis_purpurea_01.jpg',
   },
   {
     id: 'digitalis-grandiflora', name: 'Großblütiger Fingerhut', latin: 'Digitalis grandiflora',
@@ -663,6 +715,7 @@ export const PLANTS = [
     pflanzabstand: 45, ausbreitung: 40, heimisch: true,
     beschreibung: 'Gelber Fingerhut, ausdauernd. Schöner für Garten als roter Fingerhut.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/digitalis-grandiflora/', bild_emoji: '💛',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Digitalis.jpg/330px-Digitalis.jpg',
   },
   {
     id: 'aquilegia-vulgaris', name: 'Gewöhnliche Akelei', latin: 'Aquilegia vulgaris',
@@ -675,6 +728,7 @@ export const PLANTS = [
     pflanzabstand: 35, ausbreitung: 35, heimisch: true,
     beschreibung: 'Elegante lila-blaue Blüten für Halbschatten. Langspornige Arten für Nachtfalter.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/aquilegia-vulgaris/', bild_emoji: '💜',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/be/Aquilegia_vulgaris_100503b.jpg/330px-Aquilegia_vulgaris_100503b.jpg',
   },
   {
     id: 'viola-odorata', name: 'Duftveilchen', latin: 'Viola odorata',
@@ -687,6 +741,7 @@ export const PLANTS = [
     pflanzabstand: 20, ausbreitung: 30, heimisch: true,
     beschreibung: 'KRITISCH für alle Perlmuttfalter! Frühjahrsnektar, Duftveilchen breitet sich aus.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/viola-odorata/', bild_emoji: '🌸',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/Viola_odorata_02.jpg/330px-Viola_odorata_02.jpg',
   },
   {
     id: 'anemone-nemorosa', name: 'Busch-Windröschen', latin: 'Anemone nemorosa',
@@ -699,6 +754,7 @@ export const PLANTS = [
     pflanzabstand: 15, ausbreitung: 30, heimisch: true,
     beschreibung: 'Frühling-Waldbodenteppich. Massenhaft weiße Blüten. Verschwindet im Sommer.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/anemone-nemorosa/', bild_emoji: '🤍',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Anemone_nemorosa_4_RF.jpg/330px-Anemone_nemorosa_4_RF.jpg',
   },
 
   // ═══════════════════════════════════════════════════════════
@@ -715,6 +771,7 @@ export const PLANTS = [
     pflanzabstand: 40, ausbreitung: 40, heimisch: true,
     beschreibung: 'Pink-violette Blüten. Wichtige Raupenfutterpflanze. Sät sich selbst aus.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/malva-sylvestris/', bild_emoji: '🌸',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/52/Malva_sylvestris_RHu_001.JPG/330px-Malva_sylvestris_RHu_001.JPG',
   },
   {
     id: 'daucus-carota', name: 'Wilde Möhre', latin: 'Daucus carota',
@@ -727,6 +784,7 @@ export const PLANTS = [
     pflanzabstand: 30, ausbreitung: 30, heimisch: true,
     beschreibung: 'KRITISCH für Schwalbenschwanz! Einzige heimische Wirtspflanze für viele Arten.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/daucus-carota/', bild_emoji: '🥕',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Illustration_Daucus_carota0.jpg/330px-Illustration_Daucus_carota0.jpg',
   },
   {
     id: 'reseda-luteola', name: 'Färber-Wau', latin: 'Reseda luteola',
@@ -739,6 +797,7 @@ export const PLANTS = [
     pflanzabstand: 25, ausbreitung: 20, heimisch: true,
     beschreibung: 'Gelbliche Ähren auf kargem Boden. Wichtige Raupenpflanze des Reseda-Weißlings.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/reseda-luteola/', bild_emoji: '💛',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/F%C3%A4rber-Wau_hohe_Feldrandpflanze_Detail_Bl%C3%BCten.jpg/330px-F%C3%A4rber-Wau_hohe_Feldrandpflanze_Detail_Bl%C3%BCten.jpg',
   },
 
   // ═══════════════════════════════════════════════════════════
@@ -755,6 +814,7 @@ export const PLANTS = [
     pflanzabstand: 30, ausbreitung: 30, heimisch: true,
     beschreibung: 'Heimische Distelstaude auf Magerstandorten. Stachelig, dekorativ, hochwertig.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/eryngium-campestre/', bild_emoji: '🌵',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ed/Eryngium_campestre_190817.jpg/330px-Eryngium_campestre_190817.jpg',
   },
   {
     id: 'allium-sphaerocephalon', name: 'Kugellauch', latin: 'Allium sphaerocephalon',
@@ -767,6 +827,7 @@ export const PLANTS = [
     pflanzabstand: 15, ausbreitung: 10, heimisch: true,
     beschreibung: 'Kleine lila Zwiebel-Kugeln. Massenwirkung durch dichte Pflanzung. Sandboden ideal.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/allium-sphaerocephalon/', bild_emoji: '🟣',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/bb/Allium_sphaerocephalon.jpg/330px-Allium_sphaerocephalon.jpg',
   },
   {
     id: 'solidago-virgaurea', name: 'Gewöhnliche Goldrute', latin: 'Solidago virgaurea',
@@ -779,6 +840,7 @@ export const PLANTS = [
     pflanzabstand: 30, ausbreitung: 40, heimisch: true,
     beschreibung: 'Heimische Goldrute — wichtig für Herbstbienen. Samenstände für Vögel.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/solidago-virgaurea/', bild_emoji: '💛',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/Solidago_virgaurea09.jpg/330px-Solidago_virgaurea09.jpg',
   },
   {
     id: 'aster-amellus', name: 'Berg-Aster', latin: 'Aster amellus',
@@ -791,6 +853,7 @@ export const PLANTS = [
     pflanzabstand: 35, ausbreitung: 35, heimisch: true,
     beschreibung: 'Heimische Herbstaster. Lila Blüten August bis Oktober. Wichtig für Herbstbienen.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/aster-amellus/', bild_emoji: '🔮',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/Aster_amellus_-_plants_%28aka%29.jpg/330px-Aster_amellus_-_plants_%28aka%29.jpg',
   },
   {
     id: 'cichorium-intybus', name: 'Wegwarte', latin: 'Cichorium intybus',
@@ -803,6 +866,7 @@ export const PLANTS = [
     pflanzabstand: 30, ausbreitung: 30, heimisch: true,
     beschreibung: 'Strahlend blaue Blüten an Wegrändern. Blüten öffnen nur morgens. Massiver Nektarspender.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/cichorium-intybus/', bild_emoji: '💙',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/da/Cichorium_Intybus.jpg/330px-Cichorium_Intybus.jpg',
   },
   {
     id: 'lotus-corniculatus', name: 'Gewöhnlicher Hornklee', latin: 'Lotus corniculatus',
@@ -815,6 +879,7 @@ export const PLANTS = [
     pflanzabstand: 20, ausbreitung: 30, heimisch: true,
     beschreibung: 'Gelber Bodendecker der Magerwiesen. KRITISCH für Bläulinge. Sät sich aus.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/lotus-corniculatus/', bild_emoji: '💛',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Karringtand.jpg/330px-Karringtand.jpg',
   },
   {
     id: 'inula-helenium', name: 'Echter Alant', latin: 'Inula helenium',
@@ -827,6 +892,7 @@ export const PLANTS = [
     pflanzabstand: 80, ausbreitung: 100, heimisch: true,
     beschreibung: 'Riesige gelbe Blütenkörbe bis 2m. Imposante Solitärstaude. Heilpflanze.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/inula-helenium/', bild_emoji: '🌻',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/K%C3%B6hler_Inula_1887.jpg/330px-K%C3%B6hler_Inula_1887.jpg',
   },
   {
     id: 'anthemis-tinctoria', name: 'Färberkamille', latin: 'Anthemis tinctoria',
@@ -839,6 +905,7 @@ export const PLANTS = [
     pflanzabstand: 30, ausbreitung: 35, heimisch: true,
     beschreibung: 'Leuchtend gelbe Kamillenblüten über Monate. Sehr trockenresistent.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/anthemis-tinctoria/', bild_emoji: '🌼',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d8/Anthemis_tinctoria_001.JPG/330px-Anthemis_tinctoria_001.JPG',
   },
   {
     id: 'medicago-sativa', name: 'Luzerne', latin: 'Medicago sativa',
@@ -851,6 +918,7 @@ export const PLANTS = [
     pflanzabstand: 20, ausbreitung: 30, heimisch: true,
     beschreibung: 'Blauviolette Schmetterlingsblüten den ganzen Sommer. Leguminose, bindet Stickstoff.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/medicago-sativa/', bild_emoji: '💜',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/78/Medicago_sativa_-_harilik_lutsern_Keilas.jpg/330px-Medicago_sativa_-_harilik_lutsern_Keilas.jpg',
   },
 
   // ═══════════════════════════════════════════════════════════
@@ -867,6 +935,7 @@ export const PLANTS = [
     pflanzabstand: 15, ausbreitung: 30, heimisch: true,
     beschreibung: 'Essbarer Waldbodenbedecker. Breitet sich flächig aus. Duftend im Frühjahr.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/allium-ursinum/', bild_emoji: '🌿',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Ramsons_700.jpg/330px-Ramsons_700.jpg',
   },
 
   // ═══════════════════════════════════════════════════════════
@@ -883,6 +952,7 @@ export const PLANTS = [
     pflanzabstand: 50, ausbreitung: 60, heimisch: true,
     beschreibung: 'Gelbe Schwertlilien am Teichrand. Majestätisch, für Ufer und nasse Senken.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/iris-pseudacorus/', bild_emoji: '💛',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/Iris_pseudacorus_from_sweden.jpg/330px-Iris_pseudacorus_from_sweden.jpg',
   },
   {
     id: 'caltha-palustris', name: 'Sumpfdotterblume', latin: 'Caltha palustris',
@@ -895,6 +965,7 @@ export const PLANTS = [
     pflanzabstand: 30, ausbreitung: 40, heimisch: true,
     beschreibung: 'Leuchtend gelbe Frühjahrsbotschaft am Wasser. Wichtig für frühe Hummeln.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/caltha-palustris/', bild_emoji: '💛',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/2007-03-27Caltha_palustris01.jpg/330px-2007-03-27Caltha_palustris01.jpg',
   },
   {
     id: 'filipendula-ulmaria', name: 'Echtes Mädesüß', latin: 'Filipendula ulmaria',
@@ -907,6 +978,7 @@ export const PLANTS = [
     pflanzabstand: 60, ausbreitung: 80, heimisch: true,
     beschreibung: 'Cremeweiße duftende Schaumblüten. Für Feuchtwiesen, Bäche, Teichränder.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/filipendula-ulmaria/', bild_emoji: '🤍',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c7/FilipendulaUlmaria.jpg/330px-FilipendulaUlmaria.jpg',
   },
   {
     id: 'mentha-aquatica', name: 'Wasserminze', latin: 'Mentha aquatica',
@@ -919,6 +991,7 @@ export const PLANTS = [
     pflanzabstand: 30, ausbreitung: 60, heimisch: true,
     beschreibung: 'Duftende rosa Blüten am Wasser. Breitet sich rhizomisch aus. Bienenmagnet.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/mentha-aquatica/', bild_emoji: '🌸',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/Mentha_aquatica_08.2025_%282%29.jpg/330px-Mentha_aquatica_08.2025_%282%29.jpg',
   },
   {
     id: 'typha-latifolia', name: 'Breitblättriger Rohrkolben', latin: 'Typha latifolia',
@@ -931,6 +1004,7 @@ export const PLANTS = [
     pflanzabstand: 80, ausbreitung: 200, heimisch: true,
     beschreibung: 'Ikonische Wasserpflanze. Strukturgeber, Vogelnistplatz, Pollenspender.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/typha-latifolia/', bild_emoji: '🪵',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Typha_latifolia_norway.jpg/330px-Typha_latifolia_norway.jpg',
   },
 
   // ═══════════════════════════════════════════════════════════
@@ -947,6 +1021,7 @@ export const PLANTS = [
     pflanzabstand: 25, ausbreitung: 40, heimisch: true,
     beschreibung: 'Rosa-blaue Blüten ab März. Wichtig für frühe Langrüssel-Hummeln.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/pulmonaria-officinalis/', bild_emoji: '🌸',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/29/Pulmonaria_officinalis_%28s._str.%29_sl2.jpg/330px-Pulmonaria_officinalis_%28s._str.%29_sl2.jpg',
   },
 
   // ═══════════════════════════════════════════════════════════
@@ -963,6 +1038,7 @@ export const PLANTS = [
     pflanzabstand: 150, ausbreitung: 300, heimisch: true,
     beschreibung: 'Duftende Kletterpflanze. Nacht-Duft für Schwärmer. Rote Beeren für Vögel.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/lonicera-periclymenum/', bild_emoji: '🌼',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/European_honeysuckle_800.jpg/330px-European_honeysuckle_800.jpg',
   },
   {
     id: 'ilex-aquifolium', name: 'Stechpalme', latin: 'Ilex aquifolium',
@@ -975,6 +1051,7 @@ export const PLANTS = [
     pflanzabstand: 150, ausbreitung: 200, heimisch: true,
     beschreibung: 'Immergrüner Winterschutz für Vögel. Rote Beeren November–Februar.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/ilex-aquifolium/', bild_emoji: '🍃',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fe/Illustration_Ilex_aquifolium0.jpg/330px-Illustration_Ilex_aquifolium0.jpg',
   },
   {
     id: 'ligustrum-vulgare', name: 'Gewöhnlicher Liguster', latin: 'Ligustrum vulgare',
@@ -987,6 +1064,7 @@ export const PLANTS = [
     pflanzabstand: 100, ausbreitung: 150, heimisch: true,
     beschreibung: 'Duftende weiße Blüten. Wirtspflanze des Ligusterschwärmers. Robuste Hecke.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/ligustrum-vulgare/', bild_emoji: '⚪',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cd/Tab%C3%A1ni_Botanikai_Tan%C3%B6sv%C3%A9ny._K%C3%B6z%C3%B6ns%C3%A9ges_fagyal_%28Ligustrum_vulgare%29._-_Budapest.JPG/330px-Tab%C3%A1ni_Botanikai_Tan%C3%B6sv%C3%A9ny._K%C3%B6z%C3%B6ns%C3%A9ges_fagyal_%28Ligustrum_vulgare%29._-_Budapest.JPG',
   },
   {
     id: 'ribes-nigrum', name: 'Schwarze Johannisbeere', latin: 'Ribes nigrum',
@@ -999,6 +1077,7 @@ export const PLANTS = [
     pflanzabstand: 100, ausbreitung: 150, heimisch: true,
     beschreibung: 'Aromatisch, essbar, für Insekten wertvoll. Früher Nektarspender im April.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/ribes-nigrum/', bild_emoji: '🫐',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Schwarzejohannisbeere.jpg/330px-Schwarzejohannisbeere.jpg',
   },
 
   // ═══════════════════════════════════════════════════════════
@@ -1015,6 +1094,7 @@ export const PLANTS = [
     pflanzabstand: 30, ausbreitung: 30, heimisch: true,
     beschreibung: 'Gelbe Ährenblüten, typisch für Wegränder und Magerrasen. Raupenfutterpflanze.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/agrimonia-eupatoria/', bild_emoji: '💛',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/Agrimonia_eupatoria_04.jpg/330px-Agrimonia_eupatoria_04.jpg',
   },
   {
     id: 'betonica-officinalis', name: 'Heilziest', latin: 'Betonica officinalis',
@@ -1027,6 +1107,7 @@ export const PLANTS = [
     pflanzabstand: 30, ausbreitung: 30, heimisch: true,
     beschreibung: 'Tiefpurpurrote Ähren, absoluter Bienenmagnet. Bevorzugt magere, sonnige Standorte.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/betonica-officinalis/', bild_emoji: '💜',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/08/Betonica_officinalis_Munich_Botanic_garden.JPG/330px-Betonica_officinalis_Munich_Botanic_garden.JPG',
   },
   {
     id: 'centaurea-jacea', name: 'Wiesen-Flockenblume', latin: 'Centaurea jacea',
@@ -1039,6 +1120,7 @@ export const PLANTS = [
     pflanzabstand: 35, ausbreitung: 35, heimisch: true,
     beschreibung: 'Typische Wiesenblume mit langer Blütezeit. Samen werden von Finken gefressen.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/centaurea-jacea/', bild_emoji: '🌸',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/06/Centaurea_jacea_01.JPG/330px-Centaurea_jacea_01.JPG',
   },
   {
     id: 'clinopodium-vulgare', name: 'Gewöhnlicher Wirbeldost', latin: 'Clinopodium vulgare',
@@ -1051,6 +1133,7 @@ export const PLANTS = [
     pflanzabstand: 30, ausbreitung: 30, heimisch: true,
     beschreibung: 'Rosa Lippenblüten in Quirlen, aromatisch. Wichtig für Wildbienen.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/clinopodium-vulgare/', bild_emoji: '🌸',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Clinopodium_vulgare_%288402662385%29.jpg/330px-Clinopodium_vulgare_%288402662385%29.jpg',
   },
   {
     id: 'dianthus-deltoides', name: 'Heide-Nelke', latin: 'Dianthus deltoides',
@@ -1063,6 +1146,7 @@ export const PLANTS = [
     pflanzabstand: 20, ausbreitung: 30, heimisch: true,
     beschreibung: 'Leuchtend rote Polsterstaude für Magerrasen und Sandboden. Langlebig.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/dianthus-deltoides/', bild_emoji: '❤️',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c7/0_Dianthus_deltoides_alpinus_-_Yvoire.JPG/330px-0_Dianthus_deltoides_alpinus_-_Yvoire.JPG',
   },
   {
     id: 'galium-verum', name: 'Echtes Labkraut', latin: 'Galium verum',
@@ -1075,6 +1159,7 @@ export const PLANTS = [
     pflanzabstand: 25, ausbreitung: 40, heimisch: true,
     beschreibung: 'Goldgelbe Blüten mit Honigduft. Breitet sich bodennah aus, wichtig für Nachtfalter.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/galium-verum/', bild_emoji: '💛',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Galium_verum_01.jpg/330px-Galium_verum_01.jpg',
   },
   {
     id: 'helianthemum-nummularium', name: 'Sonnenröschen', latin: 'Helianthemum nummularium',
@@ -1087,6 +1172,7 @@ export const PLANTS = [
     pflanzabstand: 25, ausbreitung: 40, heimisch: true,
     beschreibung: 'Goldgelbe Polsterstaude für Kalkböden und trockene Hänge. Wichtig für Bläulinge.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/helianthemum-nummularium/', bild_emoji: '🌼',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Helianthemum_nummularium_subsp_obscurum_260807.jpg/330px-Helianthemum_nummularium_subsp_obscurum_260807.jpg',
   },
   {
     id: 'hieracium-pilosella', name: 'Kleines Habichtskraut', latin: 'Hieracium pilosella',
@@ -1099,6 +1185,7 @@ export const PLANTS = [
     pflanzabstand: 20, ausbreitung: 30, heimisch: true,
     beschreibung: 'Silbrig behaarte Blattrosetten, lange Blütezeit. Perfekter Sandrasen-Bodendecker.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/hieracium-pilosella/', bild_emoji: '🌼',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Hieracium_pilosella_%28Mouse-ear%29.jpg/330px-Hieracium_pilosella_%28Mouse-ear%29.jpg',
   },
   {
     id: 'lathyrus-pratensis', name: 'Wiesen-Platterbse', latin: 'Lathyrus pratensis',
@@ -1111,6 +1198,7 @@ export const PLANTS = [
     pflanzabstand: 30, ausbreitung: 40, heimisch: true,
     beschreibung: 'Klettert durch Ranken, leuchtend gelbe Blüten. Typisch für Feuchtwiesen.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/lathyrus-pratensis/', bild_emoji: '💛',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/%28MHNT%29_Lathyrus_pratensis-_Habit.jpg/330px-%28MHNT%29_Lathyrus_pratensis-_Habit.jpg',
   },
   {
     id: 'leonurus-cardiaca', name: 'Echtes Herzgespann', latin: 'Leonurus cardiaca',
@@ -1123,6 +1211,7 @@ export const PLANTS = [
     pflanzabstand: 50, ausbreitung: 50, heimisch: true,
     beschreibung: 'Stattliche Heilpflanze mit kleinen rosa Blüten. Absoluter Hummel- und Bienenmagnet.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/leonurus-cardiaca/', bild_emoji: '🌸',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/Illustration_Leonurus_cardiaca0.jpg/330px-Illustration_Leonurus_cardiaca0.jpg',
   },
   {
     id: 'malva-moschata', name: 'Moschus-Malve', latin: 'Malva moschata',
@@ -1135,6 +1224,7 @@ export const PLANTS = [
     pflanzabstand: 40, ausbreitung: 40, heimisch: true,
     beschreibung: 'Zarte rosa Blüten mit Moschusnote. Wichtige Nahrungspflanze für Malvenfalter.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/malva-moschata/', bild_emoji: '🌸',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/Mallowbug.jpg/330px-Mallowbug.jpg',
   },
   {
     id: 'medicago-falcata', name: 'Sichelklee', latin: 'Medicago falcata',
@@ -1147,6 +1237,7 @@ export const PLANTS = [
     pflanzabstand: 25, ausbreitung: 30, heimisch: true,
     beschreibung: 'Gelber Klee für Sandboden. Stickstoffbinder, Trockenstress-resistent.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/medicago-falcata/', bild_emoji: '💛',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/08/Medicago_falcata_bgiu.jpg/330px-Medicago_falcata_bgiu.jpg',
   },
   {
     id: 'plantago-lanceolata', name: 'Spitz-Wegerich', latin: 'Plantago lanceolata',
@@ -1159,6 +1250,7 @@ export const PLANTS = [
     pflanzabstand: 15, ausbreitung: 20, heimisch: true,
     beschreibung: 'Unersetzlich als Raupenfutter für viele Scheckenfalter. Samen für Finken.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/plantago-lanceolata/', bild_emoji: '🌿',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Plantago_lanceolata_%28inflorescense%29.jpg/330px-Plantago_lanceolata_%28inflorescense%29.jpg',
   },
   {
     id: 'potentilla-erecta', name: 'Blutwurz', latin: 'Potentilla erecta',
@@ -1171,6 +1263,7 @@ export const PLANTS = [
     pflanzabstand: 20, ausbreitung: 25, heimisch: true,
     beschreibung: 'Vierblättrige gelbe Blüten, auffällig gegen Tormentil-Tendenz zu sauren Böden.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/potentilla-erecta/', bild_emoji: '💛',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/Potentilla_erecta01.jpg/330px-Potentilla_erecta01.jpg',
   },
   {
     id: 'ranunculus-acris', name: 'Scharfer Hahnenfuß', latin: 'Ranunculus acris',
@@ -1183,6 +1276,7 @@ export const PLANTS = [
     pflanzabstand: 25, ausbreitung: 30, heimisch: true,
     beschreibung: 'Klassiker der Frühsommerwiese. Glänzend gelbe Blüten, wichtig für Käfer.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/ranunculus-acris/', bild_emoji: '💛',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/Illustration_Ranunculus_acris0_clean.jpg/330px-Illustration_Ranunculus_acris0_clean.jpg',
   },
   {
     id: 'sanguisorba-minor', name: 'Kleiner Wiesenknopf', latin: 'Sanguisorba minor',
@@ -1195,6 +1289,7 @@ export const PLANTS = [
     pflanzabstand: 20, ausbreitung: 25, heimisch: true,
     beschreibung: 'KRITISCH für beide Wiesenknopf-Ameisenbläulinge! Muss in Böschungen stehen.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/sanguisorba-minor/', bild_emoji: '🌿',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Sanguisorba_minor_W.jpg/330px-Sanguisorba_minor_W.jpg',
   },
   {
     id: 'silene-dioica', name: 'Rote Lichtnelke', latin: 'Silene dioica',
@@ -1207,6 +1302,7 @@ export const PLANTS = [
     pflanzabstand: 30, ausbreitung: 35, heimisch: true,
     beschreibung: 'Leuchtendrote Waldsaum-Staude. Nachts von Nachtfaltern besucht.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/silene-dioica/', bild_emoji: '❤️',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Bayrischer_Wald_9929.JPG/330px-Bayrischer_Wald_9929.JPG',
   },
   {
     id: 'silene-vulgaris', name: 'Taubenkropf-Leimkraut', latin: 'Silene vulgaris',
@@ -1219,6 +1315,7 @@ export const PLANTS = [
     pflanzabstand: 25, ausbreitung: 30, heimisch: true,
     beschreibung: 'Aufgeblasene Kelchblüten, weiß. Wird abends von Nachtfaltern besucht.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/silene-vulgaris/', bild_emoji: '🤍',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Silene-vulgaris%28Blueten%29.jpg/330px-Silene-vulgaris%28Blueten%29.jpg',
   },
   {
     id: 'succisa-pratensis', name: 'Teufelsabbiss', latin: 'Succisa pratensis',
@@ -1231,6 +1328,7 @@ export const PLANTS = [
     pflanzabstand: 30, ausbreitung: 30, heimisch: true,
     beschreibung: 'Blauviolette Köpfe, sehr spät blühend. Überlebenswichtig für den Goldenen Scheckenfalter.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/succisa-pratensis/', bild_emoji: '💜',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ed/SuccisaPratensis2.jpg/330px-SuccisaPratensis2.jpg',
   },
   {
     id: 'tanacetum-vulgare', name: 'Rainfarn', latin: 'Tanacetum vulgare',
@@ -1243,6 +1341,7 @@ export const PLANTS = [
     pflanzabstand: 50, ausbreitung: 60, heimisch: true,
     beschreibung: 'Goldgelbe Knopfblüten, aromatisch. Massenpflanze für Käfer und Kurzflügler.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/tanacetum-vulgare/', bild_emoji: '💛',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/28/Tanacetum_vulgare_RF.jpg/330px-Tanacetum_vulgare_RF.jpg',
   },
   {
     id: 'valeriana-officinalis', name: 'Echter Baldrian', latin: 'Valeriana officinalis',
@@ -1255,6 +1354,7 @@ export const PLANTS = [
     pflanzabstand: 50, ausbreitung: 60, heimisch: true,
     beschreibung: 'Zartrosa Doldenblüten, süßlich duftend. Begeistert Schmetterlinge und Schwärmer.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/valeriana-officinalis/', bild_emoji: '🌸',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/90/Valeriana_officinalis_-_Niitv%C3%A4lja.jpg/330px-Valeriana_officinalis_-_Niitv%C3%A4lja.jpg',
   },
   {
     id: 'verbena-officinalis', name: 'Echtes Eisenkraut', latin: 'Verbena officinalis',
@@ -1267,6 +1367,7 @@ export const PLANTS = [
     pflanzabstand: 30, ausbreitung: 30, heimisch: true,
     beschreibung: 'Filigrane Ähren mit kleinen lila Blüten. Für trockene, sonnige Ruderalflächen.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/verbena-officinalis/', bild_emoji: '💜',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/38/Eisenkraut%2C_Passau.JPG/330px-Eisenkraut%2C_Passau.JPG',
   },
   {
     id: 'veronica-spicata', name: 'Ähren-Ehrenpreis', latin: 'Veronica spicata',
@@ -1279,6 +1380,7 @@ export const PLANTS = [
     pflanzabstand: 25, ausbreitung: 30, heimisch: true,
     beschreibung: 'Leuchtend blaue Ähren. Einer der schönsten heimischen Magerrasen-Spezialisten.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/veronica-spicata/', bild_emoji: '💙',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/da/PseudolysimachionSpicatum.jpg/330px-PseudolysimachionSpicatum.jpg',
   },
   {
     id: 'vicia-cracca', name: 'Vogel-Wicke', latin: 'Vicia cracca',
@@ -1291,6 +1393,7 @@ export const PLANTS = [
     pflanzabstand: 30, ausbreitung: 50, heimisch: true,
     beschreibung: 'Klettert durch Ranken. Violett-blaue Blüten, wertvoll für Bläulinge.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/vicia-cracca/', bild_emoji: '💜',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/96/Cow_vetch2.jpg/330px-Cow_vetch2.jpg',
   },
   {
     id: 'fragaria-vesca', name: 'Wald-Erdbeere', latin: 'Fragaria vesca',
@@ -1303,6 +1406,7 @@ export const PLANTS = [
     pflanzabstand: 20, ausbreitung: 40, heimisch: true,
     beschreibung: 'Kleine essbare Früchte, breitet sich über Ausläufer aus. Vogelnahrung.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/fragaria-vesca/', bild_emoji: '🍓',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Illustration_Fragaria_vesca0.jpg/330px-Illustration_Fragaria_vesca0.jpg',
   },
   {
     id: 'eupatorium-cannabinum', name: 'Wasserdost', latin: 'Eupatorium cannabinum',
@@ -1315,6 +1419,7 @@ export const PLANTS = [
     pflanzabstand: 60, ausbreitung: 80, heimisch: true,
     beschreibung: 'Massige Pflanze mit rosa-weißen Dolden. Sommerschmetterlings-Hotspot!',
     naturadb_url: 'https://www.naturadb.de/pflanzen/eupatorium-cannabinum/', bild_emoji: '🌸',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/40/Eupatorium_cannabinum.jpg/330px-Eupatorium_cannabinum.jpg',
   },
   {
     id: 'lysimachia-vulgaris', name: 'Gewöhnlicher Gilbweiderich', latin: 'Lysimachia vulgaris',
@@ -1327,6 +1432,7 @@ export const PLANTS = [
     pflanzabstand: 50, ausbreitung: 80, heimisch: true,
     beschreibung: 'Leuchtend gelbe Doldenrispen am Uferrand. Samenharz von Öl-sammelnden Bienen genutzt.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/lysimachia-vulgaris/', bild_emoji: '💛',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/13/Lysimachia_vulgaris.jpeg/330px-Lysimachia_vulgaris.jpeg',
   },
 
   // ═══════════════════════════════════════════════════════════
@@ -1343,6 +1449,7 @@ export const PLANTS = [
     pflanzabstand: 20, ausbreitung: 50, heimisch: true,
     beschreibung: 'Früher blauer Bodendecker für Schatten. Hummeln lieben die tiefen Blütenröhren.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/ajuga-reptans/', bild_emoji: '💙',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Ajuga_reptans_LC0138.jpg/330px-Ajuga_reptans_LC0138.jpg',
   },
   {
     id: 'campanula-persicifolia', name: 'Pfirsichblättrige Glockenblume', latin: 'Campanula persicifolia',
@@ -1355,6 +1462,7 @@ export const PLANTS = [
     pflanzabstand: 30, ausbreitung: 30, heimisch: true,
     beschreibung: 'Große himmelblaue Glocken, sehr elegant. Waldsaum- bis Magerrasenart.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/campanula-persicifolia/', bild_emoji: '💙',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/Campanula_persicifolia_0002.JPG/330px-Campanula_persicifolia_0002.JPG',
   },
   {
     id: 'campanula-trachelium', name: 'Nesselblättrige Glockenblume', latin: 'Campanula trachelium',
@@ -1367,6 +1475,7 @@ export const PLANTS = [
     pflanzabstand: 30, ausbreitung: 30, heimisch: true,
     beschreibung: 'Violettblaue Glocken für Waldränder und Halbschatten. Robuste Sommerstaude.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/campanula-trachelium/', bild_emoji: '💜',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Campanula_trachelium.jpg/330px-Campanula_trachelium.jpg',
   },
   {
     id: 'geranium-robertianum', name: 'Ruprechtskraut', latin: 'Geranium robertianum',
@@ -1379,6 +1488,7 @@ export const PLANTS = [
     pflanzabstand: 20, ausbreitung: 25, heimisch: true,
     beschreibung: 'Kleine rote Blüten, sehr lang blühend. Pionier an schattigen Mauern und Waldrändern.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/geranium-robertianum/', bild_emoji: '❤️',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6c/Geranium_robertianum_-_haisev_kurereha.jpg/330px-Geranium_robertianum_-_haisev_kurereha.jpg',
   },
   {
     id: 'geum-rivale', name: 'Bach-Nelkenwurz', latin: 'Geum rivale',
@@ -1391,6 +1501,7 @@ export const PLANTS = [
     pflanzabstand: 25, ausbreitung: 30, heimisch: true,
     beschreibung: 'Hängende lachs-orangefarbene Blüten. Elegant für Feuchtstandorte.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/geum-rivale/', bild_emoji: '🧡',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Geum_rivale02.jpg/330px-Geum_rivale02.jpg',
   },
   {
     id: 'geum-urbanum', name: 'Echte Nelkenwurz', latin: 'Geum urbanum',
@@ -1403,6 +1514,7 @@ export const PLANTS = [
     pflanzabstand: 25, ausbreitung: 30, heimisch: true,
     beschreibung: 'Kleine gelbe Blüten, hakenförmige Früchte. Anspruchslos, auch für tiefe Schatten.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/geum-urbanum/', bild_emoji: '💛',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/%28MHNT%29_Geum_urbanum_-_Habit.jpg/330px-%28MHNT%29_Geum_urbanum_-_Habit.jpg',
   },
   {
     id: 'potentilla-anserina', name: 'Gänsefingerkraut', latin: 'Potentilla anserina',
@@ -1415,6 +1527,7 @@ export const PLANTS = [
     pflanzabstand: 20, ausbreitung: 50, heimisch: true,
     beschreibung: 'Silbrig-grüne Ausläufer, gelbe Blüten. Bodenfestigend, für Trittzonen geeignet.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/potentilla-anserina/', bild_emoji: '💛',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Illustration_Potentilla_anserina0.jpg/330px-Illustration_Potentilla_anserina0.jpg',
   },
 
   // ═══════════════════════════════════════════════════════════
@@ -1431,6 +1544,7 @@ export const PLANTS = [
     pflanzabstand: 60, ausbreitung: 60, heimisch: true,
     beschreibung: 'Stachelige Architekturpflanze bis 2m. Samen im Winter = Stieglitz-Nahrungsquelle.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/dipsacus-fullonum/', bild_emoji: '💜',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/09/Illustration_Dipsacus_fullonum0.jpg/330px-Illustration_Dipsacus_fullonum0.jpg',
   },
   {
     id: 'melilotus-officinalis', name: 'Echter Steinklee', latin: 'Melilotus officinalis',
@@ -1443,6 +1557,7 @@ export const PLANTS = [
     pflanzabstand: 40, ausbreitung: 40, heimisch: true,
     beschreibung: 'Massige Honigpflanze für Ruderalflächen. Duftet nach Cumarin. Zweijährig, sät sich aus.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/melilotus-officinalis/', bild_emoji: '💛',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Melilotus_officinalis_%285144344156%29.jpg/330px-Melilotus_officinalis_%285144344156%29.jpg',
   },
   {
     id: 'myosotis-sylvatica', name: 'Wald-Vergissmeinnicht', latin: 'Myosotis sylvatica',
@@ -1455,6 +1570,7 @@ export const PLANTS = [
     pflanzabstand: 15, ausbreitung: 20, heimisch: true,
     beschreibung: 'Himmelblaue Frühlingswolken. Sät sich zuverlässig selbst aus.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/myosotis-sylvatica/', bild_emoji: '💙',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Myosotis.sylvatica%2801%29.jpg/330px-Myosotis.sylvatica%2801%29.jpg',
   },
   {
     id: 'viola-tricolor', name: 'Wildes Stiefmütterchen', latin: 'Viola tricolor',
@@ -1467,6 +1583,7 @@ export const PLANTS = [
     pflanzabstand: 15, ausbreitung: 20, heimisch: true,
     beschreibung: 'Dreifarben-Blüten in Lila, Gelb, Weiß. Magerrasen, sät sich selbst aus.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/viola-tricolor/', bild_emoji: '💜',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Violatricolorarvensis.jpg/330px-Violatricolorarvensis.jpg',
   },
 
   // ═══════════════════════════════════════════════════════════
@@ -1483,6 +1600,7 @@ export const PLANTS = [
     pflanzabstand: 20, ausbreitung: 20, heimisch: true,
     beschreibung: 'Ehemaliges Acker-Unkraut, heute selten. Tiefpinke Blüten, von Abend-Faltern besucht.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/agrostemma-githago/', bild_emoji: '🌹',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/de/thumb/3/37/Kornrade_Habitus.jpg/330px-Kornrade_Habitus.jpg',
   },
   {
     id: 'nigella-arvensis', name: 'Acker-Schwarzkümmel', latin: 'Nigella arvensis',
@@ -1495,6 +1613,7 @@ export const PLANTS = [
     pflanzabstand: 15, ausbreitung: 15, heimisch: true,
     beschreibung: 'Hellblaue Blüten, filigranes Laub. Charakterart der Ackerwildkrautgesellschaften.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/nigella-arvensis/', bild_emoji: '💙',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Nigella_arvensis_sl18.jpg/330px-Nigella_arvensis_sl18.jpg',
   },
 
   // ═══════════════════════════════════════════════════════════
@@ -1511,6 +1630,7 @@ export const PLANTS = [
     pflanzabstand: 25, ausbreitung: 30, heimisch: true,
     beschreibung: 'Herzförmige, im Wind zitternde Ährchen. Graziles Schmuckgras für Magerrasen.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/briza-media/', bild_emoji: '🌾',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8f/449_Briza_media.jpg/330px-449_Briza_media.jpg',
   },
   {
     id: 'carex-flacca', name: 'Blaugrüne Segge', latin: 'Carex flacca',
@@ -1523,6 +1643,7 @@ export const PLANTS = [
     pflanzabstand: 20, ausbreitung: 30, heimisch: true,
     beschreibung: 'Blaugrüne Segge für Kalkstandorte. Immergrün, bildet dichte Teppiche.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/carex-flacca/', bild_emoji: '🌿',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/78/Carex_flacca_kz12.jpg/330px-Carex_flacca_kz12.jpg',
   },
   {
     id: 'festuca-rubra', name: 'Rot-Schwingel', latin: 'Festuca rubra',
@@ -1535,6 +1656,7 @@ export const PLANTS = [
     pflanzabstand: 15, ausbreitung: 25, heimisch: true,
     beschreibung: 'Zuverlässiges Magerrasen-Gras. Bildet dichte, niedrige Polster. Rötlich überlaufen.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/festuca-rubra/', bild_emoji: '🌾',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/57/Festuca.rubra.2.jpg/330px-Festuca.rubra.2.jpg',
   },
   {
     id: 'melica-uniflora', name: 'Einblütiges Perlgras', latin: 'Melica uniflora',
@@ -1547,6 +1669,7 @@ export const PLANTS = [
     pflanzabstand: 20, ausbreitung: 25, heimisch: true,
     beschreibung: 'Elegantes Waldgras mit perlförmigen Ährchen. Für Schattenbereiche unter Bäumen.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/melica-uniflora/', bild_emoji: '🌾',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/da/Melica_uniflora_sl12.jpg/330px-Melica_uniflora_sl12.jpg',
   },
 
   // ═══════════════════════════════════════════════════════════
@@ -1563,6 +1686,7 @@ export const PLANTS = [
     pflanzabstand: 100, ausbreitung: 150, heimisch: true,
     beschreibung: 'Dornig, leuchtend gelbe Blüten, rote Früchte. Vogelschutzgehölz, Frühblutenspender.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/berberis-vulgaris/', bild_emoji: '🫐',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/74/Berberis_vulgaris_kz02.jpg/330px-Berberis_vulgaris_kz02.jpg',
   },
   {
     id: 'prunus-padus', name: 'Gewöhnliche Traubenkirsche', latin: 'Prunus padus',
@@ -1575,6 +1699,7 @@ export const PLANTS = [
     pflanzabstand: 200, ausbreitung: 400, heimisch: true,
     beschreibung: 'Duftende weiße Trauben im Frühling, für über 100 Insektenarten wertvoll.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/prunus-padus/', bild_emoji: '🤍',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ef/Prunus_padus0.jpg/330px-Prunus_padus0.jpg',
   },
   {
     id: 'ribes-uva-crispa', name: 'Stachelbeere', latin: 'Ribes uva-crispa',
@@ -1587,6 +1712,7 @@ export const PLANTS = [
     pflanzabstand: 100, ausbreitung: 130, heimisch: true,
     beschreibung: 'Einer der frühesten Blütensträucher. Früchte essbar, wichtig für Vögel.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/ribes-uva-crispa/', bild_emoji: '🍈',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/Ribes_grossularia_L..jpg/330px-Ribes_grossularia_L..jpg',
   },
   {
     id: 'rosa-arvensis', name: 'Kriechende Rose', latin: 'Rosa arvensis',
@@ -1599,6 +1725,7 @@ export const PLANTS = [
     pflanzabstand: 150, ausbreitung: 250, heimisch: true,
     beschreibung: 'Weiße Schalenblüten, breitet sich durch Ausläufer aus. Für Halbschatten und Hecken.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/rosa-arvensis/', bild_emoji: '🤍',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Rosa_arvensis_%28Liege-Rose%29_IMG_24814.JPG/330px-Rosa_arvensis_%28Liege-Rose%29_IMG_24814.JPG',
   },
   {
     id: 'rubus-idaeus', name: 'Himbeere', latin: 'Rubus idaeus',
@@ -1611,6 +1738,7 @@ export const PLANTS = [
     pflanzabstand: 100, ausbreitung: 200, heimisch: true,
     beschreibung: 'Spitzennahrungspflanze: Blüten für Insekten, Früchte für Vögel und Menschen.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/rubus-idaeus/', bild_emoji: '🍓',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5d/K%C3%B6hler%27s_Medizinal-Pflanzen_in_naturgetreuen_Abbildungen_mit_kurz_erl%C3%A4uterndem_Texte_%28Plate_43%29_BHL303648.jpg/330px-K%C3%B6hler%27s_Medizinal-Pflanzen_in_naturgetreuen_Abbildungen_mit_kurz_erl%C3%A4uterndem_Texte_%28Plate_43%29_BHL303648.jpg',
   },
   {
     id: 'sambucus-racemosa', name: 'Traubenholunder', latin: 'Sambucus racemosa',
@@ -1623,6 +1751,7 @@ export const PLANTS = [
     pflanzabstand: 200, ausbreitung: 300, heimisch: true,
     beschreibung: 'Rote Beerendolden im Sommer, sehr frühe Blüte. Wichtig für Waldvögel.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/sambucus-racemosa/', bild_emoji: '🔴',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f1/20140406Sambucus_racemosa1.jpg/330px-20140406Sambucus_racemosa1.jpg',
   },
   {
     id: 'salix-caprea', name: 'Sal-Weide', latin: 'Salix caprea',
@@ -1635,6 +1764,7 @@ export const PLANTS = [
     pflanzabstand: 300, ausbreitung: 500, heimisch: true,
     beschreibung: 'KRITISCH für den Frühling: erste Nektarquelle für Wildbienen nach dem Winter. Über 150 Insektenarten.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/salix-caprea/', bild_emoji: '🌿',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Salix_caprea_036.jpg/330px-Salix_caprea_036.jpg',
   },
 
   // ═══════════════════════════════════════════════════════════
@@ -1651,6 +1781,7 @@ export const PLANTS = [
     pflanzabstand: 800, ausbreitung: 1500, heimisch: true,
     beschreibung: 'Wichtiger Nektarbaum im Frühjahr. Hängend blühend, für Bienen ausgezeichnet.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/acer-pseudoplatanus/', bild_emoji: '🍁',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/38/Acer_pseudoplatanus_Chaltenbrunnen.jpg/330px-Acer_pseudoplatanus_Chaltenbrunnen.jpg',
   },
   {
     id: 'fraxinus-excelsior', name: 'Gewöhnliche Esche', latin: 'Fraxinus excelsior',
@@ -1663,6 +1794,7 @@ export const PLANTS = [
     pflanzabstand: 1000, ausbreitung: 2000, heimisch: true,
     beschreibung: 'Majestätischer Laubbaum mit gefiedertem Laub. Waldkönig auf feuchten Standorten.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/fraxinus-excelsior/', bild_emoji: '🌳',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/Fraxinus_excelsior_001.jpg/330px-Fraxinus_excelsior_001.jpg',
   },
   {
     id: 'malus-sylvestris', name: 'Holz-Apfel', latin: 'Malus sylvestris',
@@ -1675,6 +1807,7 @@ export const PLANTS = [
     pflanzabstand: 500, ausbreitung: 700, heimisch: true,
     beschreibung: 'Urahn aller Kulturäpfel. Kleine, herbe Wildfrüchte. Wichtig für Vögel im Winter.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/malus-sylvestris/', bild_emoji: '🍎',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Crab_apple_%28Malus_sylvestris%29_fruit_and_foliage_%283830013351%29.jpg/330px-Crab_apple_%28Malus_sylvestris%29_fruit_and_foliage_%283830013351%29.jpg',
   },
   {
     id: 'prunus-avium', name: 'Vogel-Kirsche', latin: 'Prunus avium',
@@ -1687,6 +1820,7 @@ export const PLANTS = [
     pflanzabstand: 600, ausbreitung: 1000, heimisch: true,
     beschreibung: 'Spektakuläre Blüte im April, Früchte für Vögel. Einer der wertvollsten Wildfruchbäume.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/prunus-avium/', bild_emoji: '🍒',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/CILIEGIO_SECOLARE_A_BESANA_IN_BRIANZA.JPG/330px-CILIEGIO_SECOLARE_A_BESANA_IN_BRIANZA.JPG',
   },
   {
     id: 'sorbus-torminalis', name: 'Elsbeere', latin: 'Sorbus torminalis',
@@ -1699,6 +1833,7 @@ export const PLANTS = [
     pflanzabstand: 500, ausbreitung: 800, heimisch: true,
     beschreibung: 'Seltener Wildbaum mit prachtvoller Herbstfärbung. Früchte erst nach Frost essbar.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/sorbus-torminalis/', bild_emoji: '🍂',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Sorbus_torminalis_Full_tree.jpg/330px-Sorbus_torminalis_Full_tree.jpg',
   },
   {
     id: 'tilia-cordata', name: 'Winterlinde', latin: 'Tilia cordata',
@@ -1711,6 +1846,7 @@ export const PLANTS = [
     pflanzabstand: 800, ausbreitung: 1500, heimisch: true,
     beschreibung: 'Die Honigbienen-Linde. Ein Baum im Juli = Hunderte Bienenvölker. Duft bis 1km.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/tilia-cordata/', bild_emoji: '🌳',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Tilia_cordata_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-139.jpg/330px-Tilia_cordata_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-139.jpg',
   },
   {
     id: 'tilia-platyphyllos', name: 'Sommerlinde', latin: 'Tilia platyphyllos',
@@ -1723,6 +1859,7 @@ export const PLANTS = [
     pflanzabstand: 900, ausbreitung: 2000, heimisch: true,
     beschreibung: 'Früher blühend als Winterlinde, auf basenreichen Böden. Bedeutender Straßenbaum.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/tilia-platyphyllos/', bild_emoji: '🌳',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Tilia_platyphyllos_Kellerwald_001.JPG/330px-Tilia_platyphyllos_Kellerwald_001.JPG',
   },
 
   // ═══════════════════════════════════════════════════════════
@@ -1740,6 +1877,7 @@ export const PLANTS = [
     pflanzabstand: 15, ausbreitung: 25, heimisch: true,
     beschreibung: 'BUND-Top-Empfehlung. Lange Blütenröhre = exklusiv für Hummeln mit langem Rüssel. Stickstoffbinder.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/trifolium-pratense/', bild_emoji: '🌺',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Trifolium_pratense_-_Keila.jpg/330px-Trifolium_pratense_-_Keila.jpg',
   },
   {
     id: 'trifolium-repens', name: 'Weiß-Klee', latin: 'Trifolium repens',
@@ -1752,6 +1890,7 @@ export const PLANTS = [
     pflanzabstand: 10, ausbreitung: 50, heimisch: true,
     beschreibung: 'Massennektar-Lieferant im Rasen. Liegenlassen statt mähen = Bienenparadies.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/trifolium-repens/', bild_emoji: '🤍',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cc/TrifoliumRepensFlowers.jpg/330px-TrifoliumRepensFlowers.jpg',
   },
   {
     id: 'trifolium-rubens', name: 'Purpur-Klee', latin: 'Trifolium rubens',
@@ -1764,6 +1903,7 @@ export const PLANTS = [
     pflanzabstand: 20, ausbreitung: 25, heimisch: true,
     beschreibung: 'Purpurrote Ähren, fast schon exotisch wirkend. Trockenresistent, für Magerrasen.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/trifolium-rubens/', bild_emoji: '🌺',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/Trifolium_rubens_Koniczyna_d%C5%82ugok%C5%82osowa_2013-06-16_01.jpg/330px-Trifolium_rubens_Koniczyna_d%C5%82ugok%C5%82osowa_2013-06-16_01.jpg',
   },
   {
     id: 'calluna-vulgaris', name: 'Heidekraut / Besenheide', latin: 'Calluna vulgaris',
@@ -1776,6 +1916,7 @@ export const PLANTS = [
     pflanzabstand: 30, ausbreitung: 50, heimisch: true,
     beschreibung: 'Kritische Spätblüte für Heidebienen. Letzter großer Nektarfluss vor dem Winter.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/calluna-vulgaris/', bild_emoji: '🌸',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/CallunaVulgaris.jpg/330px-CallunaVulgaris.jpg',
   },
   {
     id: 'hedera-helix', name: 'Gewöhnlicher Efeu', latin: 'Hedera helix',
@@ -1788,6 +1929,7 @@ export const PLANTS = [
     pflanzabstand: 50, ausbreitung: 500, heimisch: true,
     beschreibung: 'NABU Top 1: Einzige Herbst-Nektarquelle für Efeu-Zipfelfalter. Völlig unverzichtbar.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/hedera-helix/', bild_emoji: '🌿',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/Hedera_helix_002.JPG/330px-Hedera_helix_002.JPG',
   },
   {
     id: 'prunella-vulgaris', name: 'Gewöhnliche Braunelle', latin: 'Prunella vulgaris',
@@ -1800,6 +1942,7 @@ export const PLANTS = [
     pflanzabstand: 15, ausbreitung: 30, heimisch: true,
     beschreibung: 'Unscheinbar aber wichtig: Langblühend, auch im Schatten. Ideal für Rasenränder.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/prunella-vulgaris/', bild_emoji: '💜',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/Prunella_vulgaris_-_harilik_k%C3%A4bihein.jpg/330px-Prunella_vulgaris_-_harilik_k%C3%A4bihein.jpg',
   },
   {
     id: 'anthyllis-vulneraria', name: 'Wundklee', latin: 'Anthyllis vulneraria',
@@ -1812,6 +1955,7 @@ export const PLANTS = [
     pflanzabstand: 20, ausbreitung: 30, heimisch: true,
     beschreibung: 'Seidig behaarter Klee für Trockenstandorte. Einzige Nahrungspflanze des Zwerg-Bläulings.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/anthyllis-vulneraria/', bild_emoji: '💛',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Anthyllis_vulneraria_002.JPG/330px-Anthyllis_vulneraria_002.JPG',
   },
   {
     id: 'ononis-spinosa', name: 'Dornige Hauhechel', latin: 'Ononis spinosa',
@@ -1824,6 +1968,7 @@ export const PLANTS = [
     pflanzabstand: 30, ausbreitung: 40, heimisch: true,
     beschreibung: 'Dorniger Halbstrauch mit rosa Blüten. Namensgebende Nahrungspflanze des Hauhechel-Bläulings.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/ononis-spinosa/', bild_emoji: '🌸',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Ononis_spinosa_2005.07.03_12.14.09.jpg/330px-Ononis_spinosa_2005.07.03_12.14.09.jpg',
   },
   {
     id: 'onobrychis-viciifolia', name: 'Saat-Esparsette', latin: 'Onobrychis viciifolia',
@@ -1836,6 +1981,7 @@ export const PLANTS = [
     pflanzabstand: 30, ausbreitung: 40, heimisch: true,
     beschreibung: 'Prächtige rosa Ähren. Exzellenter Honigspender, für Mager- und Kalkstandorte.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/onobrychis-viciifolia/', bild_emoji: '🌺',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/80/Onobrychis_Viciifolia_in_Behbahan.jpg/330px-Onobrychis_Viciifolia_in_Behbahan.jpg',
   },
   {
     id: 'teucrium-chamaedrys', name: 'Echter Gamander', latin: 'Teucrium chamaedrys',
@@ -1848,6 +1994,7 @@ export const PLANTS = [
     pflanzabstand: 20, ausbreitung: 40, heimisch: true,
     beschreibung: 'Immergrüner Halbstrauch mit kleinen rosa Blüten. Robust, trockenresistent, aromatisch.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/teucrium-chamaedrys/', bild_emoji: '🌸',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Teucrium_chamaedrys_010707.jpg/330px-Teucrium_chamaedrys_010707.jpg',
   },
   {
     id: 'thymus-pulegioides', name: 'Arznei-Thymian', latin: 'Thymus pulegioides',
@@ -1860,6 +2007,7 @@ export const PLANTS = [
     pflanzabstand: 20, ausbreitung: 35, heimisch: true,
     beschreibung: 'Heimischer Arznei-Thymian, aromatischer als T. serpyllum. Superblüher für Insekten.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/thymus-pulegioides/', bild_emoji: '🌸',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Breitbl%C3%A4ttrige_Thymian_%28Thymus_pulegioides%29-1.jpg/330px-Breitbl%C3%A4ttrige_Thymian_%28Thymus_pulegioides%29-1.jpg',
   },
   {
     id: 'stachys-sylvatica', name: 'Wald-Ziest', latin: 'Stachys sylvatica',
@@ -1872,6 +2020,7 @@ export const PLANTS = [
     pflanzabstand: 40, ausbreitung: 50, heimisch: true,
     beschreibung: 'Purpurrote Blüten im Waldschatten. Starker Nektarspender für Hummeln.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/stachys-sylvatica/', bild_emoji: '💜',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/Wald-Ziest_%28Stachys_sylvatica%29.jpg/330px-Wald-Ziest_%28Stachys_sylvatica%29.jpg',
   },
   {
     id: 'lamium-album', name: 'Weiße Taubnessel', latin: 'Lamium album',
@@ -1884,6 +2033,7 @@ export const PLANTS = [
     pflanzabstand: 25, ausbreitung: 50, heimisch: true,
     beschreibung: 'Vom Märzschmelze bis Oktober. Überlebenswichtig für früh fliegende Hummeln.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/lamium-album/', bild_emoji: '🤍',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e2/Lamium_album_001.JPG/330px-Lamium_album_001.JPG',
   },
   {
     id: 'lamium-purpureum', name: 'Rote Taubnessel', latin: 'Lamium purpureum',
@@ -1896,6 +2046,7 @@ export const PLANTS = [
     pflanzabstand: 10, ausbreitung: 20, heimisch: true,
     beschreibung: 'Blüht fast ganzjährig. Erste Nektarquelle für Hummelköniginnen im Februar/März!',
     naturadb_url: 'https://www.naturadb.de/pflanzen/lamium-purpureum/', bild_emoji: '❤️',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a6/Lamium_purpureum_in_the_spring2.jpg/330px-Lamium_purpureum_in_the_spring2.jpg',
   },
   {
     id: 'lychnis-flos-cuculi', name: 'Kuckucks-Lichtnelke', latin: 'Lychnis flos-cuculi',
@@ -1908,6 +2059,7 @@ export const PLANTS = [
     pflanzabstand: 25, ausbreitung: 30, heimisch: true,
     beschreibung: 'Filigrane rosarote Blüten, typisch für Feuchtwiesen. Nachtfalter-Nektarpflanze.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/lychnis-flos-cuculi/', bild_emoji: '🌸',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/25/XN_Lychnis_flos_cuculi.jpg/330px-XN_Lychnis_flos_cuculi.jpg',
   },
   {
     id: 'jasione-montana', name: 'Berg-Jasione', latin: 'Jasione montana',
@@ -1920,6 +2072,7 @@ export const PLANTS = [
     pflanzabstand: 15, ausbreitung: 15, heimisch: true,
     beschreibung: 'Hellblaue Knöpfchen auf Mager-Sandboden. Charakterart der Calluna-Heideflächen.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/jasione-montana/', bild_emoji: '💙',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fb/JasioneMontana.jpg/330px-JasioneMontana.jpg',
   },
   {
     id: 'geranium-sylvaticum', name: 'Wald-Storchschnabel', latin: 'Geranium sylvaticum',
@@ -1932,6 +2085,7 @@ export const PLANTS = [
     pflanzabstand: 40, ausbreitung: 45, heimisch: true,
     beschreibung: 'Blauviolett, für krautreiche Säume und Bergwiesen. Schöne Herbstfärbung.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/geranium-sylvaticum/', bild_emoji: '💜',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/54/Wood_cranesbill_%284685095566%29.jpg/330px-Wood_cranesbill_%284685095566%29.jpg',
   },
   {
     id: 'euphorbia-cyparissias', name: 'Zypressen-Wolfsmilch', latin: 'Euphorbia cyparissias',
@@ -1944,6 +2098,7 @@ export const PLANTS = [
     pflanzabstand: 25, ausbreitung: 50, heimisch: true,
     beschreibung: 'Nadelförmiges Laub, giftig. Einzige Raupenfutterpflanze des Wolfsmilch-Schwärmers!',
     naturadb_url: 'https://www.naturadb.de/pflanzen/euphorbia-cyparissias/', bild_emoji: '🌿',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Zypressenwolfsmilch01.jpg/330px-Zypressenwolfsmilch01.jpg',
   },
   {
     id: 'anchusa-officinalis', name: 'Gewöhnliche Ochsenzunge', latin: 'Anchusa officinalis',
@@ -1956,6 +2111,7 @@ export const PLANTS = [
     pflanzabstand: 30, ausbreitung: 30, heimisch: true,
     beschreibung: 'Tiefblaue Raublattblüten, perfekt für Langrüssel-Wildbienen. Sät sich aus.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/anchusa-officinalis/', bild_emoji: '💙',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/Anchusa_officinalis_16-06-2006_20.07.14.JPG/330px-Anchusa_officinalis_16-06-2006_20.07.14.JPG',
   },
   {
     id: 'rhinanthus-minor', name: 'Kleiner Klappertopf', latin: 'Rhinanthus minor',
@@ -1968,6 +2124,7 @@ export const PLANTS = [
     pflanzabstand: 10, ausbreitung: 10, heimisch: true,
     beschreibung: 'Halbparasit auf Gräsern — schwächt Gras und stärkt Kräuter. Schlüsselart für Blühwiesen.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/rhinanthus-minor/', bild_emoji: '💛',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Yellow-rattle_close_700.jpg/330px-Yellow-rattle_close_700.jpg',
   },
   {
     id: 'crepis-biennis', name: 'Wiesen-Pippau', latin: 'Crepis biennis',
@@ -1980,6 +2137,7 @@ export const PLANTS = [
     pflanzabstand: 25, ausbreitung: 30, heimisch: true,
     beschreibung: 'Löwenzahn-ähnlich, aber viel höher. Wichtige Pollen- und Nektarquelle für Wildbienen.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/crepis-biennis/', bild_emoji: '🌼',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Wiesen-Pippau.JPG/330px-Wiesen-Pippau.JPG',
   },
   {
     id: 'verbascum-nigrum', name: 'Schwarze Königskerze', latin: 'Verbascum nigrum',
@@ -1992,6 +2150,7 @@ export const PLANTS = [
     pflanzabstand: 40, ausbreitung: 40, heimisch: true,
     beschreibung: 'Eleganter als V. thapsus, mit violett bepuscherten Staubfäden. Bienensammlerin (Pollen).',
     naturadb_url: 'https://www.naturadb.de/pflanzen/verbascum-nigrum/', bild_emoji: '💛',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/VerbascumNigrumHabitus.jpg/330px-VerbascumNigrumHabitus.jpg',
   },
   {
     id: 'isatis-tinctoria', name: 'Färber-Waid', latin: 'Isatis tinctoria',
@@ -2004,6 +2163,7 @@ export const PLANTS = [
     pflanzabstand: 35, ausbreitung: 35, heimisch: true,
     beschreibung: 'Historische Blaufärbepflanze, frühe Massenblüte. Exzellenter Frühjahrsnektarspender.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/isatis-tinctoria/', bild_emoji: '💛',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/aa/Isatis_tinctoria_%28s._str.%29_sl2.jpg/330px-Isatis_tinctoria_%28s._str.%29_sl2.jpg',
   },
   {
     id: 'salix-alba', name: 'Silber-Weide', latin: 'Salix alba',
@@ -2016,6 +2176,7 @@ export const PLANTS = [
     pflanzabstand: 600, ausbreitung: 1200, heimisch: true,
     beschreibung: 'Silbrig glänzendes Laub am Ufer. Frühester Nektar für Bienenköniginnen.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/salix-alba/', bild_emoji: '🌳',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/Thom%C3%A9_Salix_alba_clean.jpg/330px-Thom%C3%A9_Salix_alba_clean.jpg',
   },
   {
     id: 'viburnum-lantana', name: 'Wolliger Schneeball', latin: 'Viburnum lantana',
@@ -2028,6 +2189,7 @@ export const PLANTS = [
     pflanzabstand: 200, ausbreitung: 300, heimisch: true,
     beschreibung: 'Weißfilzige Blätter, rote Früchte im Herbst. Wichtiges Heckensträuchergehölz.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/viburnum-lantana/', bild_emoji: '🔴',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Viburnum_lantana_001.jpg/330px-Viburnum_lantana_001.jpg',
   },
 
   // ═══════════════════════════════════════════════════════════
@@ -2044,6 +2206,7 @@ export const PLANTS = [
     pflanzabstand: 10, ausbreitung: 20, heimisch: true,
     beschreibung: 'Die wichtigste Pflanze überhaupt. Erste Massennahrung für Bienen im Frühjahr. Nicht mähen!',
     naturadb_url: 'https://www.naturadb.de/pflanzen/taraxacum-officinale/', bild_emoji: '🌼',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/Taraxacum_officinale_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-135.jpg/330px-Taraxacum_officinale_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-135.jpg',
   },
   {
     id: 'cardamine-pratensis', name: 'Wiesen-Schaumkraut', latin: 'Cardamine pratensis',
@@ -2056,6 +2219,7 @@ export const PLANTS = [
     pflanzabstand: 15, ausbreitung: 20, heimisch: true,
     beschreibung: 'KRITISCH: Einzige Raupenfutterpflanze des Aurorafalters. Ohne diese Pflanze kein Aurorafalter.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/cardamine-pratensis/', bild_emoji: '🌸',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Cardamine_pratensis_in_Wildbad_07.jpg/330px-Cardamine_pratensis_in_Wildbad_07.jpg',
   },
   {
     id: 'symphytum-officinale', name: 'Gewöhnlicher Beinwell', latin: 'Symphytum officinale',
@@ -2068,6 +2232,7 @@ export const PLANTS = [
     pflanzabstand: 50, ausbreitung: 80, heimisch: true,
     beschreibung: 'Röhrenblüten mit tiefem Nektar — nur Hummeln mit langem Rüssel kommen ran. Frühblüher.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/symphytum-officinale/', bild_emoji: '💜',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Symphytum_officinale_01.jpg/330px-Symphytum_officinale_01.jpg',
   },
   {
     id: 'petasites-hybridus', name: 'Gewöhnliche Pestwurz', latin: 'Petasites hybridus',
@@ -2080,6 +2245,7 @@ export const PLANTS = [
     pflanzabstand: 60, ausbreitung: 200, heimisch: true,
     beschreibung: 'Blüht VOR den Blättern im Februar/März — erste Pollenquelle für Hummelköniginnen!',
     naturadb_url: 'https://www.naturadb.de/pflanzen/petasites-hybridus/', bild_emoji: '🌸',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/Petasites_hybridus_spike.jpg/330px-Petasites_hybridus_spike.jpg',
   },
   {
     id: 'corydalis-cava', name: 'Hohler Lerchensporn', latin: 'Corydalis cava',
@@ -2092,6 +2258,7 @@ export const PLANTS = [
     pflanzabstand: 10, ausbreitung: 20, heimisch: true,
     beschreibung: 'Zwiebelgewächs, rosa-violette Blüten im März. Frühjahrsgeophyt für Waldböden.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/corydalis-cava/', bild_emoji: '💜',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Odvas_keltike_%28Corydalis_cava%29.JPG/330px-Odvas_keltike_%28Corydalis_cava%29.JPG',
   },
   {
     id: 'epilobium-angustifolium', name: 'Schmalblättriges Weidenröschen', latin: 'Epilobium angustifolium',
@@ -2104,6 +2271,7 @@ export const PLANTS = [
     pflanzabstand: 50, ausbreitung: 100, heimisch: true,
     beschreibung: 'Spektakuläre Pionierpflanze nach Störflächen. Einzige Wirtspflanze des Weidenröschen-Schwärmers.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/epilobium-angustifolium/', bild_emoji: '❤️',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1d/Maitohorsma_%28Epilobium_angustifolium%29.JPG/330px-Maitohorsma_%28Epilobium_angustifolium%29.JPG',
   },
   {
     id: 'cirsium-arvense', name: 'Ackerdistel', latin: 'Cirsium arvense',
@@ -2116,6 +2284,7 @@ export const PLANTS = [
     pflanzabstand: 50, ausbreitung: 100, heimisch: true,
     beschreibung: 'Gilt als Unkraut, ist aber Nektarspender Nr. 1 für Distelfalter und Dutzende Wildbienenarten.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/cirsium-arvense/', bild_emoji: '💜',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Cirsium_arvense_-_p%C3%B5ldohakas.jpg/330px-Cirsium_arvense_-_p%C3%B5ldohakas.jpg',
   },
   {
     id: 'cirsium-vulgare', name: 'Gewöhnliche Kratzdistel', latin: 'Cirsium vulgare',
@@ -2128,6 +2297,7 @@ export const PLANTS = [
     pflanzabstand: 60, ausbreitung: 60, heimisch: true,
     beschreibung: 'Stachelig, aber Gold für Insekten. Samen = Stieglitz-Hauptnahrung im Winter.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/cirsium-vulgare/', bild_emoji: '💜',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Cirsium_vulgare_Harthope.jpg/330px-Cirsium_vulgare_Harthope.jpg',
   },
   {
     id: 'senecio-jacobaea', name: 'Jakobs-Greiskraut', latin: 'Jacobaea vulgaris',
@@ -2140,6 +2310,7 @@ export const PLANTS = [
     pflanzabstand: 30, ausbreitung: 30, heimisch: true,
     beschreibung: 'Giftig für Säugetiere, aber exklusiver Lebensraum für den Jakobskraut-Bär. Wichtige Dutzende Insektenarten.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/jacobaea-vulgaris/', bild_emoji: '💛',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/SenecioJacobaeaJacobaea.jpg/330px-SenecioJacobaeaJacobaea.jpg',
   },
   {
     id: 'stellaria-holostea', name: 'Große Sternmiere', latin: 'Stellaria holostea',
@@ -2152,6 +2323,7 @@ export const PLANTS = [
     pflanzabstand: 20, ausbreitung: 40, heimisch: true,
     beschreibung: 'Weißer Frühlingsstern-Teppich im Laubwald. Auch von Nachtfaltern besucht.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/stellaria-holostea/', bild_emoji: '🤍',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Stellaria_holostea001.jpg/330px-Stellaria_holostea001.jpg',
   },
   {
     id: 'linum-perenne', name: 'Ausdauernder Lein', latin: 'Linum perenne',
@@ -2164,6 +2336,7 @@ export const PLANTS = [
     pflanzabstand: 20, ausbreitung: 25, heimisch: true,
     beschreibung: 'Himmelblau-zarte Blüten jeden Morgen neu. Sehr elegant für Mager- und Kalkrasen.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/linum-perenne/', bild_emoji: '💙',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/Weisser_Berg_bei_Darmstadt_und_Pfungstadt_2021b%2C_Linum_perenne.JPG/330px-Weisser_Berg_bei_Darmstadt_und_Pfungstadt_2021b%2C_Linum_perenne.JPG',
   },
   {
     id: 'iris-sibirica', name: 'Sibirische Schwertlilie', latin: 'Iris sibirica',
@@ -2176,6 +2349,7 @@ export const PLANTS = [
     pflanzabstand: 40, ausbreitung: 60, heimisch: true,
     beschreibung: 'Elegante Feuchtwiesenart. In Deutschland stark gefährdet — wichtig für Naturgärten.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/iris-sibirica/', bild_emoji: '💜',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/db/SibirischeLilie_03.JPG/330px-SibirischeLilie_03.JPG',
   },
   {
     id: 'trollius-europaeus', name: 'Europäische Trollblume', latin: 'Trollius europaeus',
@@ -2188,6 +2362,7 @@ export const PLANTS = [
     pflanzabstand: 30, ausbreitung: 35, heimisch: true,
     beschreibung: 'Goldgelbe Ballblüten. In Flachland selten geworden — Vorzeigepflanze für Feuchtwiesen.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/trollius-europaeus/', bild_emoji: '💛',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/Trollius_europaeus_%28Thom%C3%A9_Bd.2_1904%2C_BHL-44721%2C_Tafel_252%29_clean%2C_no-description.jpg/330px-Trollius_europaeus_%28Thom%C3%A9_Bd.2_1904%2C_BHL-44721%2C_Tafel_252%29_clean%2C_no-description.jpg',
   },
   {
     id: 'polemonium-caeruleum', name: 'Blaue Himmelsleiter', latin: 'Polemonium caeruleum',
@@ -2200,6 +2375,7 @@ export const PLANTS = [
     pflanzabstand: 35, ausbreitung: 35, heimisch: true,
     beschreibung: 'Gefiederte Blätter, blaue Blütendolden. Selten in Norddeutschland, wertvolle Gartenpflanze.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/polemonium-caeruleum/', bild_emoji: '💙',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/76/Polemonium_caeruleum_kz03.jpg/330px-Polemonium_caeruleum_kz03.jpg',
   },
   {
     id: 'hypochaeris-radicata', name: 'Gewöhnliches Ferkelkraut', latin: 'Hypochaeris radicata',
@@ -2212,6 +2388,7 @@ export const PLANTS = [
     pflanzabstand: 20, ausbreitung: 25, heimisch: true,
     beschreibung: 'Langblühender Korbblütler für Magerrasen. Oft mit Löwenzahn verwechselt, aber taller.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/hypochaeris-radicata/', bild_emoji: '🌼',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/Starr_080317-3605_Hypochoeris_radicata.jpg/330px-Starr_080317-3605_Hypochoeris_radicata.jpg',
   },
   {
     id: 'myosotis-scorpioides', name: 'Sumpf-Vergissmeinnicht', latin: 'Myosotis scorpioides',
@@ -2224,6 +2401,7 @@ export const PLANTS = [
     pflanzabstand: 15, ausbreitung: 25, heimisch: true,
     beschreibung: 'Himmelblaue Blüten am Gewässerrand. Ideal für Teich- und Bachränder.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/myosotis-scorpioides/', bild_emoji: '💙',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Myosotis_scorpioides2.jpg/330px-Myosotis_scorpioides2.jpg',
   },
   {
     id: 'silene-nutans', name: 'Nickendes Leimkraut', latin: 'Silene nutans',
@@ -2236,6 +2414,7 @@ export const PLANTS = [
     pflanzabstand: 25, ausbreitung: 25, heimisch: true,
     beschreibung: 'Öffnet abends, duftet nachts — ausschließlich von Nachtfaltern bestäubt.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/silene-nutans/', bild_emoji: '🤍',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fe/Silene_nutans_220505.jpg/330px-Silene_nutans_220505.jpg',
   },
 
   // ═══════════════════════════════════════════════════════════
@@ -2252,6 +2431,7 @@ export const PLANTS = [
     pflanzabstand: 250, ausbreitung: 400, heimisch: true,
     beschreibung: 'ERSTER blühender Gehölzstrauch des Jahres — Februar/März, noch kahle Äste, leuchtend gelb.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/cornus-mas/', bild_emoji: '💛',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/Illustration_Cornus_mas0.jpg/330px-Illustration_Cornus_mas0.jpg',
   },
   {
     id: 'rubus-fruticosus', name: 'Brombeere', latin: 'Rubus fruticosus',
@@ -2264,6 +2444,7 @@ export const PLANTS = [
     pflanzabstand: 150, ausbreitung: 300, heimisch: true,
     beschreibung: 'Top-Nahrungsquelle für über 100 Insektenarten. Früchte für Vögel, Säuger, Menschen.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/rubus-fruticosus/', bild_emoji: '🫐',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/Brombeere_0815-23.jpg/330px-Brombeere_0815-23.jpg',
   },
   {
     id: 'clematis-vitalba', name: 'Gewöhnliche Waldrebe', latin: 'Clematis vitalba',
@@ -2276,6 +2457,7 @@ export const PLANTS = [
     pflanzabstand: 200, ausbreitung: 600, heimisch: true,
     beschreibung: 'Kletternde Wildpflanze für Hecken. Silbrige Früchte = Staudenvogel-Winternahrung.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/clematis-vitalba/', bild_emoji: '🤍',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/Illustration_Clematis_vitalba0.jpg/330px-Illustration_Clematis_vitalba0.jpg',
   },
   {
     id: 'rosa-majalis', name: 'Zimt-Rose', latin: 'Rosa majalis',
@@ -2288,6 +2470,7 @@ export const PLANTS = [
     pflanzabstand: 150, ausbreitung: 200, heimisch: true,
     beschreibung: 'Intensiv rosa, aromatisch. Früher blühend als Hundsrose. Rote Hagebutten sehr vitaminreich.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/rosa-majalis/', bild_emoji: '🌹',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/61/Illustration_Rosa_majalis0.jpg/330px-Illustration_Rosa_majalis0.jpg',
   },
 
   // ═══════════════════════════════════════════════════════════
@@ -2304,6 +2487,7 @@ export const PLANTS = [
     pflanzabstand: 500, ausbreitung: 800, heimisch: true,
     beschreibung: 'Früher Pollenlieferant am Wasser. Stickstoffbinder durch Wurzelknöllchen. Über 80 Insektenarten.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/alnus-glutinosa/', bild_emoji: '🌳',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/Schwarzerle_nahe_dem_Aubach_in_Reichshof.jpg/330px-Schwarzerle_nahe_dem_Aubach_in_Reichshof.jpg',
   },
   {
     id: 'pyrus-pyraster', name: 'Wild-Birne', latin: 'Pyrus pyraster',
@@ -2316,6 +2500,7 @@ export const PLANTS = [
     pflanzabstand: 500, ausbreitung: 700, heimisch: true,
     beschreibung: 'Urahn aller Kulturbirnen. Dornig, langlebig, hervorragend für Hohlbrüter.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/pyrus-pyraster/', bild_emoji: '🍐',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Wild_Pear_Flowers_detail.JPG/330px-Wild_Pear_Flowers_detail.JPG',
   },
   {
     id: 'quercus-petraea', name: 'Trauben-Eiche', latin: 'Quercus petraea',
@@ -2328,6 +2513,7 @@ export const PLANTS = [
     pflanzabstand: 1000, ausbreitung: 2500, heimisch: true,
     beschreibung: 'Die artenreichste Baumart Europas — über 500 Insektenarten. Für Sauerböden geeignet.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/quercus-petraea/', bild_emoji: '🌳',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Quercus_petraea_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-118.jpg/330px-Quercus_petraea_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-118.jpg',
   },
   {
     id: 'ulmus-minor', name: 'Feld-Ulme', latin: 'Ulmus minor',
@@ -2340,6 +2526,7 @@ export const PLANTS = [
     pflanzabstand: 600, ausbreitung: 1200, heimisch: true,
     beschreibung: 'Frühe Blüte noch vor den Blättern. Durch Ulmen-Esterlin stark gefährdet — Schutzpflanzungen wichtig.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/ulmus-minor/', bild_emoji: '🌳',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Blismes_elm_2007.jpg/330px-Blismes_elm_2007.jpg',
   },
 
   // ═══════════════════════════════════════════════════════════
@@ -2356,6 +2543,7 @@ export const PLANTS = [
     pflanzabstand: 50, ausbreitung: 100, heimisch: true,
     beschreibung: 'Hohes Pionier-Reitgras für Brachen und Sandböden. Bildet dichte, strukturreiche Bestände.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/calamagrostis-epigejos/', bild_emoji: '🌾',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/03/CalamagrostisEpigejos2.jpg/330px-CalamagrostisEpigejos2.jpg',
   },
   {
     id: 'phragmites-australis', name: 'Gewöhnliches Schilf', latin: 'Phragmites australis',
@@ -2368,6 +2556,7 @@ export const PLANTS = [
     pflanzabstand: 60, ausbreitung: 200, heimisch: true,
     beschreibung: 'Unverzichtbar für Röhrichtzonen. Brutstätte für Rohrammer, Drossel-Rohrsänger.',
     naturadb_url: 'https://www.naturadb.de/pflanzen/phragmites-australis/', bild_emoji: '🌾',
+    wiki_img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Phragmites_australis_sl2.jpg/330px-Phragmites_australis_sl2.jpg',
   },
 ]
 
