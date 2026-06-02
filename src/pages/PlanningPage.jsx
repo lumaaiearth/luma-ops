@@ -68,6 +68,7 @@ export default function PlanningPage() {
   const [plan, setPlan] = useState([])
   const [activeTab, setActiveTab] = useState('suche')
   const [expandedPlant, setExpandedPlant] = useState(null)
+  const [sheetPlant, setSheetPlant] = useState(null) // mobile steckbrief
 
   // ── Beetplaner
   const [beetW, setBeetW] = useState(4)
@@ -249,15 +250,97 @@ export default function PlanningPage() {
                     key={plant.id}
                     plant={plant}
                     expanded={expandedPlant === plant.id}
-                    onToggle={() => setExpandedPlant(expandedPlant === plant.id ? null : plant.id)}
+                    onToggle={() => isMobile ? setSheetPlant(plant) : setExpandedPlant(expandedPlant === plant.id ? null : plant.id)}
                     onAdd={() => addToPlan(plant)}
                     inPlan={plan.find(p => p.id === plant.id)}
+                    isMobile={isMobile}
                     L={L} shadow={shadow} cardBg={cardBg}
                   />
                 ))}
               </div>
             )}
           </div>
+
+          {/* Mobile Steckbrief Sheet */}
+          {sheetPlant && (
+            <div style={{ position: 'fixed', inset: 0, zIndex: 300 }} onClick={() => setSheetPlant(null)}>
+              <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)' }} />
+              <div onClick={e => e.stopPropagation()} style={{
+                position: 'absolute', bottom: 0, left: 0, right: 0,
+                background: SURFACE, borderRadius: '20px 20px 0 0',
+                maxHeight: '85vh', display: 'flex', flexDirection: 'column',
+                boxShadow: '0 -8px 40px rgba(0,0,0,0.35)',
+              }}>
+                {/* Handle */}
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 4px' }}>
+                  <div style={{ width: 36, height: 4, borderRadius: 2, background: BORDER }} />
+                </div>
+                {/* Scrollable content */}
+                <div style={{ overflowY: 'auto', padding: '0 20px 40px' }}>
+                  {/* Color bar */}
+                  <div style={{ height: 4, background: sheetPlant.bluete_farbe || A, borderRadius: 2, marginBottom: 16, opacity: 0.8 }} />
+                  {/* Plant image */}
+                  <PlantImage latin={sheetPlant.latin} />
+                  {/* Name */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <span style={{ fontSize: 22 }}>{sheetPlant.bild_emoji || '🌿'}</span>
+                    <div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: FG }}>{sheetPlant.name}</div>
+                      <div style={{ fontSize: 11, fontStyle: 'italic', color: MUTED }}>{sheetPlant.latin}</div>
+                    </div>
+                    {sheetPlant.heimisch && <span style={{ marginLeft: 'auto', fontSize: 9, background: '#047A3C18', color: '#047A3C', border: '1px solid #047A3C30', padding: '3px 8px', borderRadius: 100, fontWeight: 700 }}>heimisch</span>}
+                  </div>
+                  {/* Badges */}
+                  <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', margin: '12px 0' }}>
+                    <MBadge emoji="☀️" label={sheetPlant.licht.map(l => LICHT_LABELS[l]).join('/')} L={L} />
+                    <MBadge emoji="💧" label={sheetPlant.wasser.map(w => WASSER_LABELS[w]).join('/')} L={L} />
+                    <MBadge emoji="📏" label={`${sheetPlant.hoehe[0]}–${sheetPlant.hoehe[1]}cm`} L={L} />
+                    <MBadge emoji="🌸" label={`${MONTHS[sheetPlant.bluete_monate[0]-1]}–${MONTHS[sheetPlant.bluete_monate[sheetPlant.bluete_monate.length-1]-1]}`} L={L} />
+                    {sheetPlant.pflanzabstand && <MBadge emoji="↔️" label={`${sheetPlant.pflanzabstand}cm`} L={L} />}
+                    {sheetPlant.ph_min && <MBadge emoji="🧪" label={`pH ${sheetPlant.ph_min}–${sheetPlant.ph_max}`} L={L} />}
+                  </div>
+                  {/* Eco row */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0', borderTop: `1px solid ${BORDER}`, borderBottom: `1px solid ${BORDER}`, marginBottom: 12 }}>
+                    {sheetPlant.bienen && <span style={{ fontSize: 18 }} title="Bienen">🐝</span>}
+                    {sheetPlant.tagfalter && <span style={{ fontSize: 18 }} title="Tagfalter">🦋</span>}
+                    {sheetPlant.nachtfalter && <span style={{ fontSize: 18 }} title="Nachtfalter">🌙</span>}
+                    {sheetPlant.raupenfutter && <span style={{ fontSize: 18 }} title="Raupenfutterpflanze">🐛</span>}
+                    {sheetPlant.kaefer && <span style={{ fontSize: 18 }} title="Käfer">🪲</span>}
+                    {sheetPlant.voegel && <span style={{ fontSize: 18 }} title="Vögel">🐦</span>}
+                    <div style={{ marginLeft: 'auto', display: 'flex', gap: 3, alignItems: 'center' }}>
+                      {[1,2,3,4,5].map(i => <div key={i} style={{ width: 8, height: 8, borderRadius: 2, background: i <= (sheetPlant.nektar || 0) ? A : BORDER, opacity: i <= (sheetPlant.nektar || 0) ? 1 : 0.3 }} />)}
+                      <span style={{ fontSize: 10, color: MUTED, marginLeft: 4 }}>Nektar</span>
+                    </div>
+                  </div>
+                  {/* Description */}
+                  <p style={{ fontSize: 14, color: FG, lineHeight: 1.7, marginBottom: 12 }}>{sheetPlant.beschreibung}</p>
+                  {/* Raupenfutter */}
+                  {sheetPlant.raupenfutter && sheetPlant.raupenfutter_arten?.length > 0 && (
+                    <div style={{ background: '#10b98112', border: '1px solid #10b98130', borderRadius: 8, padding: '10px 14px', marginBottom: 12 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#10b981', marginBottom: 4 }}>🐛 Raupenfutterpflanze für:</div>
+                      <div style={{ fontSize: 12, color: FG }}>{sheetPlant.raupenfutter_arten.join(' · ')}</div>
+                    </div>
+                  )}
+                  {/* Links */}
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+                    <a href={`https://de.wikipedia.org/wiki/${sheetPlant.latin.replace(/ /g,'_')}`} target="_blank" rel="noopener noreferrer"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: A, fontWeight: 600, textDecoration: 'none', padding: '7px 14px', borderRadius: 8, background: A14, border: `1px solid ${A}30` }}>
+                      <ExternalLink size={12} /> Wikipedia
+                    </a>
+                    <a href={`https://www.floraweb.de/pflanzenarten/suche.xsql?taxname=${encodeURIComponent(sheetPlant.latin)}`} target="_blank" rel="noopener noreferrer"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: MUTED, fontWeight: 600, textDecoration: 'none', padding: '7px 14px', borderRadius: 8, background: BORDER + '40', border: `1px solid ${BORDER}` }}>
+                      <ExternalLink size={12} /> FloraWeb
+                    </a>
+                  </div>
+                  {/* Add button */}
+                  <button onClick={() => { addToPlan(sheetPlant); setSheetPlant(null) }}
+                    style={{ width: '100%', padding: '14px', borderRadius: 12, background: A, border: 'none', color: '#001219', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
+                    + Zum Plan hinzufügen
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -569,9 +652,9 @@ function PlantImage({ latin }) {
   )
 }
 
-function PlantCard({ plant: p, expanded, onToggle, onAdd, inPlan, L, shadow, cardBg }) {
+function PlantCard({ plant: p, expanded, onToggle, onAdd, inPlan, isMobile, L, shadow, cardBg }) {
   return (
-    <div style={{ background: cardBg, borderRadius: 10, boxShadow: shadow, overflow: 'hidden' }}>
+    <div onClick={isMobile ? onToggle : undefined} style={{ background: cardBg, borderRadius: 10, boxShadow: shadow, overflow: 'hidden', cursor: isMobile ? 'pointer' : 'default' }}>
       <div style={{ height: 3, background: p.bluete_farbe || '#888', opacity: 0.75 }} />
       <div style={{ padding: '13px 15px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
@@ -608,7 +691,7 @@ function PlantCard({ plant: p, expanded, onToggle, onAdd, inPlan, L, shadow, car
           </div>
 
           {/* Add btn */}
-          <button onClick={onAdd} style={{
+          <button onClick={e => { e.stopPropagation(); onAdd() }} style={{
             width: 30, height: 30, borderRadius: 8, flexShrink: 0,
             background: inPlan ? '#047A3C' : A14, border: `1px solid ${inPlan ? '#047A3C' : A20}`,
             color: inPlan ? '#fff' : A, cursor: 'pointer',
@@ -616,11 +699,16 @@ function PlantCard({ plant: p, expanded, onToggle, onAdd, inPlan, L, shadow, car
           }}>{inPlan ? inPlan.count : <Plus size={13} />}</button>
         </div>
 
-        {/* Toggle */}
-        <button onClick={onToggle} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', color: MUTED, fontSize: 10, cursor: 'pointer', padding: '5px 0 0', marginTop: 2 }}>
-          {expanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
-          {expanded ? 'Weniger' : 'Details'}
-        </button>
+        {/* Toggle — desktop only; mobile uses full-card tap → bottom sheet */}
+        {!isMobile && (
+          <button onClick={onToggle} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', color: MUTED, fontSize: 10, cursor: 'pointer', padding: '5px 0 0', marginTop: 2 }}>
+            {expanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+            {expanded ? 'Weniger' : 'Details'}
+          </button>
+        )}
+        {isMobile && (
+          <div style={{ fontSize: 9, color: MUTED, marginTop: 6, opacity: 0.6 }}>Tippen für Steckbrief →</div>
+        )}
 
         {expanded && (
           <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BORDER}` }}>
