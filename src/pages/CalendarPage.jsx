@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { ChevronLeft, ChevronRight, Plus, CalendarDays } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, CalendarDays, LayoutGrid } from 'lucide-react'
 import { useOps } from '../context/OpsContext.jsx'
 import { useGCal } from '../context/GCalContext.jsx'
 import { A, BG, SURFACE, BORDER, FG, MUTED, A06, A0a, A0d, A14, A40 } from '../lib/theme.js'
 import JobModal from '../components/JobModal.jsx'
 import { JOB_TYPES, TEAM, VEHICLES } from '../data/seed.js'
 import { isoToday, weekStart, getWeekDays, addDays } from '../lib/storage.js'
+import { useIsMobile } from '../lib/useIsMobile.js'
 
 const DAY_NAMES = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 const HOUR_START = 2
@@ -158,11 +159,14 @@ function AllDayStrip({ jobs, projects, clients, onOpen, date }) {
 export default function CalendarPage() {
   const { jobs, projects, clients, createJob, updateJob, deleteJob, createRecurring } = useOps()
   const { connected: gcalConnected, events: gcalEvents, fetchForRange, syncing: gcalSyncing } = useGCal()
+  const isMobile = useIsMobile()
   const today = isoToday()
   const [currentWeek, setCurrentWeek] = useState(() => weekStart(today))
+  // 3-day start: anchor to today
+  const [threeDayStart, setThreeDayStart] = useState(today)
   const [modal, setModal] = useState(null)
   const [selectedJob, setSelectedJob] = useState(null)
-  const [view, setView] = useState('week')
+  const [view, setView] = useState(() => window.innerWidth < 768 ? '3day' : 'week')
   const [currentMonth, setCurrentMonth] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -179,6 +183,9 @@ export default function CalendarPage() {
   const [dragPreview, setDragPreview] = useState(null)
 
   const weekDays = getWeekDays(currentWeek)
+  const threeDays = [threeDayStart, addDays(threeDayStart, 1), addDays(threeDayStart, 2)]
+  // Active days depending on view
+  const activeDays = view === '3day' ? threeDays : weekDays
 
   // Scroll to current time on mount
   useEffect(() => {
@@ -221,12 +228,13 @@ export default function CalendarPage() {
   }
 
   function calcDateFromPointer(clientX) {
-    if (!gridContainerRef.current) return weekDays[0]
+    if (!gridContainerRef.current) return activeDays[0]
     const rect = gridContainerRef.current.getBoundingClientRect()
-    const colW = (rect.width - GUTTER) / 7
+    const cols = activeDays.length
+    const colW = (rect.width - GUTTER) / cols
     const relX = clientX - rect.left - GUTTER
-    const idx = Math.max(0, Math.min(6, Math.floor(relX / colW)))
-    return weekDays[idx]
+    const idx = Math.max(0, Math.min(cols - 1, Math.floor(relX / colW)))
+    return activeDays[idx]
   }
 
   function handleEventPointerDown(e, job) {
@@ -244,7 +252,7 @@ export default function CalendarPage() {
       const ds = dragState.current
       if (!ds) return
       const dx = e.clientX - ds.startX, dy = e.clientY - ds.startY
-      if (!ds.moved && Math.sqrt(dx*dx+dy*dy) < 5) return
+      if (!ds.moved && Math.sqrt(dx*dx+dy*dy) < 8) return
       ds.moved = true
       const rawStart = calcTimeFromPointer(e.clientY)
       if (rawStart === null) return
@@ -252,7 +260,7 @@ export default function CalendarPage() {
       const duration = timeToMin(ds.job.end_time) - timeToMin(ds.job.start_time)
       const endMin = Math.min(startMin + duration, HOUR_END * 60)
       const date = calcDateFromPointer(e.clientX)
-      setDragLive({ job: ds.job, date, startMin, endMin, clientX: e.clientX, clientY: e.clientY })
+      setDragLive({ job: ds.job, date, startMin, endMin, clientX: e.clientX, clientY: e.clientY, isTouch: e.pointerType === 'touch' })
     }
     function onUp(e) {
       const ds = dragState.current
@@ -275,7 +283,7 @@ export default function CalendarPage() {
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
     return () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp) }
-  }, [weekDays])
+  }, [activeDays])
 
   // Legacy for month-view HTML5 drag (kept)
   function calcDropTime(e) {
@@ -358,49 +366,71 @@ export default function CalendarPage() {
     })
   }
 
-  const hasAllDay = weekDays.some(d => jobs.some(j => !j.start_time && j.date === d))
+  const hasAllDay = activeDays.some(d => jobs.some(j => !j.start_time && j.date === d))
+
+  // Navigation helpers
+  function prevPeriod() {
+    if (view === 'week') prevWeek()
+    else if (view === '3day') setThreeDayStart(d => addDays(d, -3))
+    else setCurrentMonth(m => { const d = new Date(m + '-01'); d.setMonth(d.getMonth() - 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` })
+  }
+  function nextPeriod() {
+    if (view === 'week') nextWeek()
+    else if (view === '3day') setThreeDayStart(d => addDays(d, 3))
+    else setCurrentMonth(m => { const d = new Date(m + '-01'); d.setMonth(d.getMonth() + 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` })
+  }
+  function goTodayAll() {
+    goToday()
+    setThreeDayStart(today)
+  }
+
+  const periodLabel = (() => {
+    if (view === '3day') {
+      const d1 = new Date(threeDays[0] + 'T00:00:00')
+      const d3 = new Date(threeDays[2] + 'T00:00:00')
+      return `${d1.toLocaleDateString('de-DE', { day:'2-digit', month:'short' })} – ${d3.toLocaleDateString('de-DE', { day:'2-digit', month:'short', year:'numeric' })}`
+    }
+    if (view === 'week') return weekLabel
+    return new Date(currentMonth + '-01').toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })
+  })()
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: BG }}>
       {/* ── Topbar ── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: `1px solid ${BORDER}`, background: SURFACE, flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={goToday} style={{ padding: '5px 12px', borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif" }}>Heute</button>
-          <button onClick={view === 'week' ? prevWeek : () => setCurrentMonth(m => { const d = new Date(m + '-01'); d.setMonth(d.getMonth() - 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` })}
-            style={{ width: 30, height: 30, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? '10px 12px' : '12px 20px', borderBottom: `1px solid ${BORDER}`, background: SURFACE, flexShrink: 0, gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 10 }}>
+          {!isMobile && <button onClick={goTodayAll} style={{ padding: '5px 12px', borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif" }}>Heute</button>}
+          <button onClick={prevPeriod} style={{ width: isMobile ? 34 : 30, height: isMobile ? 34 : 30, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <ChevronLeft size={15} />
           </button>
-          <button onClick={view === 'week' ? nextWeek : () => setCurrentMonth(m => { const d = new Date(m + '-01'); d.setMonth(d.getMonth() + 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` })}
-            style={{ width: 30, height: 30, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button onClick={nextPeriod} style={{ width: isMobile ? 34 : 30, height: isMobile ? 34 : 30, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <ChevronRight size={15} />
           </button>
-          <span style={{ fontSize: 15, fontWeight: 500, color: FG }}>
-            {view === 'week' ? weekLabel : new Date(currentMonth + '-01').toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })}
-          </span>
-          {gcalConnected && (
+          <span style={{ fontSize: isMobile ? 13 : 15, fontWeight: 500, color: FG, whiteSpace: 'nowrap' }}>{periodLabel}</span>
+          {gcalConnected && !isMobile && (
             <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: "'Space Mono', monospace", fontSize: 10, color: gcalSyncing ? A : MUTED }}>
               <CalendarDays size={10} /> {gcalSyncing ? 'sync…' : 'GCal'}
             </span>
           )}
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <div style={{ display: 'flex', background: SURFACE, borderRadius: 6, padding: 2, border: `1px solid ${BORDER}` }}>
-            {['week', 'month'].map(v => (
+            {(isMobile ? ['3day','month'] : ['week','3day','month']).map(v => (
               <button key={v} onClick={() => setView(v)}
-                style={{ padding: '4px 12px', borderRadius: 4, border: 'none', background: view === v ? A : 'transparent', color: view === v ? '#001219' : MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", fontWeight: view === v ? 500 : 400 }}>
-                {v === 'week' ? 'Woche' : 'Monat'}
+                style={{ padding: isMobile ? '5px 10px' : '4px 12px', borderRadius: 4, border: 'none', background: view === v ? A : 'transparent', color: view === v ? '#001219' : MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", fontWeight: view === v ? 600 : 400 }}>
+                {v === 'week' ? 'Woche' : v === '3day' ? '3 Tage' : 'Monat'}
               </button>
             ))}
           </div>
           <button onClick={() => setModal({ date: today })}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 14px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif" }}>
-            <Plus size={13} /> Einsatz
+            style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 0 : 6, padding: isMobile ? '7px 10px' : '5px 14px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+            <Plus size={14} />{!isMobile && ' Einsatz'}
           </button>
         </div>
       </div>
 
-      {/* ── Week time-grid view ── */}
-      {view === 'week' && (
+      {/* ── Week / 3-Day time-grid view ── */}
+      {(view === 'week' || view === '3day') && (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
           {/* Day-header row (sticky) */}
@@ -410,16 +440,17 @@ export default function CalendarPage() {
               <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.05em' }}>GMT+2</span>
             </div>
             {/* Day headers */}
-            {weekDays.map((date, i) => {
+            {activeDays.map((date, i) => {
               const isToday = date === today
               const d = new Date(date + 'T00:00:00')
+              const dayName = d.toLocaleDateString('de-DE', { weekday: 'short' })
               return (
                 <div key={date} onClick={() => setModal({ date })}
-                  style={{ flex: 1, borderRight: i < 6 ? `1px solid ${BORDER}` : 'none', padding: '8px 6px', cursor: 'pointer', background: isToday ? A0a : 'transparent', textAlign: 'center', userSelect: 'none' }}
+                  style={{ flex: 1, borderRight: i < activeDays.length - 1 ? `1px solid ${BORDER}` : 'none', padding: isMobile ? '6px 4px' : '8px 6px', cursor: 'pointer', background: isToday ? A0a : 'transparent', textAlign: 'center', userSelect: 'none' }}
                   onMouseEnter={e => { if (!isToday) e.currentTarget.style.background = A06 }}
                   onMouseLeave={e => { if (!isToday) e.currentTarget.style.background = 'transparent' }}>
-                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: isToday ? A : MUTED, letterSpacing: '0.1em' }}>{DAY_NAMES[i]}</div>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: '50%', background: isToday ? A : 'transparent', fontSize: 18, fontWeight: isToday ? 700 : 400, color: isToday ? '#001219' : FG, marginTop: 2 }}>
+                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: isMobile ? 10 : 11, color: isToday ? A : MUTED, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{dayName}</div>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: isMobile ? 28 : 30, height: isMobile ? 28 : 30, borderRadius: '50%', background: isToday ? A : 'transparent', fontSize: isMobile ? 16 : 18, fontWeight: isToday ? 700 : 400, color: isToday ? '#001219' : FG, marginTop: 2 }}>
                     {d.getDate()}
                   </div>
                 </div>
@@ -433,8 +464,8 @@ export default function CalendarPage() {
               <div style={{ width: GUTTER, flexShrink: 0, borderRight: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '2px 6px 2px 0' }}>
                 <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: MUTED }}>ganztags</span>
               </div>
-              {weekDays.map((date, i) => (
-                <div key={date} style={{ flex: 1, borderRight: i < 6 ? `1px solid ${BORDER}` : 'none', minHeight: 24 }}>
+              {activeDays.map((date, i) => (
+                <div key={date} style={{ flex: 1, borderRight: i < activeDays.length - 1 ? `1px solid ${BORDER}` : 'none', minHeight: 24 }}>
                   <AllDayStrip jobs={jobs} projects={projects} clients={clients} date={date} onOpen={openJob} />
                 </div>
               ))}
@@ -453,8 +484,8 @@ export default function CalendarPage() {
               return (
                 <div style={{
                   position: 'fixed',
-                  left: dl.clientX + 12,
-                  top: dl.clientY - 20,
+                  left: dl.isTouch ? dl.clientX - 90 : dl.clientX + 12,
+                  top: dl.isTouch ? dl.clientY - h - 16 : dl.clientY - 20,
                   width: 180,
                   height: h,
                   background: bgColor,
@@ -490,14 +521,14 @@ export default function CalendarPage() {
               </div>
 
               {/* Day columns */}
-              {weekDays.map((date, i) => {
+              {activeDays.map((date, i) => {
                 const isToday = date === today
                 const isDragOver = dragOverDate === date
                 const timedJobs = layoutJobs(timedJobsForDate(date))
 
                 return (
                   <div key={date}
-                    style={{ flex: 1, position: 'relative', borderRight: i < 6 ? `1px solid ${BORDER}` : 'none', background: isDragOver ? A0d : isToday ? `${A}06` : 'transparent', transition: 'background 0.1s', cursor: 'crosshair' }}
+                    style={{ flex: 1, position: 'relative', borderRight: i < activeDays.length - 1 ? `1px solid ${BORDER}` : 'none', background: isDragOver ? A0d : isToday ? `${A}06` : 'transparent', transition: 'background 0.1s', cursor: 'crosshair' }}
                     onClick={e => handleColumnClick(e, date)}
                     onDragOver={e => handleDragOver(e, date)}
                     onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) { setDragOverDate(null); setDragPreview(null) } }}
