@@ -613,14 +613,27 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
 /* ─── WIKIPEDIA PLANT IMAGE ─────────────────────────────────────────────── */
 async function fetchWikiImage(title) {
   const t = encodeURIComponent(title.replace(/ /g, '_'))
+  // 1. Try Wikipedia REST API (better CORS, returns thumbnail directly)
   for (const lang of ['de', 'en']) {
     try {
-      const r = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${t}`, { headers: { 'Accept': 'application/json' } })
-      if (!r.ok) continue
-      const data = await r.json()
-      if (data?.thumbnail?.source) return data.thumbnail.source
-      if (data?.originalimage?.source) return data.originalimage.source
+      const r = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${t}`)
+      if (r.ok) {
+        const d = await r.json()
+        if (d?.thumbnail?.source) return d.thumbnail.source
+        if (d?.originalimage?.source) return d.originalimage.source
+      }
     } catch { /* try next */ }
+  }
+  // 2. Fallback: MediaWiki API with CORS header
+  for (const lang of ['de', 'en']) {
+    try {
+      const r = await fetch(`https://${lang}.wikipedia.org/w/api.php?action=query&titles=${t}&prop=pageimages&format=json&pithumbsize=800&origin=*`)
+      if (r.ok) {
+        const d = await r.json()
+        const page = Object.values(d?.query?.pages || {})[0]
+        if (page?.thumbnail?.source) return page.thumbnail.source
+      }
+    } catch { /* give up */ }
   }
   return null
 }
@@ -642,12 +655,18 @@ function PlantImage({ latin }) {
   }, [latin])
 
   if (src === undefined) return (
-    <div style={{ width: '100%', height: 140, background: BORDER, borderRadius: 7, opacity: 0.25, marginBottom: 10 }} />
+    <div style={{ width: '100%', height: 100, background: BORDER, borderRadius: 8, opacity: 0.2, marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, opacity: 0.6 }}>Bild lädt…</span>
+    </div>
   )
-  if (!src) return null
+  if (!src) return (
+    <div style={{ width: '100%', height: 60, background: BORDER, borderRadius: 8, opacity: 0.1, marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, opacity: 0.5 }}>Kein Bild verfügbar</span>
+    </div>
+  )
   return (
     <img src={src} alt={latin}
-      style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 7, marginBottom: 10, display: 'block' }}
+      style={{ width: '100%', height: 180, objectFit: 'cover', borderRadius: 8, marginBottom: 12, display: 'block' }}
       onError={() => { setSrc(null); localStorage.setItem(key, 'none') }} />
   )
 }
