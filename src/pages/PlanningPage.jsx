@@ -61,7 +61,7 @@ export default function PlanningPage() {
   const [onlyTagfalter, setOnlyTagfalter] = useState(false)
   const [onlyBienen, setOnlyBienen] = useState(false)
   const [search, setSearch] = useState('')
-  const [filterPanelOpen, setFilterPanelOpen] = useState(true)
+  const [filterPanelOpen, setFilterPanelOpen] = useState(() => window.innerWidth >= 768)
   const [activeFilters, setActiveFilters] = useState('standort') // 'standort'|'biologie'|'boden'
 
   // ── Plan
@@ -161,7 +161,7 @@ export default function PlanningPage() {
               </div>
 
               {filterPanelOpen && (
-                <div style={{ borderTop: `1px solid ${BORDER}`, padding: '14px 16px' }}>
+                <div style={{ borderTop: `1px solid ${BORDER}`, padding: '14px 16px', maxHeight: isMobile ? '45vh' : undefined, overflowY: isMobile ? 'auto' : undefined }}>
                   {/* Sub-tabs */}
                   <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
                     {[['standort', '📍 Standort'], ['biologie', '🐝 Biologie'], ['boden', '🌍 Boden & Art']].map(([k, l]) => (
