@@ -14,7 +14,7 @@ const NAV = [
   { to: '/drive',       icon: FolderOpen,      label: 'Drive' },
   { to: '/sensors',    icon: Radio,           label: 'Sensoren' },
   { to: '/team',       icon: Users,           label: 'Team' },
-  { to: '/planning',   icon: Flower2,         label: 'Pflanzplan' },
+  { to: '/planning',   icon: Flower2,         label: 'Floralis' },
   { to: '/analyse',    icon: BarChart2,       label: 'Analysen' },
   { to: '/settings',   icon: Settings,        label: 'Einstellungen' },
 ]
