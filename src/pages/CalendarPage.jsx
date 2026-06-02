@@ -6,7 +6,7 @@ import { A, BG, SURFACE, BORDER, FG, MUTED, A06, A0a, A0d, A14, A40 } from '../l
 import JobModal from '../components/JobModal.jsx'
 import { JOB_TYPES, TEAM, VEHICLES } from '../data/seed.js'
 import { isoToday, weekStart, getWeekDays, addDays } from '../lib/storage.js'
-import { useIsMobile } from '../lib/useIsMobile.js'
+import { useBreakpoint } from '../lib/useBreakpoint.js'
 
 const DAY_NAMES = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 const HOUR_START = 2
@@ -159,14 +159,23 @@ function AllDayStrip({ jobs, projects, clients, onOpen, date }) {
 export default function CalendarPage() {
   const { jobs, projects, clients, createJob, updateJob, deleteJob, createRecurring } = useOps()
   const { connected: gcalConnected, events: gcalEvents, fetchForRange, syncing: gcalSyncing } = useGCal()
-  const isMobile = useIsMobile()
+  const bp = useBreakpoint() // 'xs'|'sm'|'md'|'lg'
+  const isMobile = bp === 'xs' || bp === 'sm'   // < 768px
+  const isTablet = bp === 'md'                   // 768–1023px
+  const isDesktop = bp === 'lg'                  // 1024px+
   const today = isoToday()
   const [currentWeek, setCurrentWeek] = useState(() => weekStart(today))
-  // 3-day start: anchor to today
+  // 3-day start / 5-day start anchor
   const [threeDayStart, setThreeDayStart] = useState(today)
+  const [fiveDayStart, setFiveDayStart] = useState(() => weekStart(today))
   const [modal, setModal] = useState(null)
   const [selectedJob, setSelectedJob] = useState(null)
-  const [view, setView] = useState(() => window.innerWidth < 768 ? '3day' : 'week')
+  const [view, setView] = useState(() => {
+    const w = window.innerWidth
+    if (w < 768) return '3day'   // Phone → 3 Tage
+    if (w < 1024) return '5day'  // Tablet → 5 Tage
+    return 'week'                 // Desktop → ganze Woche
+  })
   const [currentMonth, setCurrentMonth] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -184,8 +193,12 @@ export default function CalendarPage() {
 
   const weekDays = getWeekDays(currentWeek)
   const threeDays = [threeDayStart, addDays(threeDayStart, 1), addDays(threeDayStart, 2)]
+  const fiveDays = Array.from({ length: 5 }, (_, i) => addDays(fiveDayStart, i))
   // Active days depending on view
-  const activeDays = view === '3day' ? threeDays : weekDays
+  const activeDays =
+    view === '3day' ? threeDays :
+    view === '5day' ? fiveDays :
+    weekDays
 
   // Scroll to current time on mount
   useEffect(() => {
@@ -372,16 +385,19 @@ export default function CalendarPage() {
   function prevPeriod() {
     if (view === 'week') prevWeek()
     else if (view === '3day') setThreeDayStart(d => addDays(d, -3))
+    else if (view === '5day') setFiveDayStart(d => addDays(d, -5))
     else setCurrentMonth(m => { const d = new Date(m + '-01'); d.setMonth(d.getMonth() - 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` })
   }
   function nextPeriod() {
     if (view === 'week') nextWeek()
     else if (view === '3day') setThreeDayStart(d => addDays(d, 3))
+    else if (view === '5day') setFiveDayStart(d => addDays(d, 5))
     else setCurrentMonth(m => { const d = new Date(m + '-01'); d.setMonth(d.getMonth() + 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` })
   }
   function goTodayAll() {
     goToday()
     setThreeDayStart(today)
+    setFiveDayStart(weekStart(today))
   }
 
   const periodLabel = (() => {
@@ -389,6 +405,11 @@ export default function CalendarPage() {
       const d1 = new Date(threeDays[0] + 'T00:00:00')
       const d3 = new Date(threeDays[2] + 'T00:00:00')
       return `${d1.toLocaleDateString('de-DE', { day:'2-digit', month:'short' })} – ${d3.toLocaleDateString('de-DE', { day:'2-digit', month:'short', year:'numeric' })}`
+    }
+    if (view === '5day') {
+      const d1 = new Date(fiveDays[0] + 'T00:00:00')
+      const d5 = new Date(fiveDays[4] + 'T00:00:00')
+      return `${d1.toLocaleDateString('de-DE', { day:'2-digit', month:'short' })} – ${d5.toLocaleDateString('de-DE', { day:'2-digit', month:'short', year:'numeric' })}`
     }
     if (view === 'week') return weekLabel
     return new Date(currentMonth + '-01').toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })
@@ -415,10 +436,15 @@ export default function CalendarPage() {
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <div style={{ display: 'flex', background: SURFACE, borderRadius: 6, padding: 2, border: `1px solid ${BORDER}` }}>
-            {(isMobile ? ['3day','month'] : ['week','3day','month']).map(v => (
+            {(
+              bp === 'xs' ? ['3day','month'] :           // kleines Phone: 3 Tage + Monat
+              bp === 'sm' ? ['3day','month'] :           // großes Phone: 3 Tage + Monat
+              bp === 'md' ? ['5day','week','month'] :    // iPad: 5 Tage + Woche + Monat
+              ['week','5day','3day','month']             // Desktop: alle Views
+            ).map(v => (
               <button key={v} onClick={() => setView(v)}
                 style={{ padding: isMobile ? '5px 10px' : '4px 12px', borderRadius: 4, border: 'none', background: view === v ? A : 'transparent', color: view === v ? '#001219' : MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", fontWeight: view === v ? 600 : 400 }}>
-                {v === 'week' ? 'Woche' : v === '3day' ? '3 Tage' : 'Monat'}
+                {v === 'week' ? 'Woche' : v === '5day' ? '5 Tage' : v === '3day' ? '3 Tage' : 'Monat'}
               </button>
             ))}
           </div>
@@ -429,8 +455,8 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {/* ── Week / 3-Day time-grid view ── */}
-      {(view === 'week' || view === '3day') && (
+      {/* ── Week / 5-Day / 3-Day time-grid view ── */}
+      {(view === 'week' || view === '3day' || view === '5day') && (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
           {/* Day-header row (sticky) */}
