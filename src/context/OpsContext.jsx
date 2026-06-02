@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import { sb, sbUpsert, sbDelete, sbUpdate, sbInsert } from '../lib/supabase.js'
 import { getJobs, saveJobs, getRecurring, saveRecurring, getSensors, saveSensors, getProjects, saveProjects, genId, addDays } from '../lib/storage.js'
 import { tgSend, tgGroups, groupsForUsers } from '../lib/telegram.js'
+import { maybeSendWeeklySummary } from '../lib/weeklySummary.js'
 import * as gcal from '../lib/gcal.js'
 import { JOB_TYPES, SEED_CLIENTS, VEHICLES as SEED_VEHICLES } from '../data/seed.js'
 
@@ -76,6 +77,11 @@ export function OpsProvider({ children }) {
     }
     load()
   }, [])
+
+  // ── Weekly summary: fires Monday 08:00–09:59 on app load ────────────────────
+  useEffect(() => {
+    if (!loading) maybeSendWeeklySummary(jobs, projects)
+  }, [loading])
 
   // ── Realtime subscriptions ───────────────────────────────────────────────────
   useEffect(() => {
