@@ -18,6 +18,8 @@ import TeamPage from './pages/TeamPage.jsx'
 import SettingsPage from './pages/SettingsPage.jsx'
 import ProjectPage from './pages/ProjectPage.jsx'
 import DrivePage from './pages/DrivePage.jsx'
+import AnalysePage from './pages/AnalysePage.jsx'
+import EpsAnalysePage from './pages/EpsAnalysePage.jsx'
 
 function RequireAuth({ children }) {
   const { user } = useAuth()
@@ -42,6 +44,8 @@ function AppRoutes() {
       <Route path="/data" element={<RequireAuth><Layout><ErrorBoundary><StammdatenPage /></ErrorBoundary></Layout></RequireAuth>} />
       <Route path="/drive" element={<RequireAuth><Layout><ErrorBoundary><DrivePage /></ErrorBoundary></Layout></RequireAuth>} />
       <Route path="/projects/:id" element={<RequireAuth><Layout><ErrorBoundary><ProjectPage /></ErrorBoundary></Layout></RequireAuth>} />
+      <Route path="/analyse" element={<RequireAuth><Layout><ErrorBoundary><AnalysePage /></ErrorBoundary></Layout></RequireAuth>} />
+      <Route path="/analyse/:id" element={<RequireAuth><Layout><ErrorBoundary><EpsAnalysePage /></ErrorBoundary></Layout></RequireAuth>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   )
