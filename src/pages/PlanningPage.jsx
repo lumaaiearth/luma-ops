@@ -283,7 +283,6 @@ export default function PlanningPage() {
                   <PlantImage latin={sheetPlant.latin} />
                   {/* Name */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <span style={{ fontSize: 22 }}>{sheetPlant.bild_emoji || '🌿'}</span>
                     <div>
                       <div style={{ fontSize: 18, fontWeight: 700, color: FG }}>{sheetPlant.name}</div>
                       <div style={{ fontSize: 11, fontStyle: 'italic', color: MUTED }}>{sheetPlant.latin}</div>
@@ -613,20 +612,21 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
 /* ─── PLANT CARD ─────────────────────────────────────────────────────────── */
 /* ─── WIKIPEDIA PLANT IMAGE ─────────────────────────────────────────────── */
 async function fetchWikiImage(title) {
-  const t = encodeURIComponent(title.replace(/ /g, '_').replace(/×/g, 'x'))
+  const t = encodeURIComponent(title.replace(/ /g, '_'))
   for (const lang of ['de', 'en']) {
     try {
-      const r = await fetch(`https://${lang}.wikipedia.org/w/api.php?action=query&titles=${t}&prop=pageimages&format=json&pithumbsize=600&origin=*`)
+      const r = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${t}`, { headers: { 'Accept': 'application/json' } })
+      if (!r.ok) continue
       const data = await r.json()
-      const page = Object.values(data?.query?.pages || {})[0]
-      if (page?.thumbnail?.source) return page.thumbnail.source
+      if (data?.thumbnail?.source) return data.thumbnail.source
+      if (data?.originalimage?.source) return data.originalimage.source
     } catch { /* try next */ }
   }
   return null
 }
 
 function PlantImage({ latin }) {
-  const key = `floralis_img_${latin}`
+  const key = `floralis_img2_${latin}` // v2: switched to REST API
   const [src, setSrc] = useState(() => {
     const c = localStorage.getItem(key)
     if (c === 'none') return null
@@ -660,7 +660,6 @@ function PlantCard({ plant: p, expanded, onToggle, onAdd, inPlan, isMobile, L, s
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-              <span style={{ fontSize: 16 }}>{p.bild_emoji || '🌿'}</span>
               <span style={{ fontSize: 13, fontWeight: 700, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
               {p.heimisch && <span style={{ fontSize: 9, background: '#047A3C18', color: '#047A3C', border: '1px solid #047A3C30', padding: '1px 6px', borderRadius: 100, fontWeight: 700, flexShrink: 0 }}>heimisch</span>}
             </div>
