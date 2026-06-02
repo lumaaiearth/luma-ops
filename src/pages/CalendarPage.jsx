@@ -72,6 +72,7 @@ function EventBlock({ job, projects, clients, onOpen, onPointerDown, isGhost }) 
   const height = Math.max(26, ((job.em - job.sm) / 60) * PX_PER_HOUR - 2)
   const colW = 100 / job.numCols
   const compact = height < 56
+  const tiny = height < 38
 
   return (
     <div
@@ -116,9 +117,9 @@ function EventBlock({ job, projects, clients, onOpen, onPointerDown, isGhost }) 
               📍 {job.location.split(',')[0]}
             </div>
           )}
-          {assignees.length > 0 && (
-            <div style={{ display: 'flex', gap: 3, marginTop: compact ? 0 : 2, flexWrap: 'nowrap' }}>
-              {assignees.slice(0, 5).map(u => (
+          {assignees.length > 0 && !tiny && (
+            <div style={{ display: 'flex', gap: 2, marginTop: compact ? 0 : 2, flexWrap: 'nowrap', overflow: 'hidden' }}>
+              {assignees.slice(0, compact ? 3 : 5).map(u => (
                 <div key={u.id} title={u.name} style={{ width: compact ? 16 : 20, height: compact ? 16 : 20, borderRadius: '50%', background: 'rgba(0,0,0,0.28)', border: '1.5px solid rgba(255,255,255,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <span style={{ fontFamily: "'Space Mono', monospace", fontSize: compact ? 7 : 9, color: '#fff', fontWeight: 700, lineHeight: 1 }}>{u.initials}</span>
                 </div>

@@ -106,26 +106,52 @@ export default function DashboardPage() {
               const isToday = job.date === today
               const isTomorrow = job.date === tomorrow
               return (
-                <div key={job.id} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, borderLeft: `3px solid ${type?.color || A}` }}>
-                  <div style={{ minWidth: 60, textAlign: 'center' }}>
-                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: isToday ? A : MUTED, fontWeight: isToday ? 700 : 400 }}>
-                      {isToday ? 'Heute' : isTomorrow ? 'Morgen' : formatDate(job.date)}
-                    </div>
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: FG, marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.title}</div>
-                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: type?.color }}>{project?.name}</div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    {assignees.map(u => (
-                      <div key={u.id} style={{ width: 22, height: 22, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
+                <div key={job.id} style={{ padding: isMobile ? '10px 12px' : '12px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, borderLeft: `3px solid ${type?.color || A}` }}>
+                  {isMobile ? (
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.title}</div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                          {assignees.slice(0, 3).map(u => (
+                            <div key={u.id} title={u.name} style={{ width: 20, height: 20, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 7, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
+                            </div>
+                          ))}
+                          {assignees.length > 3 && <div style={{ width: 20, height: 20, borderRadius: '50%', background: BORDER, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: MUTED }}>+{assignees.length - 3}</div>}
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                  <div style={{ padding: '3px 8px', borderRadius: 4, background: `${STATUS_COLORS[job.status]}18`, border: `1px solid ${STATUS_COLORS[job.status]}40`, fontFamily: "'Space Mono', monospace", fontSize: 9, color: STATUS_COLORS[job.status] }}>
-                    {STATUS_LABELS[job.status]}
-                  </div>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: isToday ? A : MUTED, fontWeight: isToday ? 700 : 400 }}>{isToday ? 'Heute' : isTomorrow ? 'Morgen' : formatDate(job.date)}</span>
+                        {project && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: type?.color }}>{project.name}</span>}
+                        <span style={{ marginLeft: 'auto', padding: '2px 7px', borderRadius: 4, background: `${STATUS_COLORS[job.status]}18`, fontFamily: "'Space Mono', monospace", fontSize: 9, color: STATUS_COLORS[job.status] }}>{STATUS_LABELS[job.status]}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                      <div style={{ minWidth: 60, flexShrink: 0 }}>
+                        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: isToday ? A : MUTED, fontWeight: isToday ? 700 : 400 }}>
+                          {isToday ? 'Heute' : isTomorrow ? 'Morgen' : formatDate(job.date)}
+                        </div>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: FG, marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.title}</div>
+                        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: type?.color }}>{project?.name}</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                        {assignees.slice(0, 4).map(u => (
+                          <div key={u.id} title={u.name} style={{ width: 22, height: 22, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
+                          </div>
+                        ))}
+                        {assignees.length > 4 && <div style={{ width: 22, height: 22, borderRadius: '50%', background: BORDER, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: MUTED }}>+{assignees.length - 4}</div>}
+                      </div>
+                      <div style={{ padding: '3px 8px', borderRadius: 4, background: `${STATUS_COLORS[job.status]}18`, border: `1px solid ${STATUS_COLORS[job.status]}40`, fontFamily: "'Space Mono', monospace", fontSize: 9, color: STATUS_COLORS[job.status], flexShrink: 0 }}>
+                        {STATUS_LABELS[job.status]}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )
             })}
