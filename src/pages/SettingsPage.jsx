@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { A, SURFACE, BORDER, FG, MUTED, A06, A08, A18, A20 } from '../lib/theme.js'
 import { useTheme, THEMES } from '../context/ThemeContext.jsx'
-import { VEHICLES } from '../data/seed.js'
+import { VEHICLES, TEAM } from '../data/seed.js'
 import { useOps } from '../context/OpsContext.jsx'
 import { useGCal } from '../context/GCalContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -52,6 +52,39 @@ function VehicleCard({ v, onDelete }) {
           <Trash2 size={12} />
         </button>
       )}
+    </div>
+  )
+}
+
+function TeamIcalRow({ member }) {
+  const [url, setUrl] = useState(() => localStorage.getItem(`luma_team_ical_${member.id}`) || '')
+  const [saved, setSaved] = useState(false)
+  function save() {
+    if (url.trim()) localStorage.setItem(`luma_team_ical_${member.id}`, url.trim())
+    else localStorage.removeItem(`luma_team_ical_${member.id}`)
+    setSaved(true); setTimeout(() => setSaved(false), 2000)
+  }
+  return (
+    <div style={{ padding: '12px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+        <div style={{ width: 28, height: 28, borderRadius: '50%', background: `${member.color}22`, border: `2px solid ${member.color}50`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: member.color, fontWeight: 700 }}>{member.initials}</span>
+        </div>
+        <span style={{ fontSize: 13, fontWeight: 500, color: FG }}>{member.name}</span>
+        {url && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: A, padding: '1px 6px', background: A06, borderRadius: 8 }}>aktiv</span>}
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input
+          style={{ ...INPUT_STYLE, flex: 1, fontSize: 11, fontFamily: "'Space Mono', monospace" }}
+          value={url}
+          onChange={e => setUrl(e.target.value)}
+          placeholder="https://calendar.google.com/calendar/ical/.../.../basic.ics"
+        />
+        <button onClick={save}
+          style={{ padding: '8px 14px', borderRadius: 6, background: saved ? '#22EAA722' : A, border: 'none', color: saved ? '#22EAA7' : '#001219', cursor: 'pointer', fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', transition: 'all 0.2s' }}>
+          {saved ? '✓' : 'Speichern'}
+        </button>
+      </div>
     </div>
   )
 }
@@ -361,6 +394,20 @@ export default function SettingsPage() {
         {gcalStatus === 'ok' && gcalEvents.length === 0 && (
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED, padding: '8px 0' }}>Keine kommenden Termine gefunden.</div>
         )}
+      </section>
+
+      {/* ── Team Kalender (iCal free/busy) ── */}
+      <section style={{ marginBottom: 36 }}>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 6 }}>
+          Team Kalender (Verfügbarkeit)
+        </div>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, marginBottom: 14, lineHeight: 1.7 }}>
+          Privaten iCal-Link pro Teammitglied eintragen → Termine werden anonymisiert als "Belegt"-Block im Kalender angezeigt.
+          <br />Google Calendar → Einstellungen → Kalender → "Privatadresse im iCal-Format" kopieren
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {TEAM.map(member => <TeamIcalRow key={member.id} member={member} />)}
+        </div>
       </section>
 
       {/* ── Telegram ── */}

@@ -7,6 +7,7 @@ import JobModal from '../components/JobModal.jsx'
 import { JOB_TYPES, TEAM, VEHICLES } from '../data/seed.js'
 import { isoToday, weekStart, getWeekDays, addDays } from '../lib/storage.js'
 import { useBreakpoint } from '../lib/useBreakpoint.js'
+import { fetchTeamBusy } from '../lib/teamBusy.js'
 
 const DAY_NAMES = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 const HOUR_START = 2
@@ -168,6 +169,7 @@ export default function CalendarPage() {
   // 3-day start / 5-day start anchor
   const [threeDayStart, setThreeDayStart] = useState(today)
   const [fiveDayStart, setFiveDayStart] = useState(() => weekStart(today))
+  const [dayViewDate, setDayViewDate] = useState(today)
   const [modal, setModal] = useState(null)
   const [selectedJob, setSelectedJob] = useState(null)
   const [view, setView] = useState(() => {
@@ -176,6 +178,7 @@ export default function CalendarPage() {
     if (w < 1024) return '5day'  // Tablet → 5 Tage
     return 'week'                 // Desktop → ganze Woche
   })
+  const [teamBusy, setTeamBusy] = useState({})
   const [currentMonth, setCurrentMonth] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -196,6 +199,7 @@ export default function CalendarPage() {
   const fiveDays = Array.from({ length: 5 }, (_, i) => addDays(fiveDayStart, i))
   // Active days depending on view
   const activeDays =
+    view === '1day' ? [dayViewDate] :
     view === '3day' ? threeDays :
     view === '5day' ? fiveDays :
     weekDays
@@ -218,6 +222,17 @@ export default function CalendarPage() {
       fetchForRange(new Date(y, m - 1, 1), new Date(y, m, 1))
     }
   }, [gcalConnected, view, currentWeek, currentMonth])
+
+  // Fetch team iCal free/busy for visible days
+  useEffect(() => {
+    const from = activeDays[0]
+    const to = activeDays[activeDays.length - 1]
+    if (!from) return
+    TEAM.forEach(async member => {
+      const slots = await fetchTeamBusy(member.id, from, to)
+      if (slots.length > 0) setTeamBusy(b => ({ ...b, [member.id]: slots }))
+    })
+  }, [view, dayViewDate, currentWeek, threeDayStart, fiveDayStart])
 
   function timedJobsForDate(date) {
     return jobs.filter(j => j.start_time && j.end_time && j.date === date)
@@ -383,24 +398,31 @@ export default function CalendarPage() {
 
   // Navigation helpers
   function prevPeriod() {
-    if (view === 'week') prevWeek()
+    if (view === '1day') setDayViewDate(d => addDays(d, -1))
+    else if (view === 'week') prevWeek()
     else if (view === '3day') setThreeDayStart(d => addDays(d, -3))
     else if (view === '5day') setFiveDayStart(d => addDays(d, -5))
     else setCurrentMonth(m => { const d = new Date(m + '-01'); d.setMonth(d.getMonth() - 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` })
   }
   function nextPeriod() {
-    if (view === 'week') nextWeek()
+    if (view === '1day') setDayViewDate(d => addDays(d, 1))
+    else if (view === 'week') nextWeek()
     else if (view === '3day') setThreeDayStart(d => addDays(d, 3))
     else if (view === '5day') setFiveDayStart(d => addDays(d, 5))
     else setCurrentMonth(m => { const d = new Date(m + '-01'); d.setMonth(d.getMonth() + 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` })
   }
   function goTodayAll() {
     goToday()
+    setDayViewDate(today)
     setThreeDayStart(today)
     setFiveDayStart(weekStart(today))
   }
 
   const periodLabel = (() => {
+    if (view === '1day') {
+      const d = new Date(dayViewDate + 'T00:00:00')
+      return d.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
+    }
     if (view === '3day') {
       const d1 = new Date(threeDays[0] + 'T00:00:00')
       const d3 = new Date(threeDays[2] + 'T00:00:00')
@@ -437,14 +459,14 @@ export default function CalendarPage() {
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <div style={{ display: 'flex', background: SURFACE, borderRadius: 6, padding: 2, border: `1px solid ${BORDER}` }}>
             {(
-              bp === 'xs' ? ['3day','month'] :           // kleines Phone: 3 Tage + Monat
-              bp === 'sm' ? ['3day','month'] :           // großes Phone: 3 Tage + Monat
-              bp === 'md' ? ['5day','week','month'] :    // iPad: 5 Tage + Woche + Monat
-              ['week','5day','3day','month']             // Desktop: alle Views
+              bp === 'xs' ? ['1day','3day','month'] :
+              bp === 'sm' ? ['1day','3day','month'] :
+              bp === 'md' ? ['1day','5day','week','month'] :
+              ['1day','3day','week','month']
             ).map(v => (
               <button key={v} onClick={() => setView(v)}
                 style={{ padding: isMobile ? '5px 10px' : '4px 12px', borderRadius: 4, border: 'none', background: view === v ? A : 'transparent', color: view === v ? '#001219' : MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", fontWeight: view === v ? 600 : 400 }}>
-                {v === 'week' ? 'Woche' : v === '5day' ? '5 Tage' : v === '3day' ? '3 Tage' : 'Monat'}
+                {v === '1day' ? 'Tag' : v === 'week' ? 'Woche' : v === '5day' ? '5 Tage' : v === '3day' ? '3 Tage' : 'Monat'}
               </button>
             ))}
           </div>
@@ -591,6 +613,28 @@ export default function CalendarPage() {
                         opacity: 0.5,
                       }} />
                     )}
+
+                    {/* Team busy overlay (iCal free/busy, anonymized) */}
+                    {TEAM.map(member => {
+                      const slots = (teamBusy[member.id] || []).filter(s => s.date === date && s.start_time)
+                      return slots.map((slot, si) => {
+                        const sm = timeToMin(slot.start_time)
+                        const em = slot.end_time ? timeToMin(slot.end_time) : sm + 60
+                        const top = (sm / 60 - HOUR_START) * PX_PER_HOUR
+                        const height = Math.max(22, ((em - sm) / 60) * PX_PER_HOUR - 1)
+                        return (
+                          <div key={`busy-${member.id}-${si}`} title={`${member.name} — Belegt`} style={{
+                            position: 'absolute', top, height, left: 0, right: 0,
+                            background: `${member.color}1a`,
+                            borderLeft: `3px solid ${member.color}60`,
+                            borderRadius: 4, pointerEvents: 'none', zIndex: 0, boxSizing: 'border-box',
+                            display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-start', padding: '2px 4px',
+                          }}>
+                            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: member.color, opacity: 0.8, fontWeight: 700 }}>{member.initials}</span>
+                          </div>
+                        )
+                      })
+                    })}
 
                     {/* Event blocks — ghost for dragged, normal for rest */}
                     {timedJobs.map(job => {
