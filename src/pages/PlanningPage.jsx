@@ -244,7 +244,7 @@ export default function PlanningPage() {
             {filtered.length === 0 ? (
               <EmptyState msg="Keine Pflanzen für diese Kombination 🌵" sub="Probiere andere Filter" />
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(290px, 1fr))', gap: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fill, minmax(290px, 1fr))', gap: isMobile ? 8 : 10 }}>
                 {filtered.map(plant => (
                   <PlantCard
                     key={plant.id}
@@ -766,7 +766,7 @@ function PlantCard({ plant: p, expanded, onToggle, onAdd, inPlan, isMobile, L, s
           <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginBottom: 6 }}>
             <MBadge emoji="☀️" label={p.licht.map(l => LICHT_LABELS[l]).join('/')} L={L} />
             <MBadge emoji="💧" label={p.wasser.map(w => WASSER_LABELS[w]).join('/')} L={L} />
-            <MBadge emoji="📏" label={`${p.hoehe[0]}–${p.hoehe[1]}cm`} L={L} />
+            {!isMobile && <MBadge emoji="📏" label={`${p.hoehe[0]}–${p.hoehe[1]}cm`} L={L} />}
             <MBadge emoji="🌸" label={`${MONTHS[p.bluete_monate[0]-1]}–${MONTHS[p.bluete_monate[p.bluete_monate.length-1]-1]}`} L={L} />
           </div>
 
@@ -792,7 +792,7 @@ function PlantCard({ plant: p, expanded, onToggle, onAdd, inPlan, isMobile, L, s
           </button>
         )}
         {isMobile && (
-          <div style={{ fontSize: 9, color: MUTED, marginTop: 6, opacity: 0.6 }}>Tippen für Steckbrief →</div>
+          <div style={{ fontSize: 8, color: MUTED, marginTop: 4, opacity: 0.5, textAlign: 'center' }}>Tippen für Details</div>
         )}
 
         {expanded && (
