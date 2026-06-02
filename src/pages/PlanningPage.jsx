@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { A, SURFACE, BORDER, FG, MUTED, BG, A14, A20 } from '../lib/theme.js'
 import { useTheme } from '../context/ThemeContext.jsx'
+import { useBreakpoint } from '../lib/useBreakpoint.js'
 import { PLANTS, filterPlants, LICHT_LABELS, WASSER_LABELS, BODEN_LABELS, TYPE_LABELS, MONTHS, DRAINAGE_LABELS, WUCHSFORM_LABELS } from '../data/plants.js'
 import {
   Leaf, Search, Plus, Minus, ExternalLink, X, ChevronDown, ChevronUp,
@@ -44,6 +45,8 @@ const WUCHSFORM_OPTS = Object.entries(WUCHSFORM_LABELS || {}).map(([v, l]) => ({
 export default function PlanningPage() {
   const { themeId } = useTheme()
   const L = themeId === 'light'
+  const bp = useBreakpoint()
+  const isMobile = bp === 'xs' || bp === 'sm'
 
   // ── Filters
   const [licht, setLicht] = useState(null)
@@ -117,7 +120,7 @@ export default function PlanningPage() {
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
       {/* ── HEADER ─────────────────────────────────────────────────────── */}
-      <div style={{ padding: '16px 24px 0', flexShrink: 0 }}>
+      <div style={{ padding: isMobile ? '12px 12px 0' : '16px 24px 0', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: A14, border: `1px solid ${A20}`, borderRadius: 8, padding: '5px 12px' }}>
@@ -140,7 +143,7 @@ export default function PlanningPage() {
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
           {/* Filter Panel */}
-          <div style={{ padding: '0 24px', flexShrink: 0 }}>
+          <div style={{ padding: isMobile ? '0 12px' : '0 24px', flexShrink: 0 }}>
             <div style={{ background: SURFACE, border: `1.5px solid ${BORDER}`, borderRadius: 12, marginBottom: 12, overflow: 'hidden', boxShadow: L ? '0 1px 4px rgba(0,0,0,0.06)' : 'none' }}>
 
               {/* Filter header */}
@@ -172,20 +175,20 @@ export default function PlanningPage() {
 
                   {/* STANDORT filters */}
                   {activeFilters === 'standort' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-                      <FilterGroup label="☀️ Licht" opts={LICHT_OPTS} selected={licht} onSelect={v => setLicht(licht === v ? null : v)} color="#d97706" L={L} />
-                      <FilterGroup label="💧 Wasser" opts={WASSER_OPTS} selected={wasser} onSelect={v => setWasser(wasser === v ? null : v)} color="#0ea5e9" L={L} />
-                      <FilterGroup label="🌍 Boden" opts={BODEN_OPTS} selected={boden} onSelect={v => setBoden(boden === v ? null : v)} color="#92400e" L={L} />
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap: isMobile ? 10 : 12 }}>
+                      <FilterGroup label="☀️ Licht" opts={LICHT_OPTS} selected={licht} onSelect={v => setLicht(licht === v ? null : v)} color="#d97706" L={L} isMobile={isMobile} />
+                      <FilterGroup label="💧 Wasser" opts={WASSER_OPTS} selected={wasser} onSelect={v => setWasser(wasser === v ? null : v)} color="#0ea5e9" L={L} isMobile={isMobile} />
+                      <FilterGroup label="🌍 Boden" opts={BODEN_OPTS} selected={boden} onSelect={v => setBoden(boden === v ? null : v)} color="#92400e" L={L} isMobile={isMobile} />
                     </div>
                   )}
 
                   {/* BIOLOGIE filters */}
                   {activeFilters === 'biologie' && (
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <BioToggle label="🐝 Bienen" active={onlyBienen} onClick={() => setOnlyBienen(v => !v)} L={L} />
-                      <BioToggle label="🦋 Tagfalter" active={onlyTagfalter} onClick={() => setOnlyTagfalter(v => !v)} L={L} />
-                      <BioToggle label="🐛 Raupenfutter" active={onlyRaupen} onClick={() => setOnlyRaupen(v => !v)} L={L} />
-                      <BioToggle label="🏡 Heimisch" active={onlyHeimisch} onClick={() => setOnlyHeimisch(v => !v)} L={L} />
+                    <div style={{ display: 'flex', gap: isMobile ? 10 : 8, flexWrap: 'wrap', flexDirection: isMobile ? 'column' : 'row' }}>
+                      <BioToggle label="🐝 Bienen" active={onlyBienen} onClick={() => setOnlyBienen(v => !v)} L={L} isMobile={isMobile} />
+                      <BioToggle label="🦋 Tagfalter" active={onlyTagfalter} onClick={() => setOnlyTagfalter(v => !v)} L={L} isMobile={isMobile} />
+                      <BioToggle label="🐛 Raupenfutter" active={onlyRaupen} onClick={() => setOnlyRaupen(v => !v)} L={L} isMobile={isMobile} />
+                      <BioToggle label="🏡 Heimisch" active={onlyHeimisch} onClick={() => setOnlyHeimisch(v => !v)} L={L} isMobile={isMobile} />
                     </div>
                   )}
 
@@ -234,11 +237,11 @@ export default function PlanningPage() {
           </div>
 
           {/* Plant Grid */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '0 24px 24px' }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '0 12px 24px' : '0 24px 24px' }}>
             {filtered.length === 0 ? (
               <EmptyState msg="Keine Pflanzen für diese Kombination 🌵" sub="Probiere andere Filter" />
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(290px, 1fr))', gap: 10 }}>
                 {filtered.map(plant => (
                   <PlantCard
                     key={plant.id}
@@ -640,7 +643,36 @@ function TabBtn({ label, active, onClick, L, dot }) {
   )
 }
 
-function FilterGroup({ label, opts, selected, onSelect, color, L }) {
+function FilterGroup({ label, opts, selected, onSelect, color, L, isMobile }) {
+  if (isMobile) {
+    // NaturaDB-style: large radio buttons stacked vertically
+    return (
+      <div>
+        <div style={{ fontSize: 12, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>{label}</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {opts.map(o => {
+            const active = selected === o.value
+            return (
+              <button key={o.value} onClick={() => onSelect(o.value)} style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                padding: '13px 16px', borderRadius: 10, fontSize: 14,
+                textAlign: 'left', cursor: 'pointer', width: '100%', minHeight: 52,
+                fontWeight: active ? 700 : 500,
+                border: active ? `2px solid ${color}` : `1.5px solid ${BORDER}`,
+                background: active ? `${color}12` : 'transparent',
+                color: active ? color : FG,
+              }}>
+                <span style={{ fontSize: 20 }}>{o.emoji}</span>
+                <span style={{ flex: 1 }}>{o.label}</span>
+                {o.desc && <span style={{ fontSize: 11, color: MUTED }}>{o.desc}</span>}
+                {active && <span style={{ fontSize: 16 }}>✓</span>}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
   return (
     <div>
       <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 7 }}>{label}</div>
@@ -664,7 +696,24 @@ function FilterGroup({ label, opts, selected, onSelect, color, L }) {
   )
 }
 
-function BioToggle({ label, active, onClick, L }) {
+function BioToggle({ label, active, onClick, L, isMobile }) {
+  if (isMobile) {
+    return (
+      <button onClick={onClick} style={{
+        display: 'flex', alignItems: 'center', gap: 14,
+        padding: '14px 16px', borderRadius: 10, fontSize: 15, cursor: 'pointer',
+        width: '100%', minHeight: 52, textAlign: 'left',
+        fontWeight: active ? 700 : 500,
+        border: active ? `2px solid ${A}` : `1.5px solid ${BORDER}`,
+        background: active ? A14 : 'transparent', color: active ? A : FG,
+      }}>
+        <div style={{ width: 24, height: 24, borderRadius: 6, border: `2px solid ${active ? A : BORDER}`, background: active ? A : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          {active && <span style={{ color: '#001219', fontSize: 14, fontWeight: 900, lineHeight: 1 }}>✓</span>}
+        </div>
+        {label}
+      </button>
+    )
+  }
   return (
     <button onClick={onClick} style={{
       padding: '7px 14px', borderRadius: 100, fontSize: 12, cursor: 'pointer',
