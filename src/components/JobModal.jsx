@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { X, Repeat, MapPin } from 'lucide-react'
 import { TEAM, JOB_TYPES } from '../data/seed.js'
 import { useOps } from '../context/OpsContext.jsx'
@@ -137,6 +137,10 @@ export default function JobModal({ initialDate, initialJob, initialStartTime, in
   const { user } = useAuth()
   const editing = !!initialJob
   const [showQuickProject, setShowQuickProject] = useState(false)
+  const [locationSuggestions, setLocationSuggestions] = useState([])
+  const [locationOpen, setLocationOpen] = useState(false)
+  const locationRef = useRef(null)
+  const locationDebounce = useRef(null)
   const [toolInput, setToolInput] = useState('')
   const [toolsHistory, setToolsHistory] = useState(() => {
     try { return JSON.parse(localStorage.getItem('luma_tools_history') || '[]') } catch { return [] }
@@ -159,6 +163,33 @@ export default function JobModal({ initialDate, initialJob, initialStartTime, in
     interval_days: 14,
     make_recurring: false,
   })
+
+  useEffect(() => {
+    if (!locationOpen) return
+    const handler = e => { if (!locationRef.current?.contains(e.target)) setLocationOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [locationOpen])
+
+  function handleLocationChange(val) {
+    setForm(f => ({ ...f, location: val }))
+    clearTimeout(locationDebounce.current)
+    if (val.length < 3) { setLocationSuggestions([]); setLocationOpen(false); return }
+    locationDebounce.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val)}&format=json&addressdetails=1&limit=5&countrycodes=de`, { headers: { 'Accept-Language': 'de' } })
+        const data = await res.json()
+        setLocationSuggestions(data)
+        setLocationOpen(data.length > 0)
+      } catch { /* offline or rate limited */ }
+    }, 350)
+  }
+
+  function selectLocation(item) {
+    setForm(f => ({ ...f, location: item.display_name }))
+    setLocationSuggestions([])
+    setLocationOpen(false)
+  }
 
   const typeColor = JOB_TYPES.find(t => t.id === form.job_type)?.color || A
 
@@ -349,14 +380,42 @@ export default function JobModal({ initialDate, initialJob, initialStartTime, in
             </div>
           </div>
 
-          {/* Location */}
-          <div>
+          {/* Location with Nominatim autocomplete */}
+          <div ref={locationRef}>
             <label style={LABEL_STYLE}>Standort / Adresse</label>
             <div style={{ position: 'relative' }}>
-              <MapPin size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: MUTED, pointerEvents: 'none' }} />
-              <input style={{ ...INPUT_STYLE, paddingLeft: 34 }} value={form.location}
-                onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
-                placeholder="Adresse oder Beschreibung" />
+              <MapPin size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: MUTED, pointerEvents: 'none', zIndex: 1 }} />
+              <input
+                style={{ ...INPUT_STYLE, paddingLeft: 34 }}
+                value={form.location}
+                onChange={e => handleLocationChange(e.target.value)}
+                onFocus={() => locationSuggestions.length > 0 && setLocationOpen(true)}
+                placeholder="Adresse eingeben…"
+                autoComplete="off"
+              />
+              {locationOpen && locationSuggestions.length > 0 && (
+                <div style={{
+                  position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 500,
+                  background: '#0d1a23', border: `1px solid ${BORDER}`, borderRadius: 6,
+                  maxHeight: 220, overflowY: 'auto', boxShadow: '0 12px 32px rgba(0,0,0,0.55)',
+                }}>
+                  {locationSuggestions.map((item, i) => (
+                    <div key={i}
+                      onMouseDown={e => { e.preventDefault(); selectLocation(item) }}
+                      style={{ padding: '9px 14px', cursor: 'pointer', borderBottom: i < locationSuggestions.length - 1 ? `1px solid ${BORDER}` : 'none' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(8,170,86,0.08)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <div style={{ fontSize: 13, color: FG, fontFamily: "'Space Grotesk', sans-serif", lineHeight: 1.3 }}>
+                        {item.address?.road ? `${item.address.road}${item.address.house_number ? ' ' + item.address.house_number : ''}` : item.display_name.split(',')[0]}
+                      </div>
+                      <div style={{ fontSize: 10, color: MUTED, fontFamily: "'Space Mono', monospace", marginTop: 2 }}>
+                        {[item.address?.suburb, item.address?.city || item.address?.town, item.address?.postcode].filter(Boolean).join(', ')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

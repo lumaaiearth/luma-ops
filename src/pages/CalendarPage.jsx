@@ -88,29 +88,38 @@ function EventBlock({ job, projects, clients, onOpen, onDragStart, onDragEnd }) 
         border: '1px solid rgba(0,0,0,0.18)',
         borderLeft: `3px solid rgba(0,0,0,0.28)`,
         borderRadius: 4,
-        padding: compact ? '2px 6px' : '4px 8px',
+        padding: compact ? '2px 6px' : '5px 8px',
         overflow: 'hidden',
         cursor: 'grab',
         zIndex: 1,
         boxSizing: 'border-box',
         transition: 'filter 0.1s',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-start',
+        gap: 1,
       }}
       onMouseEnter={e => e.currentTarget.style.filter = 'brightness(1.12)'}
       onMouseLeave={e => e.currentTarget.style.filter = 'none'}
     >
-      <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      <div style={{ fontSize: compact ? 11 : 13, fontWeight: 700, color: '#fff', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
         {job.title}
       </div>
-      {!compact && (
-        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: 'rgba(255,255,255,0.82)', marginTop: 1 }}>
-          {job.start_time}–{job.end_time}
+      {!compact && job.start_time && (
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: 'rgba(255,255,255,0.85)', lineHeight: 1 }}>
+          {job.start_time}{job.end_time ? `–${job.end_time}` : ''}
         </div>
       )}
-      {!compact && assignees.length > 0 && (
-        <div style={{ display: 'flex', gap: 2, marginTop: 3 }}>
-          {assignees.slice(0, 4).map(u => (
-            <div key={u.id} style={{ width: 15, height: 15, borderRadius: '50%', background: 'rgba(255,255,255,0.22)', border: '1px solid rgba(255,255,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 6, color: '#fff', fontWeight: 700 }}>{u.initials}</span>
+      {!compact && job.location && (
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: 'rgba(255,255,255,0.7)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', lineHeight: 1 }}>
+          {job.location.split(',')[0]}
+        </div>
+      )}
+      {assignees.length > 0 && (
+        <div style={{ display: 'flex', gap: 3, marginTop: compact ? 0 : 2, flexWrap: 'nowrap' }}>
+          {assignees.slice(0, 5).map(u => (
+            <div key={u.id} title={u.name} style={{ width: compact ? 16 : 20, height: compact ? 16 : 20, borderRadius: '50%', background: 'rgba(0,0,0,0.28)', border: '1.5px solid rgba(255,255,255,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: compact ? 7 : 9, color: '#fff', fontWeight: 700, lineHeight: 1 }}>{u.initials}</span>
             </div>
           ))}
         </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Camera, X, Loader, Trash2, ZoomIn } from 'lucide-react'
 import { A, BORDER, FG, MUTED, SURFACE } from '../lib/theme.js'
-import { sbUploadPhoto, sbDeletePhoto, sbGetJobPhotos, sbInsert, sbDelete } from '../lib/supabase.js'
+import { sbUploadPhoto, sbDeletePhoto, sbGetJobPhotos, sbInsert, sbDelete, sb } from '../lib/supabase.js'
 import { genId } from '../lib/storage.js'
 
 async function compressImage(file) {
@@ -29,16 +29,34 @@ export default function JobPhotos({ jobId, uploadedBy }) {
   const [photos, setPhotos] = useState([])
   const [uploading, setUploading] = useState(false)
   const [lightbox, setLightbox] = useState(null)
+  const [uploadError, setUploadError] = useState(null)
   const fileRef = useRef()
 
   useEffect(() => {
     if (!jobId) return
-    sbGetJobPhotos(jobId).then(setPhotos).catch(console.error)
+    sbGetJobPhotos(jobId)
+      .then(setPhotos)
+      .catch(async () => {
+        // DB table missing → fall back to listing from Storage directly
+        try {
+          const { data: files } = await sb.storage.from('job-photos').list(jobId, { limit: 100, sortBy: { column: 'created_at', order: 'asc' } })
+          const rows = (files || []).filter(f => f.name !== '.emptyFolderPlaceholder').map(f => ({
+            id: f.name.replace(/\.jpg$/, ''),
+            job_id: jobId,
+            url: sb.storage.from('job-photos').getPublicUrl(`${jobId}/${f.name}`).data.publicUrl,
+            uploaded_by: 'unknown',
+            created_at: f.created_at || '',
+          }))
+          setPhotos(rows)
+        } catch { /* storage also not set up yet */ }
+      })
   }, [jobId])
 
   async function handleFiles(files) {
     if (!files?.length) return
     setUploading(true)
+    setUploadError(null)
+    let anyFailed = false
     for (const file of Array.from(files)) {
       if (!file.type.startsWith('image/')) continue
       try {
@@ -50,8 +68,10 @@ export default function JobPhotos({ jobId, uploadedBy }) {
         sbInsert('job_photos', row).catch(console.error)
       } catch (e) {
         console.error('Upload failed:', e)
+        anyFailed = true
       }
     }
+    if (anyFailed) setUploadError('Upload fehlgeschlagen — Supabase Bucket "job-photos" prüfen')
     setUploading(false)
   }
 
@@ -83,6 +103,11 @@ export default function JobPhotos({ jobId, uploadedBy }) {
         </button>
         <input ref={fileRef} type="file" accept="image/*" multiple capture="environment" style={{ display: 'none' }} onChange={e => handleFiles(e.target.files)} />
       </div>
+      {uploadError && (
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: '#ef4444', marginTop: 4, padding: '4px 8px', background: 'rgba(239,68,68,0.1)', borderRadius: 4, border: '1px solid rgba(239,68,68,0.25)' }}>
+          {uploadError}
+        </div>
+      )}
 
       {photos.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: 6 }}>
