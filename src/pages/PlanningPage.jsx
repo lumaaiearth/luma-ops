@@ -528,6 +528,40 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
 }
 
 /* ─── PLANT CARD ─────────────────────────────────────────────────────────── */
+/* ─── WIKIPEDIA PLANT IMAGE ─────────────────────────────────────────────── */
+function PlantImage({ latin }) {
+  const key = `floralis_img_${latin}`
+  const [src, setSrc] = useState(() => {
+    const c = localStorage.getItem(key)
+    if (c === 'none') return null
+    return c || undefined  // undefined = not yet fetched
+  })
+
+  useEffect(() => {
+    if (src !== undefined) return
+    const title = latin.replace(/ /g, '_').replace(/×/g, 'x')
+    fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(title)}&prop=pageimages&format=json&pithumbsize=500&origin=*`)
+      .then(r => r.json())
+      .then(data => {
+        const page = Object.values(data?.query?.pages || {})[0]
+        const imgSrc = page?.thumbnail?.source || null
+        setSrc(imgSrc)
+        localStorage.setItem(key, imgSrc || 'none')
+      })
+      .catch(() => { setSrc(null); localStorage.setItem(key, 'none') })
+  }, [latin])
+
+  if (src === undefined) return (
+    <div style={{ width: '100%', height: 130, background: BORDER, borderRadius: 7, opacity: 0.3, marginBottom: 10 }} />
+  )
+  if (!src) return null
+  return (
+    <img src={src} alt={latin}
+      style={{ width: '100%', height: 130, objectFit: 'cover', borderRadius: 7, marginBottom: 10, display: 'block' }}
+      onError={() => setSrc(null)} />
+  )
+}
+
 function PlantCard({ plant: p, expanded, onToggle, onAdd, inPlan, L, shadow, cardBg }) {
   return (
     <div style={{ background: cardBg, borderRadius: 10, boxShadow: shadow, overflow: 'hidden' }}>
@@ -583,6 +617,7 @@ function PlantCard({ plant: p, expanded, onToggle, onAdd, inPlan, L, shadow, car
 
         {expanded && (
           <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BORDER}` }}>
+            <PlantImage latin={p.latin} />
             <p style={{ fontSize: 12, color: MUTED, lineHeight: 1.65, marginBottom: 8 }}>{p.beschreibung}</p>
             {p.raupenfutter && p.raupenfutter_arten?.length > 0 && (
               <div style={{ marginBottom: 8 }}>
