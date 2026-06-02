@@ -174,13 +174,15 @@ export default function PlanningPage() {
                   </div>
 
                   {/* STANDORT filters */}
-                  {activeFilters === 'standort' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap: isMobile ? 10 : 12 }}>
-                      <FilterGroup label="☀️ Licht" opts={LICHT_OPTS} selected={licht} onSelect={v => setLicht(licht === v ? null : v)} color="#d97706" L={L} isMobile={isMobile} />
-                      <FilterGroup label="💧 Wasser" opts={WASSER_OPTS} selected={wasser} onSelect={v => setWasser(wasser === v ? null : v)} color="#0ea5e9" L={L} isMobile={isMobile} />
-                      <FilterGroup label="🌍 Boden" opts={BODEN_OPTS} selected={boden} onSelect={v => setBoden(boden === v ? null : v)} color="#92400e" L={L} isMobile={isMobile} />
+                  {activeFilters === 'standort' && !isMobile && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+                      <FilterGroup label="☀️ Licht" opts={LICHT_OPTS} selected={licht} onSelect={v => setLicht(licht === v ? null : v)} color="#d97706" L={L} isMobile={false} />
+                      <FilterGroup label="💧 Wasser" opts={WASSER_OPTS} selected={wasser} onSelect={v => setWasser(wasser === v ? null : v)} color="#0ea5e9" L={L} isMobile={false} />
+                      <FilterGroup label="🌍 Boden" opts={BODEN_OPTS} selected={boden} onSelect={v => setBoden(boden === v ? null : v)} color="#92400e" L={L} isMobile={false} />
                     </div>
                   )}
+                  {/* Mobile: one group at a time via own sub-tabs */}
+                  {activeFilters === 'standort' && isMobile && <MobileStandortFilter licht={licht} setLicht={setLicht} wasser={wasser} setWasser={setWasser} boden={boden} setBoden={setBoden} L={L} />}
 
                   {/* BIOLOGIE filters */}
                   {activeFilters === 'biologie' && (
@@ -640,6 +642,56 @@ function TabBtn({ label, active, onClick, L, dot }) {
       {label}
       {dot && <span style={{ position: 'absolute', top: -3, right: -3, width: 7, height: 7, borderRadius: '50%', background: '#047A3C' }} />}
     </button>
+  )
+}
+
+function MobileStandortFilter({ licht, setLicht, wasser, setWasser, boden, setBoden, L }) {
+  const [sub, setSub] = useState('licht')
+  const groups = [
+    { id: 'licht', label: '☀️ Licht', opts: LICHT_OPTS, val: licht, set: v => setLicht(licht === v ? null : v), color: '#d97706', active: licht != null },
+    { id: 'wasser', label: '💧 Wasser', opts: WASSER_OPTS, val: wasser, set: v => setWasser(wasser === v ? null : v), color: '#0ea5e9', active: wasser != null },
+    { id: 'boden', label: '🌍 Boden', opts: BODEN_OPTS, val: boden, set: v => setBoden(boden === v ? null : v), color: '#92400e', active: boden != null },
+  ]
+  const active = groups.find(g => g.id === sub)
+  return (
+    <div>
+      {/* Sub-tab strip */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+        {groups.map(g => (
+          <button key={g.id} onClick={() => setSub(g.id)} style={{
+            flex: 1, padding: '10px 6px', borderRadius: 8, fontSize: 12, cursor: 'pointer', fontWeight: sub === g.id ? 700 : 500,
+            border: sub === g.id ? `2px solid ${g.color}` : `1.5px solid ${BORDER}`,
+            background: sub === g.id ? `${g.color}12` : 'transparent',
+            color: sub === g.id ? g.color : MUTED,
+            position: 'relative',
+          }}>
+            {g.label}
+            {g.active && <span style={{ position: 'absolute', top: -3, right: -3, width: 8, height: 8, borderRadius: '50%', background: g.color }} />}
+          </button>
+        ))}
+      </div>
+      {/* Current group options */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {active.opts.map(o => {
+          const isActive = active.val === o.value
+          return (
+            <button key={o.value} onClick={() => active.set(o.value)} style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '14px 16px', borderRadius: 10, fontSize: 15, minHeight: 52,
+              textAlign: 'left', cursor: 'pointer', width: '100%', fontWeight: isActive ? 700 : 500,
+              border: isActive ? `2px solid ${active.color}` : `1.5px solid ${BORDER}`,
+              background: isActive ? `${active.color}12` : 'transparent',
+              color: isActive ? active.color : FG,
+            }}>
+              <span style={{ fontSize: 22 }}>{o.emoji}</span>
+              <span style={{ flex: 1 }}>{o.label}</span>
+              {o.desc && <span style={{ fontSize: 11, color: MUTED }}>{o.desc}</span>}
+              {isActive && <span style={{ fontSize: 16, color: active.color }}>✓</span>}
+            </button>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 
