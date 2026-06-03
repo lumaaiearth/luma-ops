@@ -71,8 +71,7 @@ export default function PlanningPage() {
   const [activeTab, setActiveTab] = useState('suche')
   const [saveProjectId, setSaveProjectId] = useState('')
   const [savedToProject, setSavedToProject] = useState(false)
-  const [expandedPlant, setExpandedPlant] = useState(null)
-  const [sheetPlant, setSheetPlant] = useState(null) // mobile steckbrief
+  const [sheetPlant, setSheetPlant] = useState(null) // Steckbrief-Sheet
 
   // ── Beetplaner
   const [beetW, setBeetW] = useState(4)
@@ -275,12 +274,10 @@ export default function PlanningPage() {
                   <PlantCard
                     key={plant.id}
                     plant={plant}
-                    expanded={expandedPlant === plant.id}
-                    onToggle={() => setExpandedPlant(expandedPlant === plant.id ? null : plant.id)}
+                    onTap={() => setSheetPlant(plant)}
                     onAdd={() => addToPlan(plant)}
                     onRemove={() => setCount(plant.id, (plan.find(p => p.id === plant.id)?.count || 1) - 1)}
                     inPlan={plan.find(p => p.id === plant.id)}
-                    isMobile={false}
                     L={L} shadow={shadow} cardBg={cardBg}
                   />
                 ))}
@@ -789,9 +786,9 @@ function CardThumb({ plant: p, compact }) {
   )
 }
 
-function PlantCard({ plant: p, expanded, onToggle, onAdd, onRemove, inPlan, isMobile, L, shadow, cardBg }) {
+function PlantCard({ plant: p, onTap, onAdd, onRemove, inPlan, L, shadow, cardBg }) {
   return (
-    <div onClick={isMobile ? onToggle : undefined} style={{ background: cardBg, borderRadius: 10, boxShadow: shadow, overflow: 'hidden', cursor: isMobile ? 'pointer' : 'default' }}>
+    <div onClick={onTap} style={{ background: cardBg, borderRadius: 10, boxShadow: shadow, overflow: 'hidden', cursor: 'pointer' }}>
       <div style={{ position: 'relative' }}>
         <CardThumb plant={p} />
         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 40, background: 'linear-gradient(transparent, rgba(0,0,0,0.45))' }} />
@@ -844,44 +841,7 @@ function PlantCard({ plant: p, expanded, onToggle, onAdd, onRemove, inPlan, isMo
           </div>
         </div>
 
-        {/* Toggle — desktop only; mobile uses full-card tap → bottom sheet */}
-        {!isMobile && (
-          <button onClick={onToggle} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', color: MUTED, fontSize: 10, cursor: 'pointer', padding: '5px 0 0', marginTop: 2 }}>
-            {expanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
-            {expanded ? 'Weniger' : 'Details'}
-          </button>
-        )}
-        {isMobile && (
-          <div style={{ fontSize: 8, color: MUTED, marginTop: 4, opacity: 0.5, textAlign: 'center' }}>Tippen für Details</div>
-        )}
-
-        {expanded && (
-          <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BORDER}` }}>
-            <PlantImage plant={p} />
-            <p style={{ fontSize: 12, color: MUTED, lineHeight: 1.65, marginBottom: 8 }}>{p.beschreibung}</p>
-            {p.raupenfutter && p.raupenfutter_arten?.length > 0 && (
-              <div style={{ marginBottom: 8 }}>
-                <span style={{ fontSize: 10, fontWeight: 700, color: '#10b981' }}>🐛 Raupenfutter für: </span>
-                <span style={{ fontSize: 10, color: MUTED }}>{p.raupenfutter_arten.join(', ')}</span>
-              </div>
-            )}
-            {p.ph_min && <div style={{ fontSize: 10, color: MUTED, marginBottom: 8 }}>🧪 pH {p.ph_min}–{p.ph_max} · {p.drainage || '–'}</div>}
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <a href={`https://de.wikipedia.org/wiki/${p.latin.replace(/ /g,'_')}`} target="_blank" rel="noopener noreferrer"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: A, fontWeight: 600, textDecoration: 'none' }}>
-                <ExternalLink size={11} /> Wikipedia
-              </a>
-              <a href={`https://www.floraweb.de/pflanzenarten/suche.xsql?taxname=${encodeURIComponent(p.latin)}`} target="_blank" rel="noopener noreferrer"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: MUTED, fontWeight: 600, textDecoration: 'none' }}>
-                <ExternalLink size={11} /> FloraWeb
-              </a>
-              {p.naturadb_url && <a href={p.naturadb_url} target="_blank" rel="noopener noreferrer"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: MUTED, fontWeight: 600, textDecoration: 'none' }}>
-                <ExternalLink size={11} /> naturaDB
-              </a>}
-            </div>
-          </div>
-        )}
+        <div style={{ fontSize: 8, color: MUTED, marginTop: 4, opacity: 0.4, textAlign: 'center' }}>Tippen für Steckbrief</div>
       </div>
     </div>
   )

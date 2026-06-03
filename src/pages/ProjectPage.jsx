@@ -109,7 +109,7 @@ export default function ProjectPage() {
             <h1 style={{ fontSize: 26, fontWeight: 400, color: FG, letterSpacing: '-0.02em', marginBottom: 6 }}>{project.name}</h1>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
               {project.client && (() => {
-                const clientObj = clients?.find(c => c.id === project.client_id)
+                const clientObj = clients?.find(c => c.id === project.client_id) || clients?.find(c => c.name === project.client)
                 const dest = clientObj ? `/clients/${clientObj.id}` : null
                 return dest ? (
                   <button onClick={() => navigate(dest)}

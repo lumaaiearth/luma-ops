@@ -9,18 +9,18 @@ const NAV = [
   { to: '/calendar',   icon: CalendarDays,    label: 'Kalender' },
   { to: '/jobs',       icon: ListChecks,      label: 'Einsätze' },
   { to: '/map',        icon: Map,             label: 'Karte' },
+  { to: '/analyse',    icon: BarChart2,       label: 'Analysen' },
+  { to: '/planning',   icon: Flower2,         label: 'Floralis' },
   { to: '/time',       icon: Clock,           label: 'Zeiten' },
   { to: '/data',       icon: Database,        label: 'Stammdaten' },
   { to: '/drive',       icon: FolderOpen,      label: 'Drive' },
   { to: '/sensors',    icon: Radio,           label: 'Sensoren' },
   { to: '/team',       icon: Users,           label: 'Team' },
-  { to: '/planning',   icon: Flower2,         label: 'Floralis' },
-  { to: '/analyse',    icon: BarChart2,       label: 'Analysen' },
   { to: '/settings',   icon: Settings,        label: 'Einstellungen' },
 ]
 
-// First 4 nav items show in bottom bar; rest in "More" drawer
-const BOTTOM_NAV = NAV.slice(0, 4)
+// First 5 nav items show in bottom bar; rest in "More" drawer
+const BOTTOM_NAV = NAV.slice(0, 5)
 
 export default function Layout({ children, fullHeight = false }) {
   const { user, logout } = useAuth()
