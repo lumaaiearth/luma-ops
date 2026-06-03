@@ -303,7 +303,7 @@ export default function StammdatenPage() {
                   </button>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                      <button onClick={() => setExpandedClient(isExpanded ? null : c.id)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 13, fontWeight: 500, color: FG, textAlign: 'left' }}>{c.name}</button>
+                      <button onClick={() => navigate(`/clients/${c.id}`)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 13, fontWeight: 500, color: A, textAlign: 'left', textDecoration: 'underline', textDecorationColor: `${A}40` }}>{c.name}</button>
                       {clientProjects.length > 0 && (
                         <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: A, background: A14, padding: '2px 6px', borderRadius: 4, cursor: 'pointer' }} onClick={() => setExpandedClient(isExpanded ? null : c.id)}>
                           {clientProjects.length} Projekt{clientProjects.length > 1 ? 'e' : ''}
