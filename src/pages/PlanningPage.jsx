@@ -251,6 +251,7 @@ export default function PlanningPage() {
                     plant={plant}
                     onTap={() => setSheetPlant(plant)}
                     onAdd={() => addToPlan(plant)}
+                    onRemove={() => setCount(plant.id, (plan.find(p => p.id === plant.id)?.count || 1) - 1)}
                     inPlan={plan.find(p => p.id === plant.id)}
                     L={L} shadow={shadow} cardBg={cardBg}
                   />
@@ -265,6 +266,7 @@ export default function PlanningPage() {
                     expanded={expandedPlant === plant.id}
                     onToggle={() => setExpandedPlant(expandedPlant === plant.id ? null : plant.id)}
                     onAdd={() => addToPlan(plant)}
+                    onRemove={() => setCount(plant.id, (plan.find(p => p.id === plant.id)?.count || 1) - 1)}
                     inPlan={plan.find(p => p.id === plant.id)}
                     isMobile={false}
                     L={L} shadow={shadow} cardBg={cardBg}
@@ -752,19 +754,27 @@ function CardThumb({ plant: p, compact }) {
   )
 }
 
-function PlantCard({ plant: p, expanded, onToggle, onAdd, inPlan, isMobile, L, shadow, cardBg }) {
+function PlantCard({ plant: p, expanded, onToggle, onAdd, onRemove, inPlan, isMobile, L, shadow, cardBg }) {
   return (
     <div onClick={isMobile ? onToggle : undefined} style={{ background: cardBg, borderRadius: 10, boxShadow: shadow, overflow: 'hidden', cursor: isMobile ? 'pointer' : 'default' }}>
       <div style={{ position: 'relative' }}>
         <CardThumb plant={p} />
         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 40, background: 'linear-gradient(transparent, rgba(0,0,0,0.45))' }} />
-        <button onClick={e => { e.stopPropagation(); onAdd() }} style={{
-          position: 'absolute', top: 8, right: 8,
-          width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-          background: inPlan ? '#047A3C' : 'rgba(0,0,0,0.45)', border: 'none',
-          color: '#fff', cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700,
-        }}>{inPlan ? inPlan.count : <Plus size={13} />}</button>
+        {inPlan ? (
+          <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 4, alignItems: 'center' }}>
+            <button onClick={onRemove} style={{ width: 24, height: 24, borderRadius: 6, background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Minus size={11} /></button>
+            <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 12, fontWeight: 700, color: '#fff', minWidth: 14, textAlign: 'center', textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>{inPlan.count}</span>
+            <button onClick={onAdd} style={{ width: 24, height: 24, borderRadius: 6, background: '#047A3C', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Plus size={11} /></button>
+          </div>
+        ) : (
+          <button onClick={e => { e.stopPropagation(); onAdd() }} style={{
+            position: 'absolute', top: 8, right: 8,
+            width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+            background: 'rgba(0,0,0,0.45)', border: 'none',
+            color: '#fff', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}><Plus size={13} /></button>
+        )}
         <div style={{ position: 'absolute', bottom: 6, left: 10, right: 44, overflow: 'hidden' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{p.name}</div>
         </div>
@@ -843,7 +853,7 @@ function PlantCard({ plant: p, expanded, onToggle, onAdd, inPlan, isMobile, L, s
 }
 
 /* ─── MOBILE LIST ROW ───────────────────────────────────────────────────── */
-function PlantListRow({ plant: p, onTap, onAdd, inPlan, L, shadow, cardBg }) {
+function PlantListRow({ plant: p, onTap, onAdd, onRemove, inPlan, L, shadow, cardBg }) {
   return (
     <div onClick={onTap} style={{
       display: 'flex', alignItems: 'center', gap: 10,
@@ -866,13 +876,20 @@ function PlantListRow({ plant: p, onTap, onAdd, inPlan, L, shadow, cardBg }) {
           {p.heimisch && <span style={{ fontSize: 8, background: '#047A3C18', color: '#047A3C', border: '1px solid #047A3C30', padding: '1px 5px', borderRadius: 100, fontWeight: 700 }}>heimisch</span>}
         </div>
       </div>
-      {/* Add button */}
-      <button onClick={e => { e.stopPropagation(); onAdd() }} style={{
-        width: 32, height: 32, borderRadius: 8, flexShrink: 0, marginRight: 10,
-        background: inPlan ? '#047A3C' : 'rgba(0,0,0,0.08)', border: 'none',
-        color: inPlan ? '#fff' : FG, cursor: 'pointer',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700,
-      }}>{inPlan ? inPlan.count : <Plus size={14} />}</button>
+      {/* +/- controls */}
+      {inPlan ? (
+        <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 4, marginRight: 10, flexShrink: 0 }}>
+          <button onClick={onRemove} style={{ width: 28, height: 28, borderRadius: 7, background: 'none', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Minus size={12} /></button>
+          <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 13, fontWeight: 700, color: FG, minWidth: 18, textAlign: 'center' }}>{inPlan.count}</span>
+          <button onClick={onAdd} style={{ width: 28, height: 28, borderRadius: 7, background: '#047A3C', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Plus size={12} /></button>
+        </div>
+      ) : (
+        <button onClick={e => { e.stopPropagation(); onAdd() }} style={{
+          width: 32, height: 32, borderRadius: 8, flexShrink: 0, marginRight: 10,
+          background: 'rgba(0,0,0,0.08)', border: 'none', color: FG, cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}><Plus size={14} /></button>
+      )}
     </div>
   )
 }
