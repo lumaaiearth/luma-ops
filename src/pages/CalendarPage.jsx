@@ -68,6 +68,8 @@ function EventBlock({ job, projects, clients, onOpen, onPointerDown, isGhost }) 
   const type = JOB_TYPES.find(t => t.id === job.job_type)
   const clientColor = getClientColor(job, projects, clients)
   const bgColor = job.color || clientColor
+  // Border = job type color (category ring); fill = client/custom color
+  const typeColor = job.isGCal ? (job.calendarColor || bgColor) : (type?.color || bgColor)
   const assignees = TEAM.filter(u => (job.assigned_users || []).includes(u.id))
 
   const top = (job.sm / 60 - HOUR_START) * PX_PER_HOUR
@@ -87,9 +89,8 @@ function EventBlock({ job, projects, clients, onOpen, onPointerDown, isGhost }) 
         left: `calc(${job.col * colW}% + 2px)`,
         width: `calc(${colW}% - 4px)`,
         background: isGhost ? 'transparent' : bgColor,
-        border: isGhost ? `2px dashed ${bgColor}` : '1px solid rgba(0,0,0,0.18)',
-        borderLeft: isGhost ? `3px dashed ${bgColor}` : `3px solid rgba(0,0,0,0.28)`,
-        borderRadius: 5,
+        border: isGhost ? `2px dashed ${typeColor}` : `2px solid ${typeColor}`,
+        borderRadius: 7,
         padding: compact ? '3px 7px' : '6px 9px',
         overflow: 'hidden',
         cursor: job.isGCal ? 'default' : (isGhost ? 'default' : 'grab'),
