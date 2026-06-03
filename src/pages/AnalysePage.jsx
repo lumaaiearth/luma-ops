@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { A, SURFACE, BORDER, FG, MUTED, BG, A14, A20 } from '../lib/theme.js'
 import { useTheme } from '../context/ThemeContext.jsx'
-import { BarChart2, TrendingUp, Leaf, Bug, FlaskConical, ExternalLink } from 'lucide-react'
+import { BarChart2, TrendingUp, Leaf, Bug, FlaskConical, ExternalLink, Droplets, TreePine } from 'lucide-react'
 
 const ANALYSES = [
   {
@@ -24,6 +24,51 @@ const ANALYSES = [
       { label: 'Ø Preis/Baum Bt', value: '€20–45' },
     ],
     description: 'Vollständige Analyse des EPS-Markts: Wettbewerber, Preismodelle, Methoden (mechanisch, biologisch, chemisch) und strategische Empfehlungen für Luma.',
+    route: '/analyse/eps-markt-2025',
+  },
+  {
+    id: 'bodenbiodiversitaet',
+    title: 'Bodenbiodiversität für Stadtbäume',
+    subtitle: 'Lebendiger Boden, resiliente Bäume',
+    region: 'Berlin & Deutschland',
+    date: 'Juni 2026',
+    tags: ['Bodenökologie', 'Stadtbäume', 'Klimaresilienz'],
+    icon: TreePine,
+    color: '#16a34a',
+    colorLight: '#15803d',
+    colorBgDark: 'rgba(22,163,74,0.1)',
+    colorBgLight: 'rgba(21,128,61,0.08)',
+    colorBorderDark: 'rgba(22,163,74,0.3)',
+    colorBorderLight: 'rgba(21,128,61,0.25)',
+    kpis: [
+      { label: 'Stadtbäume gefährdet', value: '70 %' },
+      { label: 'Biopore kostet', value: '< 100 €' },
+      { label: 'Berliner Bäume', value: '439.000' },
+    ],
+    description: 'Warum Bodenbiodiversität der entscheidende Faktor für klimaresilientere Stadtbäume ist — und wie Bioporen, Mulch und Mykorrhiza helfen. Mit LUMA-Felddaten aus dem Preußenpark.',
+    route: '/analyse/artikel/bodenbiodiversitaet',
+  },
+  {
+    id: 'schwammstaedte',
+    title: 'Schwammstädte & Bodeninfiltration',
+    subtitle: 'Urbane Grünflächen gegen Starkregen',
+    region: 'Berlin & Europa',
+    date: 'Juni 2026',
+    tags: ['Schwammstadt', 'Starkregen', 'Bodeninfiltration'],
+    icon: Droplets,
+    color: '#0ea5e9',
+    colorLight: '#0284c7',
+    colorBgDark: 'rgba(14,165,233,0.1)',
+    colorBgLight: 'rgba(2,132,199,0.08)',
+    colorBorderDark: 'rgba(14,165,233,0.3)',
+    colorBorderLight: 'rgba(2,132,199,0.25)',
+    kpis: [
+      { label: 'Versiegelung D', value: '45 %' },
+      { label: 'Schäden 2024', value: '2,6 Mrd €' },
+      { label: 'Infiltrationsverlust', value: '−90 %' },
+    ],
+    description: 'Wie Böden bei Extremregen versagen, was Schwammstädte leisten und warum Bioporen und Mulchen die kostengünstigsten Klimaanpassungsmaßnahmen sind. Berliner Regenwasseragentur & LUMA-Daten.',
+    route: '/analyse/artikel/schwammstaedte',
   },
 ]
 
@@ -70,7 +115,7 @@ export default function AnalysePage() {
         <SectionLabel label={`Veröffentlicht — ${ANALYSES.length} Report${ANALYSES.length !== 1 ? 's' : ''}`} isLight={isLight} />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
           {ANALYSES.map(a => (
-            <AnalysisCard key={a.id} analysis={a} isLight={isLight} onClick={() => navigate(`/analyse/${a.id}`)} />
+            <AnalysisCard key={a.id} analysis={a} isLight={isLight} onClick={() => navigate(a.route || `/analyse/${a.id}`)} />
           ))}
         </div>
       </div>
