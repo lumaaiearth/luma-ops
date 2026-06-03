@@ -11,7 +11,39 @@ import { A, BG, SURFACE, BORDER, FG, MUTED, CARD, A06, A10, A14, A18 } from '../
 import { TEAM, JOB_TYPES } from '../data/seed.js'
 import { isoToday, addDays } from '../lib/storage.js'
 import { useIsMobile } from '../lib/useIsMobile.js'
-import { Layers, Satellite, Map as MapIcon, Pencil, Save, X, ExternalLink } from 'lucide-react'
+import { Layers, Satellite, Map as MapIcon, Pencil, Save, X, ExternalLink, ChevronRight, ChevronDown, FolderOpen, Folder, Eye, EyeOff } from 'lucide-react'
+
+/* ─── GEO HELPERS ───────────────────────────────────────────────────────── */
+function geodesicArea(latLngs) {
+  const R = 6371000
+  const pts = Array.isArray(latLngs[0]) ? latLngs.flat(Infinity) : latLngs
+  const n = pts.length
+  if (n < 3) return 0
+  let area = 0
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n
+    const lat1 = (pts[i].lat ?? pts[i][0]) * Math.PI / 180
+    const lat2 = (pts[j].lat ?? pts[j][0]) * Math.PI / 180
+    const dLng = ((pts[j].lng ?? pts[j][1]) - (pts[i].lng ?? pts[i][1])) * Math.PI / 180
+    area += dLng * (2 + Math.sin(lat1) + Math.sin(lat2))
+  }
+  return Math.abs(area * R * R / 2)
+}
+
+function perimeterMeters(latLngs) {
+  const pts = Array.isArray(latLngs[0]) ? latLngs.flat(Infinity) : latLngs
+  let d = 0
+  for (let i = 0; i < pts.length; i++) {
+    const a = L.latLng(pts[i].lat ?? pts[i][0], pts[i].lng ?? pts[i][1])
+    const b = L.latLng(pts[(i + 1) % pts.length].lat ?? pts[(i + 1) % pts.length][0], pts[(i + 1) % pts.length].lng ?? pts[(i + 1) % pts.length][1])
+    d += a.distanceTo(b)
+  }
+  return d
+}
+
+function fmtArea(m2) { return m2 >= 10000 ? `${(m2 / 10000).toFixed(2)} ha` : `${Math.round(m2)} m²` }
+function fmtLen(m) { return m >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${Math.round(m)} m` }
+
 
 const TILES = {
   satellite: {
@@ -117,7 +149,7 @@ function DrawControl({ project, onSave, onCancel }) {
 }
 
 export default function MapPage() {
-  const { projects, jobs, updateProject } = useOps()
+  const { projects, jobs, clients, updateProject } = useOps()
   const { user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -130,7 +162,25 @@ export default function MapPage() {
   const [tileLayer, setTileLayer] = useState('satellite')
   const [drawingProject, setDrawingProject] = useState(null)
   const [activeLayers, setActiveLayers] = useState(new Set())
+  const [expandedClients, setExpandedClients] = useState(new Set(['all']))
+  const [hiddenProjects, setHiddenProjects] = useState(new Set())
   const isAdmin = user?.role === 'admin' || user?.role === 'manager'
+
+  function toggleClientFolder(clientId) {
+    setExpandedClients(prev => {
+      const next = new Set(prev)
+      next.has(clientId) ? next.delete(clientId) : next.add(clientId)
+      return next
+    })
+  }
+
+  function toggleProjectVisibility(projectId) {
+    setHiddenProjects(prev => {
+      const next = new Set(prev)
+      next.has(projectId) ? next.delete(projectId) : next.add(projectId)
+      return next
+    })
+  }
 
   function toggleLayer(id) {
     setActiveLayers(prev => {
@@ -159,6 +209,19 @@ export default function MapPage() {
   // Assign colors to projects deterministically
   const projectColor = (p, i) => p.color || PROJECT_COLORS[i % PROJECT_COLORS.length]
 
+  // Group projects by client for folder structure
+  const clientGroups = useMemo(() => {
+    const groups = {}
+    mappableProjects.forEach((p, i) => {
+      const cid = p.client_id || 'other'
+      const cl = (clients || []).find(c => c.id === cid)
+      const cname = cl?.name || p.client || 'Sonstige'
+      if (!groups[cid]) groups[cid] = { id: cid, name: cname, color: cl?.color || '#6B7280', projects: [] }
+      groups[cid].projects.push({ ...p, _idx: i })
+    })
+    return Object.values(groups)
+  }, [mappableProjects, clients])
+
   useEffect(() => {
     const focusId = location.state?.focusProjectId
     if (!focusId || projects.length === 0) return
@@ -168,6 +231,12 @@ export default function MapPage() {
       setFlyTarget([p.lat, p.lng])
     }
   }, [location.state, projects])
+
+  // Global hook for popup "Projektseite" links (can't use react-router inside Leaflet HTML)
+  useEffect(() => {
+    window._mapNav = (id) => navigate(`/projects/${id}`)
+    return () => { delete window._mapNav }
+  }, [navigate])
 
   function focusProject(p) {
     setActiveProject(p.id === activeProject ? null : p.id)
@@ -230,58 +299,90 @@ export default function MapPage() {
             </button>
           )
         })}
+        {/* ── Projekt-Ordnerstruktur ── */}
         <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '10px 8px 6px' }}>Projekte</div>
-        {mappableProjects.map((p, i) => {
-          const pJobs = jobsByProject[p.id] || []
-          const isActive = activeProject === p.id
-          const color = projectColor(p, i)
+        {clientGroups.map(group => {
+          const isExpanded = expandedClients.has(group.id)
           return (
-            <div key={p.id} style={{ marginBottom: 3 }}>
-              <button onClick={() => focusProject(p)}
-                style={{ display: 'block', width: '100%', padding: '10px 10px', borderRadius: 6, border: `1px solid ${isActive ? color + '50' : 'transparent'}`, background: isActive ? color + '18' : 'transparent', cursor: 'pointer', textAlign: 'left' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: color, flexShrink: 0, boxShadow: isActive ? `0 0 6px ${color}80` : 'none' }} />
-                  <span style={{ fontSize: 13, color: FG, fontWeight: isActive ? 500 : 400, flex: 1 }}>{p.name}</span>
-                  {pJobs.length > 0 && (
-                    <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#F59E0B', background: '#F59E0B18', padding: '1px 5px', borderRadius: 8 }}>{pJobs.length}</span>
-                  )}
-                </div>
-                <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, paddingLeft: 18, display: 'flex', gap: 6, alignItems: 'center' }}>
-                  {p.location}
-                  {p.geojson && <span style={{ color: color, fontSize: 8 }}>● Fläche</span>}
-                </div>
+            <div key={group.id} style={{ marginBottom: 2 }}>
+              {/* Client folder header */}
+              <button onClick={() => toggleClientFolder(group.id)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '7px 8px', borderRadius: 6, border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}>
+                {isExpanded ? <ChevronDown size={12} color={MUTED} /> : <ChevronRight size={12} color={MUTED} />}
+                {isExpanded ? <FolderOpen size={13} color={group.color} /> : <Folder size={13} color={group.color} />}
+                <span style={{ fontSize: 12, fontWeight: 600, color: FG, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{group.name}</span>
+                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED }}>{group.projects.length}</span>
               </button>
 
-              {/* Draw button for active project (admin only) */}
-              {isActive && isAdmin && (
-                <button
-                  onClick={() => setDrawingProject(p)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '5px 10px 5px 28px', borderRadius: 4, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 11, fontFamily: "'Space Grotesk', sans-serif'" }}>
-                  <Pencil size={11} /> {p.geojson ? 'Fläche bearbeiten' : 'Fläche zeichnen'}
-                </button>
-              )}
+              {/* Projects inside folder */}
+              {isExpanded && group.projects.map(p => {
+                const pJobs = jobsByProject[p.id] || []
+                const isActive = activeProject === p.id
+                const color = projectColor(p, p._idx)
+                const hidden = hiddenProjects.has(p.id)
+                return (
+                  <div key={p.id} style={{ paddingLeft: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <button onClick={() => focusProject(p)} style={{
+                        flex: 1, display: 'flex', alignItems: 'center', gap: 7, padding: '7px 8px', borderRadius: 6,
+                        border: `1px solid ${isActive ? color + '55' : 'transparent'}`,
+                        background: isActive ? color + '18' : 'transparent', cursor: 'pointer', textAlign: 'left', minWidth: 0,
+                      }}>
+                        <div style={{ width: 9, height: 9, borderRadius: '50%', background: color, flexShrink: 0, opacity: hidden ? 0.3 : 1 }} />
+                        <span style={{ fontSize: 12, color: hidden ? MUTED : FG, fontWeight: isActive ? 600 : 400, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                        {pJobs.length > 0 && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#F6BF26', background: '#F6BF2618', padding: '1px 4px', borderRadius: 6, flexShrink: 0 }}>{pJobs.length}</span>}
+                      </button>
+                      {/* Visibility toggle */}
+                      <button onClick={() => toggleProjectVisibility(p.id)} title={hidden ? 'Einblenden' : 'Ausblenden'}
+                        style={{ width: 24, height: 24, borderRadius: 4, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {hidden ? <EyeOff size={11} /> : <Eye size={11} />}
+                      </button>
+                    </div>
 
-              {isActive && pJobs.length > 0 && (
-                <div style={{ paddingLeft: 28, marginTop: 4, display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  {pJobs.map(j => {
-                    const jtype = JOB_TYPES.find(t => t.id === j.job_type)
-                    const workers = (j.assigned_users || []).map(id => TEAM.find(t => t.id === id)).filter(Boolean)
-                    return (
-                      <div key={j.id} style={{ fontSize: 11, color: MUTED, display: 'flex', gap: 6, alignItems: 'center' }}>
-                        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: jtype?.color || MUTED, flexShrink: 0 }}>{j.date.slice(5)}</span>
-                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{j.title}</span>
-                        <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
-                          {workers.slice(0, 2).map(w => (
-                            <div key={w.id} style={{ width: 16, height: 16, borderRadius: '50%', background: w.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 6, color: '#001219', fontWeight: 700 }}>{w.initials}</span>
+                    {/* Sub-layers: GeoJSON features */}
+                    {isActive && p.geojson && (
+                      <div style={{ paddingLeft: 16, marginBottom: 4 }}>
+                        {(p.geojson.features || [p.geojson]).map((feat, fi) => {
+                          const geomType = feat.geometry?.type || 'Feature'
+                          const label = feat.properties?.name || `${geomType === 'LineString' ? 'Linie' : 'Fläche'} ${fi + 1}`
+                          return (
+                            <div key={fi} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 4px', borderRadius: 4, fontSize: 11, color: MUTED }}>
+                              <div style={{ width: 8, height: 8, borderRadius: 2, background: color, opacity: 0.7, flexShrink: 0 }} />
+                              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
                             </div>
-                          ))}
-                        </div>
+                          )
+                        })}
+                        {isAdmin && (
+                          <button onClick={() => setDrawingProject(p)}
+                            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 4px', borderRadius: 4, border: 'none', background: 'transparent', color: color, cursor: 'pointer', fontSize: 11, width: '100%', marginTop: 2 }}>
+                            <Pencil size={10} /> {p.geojson ? 'Fläche bearbeiten' : 'Fläche zeichnen'}
+                          </button>
+                        )}
                       </div>
-                    )
-                  })}
-                </div>
-              )}
+                    )}
+                    {isActive && !p.geojson && isAdmin && (
+                      <button onClick={() => setDrawingProject(p)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 24px', borderRadius: 4, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 11, width: '100%' }}>
+                        <Pencil size={10} /> Fläche zeichnen
+                      </button>
+                    )}
+
+                    {isActive && pJobs.length > 0 && (
+                      <div style={{ paddingLeft: 16, marginBottom: 4, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        {pJobs.map(j => {
+                          const jtype = JOB_TYPES.find(t => t.id === j.job_type)
+                          return (
+                            <div key={j.id} style={{ fontSize: 10, color: MUTED, display: 'flex', gap: 5, alignItems: 'center' }}>
+                              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: jtype?.color || MUTED, flexShrink: 0 }}>{j.date.slice(5)}</span>
+                              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{j.title}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )
         })}
@@ -305,8 +406,16 @@ export default function MapPage() {
           .leaflet-control-attribution a { color: rgba(8,170,86,0.7) !important; }
           .leaflet-control-zoom a { background: #0d1a23 !important; border-color: rgba(255,255,255,0.12) !important; color: #e8f0f5 !important; }
           .leaflet-control-zoom a:hover { background: rgba(8,170,86,0.2) !important; }
-          .leaflet-pm-toolbar .leaflet-pm-icon { filter: invert(1) brightness(0.8); }
-          .button-container { background: #0d1a23 !important; border: 1px solid rgba(255,255,255,0.1) !important; }
+          .leaflet-pm-toolbar .leaflet-pm-icon { filter: invert(1) brightness(0.75); }
+          .leaflet-pm-toolbar { background: #0d1a23 !important; border: 1px solid rgba(255,255,255,0.12) !important; border-radius: 8px !important; overflow: hidden; }
+          .leaflet-pm-toolbar .leaflet-pm-actions a, .button-container .leaflet-pm-action { background: #0d1a23 !important; border-color: rgba(255,255,255,0.1) !important; color: #e8f0f5 !important; }
+          .button-container { background: #0d1a23 !important; border-color: rgba(255,255,255,0.12) !important; }
+          .button-container button { background: #0d1a23 !important; border-color: rgba(255,255,255,0.12) !important; color: #e8f0f5 !important; }
+          .button-container button:hover { background: rgba(9,190,96,0.18) !important; }
+          .button-container button.active { background: rgba(9,190,96,0.22) !important; border-color: rgba(9,190,96,0.5) !important; }
+          .leaflet-pm-toolbar .leaflet-pm-icon-polygon, .leaflet-pm-toolbar .leaflet-pm-icon-polyline,
+          .leaflet-pm-toolbar .leaflet-pm-icon-rectangle, .leaflet-pm-toolbar .leaflet-pm-icon-edit,
+          .leaflet-pm-toolbar .leaflet-pm-icon-delete, .leaflet-pm-toolbar .leaflet-pm-icon-drag { filter: invert(1) brightness(0.8) !important; }
         `}</style>
 
         <MapContainer
@@ -326,13 +435,42 @@ export default function MapPage() {
 
           {flyTarget && <FlyTo center={flyTarget} />}
 
-          {/* Project GeoJSON polygons */}
+          {/* Project GeoJSON polygons — clickable with measurement popup */}
           {mappableProjects.map((p, i) => {
-            if (!p.geojson) return null
+            if (!p.geojson || hiddenProjects.has(p.id)) return null
             const color = projectColor(p, i)
             return (
-              <GeoJSON key={`${p.id}-geo`} data={p.geojson}
-                style={{ color, weight: 2.5, fillColor: color, fillOpacity: 0.12, dashArray: null }} />
+              <GeoJSON key={`${p.id}-geo-${JSON.stringify(p.geojson).length}`} data={p.geojson}
+                style={{ color, weight: 2.5, fillColor: color, fillOpacity: 0.18 }}
+                onEachFeature={(feature, layer) => {
+                  layer.on('click', (e) => {
+                    L.DomEvent.stopPropagation(e)
+                    let area = 0, perimeter = 0
+                    try {
+                      const ll = layer.getLatLngs ? layer.getLatLngs() : []
+                      area = geodesicArea(ll)
+                      perimeter = perimeterMeters(ll)
+                    } catch {}
+                    const featIdx = (p.geojson?.features || []).indexOf(feature) + 1
+                    const label = feature.properties?.name || `Fläche ${featIdx}`
+                    const popup = L.popup({ maxWidth: 240 })
+                      .setLatLng(e.latlng)
+                      .setContent(`
+                        <div style="font-family:'Space Grotesk',sans-serif;min-width:180px">
+                          <div style="font-weight:700;font-size:13px;color:#e8f0f5;margin-bottom:6px;border-left:3px solid ${color};padding-left:8px">${label}</div>
+                          <div style="font-size:10px;color:${color};font-family:'Space Mono',monospace;margin-bottom:8px;padding-left:11px">${p.name}</div>
+                          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
+                            ${area > 0 ? `<div style="background:rgba(255,255,255,0.06);border-radius:6px;padding:6px 8px"><div style="font-size:9px;color:rgba(232,240,245,0.45);margin-bottom:2px;font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:.06em">Fläche</div><div style="font-size:13px;font-weight:700;color:#e8f0f5">${fmtArea(area)}</div></div>` : ''}
+                            ${perimeter > 0 ? `<div style="background:rgba(255,255,255,0.06);border-radius:6px;padding:6px 8px"><div style="font-size:9px;color:rgba(232,240,245,0.45);margin-bottom:2px;font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:.06em">Umfang</div><div style="font-size:13px;font-weight:700;color:#e8f0f5">${fmtLen(perimeter)}</div></div>` : ''}
+                          </div>
+                          <a href="/projects/${p.id}" onclick="event.preventDefault();window._mapNav&&window._mapNav('${p.id}')" style="display:flex;align-items:center;justify-content:center;gap:4px;padding:6px 10px;border-radius:6px;background:${color}22;border:1px solid ${color}44;color:${color};font-size:11px;font-weight:600;text-decoration:none;cursor:pointer">↗ Projektseite</a>
+                        </div>`)
+                    popup.openOn(layer._map)
+                  })
+                  layer.on('mouseover', () => { layer.setStyle({ weight: 3.5, fillOpacity: 0.28 }) })
+                  layer.on('mouseout', () => { layer.setStyle({ weight: 2.5, fillOpacity: 0.18 }) })
+                }}
+              />
             )
           })}
 
