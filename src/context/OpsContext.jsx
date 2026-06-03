@@ -6,6 +6,15 @@ import { maybeSendWeeklySummary } from '../lib/weeklySummary.js'
 import * as gcal from '../lib/gcal.js'
 import { JOB_TYPES, SEED_CLIENTS, VEHICLES as SEED_VEHICLES } from '../data/seed.js'
 
+// Surface DB errors visibly so data loss is never silent
+function dbErr(table, op) {
+  return (err) => {
+    console.error(`[DB] ${op} on ${table} failed:`, err?.message || err)
+    const msg = `⚠️ Speicherfehler (${table}): ${err?.message || 'unbekannter Fehler'}`
+    if (window.__lumaToast) window.__lumaToast(msg)
+  }
+}
+
 const DEFAULT_CHIPS = [
   'Wochenpflege', 'Rasenmähen', 'Baumpflege', 'Schröpfschnitt',
   'Mulchen', 'Pflanzung', 'Bewässerung', 'Dokumentation',
@@ -50,13 +59,13 @@ export function OpsProvider({ children }) {
         if (cRows.data?.length) {
           setClientsState(cRows.data)
         } else if (cRows.data) {
-          sbUpsert('clients', SEED_CLIENTS).catch(console.error)
+          sbUpsert('clients', SEED_CLIENTS).catch(dbErr('ops','write'))
           setClientsState(SEED_CLIENTS)
         }
         if (vRows.data?.length) {
           setVehiclesState(vRows.data)
         } else if (vRows.data) {
-          sbUpsert('vehicles', SEED_VEHICLES).catch(console.error)
+          sbUpsert('vehicles', SEED_VEHICLES).catch(dbErr('ops','write'))
           setVehiclesState(SEED_VEHICLES)
         } else {
           setVehiclesState(SEED_VEHICLES)
@@ -141,7 +150,7 @@ export function OpsProvider({ children }) {
   function createJob(data) {
     const job = { ...data, id: genId(), created_at: new Date().toISOString() }
     setJobsState(prev => [...prev, job])
-    sbUpsert('jobs', [job]).catch(console.error)
+    sbUpsert('jobs', [job]).catch(dbErr('ops','write'))
 
     if (gcal.isConnected()) {
       const project = projects.find(p => p.id === data.project_id)
@@ -149,7 +158,7 @@ export function OpsProvider({ children }) {
         if (gcalId) {
           const updated = { ...job, gcal_event_id: gcalId }
           setJobsState(prev => prev.map(j => j.id === job.id ? updated : j))
-          sbUpdate('jobs', job.id, { gcal_event_id: gcalId }).catch(console.error)
+          sbUpdate('jobs', job.id, { gcal_event_id: gcalId }).catch(dbErr('ops','write'))
         }
       }).catch(() => {})
     }
@@ -177,7 +186,7 @@ export function OpsProvider({ children }) {
   function updateJob(id, changes) {
     const existing = jobs.find(j => j.id === id)
     setJobsState(prev => prev.map(j => j.id === id ? { ...j, ...changes } : j))
-    sbUpdate('jobs', id, changes).catch(console.error)
+    sbUpdate('jobs', id, changes).catch(dbErr('ops','write'))
 
     if (gcal.isConnected() && existing?.gcal_event_id) {
       const merged = { ...existing, ...changes }
@@ -200,7 +209,7 @@ export function OpsProvider({ children }) {
   function deleteJob(id) {
     const job = jobs.find(j => j.id === id)
     setJobsState(prev => prev.filter(j => j.id !== id))
-    sbDelete('jobs', id).catch(console.error)
+    sbDelete('jobs', id).catch(dbErr('ops','write'))
     if (gcal.isConnected() && job?.gcal_event_id) {
       gcal.deleteEvent(job.gcal_event_id).catch(() => {})
     }
@@ -219,36 +228,38 @@ export function OpsProvider({ children }) {
           assigned_users: tmpl.assigned_users, vehicle_id: tmpl.vehicle_id,
           tools: tmpl.tools, notes: tmpl.notes, status: 'planned',
           recurring_template_id: tmpl.id, created_at: new Date().toISOString(),
+          date_end: null, start_time: null, end_time: null, location: null, color: null, vehicle_ids: [],
         }
         setJobsState(prev => [...prev, nextJob])
-        sbUpsert('jobs', [nextJob]).catch(console.error)
+        sbUpsert('jobs', [nextJob]).catch(dbErr('ops','write'))
         const updatedTmpl = { ...tmpl, last_date: job.date, next_date: nextDate }
         setRecurringState(prev => prev.map(r => r.id === tmpl.id ? updatedTmpl : r))
-        sbUpdate('recurring_templates', tmpl.id, { last_date: job.date, next_date: nextDate }).catch(console.error)
+        sbUpdate('recurring_templates', tmpl.id, { last_date: job.date, next_date: nextDate }).catch(dbErr('ops','write'))
       }
     }
   }
 
   // ── Recurring ───────────────────────────────────────────────────────────────
   function createRecurring(data) {
-    const tmpl = { ...data, id: genId() }
+    const tmpl = { ...data, id: genId(), last_date: null }
     setRecurringState(prev => [...prev, tmpl])
-    sbUpsert('recurring_templates', [tmpl]).catch(console.error)
+    sbUpsert('recurring_templates', [tmpl]).catch(dbErr('ops','write'))
     const job = {
       id: genId(), project_id: tmpl.project_id, title: tmpl.title,
       job_type: tmpl.job_type, date: tmpl.next_date, duration: 'full',
       assigned_users: tmpl.assigned_users, vehicle_id: tmpl.vehicle_id,
       tools: tmpl.tools, notes: tmpl.notes || '', status: 'planned',
       recurring_template_id: tmpl.id, created_at: new Date().toISOString(),
+      date_end: null, start_time: null, end_time: null, location: null, color: null, vehicle_ids: [],
     }
     setJobsState(prev => [...prev, job])
-    sbUpsert('jobs', [job]).catch(console.error)
+    sbUpsert('jobs', [job]).catch(dbErr('ops','write'))
     return tmpl
   }
 
   function deleteRecurring(id) {
     setRecurringState(prev => prev.filter(r => r.id !== id))
-    sbDelete('recurring_templates', id).catch(console.error)
+    sbDelete('recurring_templates', id).catch(dbErr('ops','write'))
   }
 
   // ── Sensors ─────────────────────────────────────────────────────────────────
@@ -265,7 +276,7 @@ export function OpsProvider({ children }) {
         const project = projects.find(p => p.id === next.project_id)
         tgSend(tgGroups().pm, `🚨 <b>Sensor kritisch</b>\n<b>${next.name}</b>\n${project?.name || ''}\nAktuell: ${value}${next.unit} (Min: ${next.threshold_low}${next.unit})`)
       }
-      sbUpdate('sensors', id, { value, status: next?.status, last_updated: new Date().toISOString() }).catch(console.error)
+      sbUpdate('sensors', id, { value, status: next?.status, last_updated: new Date().toISOString() }).catch(dbErr('ops','write'))
       return updated
     })
   }
@@ -274,61 +285,61 @@ export function OpsProvider({ children }) {
   function createProject(data) {
     const project = { ...data, id: data.id || genId() }
     setProjectsState(prev => [...prev, project])
-    sbUpsert('projects', [project]).catch(console.error)
+    sbUpsert('projects', [project]).catch(dbErr('ops','write'))
     return project
   }
 
   function updateProject(id, changes) {
     setProjectsState(prev => prev.map(p => p.id === id ? { ...p, ...changes } : p))
-    sbUpdate('projects', id, changes).catch(console.error)
+    sbUpdate('projects', id, changes).catch(dbErr('ops','write'))
   }
 
   function deleteProject(id) {
     setProjectsState(prev => prev.filter(p => p.id !== id))
-    sbDelete('projects', id).catch(console.error)
+    sbDelete('projects', id).catch(dbErr('ops','write'))
   }
 
   // ── Clients ──────────────────────────────────────────────────────────────────
   async function createClient(data) {
     const client = { ...data, id: data.id || genId(), created_at: new Date().toISOString() }
     setClientsState(prev => [...prev, client].sort((a, b) => a.name.localeCompare(b.name)))
-    await sbInsert('clients', client).catch(console.error)
+    await sbInsert('clients', client).catch(dbErr('ops','write'))
     return client
   }
 
   function updateClient(id, changes) {
     setClientsState(prev => prev.map(c => c.id === id ? { ...c, ...changes } : c))
-    sbUpdate('clients', id, changes).catch(console.error)
+    sbUpdate('clients', id, changes).catch(dbErr('ops','write'))
   }
 
   function deleteClient(id) {
     setClientsState(prev => prev.filter(c => c.id !== id))
-    sbDelete('clients', id).catch(console.error)
+    sbDelete('clients', id).catch(dbErr('ops','write'))
   }
 
   // ── Vehicles ─────────────────────────────────────────────────────────────────
   async function createVehicle(data) {
     const vehicle = { ...data, id: data.id || genId(), created_at: new Date().toISOString() }
     setVehiclesState(prev => [...prev, vehicle])
-    await sbInsert('vehicles', vehicle).catch(console.error)
+    await sbInsert('vehicles', vehicle).catch(dbErr('ops','write'))
     return vehicle
   }
 
   function updateVehicle(id, changes) {
     setVehiclesState(prev => prev.map(v => v.id === id ? { ...v, ...changes } : v))
-    sbUpdate('vehicles', id, changes).catch(console.error)
+    sbUpdate('vehicles', id, changes).catch(dbErr('ops','write'))
   }
 
   function deleteVehicle(id) {
     setVehiclesState(prev => prev.filter(v => v.id !== id))
-    sbDelete('vehicles', id).catch(console.error)
+    sbDelete('vehicles', id).catch(dbErr('ops','write'))
   }
 
   // ── Chips ────────────────────────────────────────────────────────────────────
   function saveChips(newChips) {
     setChipsState(newChips)
     localStorage.setItem('luma_chips', JSON.stringify(newChips))
-    sb.from('app_settings').upsert({ key: 'activity_chips', value: newChips, updated_at: new Date().toISOString() }, { onConflict: 'key' }).catch(console.error)
+    sb.from('app_settings').upsert({ key: 'activity_chips', value: newChips, updated_at: new Date().toISOString() }, { onConflict: 'key' }).catch(dbErr('ops','write'))
   }
 
   return (

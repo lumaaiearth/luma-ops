@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { FolderOpen, Plus, X, ExternalLink, Pencil } from 'lucide-react'
 import { A, SURFACE, BORDER, FG, MUTED, CARD, A06, A14 } from '../lib/theme.js'
+import { sb, sbUpsert, sbDelete } from '../lib/supabase.js'
 
 const LABEL_STYLE = {
   fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED,
@@ -21,15 +22,11 @@ const DEFAULT_FOLDERS = [
   },
 ]
 
-function loadFolders() {
-  try {
-    const saved = JSON.parse(localStorage.getItem('luma_drive_folders') || 'null')
-    return saved || DEFAULT_FOLDERS
-  } catch { return DEFAULT_FOLDERS }
-}
-
-function saveFolders(folders) {
-  localStorage.setItem('luma_drive_folders', JSON.stringify(folders))
+function dbErr(msg) {
+  return (err) => {
+    console.error('[Drive]', msg, err?.message || err)
+    if (window.__lumaToast) window.__lumaToast(`⚠️ Drive-Fehler: ${err?.message || msg}`)
+  }
 }
 
 function DriveCardHeader() {
@@ -54,9 +51,31 @@ function DriveCardHeader() {
 }
 
 export default function DrivePage() {
-  const [folders, setFolders] = useState(loadFolders)
+  const [folders, setFolders] = useState([])
+  const [loaded, setLoaded] = useState(false)
   const [modal, setModal] = useState(null) // null | { id: null=add | 'id'=edit }
   const [form, setForm] = useState({ name: '', url: '', description: '' })
+
+  // Load from Supabase, fall back to localStorage seed
+  useEffect(() => {
+    sb.from('drive_folders').select('*').order('created_at').then(({ data, error }) => {
+      if (data?.length) {
+        setFolders(data)
+      } else {
+        // First load: migrate localStorage data or use defaults
+        const local = (() => {
+          try { return JSON.parse(localStorage.getItem('luma_drive_folders') || 'null') } catch { return null }
+        })()
+        const seed = local || DEFAULT_FOLDERS
+        setFolders(seed)
+        if (!error) {
+          // Seed into DB
+          sbUpsert('drive_folders', seed.map(f => ({ ...f, files: f.files || [], updated_at: new Date().toISOString() }))).catch(dbErr('seed'))
+        }
+      }
+      setLoaded(true)
+    })
+  }, [])
 
   function openAdd() {
     setForm({ name: '', url: '', description: '' })
@@ -64,28 +83,28 @@ export default function DrivePage() {
   }
 
   function openEdit(folder) {
-    setForm({ name: folder.name, url: folder.url, description: folder.description || '' })
+    setForm({ name: folder.name, url: folder.url || '', description: folder.description || '' })
     setModal({ id: folder.id })
   }
 
   function handleSubmit(e) {
     e.preventDefault()
-    if (!form.name.trim() || !form.url.trim()) return
-    let next
+    if (!form.name.trim()) return
     if (modal.id) {
-      next = folders.map(f => f.id === modal.id ? { ...f, name: form.name.trim(), url: form.url.trim(), description: form.description.trim() } : f)
+      const updated = { name: form.name.trim(), url: form.url.trim(), description: form.description.trim(), updated_at: new Date().toISOString() }
+      setFolders(prev => prev.map(f => f.id === modal.id ? { ...f, ...updated } : f))
+      sb.from('drive_folders').update(updated).eq('id', modal.id).catch(dbErr('update'))
     } else {
-      next = [...folders, { id: Date.now().toString(), name: form.name.trim(), url: form.url.trim(), description: form.description.trim() }]
+      const folder = { id: Date.now().toString(), name: form.name.trim(), url: form.url.trim(), description: form.description.trim(), files: [], created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+      setFolders(prev => [...prev, folder])
+      sbUpsert('drive_folders', [folder]).catch(dbErr('insert'))
     }
-    setFolders(next)
-    saveFolders(next)
     setModal(null)
   }
 
   function handleDelete(id) {
-    const next = folders.filter(f => f.id !== id)
-    setFolders(next)
-    saveFolders(next)
+    setFolders(prev => prev.filter(f => f.id !== id))
+    sbDelete('drive_folders', id).catch(dbErr('delete'))
   }
 
   const isEditing = modal?.id != null

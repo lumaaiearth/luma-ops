@@ -212,6 +212,24 @@ export default function ProjectPage() {
                 </div>
               )}
 
+              {/* Pflanzplan */}
+              {project.plant_plan?.length > 0 && (
+                <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, padding: 16 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Pflanzplan</div>
+                    <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A }}>{project.plant_plan.reduce((s, p) => s + p.count, 0)} Pflanzen · {project.plant_plan.length} Arten</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {project.plant_plan.map(p => (
+                      <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', borderBottom: `1px solid ${BORDER}` }}>
+                        <span style={{ color: FG }}>{p.name}</span>
+                        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: A }}>×{p.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Notes */}
               <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, padding: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>

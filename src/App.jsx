@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { useState, useEffect, useCallback } from 'react'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import { AuthProvider, useAuth } from './context/AuthContext.jsx'
 import { OpsProvider } from './context/OpsContext.jsx'
@@ -53,6 +54,30 @@ function AppRoutes() {
   )
 }
 
+function DbToast() {
+  const [toasts, setToasts] = useState([])
+
+  useEffect(() => {
+    window.__lumaToast = (msg) => {
+      const id = Date.now()
+      setToasts(prev => [...prev, { id, msg }])
+      setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 6000)
+    }
+    return () => { delete window.__lumaToast }
+  }, [])
+
+  if (!toasts.length) return null
+  return (
+    <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {toasts.map(t => (
+        <div key={t.id} style={{ background: '#7f1d1d', border: '1px solid #dc2626', color: '#fca5a5', padding: '10px 16px', borderRadius: 8, fontSize: 13, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 4px 20px rgba(0,0,0,0.5)', maxWidth: 380 }}>
+          {t.msg}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function App() {
   return (
     <ThemeProvider>
@@ -62,6 +87,7 @@ export default function App() {
           <OpsProvider>
             <TimeProvider>
               <AppRoutes />
+              <DbToast />
             </TimeProvider>
           </OpsProvider>
         </GCalProvider>

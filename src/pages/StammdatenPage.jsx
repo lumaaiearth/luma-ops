@@ -1,8 +1,9 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useOps } from '../context/OpsContext.jsx'
 import { A, SURFACE, BORDER, FG, MUTED, CARD, A06, A14, A18, A30 } from '../lib/theme.js'
 import { genId } from '../lib/storage.js'
-import { Plus, Pencil, Trash2, X, Check, MapPin, User, Building2, Phone, Mail } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Check, MapPin, User, Building2, Phone, Mail, ExternalLink } from 'lucide-react'
 
 const INPUT = {
   background: SURFACE, border: `1px solid ${BORDER}`,
@@ -173,7 +174,9 @@ function ClientModal({ client, onSave, onClose }) {
 // ── Main Page ──────────────────────────────────────────────────────────────────
 export default function StammdatenPage() {
   const { projects, clients, createProject, updateProject, deleteProject, createClient, updateClient, deleteClient } = useOps()
+  const navigate = useNavigate()
   const [tab, setTab] = useState('projects')
+  const [expandedClient, setExpandedClient] = useState(null)
   const [projectModal, setProjectModal] = useState(null) // null | 'new' | project object
   const [clientModal, setClientModal] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
@@ -243,7 +246,10 @@ export default function StammdatenPage() {
               <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 6, borderLeft: `3px solid ${statusColor}` }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                    <span style={{ fontSize: 13, fontWeight: 500, color: FG }}>{p.name}</span>
+                    <button onClick={() => navigate(`/projects/${p.id}`)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, color: FG }}>
+                      <span style={{ fontSize: 13, fontWeight: 500 }}>{p.name}</span>
+                      <ExternalLink size={10} color={A} />
+                    </button>
                     <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: statusColor, background: `${statusColor}14`, padding: '2px 6px', borderRadius: 4 }}>
                       {STATUS_LABELS[p.status] || 'Aktiv'}
                     </span>
@@ -287,50 +293,72 @@ export default function StammdatenPage() {
             <div style={{ padding: '32px', textAlign: 'center', color: MUTED, fontFamily: "'Space Mono', monospace", fontSize: 12 }}>Keine Kunden</div>
           )}
           {clients.map(c => {
-            const projectCount = projects.filter(p => p.client_id === c.id).length
+            const clientProjects = projects.filter(p => p.client_id === c.id).sort((a, b) => a.name.localeCompare(b.name))
+            const isExpanded = expandedClient === c.id
             return (
-              <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 6, borderLeft: `3px solid ${A}` }}>
-                <div style={{ width: 36, height: 36, borderRadius: '50%', background: A18, border: `1px solid ${A30}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Building2 size={16} color={A} />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                    <span style={{ fontSize: 13, fontWeight: 500, color: FG }}>{c.name}</span>
-                    {projectCount > 0 && (
-                      <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: A, background: A14, padding: '2px 6px', borderRadius: 4 }}>
-                        {projectCount} Projekt{projectCount > 1 ? 'e' : ''}
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-                    {c.contact_name && (
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>
-                        <User size={9} /> {c.contact_name}
-                      </span>
-                    )}
-                    {c.contact_email && (
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>
-                        <Mail size={9} /> {c.contact_email}
-                      </span>
-                    )}
-                    {c.contact_phone && (
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>
-                        <Phone size={9} /> {c.contact_phone}
-                      </span>
-                    )}
-                    {!c.contact_name && !c.contact_email && !c.contact_phone && c.address && (
-                      <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>{c.address}</span>
-                    )}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                  <button onClick={() => setClientModal(c)} style={{ width: 28, height: 28, borderRadius: 4, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Pencil size={12} />
+              <div key={c.id} style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 6, borderLeft: `3px solid ${A}`, overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px' }}>
+                  <button onClick={() => setExpandedClient(isExpanded ? null : c.id)} style={{ width: 36, height: 36, borderRadius: '50%', background: A18, border: `1px solid ${A30}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}>
+                    <Building2 size={16} color={A} />
                   </button>
-                  <button onClick={() => confirmDelete('client', c.id, c.name)} style={{ width: 28, height: 28, borderRadius: 4, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Trash2 size={12} />
-                  </button>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                      <button onClick={() => setExpandedClient(isExpanded ? null : c.id)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 13, fontWeight: 500, color: FG, textAlign: 'left' }}>{c.name}</button>
+                      {clientProjects.length > 0 && (
+                        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: A, background: A14, padding: '2px 6px', borderRadius: 4, cursor: 'pointer' }} onClick={() => setExpandedClient(isExpanded ? null : c.id)}>
+                          {clientProjects.length} Projekt{clientProjects.length > 1 ? 'e' : ''}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                      {c.contact_name && (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>
+                          <User size={9} /> {c.contact_name}
+                        </span>
+                      )}
+                      {c.contact_email && (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>
+                          <Mail size={9} /> {c.contact_email}
+                        </span>
+                      )}
+                      {c.contact_phone && (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>
+                          <Phone size={9} /> {c.contact_phone}
+                        </span>
+                      )}
+                      {!c.contact_name && !c.contact_email && !c.contact_phone && c.address && (
+                        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>{c.address}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                    <button onClick={() => setClientModal(c)} style={{ width: 28, height: 28, borderRadius: 4, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Pencil size={12} />
+                    </button>
+                    <button onClick={() => confirmDelete('client', c.id, c.name)} style={{ width: 28, height: 28, borderRadius: 4, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
                 </div>
+                {isExpanded && clientProjects.length > 0 && (
+                  <div style={{ borderTop: `1px solid ${BORDER}`, padding: '8px 16px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {clientProjects.map(p => {
+                      const sc = STATUS_COLORS[p.status] || A
+                      return (
+                        <button key={p.id} onClick={() => navigate(`/projects/${p.id}`)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', borderRadius: 5, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', textAlign: 'left', width: '100%' }}>
+                          <div style={{ width: 6, height: 6, borderRadius: '50%', background: sc, flexShrink: 0 }} />
+                          <span style={{ flex: 1, fontSize: 12, color: FG }}>{p.name}</span>
+                          {p.location && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED }}>{p.location}</span>}
+                          <ExternalLink size={10} color={A} />
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+                {isExpanded && clientProjects.length === 0 && (
+                  <div style={{ borderTop: `1px solid ${BORDER}`, padding: '10px 16px', fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>Keine Projekte</div>
+                )}
               </div>
             )
           })}

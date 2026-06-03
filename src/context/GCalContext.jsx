@@ -89,10 +89,14 @@ export function GCalProvider({ children }) {
     }
   }
 
-  const fetchForRange = useCallback(async (from, to) => {
+  const debounceRef = useRef(null)
+  const fetchForRange = useCallback((from, to) => {
     if (!gcal.isConnected()) return
     rangeRef.current = { from, to }
-    await _doFetch(from, to, enabledRef.current)
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      _doFetch(from, to, enabledRef.current)
+    }, 300)
   }, [])
 
   function connect() { if (!ready) return; gcal.requestToken() }

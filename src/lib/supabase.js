@@ -24,7 +24,8 @@ export async function sbDelete(table, id) {
 }
 
 export async function sbInsert(table, row) {
-  const { data, error } = await sb.from(table).insert(row).select().single()
+  // Use upsert so duplicate IDs don't crash — safer than insert for idempotent creates
+  const { data, error } = await sb.from(table).upsert(row, { onConflict: 'id' }).select().single()
   if (error) throw error
   return data
 }

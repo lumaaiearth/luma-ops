@@ -440,7 +440,7 @@ export default function MapPage() {
             if (!p.geojson || hiddenProjects.has(p.id)) return null
             const color = projectColor(p, i)
             return (
-              <GeoJSON key={`${p.id}-geo-${JSON.stringify(p.geojson).length}`} data={p.geojson}
+              <GeoJSON key={`${p.id}-geo-${(p.geojson?.features || []).length}`} data={p.geojson}
                 style={{ color, weight: 2.5, fillColor: color, fillOpacity: 0.18 }}
                 onEachFeature={(feature, layer) => {
                   layer.on('click', (e) => {

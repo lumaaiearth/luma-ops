@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { A, SURFACE, BORDER, FG, MUTED, BG, A14, A20 } from '../lib/theme.js'
 import { useTheme } from '../context/ThemeContext.jsx'
 import { useBreakpoint } from '../lib/useBreakpoint.js'
+import { useOps } from '../context/OpsContext.jsx'
 import { PLANTS, filterPlants, LICHT_LABELS, WASSER_LABELS, BODEN_LABELS, TYPE_LABELS, MONTHS, DRAINAGE_LABELS, WUCHSFORM_LABELS } from '../data/plants.js'
 import {
   Leaf, Search, Plus, Minus, ExternalLink, X, ChevronDown, ChevronUp,
@@ -47,6 +48,7 @@ export default function PlanningPage() {
   const L = themeId === 'light'
   const bp = useBreakpoint()
   const isMobile = bp === 'xs' || bp === 'sm'
+  const { projects = [], updateProject } = useOps()
 
   // ── Filters
   const [licht, setLicht] = useState(null)
@@ -67,6 +69,8 @@ export default function PlanningPage() {
   // ── Plan
   const [plan, setPlan] = useState([])
   const [activeTab, setActiveTab] = useState('suche')
+  const [saveProjectId, setSaveProjectId] = useState('')
+  const [savedToProject, setSavedToProject] = useState(false)
   const [expandedPlant, setExpandedPlant] = useState(null)
   const [sheetPlant, setSheetPlant] = useState(null) // mobile steckbrief
 
@@ -106,6 +110,14 @@ export default function PlanningPage() {
   }
 
   const totalPlants = plan.reduce((s, p) => s + p.count, 0)
+
+  async function savePlanToProject() {
+    if (!saveProjectId || !updateProject) return
+    const payload = plan.map(p => ({ id: p.id, name: p.name, count: p.count }))
+    await updateProject(saveProjectId, { plant_plan: payload })
+    setSavedToProject(true)
+    setTimeout(() => setSavedToProject(false), 2500)
+  }
   const beetArea = beetForm === 'oval'
     ? Math.PI * (beetW / 2) * (beetH / 2)
     : beetW * beetH
@@ -398,6 +410,29 @@ export default function PlanningPage() {
                   🌿 Im Beet planen →
                 </button>
               </div>
+
+              {/* Attach to project */}
+              {projects.length > 0 && (
+                <div style={{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <select
+                    value={saveProjectId}
+                    onChange={e => { setSaveProjectId(e.target.value); setSavedToProject(false) }}
+                    style={{ flex: 1, minWidth: 180, background: L ? '#fff' : SURFACE, border: `1px solid ${BORDER}`, color: FG, borderRadius: 8, padding: '9px 12px', fontSize: 13, cursor: 'pointer' }}
+                  >
+                    <option value="">— Projekt auswählen —</option>
+                    {projects.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={savePlanToProject}
+                    disabled={!saveProjectId || plan.length === 0}
+                    style={{ display: 'flex', alignItems: 'center', gap: 7, background: saveProjectId && plan.length ? A : (L ? '#e5e7eb' : '#1e2a32'), border: 'none', color: saveProjectId && plan.length ? '#fff' : MUTED, borderRadius: 8, padding: '9px 18px', cursor: saveProjectId && plan.length ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 600, transition: 'background 0.15s' }}
+                  >
+                    {savedToProject ? '✓ Gespeichert' : '📎 An Projekt anhängen'}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

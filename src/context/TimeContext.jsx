@@ -2,6 +2,13 @@ import { createContext, useContext, useState, useEffect } from 'react'
 import { sb, sbUpsert, sbDelete, sbUpdate } from '../lib/supabase.js'
 import { getTimeEntries, getInvoices, genId } from '../lib/storage.js'
 
+function dbErr(table, op) {
+  return (err) => {
+    console.error(`[DB] ${op} on ${table} failed:`, err?.message || err)
+    if (window.__lumaToast) window.__lumaToast(`⚠️ Speicherfehler (${table}): ${err?.message || 'unbekannter Fehler'}`)
+  }
+}
+
 const TimeContext = createContext(null)
 
 export function TimeProvider({ children }) {
@@ -49,41 +56,41 @@ export function TimeProvider({ children }) {
   function logTime(data) {
     const entry = { ...data, id: genId(), created_at: new Date().toISOString(), invoice_id: null }
     setEntries(prev => [entry, ...prev])
-    sbUpsert('time_entries', [entry]).catch(console.error)
+    sbUpsert('time_entries', [entry]).catch(dbErr('time','write'))
     return entry
   }
 
   function updateEntry(id, changes) {
     setEntries(prev => prev.map(e => e.id === id ? { ...e, ...changes } : e))
-    sbUpdate('time_entries', id, changes).catch(console.error)
+    sbUpdate('time_entries', id, changes).catch(dbErr('time','write'))
   }
 
   function deleteEntry(id) {
     setEntries(prev => prev.filter(e => e.id !== id))
-    sbDelete('time_entries', id).catch(console.error)
+    sbDelete('time_entries', id).catch(dbErr('time','write'))
   }
 
   function createInvoice(data) {
     const inv = { ...data, id: genId(), date_paid: null, created_at: new Date().toISOString() }
     setInvoices(prev => [inv, ...prev])
-    sbUpsert('invoices', [inv]).catch(console.error)
+    sbUpsert('invoices', [inv]).catch(dbErr('time','write'))
     setEntries(prev => prev.map(e => data.entry_ids.includes(e.id) ? { ...e, invoice_id: inv.id } : e))
-    data.entry_ids.forEach(eid => sbUpdate('time_entries', eid, { invoice_id: inv.id }).catch(console.error))
+    data.entry_ids.forEach(eid => sbUpdate('time_entries', eid, { invoice_id: inv.id }).catch(dbErr('time','write')))
     return inv
   }
 
   function markPaid(invoiceId) {
     const date_paid = new Date().toISOString().slice(0, 10)
     setInvoices(prev => prev.map(inv => inv.id === invoiceId ? { ...inv, date_paid } : inv))
-    sbUpdate('invoices', invoiceId, { date_paid }).catch(console.error)
+    sbUpdate('invoices', invoiceId, { date_paid }).catch(dbErr('time','write'))
   }
 
   function deleteInvoice(invoiceId) {
     setEntries(prev => prev.map(e => e.invoice_id === invoiceId ? { ...e, invoice_id: null } : e))
     setInvoices(prev => prev.filter(inv => inv.id !== invoiceId))
-    sbDelete('invoices', invoiceId).catch(console.error)
+    sbDelete('invoices', invoiceId).catch(dbErr('time','write'))
     entries.filter(e => e.invoice_id === invoiceId).forEach(e =>
-      sbUpdate('time_entries', e.id, { invoice_id: null }).catch(console.error)
+      sbUpdate('time_entries', e.id, { invoice_id: null }).catch(dbErr('time','write'))
     )
   }
 
