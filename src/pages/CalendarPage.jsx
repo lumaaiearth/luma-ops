@@ -57,10 +57,11 @@ function layoutJobs(dayJobs) {
 
 function getClientColor(job, projects, clients) {
   if (job.calendarColor) return job.calendarColor
+  const type = JOB_TYPES.find(t => t.id === job.job_type)
   const proj = projects.find(p => p.id === job.project_id)
-  if (!proj) return '#6B7280'
+  if (!proj) return type?.color || '#616161'
   const cl = clients.find(c => c.id === proj.client_id)
-  return cl?.color || '#6B7280'
+  return cl?.color || type?.color || '#616161'
 }
 
 function EventBlock({ job, projects, clients, onOpen, onPointerDown, isGhost }) {

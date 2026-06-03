@@ -24,26 +24,26 @@ export const VEHICLES = [
 ]
 
 export const JOB_TYPES = [
-  { id: 'pflege',       label: 'Pflege',       labelEN: 'Stewardship',   color: '#08AA56' },
-  { id: 'baumpflege',   label: 'Baumpflege',   labelEN: 'Tree Care',     color: '#F59E0B' },
-  { id: 'installation', label: 'Installation', labelEN: 'Installation',  color: '#3B82F6' },
-  { id: 'beratung',     label: 'Beratung',     labelEN: 'Consulting',    color: '#8B5CF6' },
-  { id: 'giessen',      label: 'Gießen',       labelEN: 'Irrigation',    color: '#06B6D4' },
-  { id: 'maehen',       label: 'Mähen',        labelEN: 'Mowing',        color: '#84CC16' },
-  { id: 'drohne',       label: 'Drohne',       labelEN: 'Drone Survey',  color: '#F97316' },
-  { id: 'sonstiges',    label: 'Sonstiges',    labelEN: 'Other',         color: '#6B7280' },
+  { id: 'pflege',       label: 'Pflege',       labelEN: 'Stewardship',   color: '#0B8043' },
+  { id: 'baumpflege',   label: 'Baumpflege',   labelEN: 'Tree Care',     color: '#F6BF26' },
+  { id: 'installation', label: 'Installation', labelEN: 'Installation',  color: '#3F51B5' },
+  { id: 'beratung',     label: 'Beratung',     labelEN: 'Consulting',    color: '#8E24AA' },
+  { id: 'giessen',      label: 'Gießen',       labelEN: 'Irrigation',    color: '#039BE5' },
+  { id: 'maehen',       label: 'Mähen',        labelEN: 'Mowing',        color: '#7CB342' },
+  { id: 'drohne',       label: 'Drohne',       labelEN: 'Drone Survey',  color: '#F4511E' },
+  { id: 'sonstiges',    label: 'Sonstiges',    labelEN: 'Other',         color: '#616161' },
 ]
 
 export const SEED_CLIENTS = [
-  { id: 'jope',         name: 'JOPE AG',                       color: '#3B82F6' },
-  { id: 'bew',          name: 'BEW / Vattenfall',              color: '#08AA56' },
-  { id: 'stromnetz',    name: 'Stromnetz Berlin',              color: '#F59E0B' },
-  { id: 'wisag',        name: 'WISAG',                         color: '#F97316' },
-  { id: 'miya',         name: 'MIYA',                          color: '#22EAA7' },
-  { id: 'eberswalde',   name: 'Stadt Eberswalde',              color: '#84CC16' },
-  { id: 'gruenflaeche', name: 'Grünflächenamt Charlottenburg', color: '#06B6D4' },
-  { id: 'loidl',        name: 'Loidl',                         color: '#8B5CF6' },
-  { id: 'htw-client',   name: 'HTW Berlin',                    color: '#EC4899' },
+  { id: 'jope',         name: 'JOPE AG',                       color: '#3F51B5' },
+  { id: 'bew',          name: 'BEW / Vattenfall',              color: '#0B8043' },
+  { id: 'stromnetz',    name: 'Stromnetz Berlin',              color: '#F6BF26' },
+  { id: 'wisag',        name: 'WISAG',                         color: '#D50000' },
+  { id: 'miya',         name: 'MIYA',                          color: '#33B679' },
+  { id: 'eberswalde',   name: 'Stadt Eberswalde',              color: '#7CB342' },
+  { id: 'gruenflaeche', name: 'Grünflächenamt Charlottenburg', color: '#039BE5' },
+  { id: 'loidl',        name: 'Loidl',                         color: '#8E24AA' },
+  { id: 'htw-client',   name: 'HTW Berlin',                    color: '#E67C73' },
 ]
 
 export const PROJECTS_OPS = [
