@@ -239,21 +239,34 @@ export default function PlanningPage() {
             </div>
           </div>
 
-          {/* Plant Grid */}
+          {/* Plant Grid / List */}
           <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '0 12px 24px' : '0 24px 24px' }}>
             {filtered.length === 0 ? (
               <EmptyState msg="Keine Pflanzen für diese Kombination 🌵" sub="Probiere andere Filter" />
+            ) : isMobile ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {filtered.map(plant => (
+                  <PlantListRow
+                    key={plant.id}
+                    plant={plant}
+                    onTap={() => setSheetPlant(plant)}
+                    onAdd={() => addToPlan(plant)}
+                    inPlan={plan.find(p => p.id === plant.id)}
+                    L={L} shadow={shadow} cardBg={cardBg}
+                  />
+                ))}
+              </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fill, minmax(290px, 1fr))', gap: isMobile ? 8 : 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 10 }}>
                 {filtered.map(plant => (
                   <PlantCard
                     key={plant.id}
                     plant={plant}
                     expanded={expandedPlant === plant.id}
-                    onToggle={() => isMobile ? setSheetPlant(plant) : setExpandedPlant(expandedPlant === plant.id ? null : plant.id)}
+                    onToggle={() => setExpandedPlant(expandedPlant === plant.id ? null : plant.id)}
                     onAdd={() => addToPlan(plant)}
                     inPlan={plan.find(p => p.id === plant.id)}
-                    isMobile={isMobile}
+                    isMobile={false}
                     L={L} shadow={shadow} cardBg={cardBg}
                   />
                 ))}
@@ -723,16 +736,18 @@ function PlantGallery({ plant }) {
   )
 }
 
-function CardThumb({ plant: p }) {
+function CardThumb({ plant: p, compact }) {
   const [error, setError] = useState(false)
+  const h = compact ? 52 : 110
+  const w = compact ? 52 : '100%'
   if (!p.wiki_img || error) return (
-    <div style={{ height: 110, background: p.bluete_farbe ? p.bluete_farbe + '22' : BORDER, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 36, height: 36, borderRadius: '50%', background: p.bluete_farbe || A, opacity: 0.5 }} />
+    <div style={{ width: w, height: h, flexShrink: 0, background: p.bluete_farbe ? p.bluete_farbe + '22' : BORDER, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: compact ? 20 : 36, height: compact ? 20 : 36, borderRadius: '50%', background: p.bluete_farbe || A, opacity: 0.5 }} />
     </div>
   )
   return (
     <img src={p.wiki_img} alt={p.latin}
-      style={{ width: '100%', height: 110, objectFit: 'cover', display: 'block' }}
+      style={{ width: w, height: h, flexShrink: 0, objectFit: 'cover', display: 'block' }}
       onError={() => setError(true)} />
   )
 }
@@ -823,6 +838,41 @@ function PlantCard({ plant: p, expanded, onToggle, onAdd, inPlan, isMobile, L, s
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+/* ─── MOBILE LIST ROW ───────────────────────────────────────────────────── */
+function PlantListRow({ plant: p, onTap, onAdd, inPlan, L, shadow, cardBg }) {
+  return (
+    <div onClick={onTap} style={{
+      display: 'flex', alignItems: 'center', gap: 10,
+      background: cardBg, borderRadius: 10, boxShadow: shadow,
+      overflow: 'hidden', cursor: 'pointer',
+      borderLeft: `3px solid ${p.bluete_farbe || '#888'}`,
+    }}>
+      {/* Thumb */}
+      <CardThumb plant={p} compact />
+      {/* Info */}
+      <div style={{ flex: 1, minWidth: 0, padding: '8px 0' }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: FG, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+        <div style={{ fontSize: 10, fontStyle: 'italic', color: MUTED, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: 3 }}>{p.latin}</div>
+        <div style={{ display: 'flex', gap: 3, alignItems: 'center', flexWrap: 'wrap' }}>
+          <MBadge emoji="☀️" label={p.licht.map(l => LICHT_LABELS[l]).join('/')} L={L} />
+          <MBadge emoji="💧" label={p.wasser.map(w => WASSER_LABELS[w]).join('/')} L={L} />
+          {p.bienen && <span style={{ fontSize: 11 }}>🐝</span>}
+          {p.tagfalter && <span style={{ fontSize: 11 }}>🦋</span>}
+          {p.raupenfutter && <span style={{ fontSize: 11 }}>🐛</span>}
+          {p.heimisch && <span style={{ fontSize: 8, background: '#047A3C18', color: '#047A3C', border: '1px solid #047A3C30', padding: '1px 5px', borderRadius: 100, fontWeight: 700 }}>heimisch</span>}
+        </div>
+      </div>
+      {/* Add button */}
+      <button onClick={e => { e.stopPropagation(); onAdd() }} style={{
+        width: 32, height: 32, borderRadius: 8, flexShrink: 0, marginRight: 10,
+        background: inPlan ? '#047A3C' : 'rgba(0,0,0,0.08)', border: 'none',
+        color: inPlan ? '#fff' : FG, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700,
+      }}>{inPlan ? inPlan.count : <Plus size={14} />}</button>
     </div>
   )
 }
