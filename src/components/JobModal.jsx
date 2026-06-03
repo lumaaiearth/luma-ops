@@ -368,16 +368,32 @@ export default function JobModal({ initialDate, initialJob, initialStartTime, in
             </div>
           </div>
 
-          {/* Times */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label style={LABEL_STYLE}>Von</label>
-              <TimePicker value={form.start_time} onChange={v => setForm(f => ({ ...f, start_time: v }))} />
-            </div>
-            <div>
-              <label style={LABEL_STYLE}>Bis</label>
-              <TimePicker value={form.end_time} onChange={v => setForm(f => ({ ...f, end_time: v }))} />
-            </div>
+          {/* All-day toggle + Times */}
+          <div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 10, width: 'fit-content' }}>
+              <input
+                type="checkbox"
+                checked={!form.start_time && !form.end_time}
+                onChange={e => {
+                  if (e.target.checked) setForm(f => ({ ...f, start_time: '', end_time: '' }))
+                  else setForm(f => ({ ...f, start_time: '09:00', end_time: '10:00' }))
+                }}
+                style={{ width: 16, height: 16, accentColor: A, cursor: 'pointer' }}
+              />
+              <span style={{ ...LABEL_STYLE, margin: 0 }}>Ganztägig</span>
+            </label>
+            {(form.start_time || form.end_time) && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={LABEL_STYLE}>Von</label>
+                  <TimePicker value={form.start_time} onChange={v => setForm(f => ({ ...f, start_time: v }))} />
+                </div>
+                <div>
+                  <label style={LABEL_STYLE}>Bis</label>
+                  <TimePicker value={form.end_time} onChange={v => setForm(f => ({ ...f, end_time: v }))} />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Location with Nominatim autocomplete */}
