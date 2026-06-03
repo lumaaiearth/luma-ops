@@ -79,6 +79,8 @@ export async function fetchEvents(from, to, calendarId = getCalendarId()) {
     date_end: ev.end?.date
       ? shiftDayBack(ev.end.date)  // GCal all-day end is exclusive
       : (ev.end?.dateTime || '').slice(0, 10),
+    start_time: ev.start?.dateTime ? ev.start.dateTime.slice(11, 16) : null,
+    end_time: ev.end?.dateTime ? ev.end.dateTime.slice(11, 16) : null,
     description: ev.description || '',
     colorId: ev.colorId,
     isGCal: true,

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { ChevronLeft, ChevronRight, Plus, CalendarDays, LayoutGrid } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, CalendarDays, Menu, X, ChevronDown, ChevronUp, List } from 'lucide-react'
 import { useOps } from '../context/OpsContext.jsx'
 import { useGCal } from '../context/GCalContext.jsx'
 import { A, BG, SURFACE, BORDER, FG, MUTED, A06, A0a, A0d, A14, A40 } from '../lib/theme.js'
@@ -56,6 +56,7 @@ function layoutJobs(dayJobs) {
 }
 
 function getClientColor(job, projects, clients) {
+  if (job.calendarColor) return job.calendarColor
   const proj = projects.find(p => p.id === job.project_id)
   if (!proj) return '#6B7280'
   const cl = clients.find(c => c.id === proj.client_id)
@@ -76,8 +77,8 @@ function EventBlock({ job, projects, clients, onOpen, onPointerDown, isGhost }) 
 
   return (
     <div
-      onPointerDown={e => { if (e.button === 0) onPointerDown(e, job) }}
-      onClick={e => { e.stopPropagation(); if (!isGhost) onOpen(job) }}
+      onPointerDown={e => { if (e.button === 0 && !job.isGCal) onPointerDown(e, job) }}
+      onClick={e => { e.stopPropagation(); if (!isGhost && !job.isGCal) onOpen(job) }}
       title={`${job.title} · ${job.start_time}–${job.end_time}`}
       style={{
         position: 'absolute',
@@ -90,7 +91,7 @@ function EventBlock({ job, projects, clients, onOpen, onPointerDown, isGhost }) 
         borderRadius: 5,
         padding: compact ? '3px 7px' : '6px 9px',
         overflow: 'hidden',
-        cursor: isGhost ? 'default' : 'grab',
+        cursor: job.isGCal ? 'default' : (isGhost ? 'default' : 'grab'),
         zIndex: isGhost ? 0 : 1,
         boxSizing: 'border-box',
         opacity: isGhost ? 0.35 : 1,
@@ -132,12 +133,14 @@ function EventBlock({ job, projects, clients, onOpen, onPointerDown, isGhost }) 
   )
 }
 
-function AllDayStrip({ jobs, projects, clients, onOpen, date }) {
-  const dayJobs = jobs.filter(j => {
-    if (j.start_time && j.end_time) return false  // timed events in time grid
+function AllDayStrip({ jobs, gcalEvents, projects, clients, onOpen, date }) {
+  const lumaJobs = jobs.filter(j => {
+    if (j.start_time && j.end_time) return false
     if (j.date_end && j.date_end > j.date) return j.date <= date && j.date_end >= date
     return j.date === date
   })
+  const gcalAllDay = (gcalEvents || []).filter(e => !e.start_time && e.date === date)
+  const dayJobs = [...lumaJobs, ...gcalAllDay]
   if (!dayJobs.length) return <div style={{ height: 4 }} />
   return (
     <div style={{ padding: '2px 2px', display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -145,8 +148,8 @@ function AllDayStrip({ jobs, projects, clients, onOpen, date }) {
         const type = JOB_TYPES.find(t => t.id === job.job_type)
         const clientColor = getClientColor(job, projects, clients)
         return (
-          <div key={job.id} onClick={() => onOpen(job)}
-            style={{ fontSize: 12, color: FG, background: `${clientColor}22`, borderLeft: `2px solid ${type?.color || '#08AA56'}`, borderRadius: 2, padding: '2px 5px', cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <div key={job.id} onClick={() => !job.isGCal && onOpen(job)}
+            style={{ fontSize: 12, color: FG, background: `${clientColor}22`, borderLeft: `2px solid ${job.calendarColor || type?.color || '#08AA56'}`, borderRadius: 2, padding: '2px 5px', cursor: job.isGCal ? 'default' : 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {job.title}
           </div>
         )
@@ -160,7 +163,7 @@ function AllDayStrip({ jobs, projects, clients, onOpen, date }) {
 
 export default function CalendarPage() {
   const { jobs, projects, clients, createJob, updateJob, deleteJob, createRecurring } = useOps()
-  const { connected: gcalConnected, events: gcalEvents, fetchForRange, syncing: gcalSyncing } = useGCal()
+  const { connected: gcalConnected, events: gcalEvents, calendars: gcalCalendars, enabledCalendars, toggleCalendar, fetchForRange, syncing: gcalSyncing } = useGCal()
   const bp = useBreakpoint() // 'xs'|'sm'|'md'|'lg'
   const isMobile = bp === 'xs' || bp === 'sm'   // < 768px
   const isTablet = bp === 'md'                   // 768–1023px
@@ -185,6 +188,12 @@ export default function CalendarPage() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
   })
   const [selectedMonthDate, setSelectedMonthDate] = useState(today)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [miniMonthOpen, setMiniMonthOpen] = useState(false)
+  const [miniMonthDisplay, setMiniMonthDisplay] = useState(() => {
+    const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
+  const [scheduleStart, setScheduleStart] = useState(today)
   const scrollRef = useRef(null)
   const gridContainerRef = useRef(null)
   // ── Pointer drag state ──
@@ -217,13 +226,17 @@ export default function CalendarPage() {
 
   useEffect(() => {
     if (!gcalConnected) return
-    if (view === 'week') {
-      fetchForRange(new Date(weekDays[0] + 'T00:00:00'), new Date(addDays(weekDays[6], 1) + 'T00:00:00'))
+    if (view === 'schedule') {
+      fetchForRange(new Date(scheduleStart + 'T00:00:00'), new Date(addDays(scheduleStart, 90) + 'T00:00:00'))
+    } else if (view === 'week' || view === '5day' || view === '3day' || view === '1day') {
+      const start = view === '1day' ? dayViewDate : view === '3day' ? threeDays[0] : view === '5day' ? fiveDays[0] : weekDays[0]
+      const end = view === '1day' ? dayViewDate : view === '3day' ? threeDays[2] : view === '5day' ? fiveDays[4] : weekDays[6]
+      fetchForRange(new Date(start + 'T00:00:00'), new Date(addDays(end, 1) + 'T00:00:00'))
     } else {
       const [y, m] = currentMonth.split('-').map(Number)
       fetchForRange(new Date(y, m - 1, 1), new Date(y, m, 1))
     }
-  }, [gcalConnected, view, currentWeek, currentMonth])
+  }, [gcalConnected, view, currentWeek, currentMonth, scheduleStart, dayViewDate, threeDayStart, fiveDayStart])
 
   // Fetch team iCal free/busy for visible days
   useEffect(() => {
@@ -237,7 +250,9 @@ export default function CalendarPage() {
   }, [view, dayViewDate, currentWeek, threeDayStart, fiveDayStart])
 
   function timedJobsForDate(date) {
-    return jobs.filter(j => j.start_time && j.end_time && j.date === date)
+    const lumaJobs = jobs.filter(j => j.start_time && j.end_time && j.date === date)
+    const gcalTimed = gcalEvents.filter(e => e.start_time && e.date === date)
+    return [...lumaJobs, ...gcalTimed]
   }
 
   function prevWeek() { setCurrentWeek(w => addDays(w, -7)) }
@@ -396,22 +411,37 @@ export default function CalendarPage() {
     })
   }
 
-  const hasAllDay = activeDays.some(d => jobs.some(j => !j.start_time && j.date === d))
+  const hasAllDay = activeDays.some(d =>
+    jobs.some(j => !j.start_time && j.date === d) ||
+    gcalEvents.some(e => !e.start_time && e.date === d)
+  )
 
   // Navigation helpers
   function prevPeriod() {
-    if (view === '1day') setDayViewDate(d => addDays(d, -1))
+    if (view === 'schedule') setScheduleStart(d => addDays(d, -30))
+    else if (view === '1day') setDayViewDate(d => addDays(d, -1))
     else if (view === 'week') prevWeek()
     else if (view === '3day') setThreeDayStart(d => addDays(d, -3))
     else if (view === '5day') setFiveDayStart(d => addDays(d, -5))
     else setCurrentMonth(m => { const d = new Date(m + '-01'); d.setMonth(d.getMonth() - 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` })
   }
   function nextPeriod() {
-    if (view === '1day') setDayViewDate(d => addDays(d, 1))
+    if (view === 'schedule') setScheduleStart(d => addDays(d, 30))
+    else if (view === '1day') setDayViewDate(d => addDays(d, 1))
     else if (view === 'week') nextWeek()
     else if (view === '3day') setThreeDayStart(d => addDays(d, 3))
     else if (view === '5day') setFiveDayStart(d => addDays(d, 5))
     else setCurrentMonth(m => { const d = new Date(m + '-01'); d.setMonth(d.getMonth() + 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` })
+  }
+
+  function jumpToDate(date) {
+    setMiniMonthOpen(false)
+    if (view === 'schedule') setScheduleStart(date)
+    else if (view === '1day') setDayViewDate(date)
+    else if (view === 'week') setCurrentWeek(weekStart(date))
+    else if (view === '3day') setThreeDayStart(date)
+    else if (view === '5day') setFiveDayStart(date)
+    else { setCurrentMonth(date.slice(0, 7)); setSelectedMonthDate(date) }
   }
   function goTodayAll() {
     goToday()
@@ -421,6 +451,10 @@ export default function CalendarPage() {
   }
 
   const periodLabel = (() => {
+    if (view === 'schedule') {
+      const d = new Date(scheduleStart + 'T00:00:00')
+      return d.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })
+    }
     if (view === '1day') {
       const d = new Date(dayViewDate + 'T00:00:00')
       return d.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
@@ -442,16 +476,25 @@ export default function CalendarPage() {
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: BG }}>
       {/* ── Topbar ── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? '10px 12px' : '12px 20px', borderBottom: `1px solid ${BORDER}`, background: SURFACE, flexShrink: 0, gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? '10px 12px' : '12px 20px', borderBottom: miniMonthOpen ? 'none' : `1px solid ${BORDER}`, background: SURFACE, flexShrink: 0, gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 10 }}>
+          {/* Hamburger */}
+          <button onClick={() => setSidebarOpen(true)} style={{ width: 34, height: 34, borderRadius: 7, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Menu size={16} />
+          </button>
           {!isMobile && <button onClick={goTodayAll} style={{ padding: '5px 12px', borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif" }}>Heute</button>}
-          <button onClick={prevPeriod} style={{ width: isMobile ? 34 : 30, height: isMobile ? 34 : 30, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button onClick={prevPeriod} style={{ width: isMobile ? 32 : 30, height: isMobile ? 32 : 30, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <ChevronLeft size={15} />
           </button>
-          <button onClick={nextPeriod} style={{ width: isMobile ? 34 : 30, height: isMobile ? 34 : 30, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button onClick={nextPeriod} style={{ width: isMobile ? 32 : 30, height: isMobile ? 32 : 30, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <ChevronRight size={15} />
           </button>
-          <span style={{ fontSize: isMobile ? 13 : 15, fontWeight: 500, color: FG, whiteSpace: 'nowrap' }}>{periodLabel}</span>
+          {/* Clickable period label → mini-month */}
+          <button onClick={() => { setMiniMonthDisplay(currentMonth); setMiniMonthOpen(v => !v) }}
+            style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0' }}>
+            <span style={{ fontSize: isMobile ? 13 : 15, fontWeight: 500, color: FG, whiteSpace: 'nowrap' }}>{periodLabel}</span>
+            {miniMonthOpen ? <ChevronUp size={13} color={MUTED} /> : <ChevronDown size={13} color={MUTED} />}
+          </button>
           {gcalConnected && !isMobile && (
             <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: "'Space Mono', monospace", fontSize: 10, color: gcalSyncing ? A : MUTED }}>
               <CalendarDays size={10} /> {gcalSyncing ? 'sync…' : 'GCal'}
@@ -459,25 +502,23 @@ export default function CalendarPage() {
           )}
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <div style={{ display: 'flex', background: SURFACE, borderRadius: 6, padding: 2, border: `1px solid ${BORDER}` }}>
-            {(
-              bp === 'xs' ? ['1day','3day','month'] :
-              bp === 'sm' ? ['1day','3day','month'] :
-              bp === 'md' ? ['1day','5day','week','month'] :
-              ['1day','3day','week','month']
-            ).map(v => (
-              <button key={v} onClick={() => setView(v)}
-                style={{ padding: isMobile ? '5px 10px' : '4px 12px', borderRadius: 4, border: 'none', background: view === v ? A : 'transparent', color: view === v ? '#001219' : MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", fontWeight: view === v ? 600 : 400 }}>
-                {v === '1day' ? 'Tag' : v === 'week' ? 'Woche' : v === '5day' ? '5 Tage' : v === '3day' ? '3 Tage' : 'Monat'}
-              </button>
-            ))}
-          </div>
           <button onClick={() => setModal({ date: today })}
             style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 0 : 6, padding: isMobile ? '7px 10px' : '5px 14px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
             <Plus size={14} />{!isMobile && ' Einsatz'}
           </button>
         </div>
       </div>
+
+      {/* ── Mini-Month Picker ── */}
+      {miniMonthOpen && (
+        <MiniMonth
+          displayMonth={miniMonthDisplay}
+          today={today}
+          onMonthChange={setMiniMonthDisplay}
+          onSelectDate={jumpToDate}
+          BORDER={BORDER} FG={FG} MUTED={MUTED} A={A} A14={A14} SURFACE={SURFACE}
+        />
+      )}
 
       {/* ── Week / 5-Day / 3-Day / 1-Day time-grid view ── */}
       {(view === 'week' || view === '3day' || view === '5day' || view === '1day') && (
@@ -522,7 +563,7 @@ export default function CalendarPage() {
                   </div>
                   {activeDays.map((date, i) => (
                     <div key={date} style={{ flex: 1, borderRight: i < activeDays.length - 1 ? `1px solid ${BORDER}` : 'none', minHeight: 24 }}>
-                      <AllDayStrip jobs={jobs} projects={projects} clients={clients} date={date} onOpen={openJob} />
+                      <AllDayStrip jobs={jobs} gcalEvents={gcalEvents} projects={projects} clients={clients} date={date} onOpen={openJob} />
                     </div>
                   ))}
                 </div>
@@ -806,6 +847,33 @@ export default function CalendarPage() {
         </div>
       )}
 
+      {/* ── Schedule / Terminliste view ── */}
+      {view === 'schedule' && (
+        <ScheduleView
+          startDate={scheduleStart}
+          jobs={jobs}
+          gcalEvents={gcalEvents}
+          projects={projects}
+          clients={clients}
+          today={today}
+          onOpen={openJob}
+          onAdd={date => setModal({ date })}
+          BORDER={BORDER} FG={FG} MUTED={MUTED} A={A} A14={A14} SURFACE={SURFACE} BG={BG}
+        />
+      )}
+
+      {/* ── Sidebar Drawer ── */}
+      {sidebarOpen && (
+        <CalendarSidebar
+          view={view} setView={v => { setView(v); setSidebarOpen(false) }}
+          gcalConnected={gcalConnected} gcalCalendars={gcalCalendars}
+          enabledCalendars={enabledCalendars} toggleCalendar={toggleCalendar}
+          onClose={() => setSidebarOpen(false)}
+          goTodayAll={() => { goTodayAll(); setSidebarOpen(false) }}
+          BORDER={BORDER} FG={FG} MUTED={MUTED} A={A} A14={A14} SURFACE={SURFACE} BG={BG}
+        />
+      )}
+
       {modal && (
         <JobModal
           initialDate={modal.date}
@@ -816,6 +884,237 @@ export default function CalendarPage() {
           onClose={() => { setModal(null); setSelectedJob(null) }}
         />
       )}
+    </div>
+  )
+}
+
+/* ─── MINI-MONTH PICKER ────────────────────────────────────────────────── */
+const MINI_DAY_NAMES = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
+function MiniMonth({ displayMonth, today, onMonthChange, onSelectDate, BORDER, FG, MUTED, A, A14, SURFACE }) {
+  const [y, m] = displayMonth.split('-').map(Number)
+
+  function getDays() {
+    const first = new Date(y, m - 1, 1).getDay() // 0=Sun
+    const offset = first === 0 ? 6 : first - 1   // Mo=0
+    const total = new Date(y, m, 0).getDate()
+    const cells = Array(offset).fill(null)
+    for (let d = 1; d <= total; d++) cells.push(`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`)
+    return cells
+  }
+
+  const days = getDays()
+  const label = new Date(y, m - 1, 1).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })
+
+  function prevM() {
+    const d = new Date(y, m - 2, 1)
+    onMonthChange(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+  }
+  function nextM() {
+    const d = new Date(y, m, 1)
+    onMonthChange(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+  }
+
+  return (
+    <div style={{ background: SURFACE, borderBottom: `1px solid ${BORDER}`, padding: '8px 16px 12px', flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <button onClick={prevM} style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronLeft size={13} /></button>
+        <span style={{ fontSize: 13, fontWeight: 600, color: FG }}>{label}</span>
+        <button onClick={nextM} style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronRight size={13} /></button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
+        {MINI_DAY_NAMES.map(d => (
+          <div key={d} style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, textAlign: 'center', padding: '2px 0' }}>{d}</div>
+        ))}
+        {days.map((date, i) => {
+          if (!date) return <div key={`e-${i}`} />
+          const isToday = date === today
+          const d = new Date(date + 'T00:00:00')
+          return (
+            <button key={date} onClick={() => onSelectDate(date)} style={{
+              width: '100%', aspectRatio: '1', borderRadius: '50%', border: 'none',
+              background: isToday ? A : 'transparent',
+              color: isToday ? '#001219' : FG,
+              fontSize: 12, fontWeight: isToday ? 700 : 400,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>{d.getDate()}</button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/* ─── SIDEBAR DRAWER ───────────────────────────────────────────────────── */
+const VIEW_OPTIONS = [
+  { id: 'schedule', label: 'Terminliste' },
+  { id: '1day',    label: 'Tag' },
+  { id: '3day',    label: '3 Tage' },
+  { id: 'week',    label: 'Woche' },
+  { id: 'month',   label: 'Monat' },
+]
+
+function CalendarSidebar({ view, setView, gcalConnected, gcalCalendars, enabledCalendars, toggleCalendar, onClose, goTodayAll, BORDER, FG, MUTED, A, A14, SURFACE, BG }) {
+  return (
+    <>
+      {/* Backdrop */}
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 400 }} />
+      {/* Drawer */}
+      <div style={{
+        position: 'fixed', top: 0, left: 0, bottom: 0, width: 280,
+        background: SURFACE, zIndex: 401, display: 'flex', flexDirection: 'column',
+        boxShadow: '4px 0 24px rgba(0,0,0,0.25)', overflowY: 'auto',
+      }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${BORDER}` }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: FG }}>Kalender</span>
+          <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <X size={14} />
+          </button>
+        </div>
+
+        <div style={{ padding: '16px 20px', flex: 1 }}>
+          {/* Heute Button */}
+          <button onClick={goTodayAll} style={{ width: '100%', padding: '10px 0', borderRadius: 8, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif", marginBottom: 20 }}>
+            Heute
+          </button>
+
+          {/* View options */}
+          <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Ansicht</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 24 }}>
+            {VIEW_OPTIONS.map(v => (
+              <button key={v.id} onClick={() => setView(v.id)} style={{
+                display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
+                borderRadius: 8, border: 'none', textAlign: 'left', cursor: 'pointer',
+                background: view === v.id ? A14 : 'transparent',
+                color: view === v.id ? A : FG,
+                fontWeight: view === v.id ? 700 : 400, fontSize: 14,
+                fontFamily: "'Space Grotesk', sans-serif",
+              }}>
+                {v.id === 'schedule' ? <List size={16} /> : <CalendarDays size={16} />}
+                {v.label}
+              </button>
+            ))}
+          </div>
+
+          {/* GCal calendar list */}
+          {gcalConnected && gcalCalendars.length > 0 && (
+            <>
+              <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Kalender</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {/* LUMA internal always-on */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px' }}>
+                  <div style={{ width: 14, height: 14, borderRadius: 3, background: A, flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, color: FG }}>LUMA Einsätze</span>
+                </div>
+                {gcalCalendars.map(cal => {
+                  const enabled = enabledCalendars.has(cal.id)
+                  return (
+                    <button key={cal.id} onClick={() => toggleCalendar(cal.id)} style={{
+                      display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px',
+                      borderRadius: 6, border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', width: '100%',
+                    }}>
+                      <div style={{
+                        width: 14, height: 14, borderRadius: 3, flexShrink: 0,
+                        background: enabled ? cal.color : 'transparent',
+                        border: `2px solid ${cal.color}`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        {enabled && <span style={{ color: '#fff', fontSize: 9, fontWeight: 900, lineHeight: 1 }}>✓</span>}
+                      </div>
+                      <span style={{ fontSize: 13, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cal.name}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </>
+  )
+}
+
+/* ─── SCHEDULE VIEW ────────────────────────────────────────────────────── */
+function ScheduleView({ startDate, jobs, gcalEvents, projects, clients, today, onOpen, onAdd, BORDER, FG, MUTED, A, A14, SURFACE, BG }) {
+  const days = Array.from({ length: 90 }, (_, i) => addDays(startDate, i))
+
+  const daysWithEvents = days.filter(date => {
+    const hasJobs = jobs.some(j => j.date === date || (j.date_end && j.date <= date && j.date_end >= date))
+    const hasGCal = (gcalEvents || []).some(e => e.date === date)
+    return hasJobs || hasGCal
+  })
+
+  function eventsForDate(date) {
+    const lumaJobs = jobs.filter(j =>
+      j.date === date || (j.date_end && j.date <= date && j.date_end >= date)
+    )
+    const gcalForDate = (gcalEvents || []).filter(e => e.date === date)
+    return [...lumaJobs, ...gcalForDate].sort((a, b) => {
+      if (!a.start_time && !b.start_time) return 0
+      if (!a.start_time) return -1
+      if (!b.start_time) return 1
+      return a.start_time.localeCompare(b.start_time)
+    })
+  }
+
+  if (daysWithEvents.length === 0) {
+    return (
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 8 }}>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: MUTED }}>Keine Termine in den nächsten 90 Tagen</div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ flex: 1, overflowY: 'auto', padding: '0 0 40px' }}>
+      {daysWithEvents.map(date => {
+        const d = new Date(date + 'T00:00:00')
+        const isToday = date === today
+        const dayEvs = eventsForDate(date)
+        const dayName = d.toLocaleDateString('de-DE', { weekday: 'long' })
+        const dayNum = d.getDate()
+        const monthName = d.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })
+
+        return (
+          <div key={date} style={{ display: 'flex', borderBottom: `1px solid ${BORDER}` }}>
+            {/* Date sidebar */}
+            <div style={{ width: 72, flexShrink: 0, padding: '16px 12px 16px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: isToday ? A : MUTED, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                {d.toLocaleDateString('de-DE', { weekday: 'short' })}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: '50%', background: isToday ? A : 'transparent', fontSize: 18, fontWeight: isToday ? 700 : 400, color: isToday ? '#001219' : FG }}>
+                {dayNum}
+              </div>
+            </div>
+            {/* Events */}
+            <div style={{ flex: 1, padding: '12px 16px 12px 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {dayEvs.map(ev => {
+                const clientColor = getClientColor(ev, projects, clients)
+                const accentColor = ev.calendarColor || clientColor
+                return (
+                  <div key={ev.id} onClick={() => !ev.isGCal && onOpen(ev)}
+                    style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 8, background: SURFACE, border: `1px solid ${BORDER}`, cursor: ev.isGCal ? 'default' : 'pointer' }}>
+                    <div style={{ width: 3, alignSelf: 'stretch', borderRadius: 2, background: accentColor, flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.title}</div>
+                      {(ev.start_time || ev.location) && (
+                        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, marginTop: 2 }}>
+                          {ev.start_time && <span>{ev.start_time}{ev.end_time ? `–${ev.end_time}` : ''}</span>}
+                          {ev.start_time && ev.location && <span style={{ margin: '0 4px' }}>·</span>}
+                          {ev.location && <span>{ev.location}</span>}
+                        </div>
+                      )}
+                    </div>
+                    {ev.calendarColor && (
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: ev.calendarColor, flexShrink: 0, marginTop: 3 }} />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
