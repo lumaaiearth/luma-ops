@@ -44,7 +44,7 @@ function StatCard({ icon: Icon, label, value, color }) {
 export default function ProjectPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { projects, jobs, sensors, updateProject } = useOps()
+  const { projects, jobs, sensors, clients, updateProject } = useOps()
   const { user } = useAuth()
   const [tab, setTab] = useState('overview')
   const [photos, setPhotos] = useState([])
@@ -108,9 +108,18 @@ export default function ProjectPage() {
           <div>
             <h1 style={{ fontSize: 26, fontWeight: 400, color: FG, letterSpacing: '-0.02em', marginBottom: 6 }}>{project.name}</h1>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-              {project.client && (
-                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: A, background: A06, border: `1px solid ${A}30`, padding: '3px 10px', borderRadius: 20 }}>{project.client}</span>
-              )}
+              {project.client && (() => {
+                const clientObj = clients?.find(c => c.id === project.client_id)
+                const dest = clientObj ? `/clients/${clientObj.id}` : null
+                return dest ? (
+                  <button onClick={() => navigate(dest)}
+                    style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: A, background: A06, border: `1px solid ${A}30`, padding: '3px 10px', borderRadius: 20, cursor: 'pointer', textDecoration: 'underline', textDecorationColor: `${A}40` }}>
+                    {project.client}
+                  </button>
+                ) : (
+                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: A, background: A06, border: `1px solid ${A}30`, padding: '3px 10px', borderRadius: 20 }}>{project.client}</span>
+                )
+              })()}
               {project.location && (
                 <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: MUTED }}>
                   <MapPin size={12} /> {project.location}
@@ -200,12 +209,13 @@ export default function ProjectPage() {
                       const u = TEAM.find(t => t.id === uid)
                       if (!u) return null
                       return (
-                        <div key={uid} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, background: `${u.color}18`, border: `1px solid ${u.color}40` }}>
+                        <button key={uid} onClick={() => navigate('/team', { state: { focusUser: uid } })}
+                          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, background: `${u.color}18`, border: `1px solid ${u.color}40`, cursor: 'pointer' }}>
                           <div style={{ width: 20, height: 20, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
                           </div>
                           <span style={{ fontSize: 13, color: u.color }}>{u.name}</span>
-                        </div>
+                        </button>
                       )
                     })}
                   </div>

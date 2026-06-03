@@ -166,12 +166,13 @@ export default function ClientPage() {
                       const u = TEAM.find(t => t.id === uid)
                       if (!u) return null
                       return (
-                        <div key={uid} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, background: `${u.color}18`, border: `1px solid ${u.color}40` }}>
+                        <button key={uid} onClick={() => navigate('/team', { state: { focusUser: uid } })}
+                          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, background: `${u.color}18`, border: `1px solid ${u.color}40`, cursor: 'pointer' }}>
                           <div style={{ width: 20, height: 20, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
                           </div>
                           <span style={{ fontSize: 13, color: u.color }}>{u.name}</span>
-                        </div>
+                        </button>
                       )
                     })}
                   </div>
