@@ -478,6 +478,7 @@ export default function PlanningPage() {
             beetArea={beetArea}
             L={L} shadow={shadow} cardBg={cardBg}
             onAddMore={() => setActiveTab('suche')}
+            label={fromMapFeature?.label}
           />
         </div>
       )}
@@ -517,7 +518,7 @@ function BloomCalendar({ plan, L, shadow }) {
 }
 
 /* ─── BEETPLANER ─────────────────────────────────────────────────────────── */
-function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetForm, beetArea, L, shadow, cardBg, onAddMore }) {
+function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetForm, beetArea, L, shadow, cardBg, onAddMore, label }) {
   const canvasRef = useRef(null)
 
   // Calculate plant distribution
@@ -591,6 +592,118 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
     })
   }, [plantsWithPlacement, beetW, beetH, beetForm, L])
 
+  function exportPng() {
+    const DPR = 2
+    const LEGEND_H = Math.max(80, plan.length * 22 + 60)
+    const HEADER_H = 56
+    const SCALE_H = 36
+    const BED_W = Math.min(800, beetW * 80)
+    const BED_H = Math.min(400, beetH * 80)
+    const TOT_W = BED_W + 80 // padding left+right
+    const TOT_H = HEADER_H + BED_H + SCALE_H + LEGEND_H + 24
+
+    const oc = document.createElement('canvas')
+    oc.width = TOT_W * DPR
+    oc.height = TOT_H * DPR
+    const ctx = oc.getContext('2d')
+    ctx.scale(DPR, DPR)
+
+    // White background
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, TOT_W, TOT_H)
+
+    // Header bar
+    ctx.fillStyle = '#052e16'
+    ctx.fillRect(0, 0, TOT_W, HEADER_H)
+    ctx.fillStyle = '#ffffff'
+    ctx.font = 'bold 18px sans-serif'
+    ctx.fillText('PFLANZPLAN — LUMA BIOME', 20, 24)
+    const planTitle = label || `${beetW}m × ${beetH}m · ${plan.length} Arten`
+    ctx.font = '11px sans-serif'
+    ctx.fillStyle = 'rgba(255,255,255,0.65)'
+    ctx.fillText(planTitle, 20, 42)
+    // Date top right
+    ctx.textAlign = 'right'
+    ctx.fillText(new Date().toLocaleDateString('de-DE'), TOT_W - 20, 42)
+    ctx.textAlign = 'left'
+
+    // Draw bed on offscreen sub-canvas first, then blit
+    const bedCanvas = canvasRef.current
+    if (bedCanvas) {
+      ctx.drawImage(bedCanvas, 40, HEADER_H + 8, BED_W, BED_H)
+    }
+
+    // Scale bar
+    const sbY = HEADER_H + BED_H + 12
+    const meterPx = BED_W / beetW // pixels per meter in output canvas
+    const scaleM = beetW >= 4 ? 2 : 1
+    const scalePx = meterPx * scaleM
+    ctx.fillStyle = '#333'
+    ctx.font = '10px monospace'
+    ctx.fillText(`${scaleM}m`, 40 + scalePx + 4, sbY + 12)
+    ctx.fillStyle = '#052e16'
+    ctx.fillRect(40, sbY + 4, scalePx, 4)
+    ctx.fillStyle = '#fff'
+    ctx.fillRect(40 + scalePx / 2, sbY + 4, scalePx / 2, 4)
+    // tick marks
+    ctx.fillStyle = '#052e16'
+    ctx.fillRect(40, sbY, 2, 12)
+    ctx.fillRect(40 + scalePx, sbY, 2, 12)
+
+    // Legend
+    const lgY = sbY + SCALE_H
+    ctx.fillStyle = '#f8f8f8'
+    ctx.fillRect(0, lgY, TOT_W, LEGEND_H)
+    ctx.strokeStyle = '#e2e8e2'
+    ctx.lineWidth = 1
+    ctx.beginPath(); ctx.moveTo(0, lgY); ctx.lineTo(TOT_W, lgY); ctx.stroke()
+
+    ctx.fillStyle = '#052e16'
+    ctx.font = 'bold 10px monospace'
+    ctx.fillText('LEGENDE', 20, lgY + 18)
+
+    const totalPlants = plan.reduce((s, p) => s + p.count, 0)
+    ctx.font = '10px sans-serif'
+    ctx.fillStyle = '#666'
+    ctx.textAlign = 'right'
+    ctx.fillText(`${totalPlants} Pflanzen gesamt · ${beetArea.toFixed(1)} m²`, TOT_W - 20, lgY + 18)
+    ctx.textAlign = 'left'
+
+    plan.forEach((p, i) => {
+      const lx = 20
+      const ly = lgY + 32 + i * 22
+      ctx.beginPath()
+      ctx.arc(lx + 7, ly - 4, 7, 0, Math.PI * 2)
+      ctx.fillStyle = p.bluete_farbe || '#10b981'
+      ctx.fill()
+      ctx.strokeStyle = 'rgba(0,0,0,0.15)'
+      ctx.lineWidth = 0.5
+      ctx.stroke()
+
+      ctx.fillStyle = '#111'
+      ctx.font = '600 11px sans-serif'
+      ctx.fillText(p.name, lx + 20, ly)
+      ctx.fillStyle = '#555'
+      ctx.font = '10px sans-serif'
+      ctx.fillText(`${p.latin}`, lx + 20 + ctx.measureText(p.name + ' ').width + 2, ly)
+      ctx.fillStyle = '#047a3c'
+      ctx.font = 'bold 11px monospace'
+      ctx.textAlign = 'right'
+      ctx.fillText(`${p.count}×`, TOT_W - 60, ly)
+      ctx.fillStyle = '#999'
+      ctx.font = '9px monospace'
+      ctx.fillText(`Ø${p.pflanzabstand || 40}cm`, TOT_W - 20, ly)
+      ctx.textAlign = 'left'
+    })
+
+    oc.toBlob(blob => {
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = `pflanzplan-luma-${new Date().toISOString().slice(0, 10)}.png`
+      a.click()
+    }, 'image/png')
+  }
+
   return (
     <div style={{ flex: 1, overflowY: 'auto', paddingTop: 4 }}>
       {/* Beet Controls */}
@@ -650,7 +763,7 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
               height={Math.min(400, beetH * 80)}
               style={{ width: '100%', borderRadius: 8, display: 'block', maxHeight: 300 }}
             />
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12, alignItems: 'center' }}>
               {plan.map(p => (
                 <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11 }}>
                   <div style={{ width: 10, height: 10, borderRadius: '50%', background: p.bluete_farbe || A, flexShrink: 0 }} />
@@ -658,6 +771,13 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
                   <span style={{ color: MUTED }}>({p.count}×)</span>
                 </div>
               ))}
+              <button onClick={exportPng} style={{
+                marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6,
+                background: A14, border: `1px solid ${A20}`, color: A,
+                borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontSize: 12, fontWeight: 600, flexShrink: 0,
+              }}>
+                <Download size={12} /> PNG exportieren
+              </button>
             </div>
           </div>
 
