@@ -356,8 +356,10 @@ async function extractGeoTiffBounds(file) {
 
 async function uploadDroneImage(projectId, file) {
   const ext = file.name.split('.').pop().toLowerCase()
+  const mimeMap = { tif: 'image/tiff', tiff: 'image/tiff', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' }
+  const contentType = file.type || mimeMap[ext] || 'application/octet-stream'
   const path = `${projectId}/${genId()}.${ext}`
-  const { error } = await sb.storage.from('drone-images').upload(path, file, { contentType: file.type, upsert: false })
+  const { error } = await sb.storage.from('drone-images').upload(path, file, { contentType, upsert: false })
   if (error) throw error
   const { data } = sb.storage.from('drone-images').getPublicUrl(path)
   return data.publicUrl
@@ -603,7 +605,7 @@ export default function MapPage() {
       const q = searchQuery.toLowerCase()
       const matchesSearch = !q || (f.label || '').toLowerCase().includes(q) ||
         JSON.stringify(f.properties || {}).toLowerCase().includes(q)
-      const matchesType = !typeFilter || f.feature_type === typeFilter
+      const matchesType = !typeFilter || f.feature_type === typeFilter || f.feature_type === 'drone_image'
       if (!matchesSearch || !matchesType) return
       if (!map[f.project_id]) map[f.project_id] = []
       map[f.project_id].push(f)
