@@ -515,13 +515,27 @@ function DroneImageModal({ project, color, onSave, onCancel }) {
 }
 
 /* ─── OPEN DATA LAYERS ──────────────────────────────────────────────────── */
+const LAYER_CATS = [
+  { id: 'klima', label: '🌡️ Klima & Versiegelung', color: '#f97316' },
+  { id: 'bio',   label: '🌿 Vegetation & Ökologie', color: '#22EAA7' },
+]
+
 const OPEN_LAYERS = [
-  { id: 'heatisland', label: 'Wärmeinseln', color: '#ef4444',
-    wms: { url: 'https://fbinter.stadt-berlin.de/fb/wms/senstadt/k07_06stadtklima2015', layers: 'fb:k07_06stadtklima2015', format: 'image/png', transparent: true, opacity: 0.55 } },
-  { id: 'biotop', label: 'Biotopkataster', color: '#22EAA7',
-    wms: { url: 'https://fbinter.stadt-berlin.de/fb/wms/senstadt/biotopkataster', layers: 'fb:biotopkataster', format: 'image/png', transparent: true, opacity: 0.6 } },
-  { id: 'gruenflaechen', label: 'Grünflächen', color: '#4ade80',
-    wms: { url: 'https://fbinter.stadt-berlin.de/fb/wms/senstadt/k_gruenanlagenbestand2020_wms', layers: 'fb:gruenanlagenbestand2020', format: 'image/png', transparent: true, opacity: 0.55 } },
+  // ─ Klima & Stadtwärme ─────────────────────────────────────────────────────
+  { id: 'corine_urban', label: 'Versiegelung', color: '#f97316', cat: 'klima',
+    desc: 'Bebaute & versiegelte Flächen — Hitzeinsel-Risiko (Copernicus 2018)',
+    wms: { url: 'https://copernicus.discomap.eea.europa.eu/arcgis/services/Corine/CLC2018_WM/MapServer/WMSServer', layers: '1', format: 'image/png', transparent: true, opacity: 0.6, version: '1.1.1' } },
+  { id: 'corine_landuse', label: 'Landnutzung', color: '#a78bfa', cat: 'klima',
+    desc: 'Klassifizierung nach Nutzungstyp — Basis für Klimaplanung (Copernicus 2018)',
+    wms: { url: 'https://copernicus.discomap.eea.europa.eu/arcgis/services/Corine/CLC2018_WM/MapServer/WMSServer', layers: '2', format: 'image/png', transparent: true, opacity: 0.5, version: '1.1.1' } },
+
+  // ─ Vegetation & Biodiversität ─────────────────────────────────────────────
+  { id: 'corine_vegetation', label: 'Wälder & Wiesen', color: '#22EAA7', cat: 'bio',
+    desc: 'Wälder, Wiesen, Heiden aus CORINE 2018 — Biodiversitätspotenzial',
+    wms: { url: 'https://copernicus.discomap.eea.europa.eu/arcgis/services/Corine/CLC2018_WM/MapServer/WMSServer', layers: '3', format: 'image/png', transparent: true, opacity: 0.6, version: '1.1.1' } },
+  { id: 'corine_water', label: 'Gewässer', color: '#60a5fa', cat: 'bio',
+    desc: 'Flüsse, Seen, Feuchtgebiete — Kühlkorridore im Stadtklima',
+    wms: { url: 'https://copernicus.discomap.eea.europa.eu/arcgis/services/Corine/CLC2018_WM/MapServer/WMSServer', layers: '4', format: 'image/png', transparent: true, opacity: 0.6, version: '1.1.1' } },
 ]
 
 /* ─── MAIN COMPONENT ────────────────────────────────────────────────────── */
@@ -740,11 +754,11 @@ export default function MapPage() {
         <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 10 }}>BIOME™</div>
 
         {/* Tile toggle */}
-        <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
-          {[['satellite', Satellite, 'Satellit'], ['dark', MapIcon, 'Dunkel'], ['light', Layers, 'Hell']].map(([id, Icon, label]) => (
+        <div style={{ display: 'flex', gap: 3, marginBottom: 10, flexWrap: 'wrap' }}>
+          {[['satellite', Satellite, 'Satellit'], ['sentinel', Satellite, 'Sentinel-2'], ['dark', MapIcon, 'Dunkel'], ['light', Layers, 'Hell']].map(([id, Icon, label]) => (
             <button key={id} onClick={() => setTileLayer(id)}
-              style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '6px 4px', borderRadius: 6, border: `1px solid ${tileLayer === id ? A + '60' : BORDER}`, background: tileLayer === id ? A14 : 'transparent', color: tileLayer === id ? A : MUTED, cursor: 'pointer', fontSize: 10, fontFamily: "'Space Grotesk', sans-serif" }}>
-              <Icon size={13} />{label}
+              style={{ flex: 1, minWidth: 52, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '6px 4px', borderRadius: 6, border: `1px solid ${tileLayer === id ? A + '60' : BORDER}`, background: tileLayer === id ? A14 : 'transparent', color: tileLayer === id ? A : MUTED, cursor: 'pointer', fontSize: 9, fontFamily: "'Space Grotesk', sans-serif" }}>
+              <Icon size={12} />{label}
             </button>
           ))}
         </div>
@@ -781,17 +795,29 @@ export default function MapPage() {
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '10px 8px' }}>
-        {/* Open data layers */}
-        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '4px 8px 6px' }}>Open Data</div>
-        {OPEN_LAYERS.map(layer => {
-          const on = activeLayers.has(layer.id)
+        {/* Open data layers - by category */}
+        {LAYER_CATS.map(cat => {
+          const layers = OPEN_LAYERS.filter(l => l.cat === cat.id)
           return (
-            <button key={layer.id} onClick={() => toggleLayer(layer.id)}
-              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 6, border: `1px solid ${on ? layer.color + '60' : BORDER}`, background: on ? layer.color + '15' : 'transparent', color: on ? layer.color : MUTED, cursor: 'pointer', fontSize: 12, width: '100%', marginBottom: 3, textAlign: 'left' }}>
-              <div style={{ width: 8, height: 8, borderRadius: 2, background: layer.color, flexShrink: 0 }} />
-              {layer.label}
-              <span style={{ marginLeft: 'auto', fontFamily: "'Space Mono', monospace", fontSize: 9 }}>{on ? 'AN' : 'AUS'}</span>
-            </button>
+            <div key={cat.id} style={{ marginBottom: 10 }}>
+              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: cat.color, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '4px 8px 5px' }}>{cat.label}</div>
+              {layers.map(layer => {
+                const on = activeLayers.has(layer.id)
+                return (
+                  <div key={layer.id} style={{ marginBottom: 2 }}>
+                    <button onClick={() => toggleLayer(layer.id)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 6, border: `1px solid ${on ? layer.color + '60' : BORDER}`, background: on ? layer.color + '15' : 'transparent', color: on ? layer.color : MUTED, cursor: 'pointer', fontSize: 12, width: '100%', textAlign: 'left' }}>
+                      <div style={{ width: 8, height: 8, borderRadius: 2, background: layer.color, flexShrink: 0 }} />
+                      <span style={{ flex: 1 }}>{layer.label}</span>
+                      <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9 }}>{on ? 'AN' : 'AUS'}</span>
+                    </button>
+                    {on && layer.desc && (
+                      <div style={{ fontSize: 10, color: MUTED, padding: '3px 10px 4px 25px', lineHeight: 1.4 }}>{layer.desc}</div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           )
         })}
 
@@ -955,13 +981,16 @@ export default function MapPage() {
         `}</style>
 
         <MapContainer center={[52.515, 13.405]} zoom={11} maxZoom={22} style={{ width: '100%', height: '100%' }} zoomControl={true}>
-          <TileLayer key={tileLayer} url={tile.url} attribution={tile.attribution} maxNativeZoom={tile.maxNativeZoom} maxZoom={tile.maxZoom} />
+          {tile.wms
+            ? <WMSTileLayer key={tileLayer} url={tile.url} layers={tile.layers} format={tile.format} attribution={tile.attribution} maxNativeZoom={tile.maxNativeZoom} maxZoom={tile.maxZoom} />
+            : <TileLayer key={tileLayer} url={tile.url} attribution={tile.attribution} maxNativeZoom={tile.maxNativeZoom} maxZoom={tile.maxZoom} />
+          }
 
           {/* Open data WMS layers */}
           {OPEN_LAYERS.filter(l => activeLayers.has(l.id)).map(layer => (
             <WMSTileLayer key={layer.id} url={layer.wms.url} layers={layer.wms.layers}
               format={layer.wms.format} transparent={layer.wms.transparent} opacity={layer.wms.opacity}
-              version="1.3.0" attribution="© Senatsverwaltung Berlin" />
+              version={layer.wms.version || '1.3.0'} attribution={layer.wms.attribution || '© Copernicus/EEA'} />
           ))}
 
           {flyTarget && <FlyTo center={flyTarget} />}
