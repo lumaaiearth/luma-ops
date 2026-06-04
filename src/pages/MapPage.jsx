@@ -737,7 +737,7 @@ export default function MapPage() {
   const sidebarContent = (
     <div style={{ width: isMobile ? '100%' : 268, background: SURFACE, borderRight: isMobile ? 'none' : `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100%' }}>
       <div style={{ padding: '16px 14px 12px', borderBottom: `1px solid ${BORDER}` }}>
-        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 10 }}>Bio™</div>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 10 }}>BIOME™</div>
 
         {/* Tile toggle */}
         <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>

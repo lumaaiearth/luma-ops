@@ -8,7 +8,7 @@ const NAV = [
   { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/calendar',   icon: CalendarDays,    label: 'Kalender' },
   { to: '/jobs',       icon: ListChecks,      label: 'Einsätze' },
-  { to: '/map',        icon: Map,             label: 'Bio™' },
+  { to: '/map',        icon: Map,             label: 'BIOME™' },
   { to: '/analyse',    icon: BarChart2,       label: 'Analysen' },
   { to: '/planning',   icon: Flower2,         label: 'Florales™' },
   { to: '/time',       icon: Clock,           label: 'Zeiten' },
