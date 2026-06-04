@@ -1,38 +1,64 @@
 import { createContext, useContext, useState, useEffect } from 'react'
-import { TEAM } from '../data/seed.js'
+import { sb } from '../lib/supabase.js'
 
-// Passwords are intentionally simple for internal MVP — replace with Supabase Auth before going to production
-const CREDENTIALS = {
-  malte:  'luma2026',
-  lukas:  'luma2026',
-  robert: 'luma2026',
-  jona:   'luma2026',
-  anselm: 'luma2026',
-}
+// Role hierarchy: admin > mitarbeiter > kunde_viewer
+// user_profile table in Supabase stores org_id + rolle
 
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    try { return JSON.parse(sessionStorage.getItem('luma_user')) } catch { return null }
-  })
+  const [user, setUser] = useState(null)       // Supabase auth user
+  const [profile, setProfile] = useState(null) // user_profile row
+  const [loading, setLoading] = useState(true)
 
-  function login(username, password) {
-    if (CREDENTIALS[username] && CREDENTIALS[username] === password) {
-      const u = TEAM.find(t => t.id === username)
-      setUser(u)
-      sessionStorage.setItem('luma_user', JSON.stringify(u))
-      return true
-    }
-    return false
+  async function fetchProfile(supaUser) {
+    if (!supaUser) { setProfile(null); return }
+    const { data } = await sb.from('user_profile').select('*').eq('id', supaUser.id).maybeSingle()
+    setProfile(data || null)
   }
 
-  function logout() {
+  useEffect(() => {
+    // Restore session
+    sb.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null)
+      fetchProfile(session?.user ?? null).finally(() => setLoading(false))
+    })
+
+    // Listen for auth changes
+    const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+      fetchProfile(session?.user ?? null)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  async function login(email, password) {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password })
+    if (error) return { ok: false, error: error.message }
+    await fetchProfile(data.user)
+    return { ok: true }
+  }
+
+  async function logout() {
+    await sb.auth.signOut()
     setUser(null)
-    sessionStorage.removeItem('luma_user')
+    setProfile(null)
   }
 
-  return <AuthContext.Provider value={{ user, login, logout }}>{children}</AuthContext.Provider>
+  // Derived role helpers
+  const isAdmin      = profile?.rolle === 'admin'
+  const isMitarbeiter = profile?.rolle === 'mitarbeiter' || isAdmin
+  const isKunde      = profile?.rolle === 'kunde_viewer'
+
+  // Display name: prefer profile name, fallback to email
+  const displayName = profile?.name || user?.email?.split('@')[0] || '?'
+
+  return (
+    <AuthContext.Provider value={{ user, profile, loading, login, logout, isAdmin, isMitarbeiter, isKunde, displayName }}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export const useAuth = () => useContext(AuthContext)

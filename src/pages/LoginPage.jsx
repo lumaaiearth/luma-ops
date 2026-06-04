@@ -1,28 +1,28 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { TEAM } from '../data/seed.js'
 import { A, BG, BORDER, FG, MUTED, CARD } from '../lib/theme.js'
 
 export default function LoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
-  const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState(false)
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
-    if (login(username, password)) {
+    setLoading(true)
+    setError('')
+    const result = await login(email.trim(), password)
+    setLoading(false)
+    if (result.ok) {
       navigate('/dashboard')
     } else {
-      setError(true)
-      setTimeout(() => setError(false), 2000)
+      setError(result.error || 'Login fehlgeschlagen')
+      setTimeout(() => setError(''), 3000)
     }
-  }
-
-  function quickLogin(id) {
-    if (login(id, 'luma2026')) navigate('/dashboard')
   }
 
   return (
@@ -38,16 +38,17 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8, padding: 28, marginBottom: 24 }}>
           <div style={{ marginBottom: 16 }}>
             <label style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>
-              Name
+              E-Mail
             </label>
-            <select
-              value={username}
-              onChange={e => setUsername(e.target.value)}
-              style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: `1px solid ${error ? '#ef4444' : BORDER}`, borderRadius: 6, padding: '10px 12px', color: FG, fontFamily: "'Space Grotesk', sans-serif", fontSize: 14, outline: 'none' }}
-            >
-              <option value="">Wählen...</option>
-              {TEAM.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="name@luma.earth"
+              autoComplete="email"
+              required
+              style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: `1px solid ${error ? '#ef4444' : BORDER}`, borderRadius: 6, padding: '10px 12px', color: FG, fontFamily: "'Space Grotesk', sans-serif", fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
+            />
           </div>
           <div style={{ marginBottom: 20 }}>
             <label style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>
@@ -57,39 +58,30 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: `1px solid ${error ? '#ef4444' : BORDER}`, borderRadius: 6, padding: '10px 12px', color: FG, fontFamily: "'Space Grotesk', sans-serif", fontSize: 14, outline: 'none' }}
-              placeholder="Passwort"
+              autoComplete="current-password"
+              required
+              style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: `1px solid ${error ? '#ef4444' : BORDER}`, borderRadius: 6, padding: '10px 12px', color: FG, fontFamily: "'Space Grotesk', sans-serif", fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
             />
           </div>
+
           {error && (
-            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: '#ef4444', marginBottom: 16 }}>Ungültige Anmeldedaten</div>
+            <div style={{ marginBottom: 16, padding: '8px 12px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 6, color: '#ef4444', fontSize: 13 }}>
+              {error}
+            </div>
           )}
+
           <button
             type="submit"
-            style={{ width: '100%', padding: '12px', background: A, border: 'none', borderRadius: 6, color: '#001219', fontFamily: "'Space Grotesk', sans-serif", fontSize: 14, fontWeight: 500, cursor: 'pointer' }}
+            disabled={loading}
+            style={{ width: '100%', background: loading ? 'rgba(8,170,86,0.4)' : A, border: 'none', borderRadius: 6, padding: '11px', color: '#fff', fontFamily: "'Space Grotesk', sans-serif", fontSize: 14, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', transition: 'opacity 0.15s' }}
           >
-            Anmelden →
+            {loading ? 'Anmelden...' : 'Anmelden'}
           </button>
         </form>
 
-        {/* Quick access */}
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', marginBottom: 12 }}>Schnellzugang</div>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-            {TEAM.map(u => (
-              <button
-                key={u.id}
-                onClick={() => quickLogin(u.id)}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 20, background: `${u.color}18`, border: `1px solid ${u.color}40`, cursor: 'pointer', fontFamily: "'Space Grotesk', sans-serif", fontSize: 12, color: u.color }}
-              >
-                <div style={{ width: 16, height: 16, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 7, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
-                </div>
-                {u.name}
-              </button>
-            ))}
-          </div>
-        </div>
+        <p style={{ textAlign: 'center', fontSize: 12, color: MUTED }}>
+          LUMA Biome · Internes Ops-System
+        </p>
       </div>
     </div>
   )

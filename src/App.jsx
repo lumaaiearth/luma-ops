@@ -24,10 +24,14 @@ import AnalysePage from './pages/AnalysePage.jsx'
 import PlanningPage from './pages/PlanningPage.jsx'
 import EpsAnalysePage from './pages/EpsAnalysePage.jsx'
 import ArticleViewPage from './pages/ArticleViewPage.jsx'
+import KundenPortalPage from './pages/KundenPortalPage.jsx'
 
-function RequireAuth({ children }) {
-  const { user } = useAuth()
+function RequireAuth({ children, kundeOk = false }) {
+  const { user, loading, isKunde } = useAuth()
+  if (loading) return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#08AA56', fontFamily: 'monospace' }}>...</div>
   if (!user) return <Navigate to="/login" replace />
+  // Kunden only see /portal — redirect everything else
+  if (isKunde && !kundeOk) return <Navigate to="/portal" replace />
   return children
 }
 
@@ -53,6 +57,7 @@ function AppRoutes() {
       <Route path="/planning" element={<RequireAuth><Layout fullHeight><ErrorBoundary><PlanningPage /></ErrorBoundary></Layout></RequireAuth>} />
       <Route path="/analyse/:id" element={<RequireAuth><Layout><ErrorBoundary><EpsAnalysePage /></ErrorBoundary></Layout></RequireAuth>} />
       <Route path="/analyse/artikel/:id" element={<RequireAuth><Layout><ErrorBoundary><ArticleViewPage /></ErrorBoundary></Layout></RequireAuth>} />
+      <Route path="/portal" element={<RequireAuth kundeOk><ErrorBoundary><KundenPortalPage /></ErrorBoundary></RequireAuth>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   )
