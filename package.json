@@ -11,6 +11,7 @@
   "dependencies": {
     "@geoman-io/leaflet-geoman-free": "^2.19.3",
     "@supabase/supabase-js": "^2.106.2",
+    "geotiff": "^3.0.5",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.477.0",
     "react": "^19.0.0",

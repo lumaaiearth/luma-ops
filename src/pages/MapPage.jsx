@@ -1,17 +1,18 @@
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { MapContainer, TileLayer, WMSTileLayer, Marker, Popup, useMap, GeoJSON } from 'react-leaflet'
+import { MapContainer, TileLayer, WMSTileLayer, Marker, Popup, useMap, GeoJSON, ImageOverlay } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import '@geoman-io/leaflet-geoman-free'
 import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
+import { sb } from '../lib/supabase.js'
 import { A, BG, SURFACE, BORDER, FG, MUTED, CARD, A06, A10, A14, A18 } from '../lib/theme.js'
 import { TEAM, JOB_TYPES } from '../data/seed.js'
 import { isoToday, addDays, genId } from '../lib/storage.js'
 import { useIsMobile } from '../lib/useIsMobile.js'
-import { Layers, Satellite, Map as MapIcon, Pencil, Save, X, ExternalLink, ChevronRight, ChevronDown, FolderOpen, Folder, Eye, EyeOff, Search, TreePine, Square, Minus, MapPin, Filter, Plus, Trash2 } from 'lucide-react'
+import { Layers, Satellite, Map as MapIcon, Pencil, Save, X, ExternalLink, ChevronRight, ChevronDown, FolderOpen, Folder, Eye, EyeOff, Search, MapPin, Plus, Trash2, Upload, Image, SlidersHorizontal } from 'lucide-react'
 
 /* ─── GEO HELPERS ───────────────────────────────────────────────────────── */
 function geodesicArea(latLngs) {
@@ -331,6 +332,180 @@ function FeatureForm({ mode, project, color, existingFeature, onSave, onCancel }
   )
 }
 
+/* ─── DRONE IMAGE UPLOAD ────────────────────────────────────────────────── */
+async function extractGeoTiffBounds(file) {
+  try {
+    const { fromArrayBuffer } = await import('geotiff')
+    const buf = await file.arrayBuffer()
+    const tiff = await fromArrayBuffer(buf)
+    const image = await tiff.getImage()
+    const bbox = image.getBoundingBox() // [west, south, east, north] in CRS units
+    const origin = image.getOrigin()
+    const res = image.getResolution()
+    // GeoTIFFs from drones are usually in WGS84 (EPSG:4326) or UTM
+    // Try raw bbox first; if values look like degrees use them directly
+    const [west, south, east, north] = bbox
+    if (Math.abs(west) <= 180 && Math.abs(east) <= 180 && Math.abs(south) <= 90 && Math.abs(north) <= 90) {
+      return { south, west, north, east }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+async function uploadDroneImage(projectId, file) {
+  const ext = file.name.split('.').pop().toLowerCase()
+  const path = `${projectId}/${genId()}.${ext}`
+  const { error } = await sb.storage.from('drone-images').upload(path, file, { contentType: file.type, upsert: false })
+  if (error) throw error
+  const { data } = sb.storage.from('drone-images').getPublicUrl(path)
+  return data.publicUrl
+}
+
+function DroneImageModal({ project, color, onSave, onCancel }) {
+  const [file, setFile] = useState(null)
+  const [preview, setPreview] = useState(null)
+  const [bounds, setBounds] = useState({ south: '', west: '', north: '', east: '' })
+  const [autoDetected, setAutoDetected] = useState(false)
+  const [label, setLabel] = useState('')
+  const [opacity, setOpacity] = useState(0.8)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState(null)
+  const dropRef = useRef(null)
+
+  async function handleFile(f) {
+    if (!f) return
+    setFile(f)
+    setError(null)
+    setLabel(f.name.replace(/\.[^.]+$/, ''))
+
+    // Preview
+    if (f.type !== 'image/tiff' && f.type !== 'image/geo+tiff') {
+      setPreview(URL.createObjectURL(f))
+    } else {
+      setPreview(null)
+    }
+
+    // Try auto bounds
+    if (f.name.match(/\.(tif|tiff)$/i)) {
+      const detected = await extractGeoTiffBounds(f)
+      if (detected) {
+        setBounds({ south: detected.south.toFixed(7), west: detected.west.toFixed(7), north: detected.north.toFixed(7), east: detected.east.toFixed(7) })
+        setAutoDetected(true)
+      }
+    }
+  }
+
+  async function handleSave() {
+    if (!file) return setError('Bitte Bild auswählen')
+    const { south, west, north, east } = bounds
+    if (!south || !west || !north || !east) return setError('Koordinaten unvollständig')
+    setUploading(true)
+    setError(null)
+    try {
+      const url = await uploadDroneImage(project.id, file)
+      const bbox = {
+        type: 'Polygon',
+        coordinates: [[[+west,+south],[+east,+south],[+east,+north],[+west,+north],[+west,+south]]],
+      }
+      onSave({
+        feature_type: 'drone_image',
+        geometry: bbox,
+        label: label || file.name,
+        properties: { image_url: url, opacity: +opacity, filename: file.name },
+      })
+    } catch (e) {
+      setError(e.message || 'Upload fehlgeschlagen')
+      setUploading(false)
+    }
+  }
+
+  const inputStyle = { width: '100%', padding: '6px 10px', borderRadius: 6, border: `1px solid ${BORDER}`, background: 'rgba(255,255,255,0.04)', color: FG, fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", outline: 'none', boxSizing: 'border-box' }
+  const labelStyle = { fontSize: 10, color: MUTED, fontFamily: "'Space Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3, display: 'block' }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.65)' }}
+      onClick={e => e.target === e.currentTarget && onCancel()}>
+      <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 20, width: 420, maxWidth: '95vw', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }}>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: '#8b5cf620', border: '1px solid #8b5cf640', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🚁</div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: FG }}>Drohnenbild hinzufügen</div>
+            <div style={{ fontSize: 11, color: MUTED }}>{project?.name}</div>
+          </div>
+          <button onClick={onCancel} style={{ marginLeft: 'auto', width: 28, height: 28, borderRadius: 6, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={14} /></button>
+        </div>
+
+        {/* Drop zone */}
+        <div
+          ref={dropRef}
+          onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = '#8b5cf6' }}
+          onDragLeave={e => { e.currentTarget.style.borderColor = BORDER }}
+          onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = BORDER; handleFile(e.dataTransfer.files[0]) }}
+          onClick={() => document.getElementById('drone-file-input').click()}
+          style={{ border: `2px dashed ${file ? '#8b5cf6' : BORDER}`, borderRadius: 8, padding: '20px', textAlign: 'center', cursor: 'pointer', marginBottom: 14, transition: 'border-color .15s', background: file ? '#8b5cf608' : 'transparent' }}>
+          <input id="drone-file-input" type="file" accept="image/*,.tif,.tiff" style={{ display: 'none' }} onChange={e => handleFile(e.target.files[0])} />
+          {preview ? (
+            <img src={preview} alt="" style={{ maxHeight: 100, maxWidth: '100%', borderRadius: 4, objectFit: 'contain' }} />
+          ) : (
+            <div style={{ color: MUTED, fontSize: 12 }}>
+              <Upload size={20} style={{ marginBottom: 6, opacity: 0.5 }} />
+              <div>{file ? `📄 ${file.name}` : 'GeoTIFF, JPEG oder PNG hierher ziehen'}</div>
+              <div style={{ fontSize: 10, marginTop: 4, opacity: 0.6 }}>GeoTIFF: Koordinaten werden automatisch erkannt</div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <label style={labelStyle}>Bezeichnung</label>
+          <input style={inputStyle} value={label} onChange={e => setLabel(e.target.value)} placeholder="z.B. Orthomosaik Frühjahr 2026" />
+        </div>
+
+        {/* Bounding box */}
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+            <label style={{ ...labelStyle, marginBottom: 0 }}>Bounding Box (WGS84)</label>
+            {autoDetected && <span style={{ fontSize: 9, background: '#22c55e20', color: '#22c55e', border: '1px solid #22c55e40', borderRadius: 4, padding: '1px 6px', fontFamily: "'Space Mono', monospace" }}>AUTO</span>}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+            {[['north','Nord (max lat)'],['south','Süd (min lat)'],['west','West (min lng)'],['east','Ost (max lng)']].map(([k, ph]) => (
+              <div key={k}>
+                <div style={{ fontSize: 9, color: MUTED, fontFamily: "'Space Mono', monospace", marginBottom: 2 }}>{k.toUpperCase()}</div>
+                <input style={inputStyle} type="number" step="0.0000001" value={bounds[k]} onChange={e => setBounds(prev => ({ ...prev, [k]: e.target.value }))} placeholder={ph} />
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: 10, color: MUTED, marginTop: 5, fontStyle: 'italic' }}>
+            Tipp: DJI Pilot / DroneDeploy zeigt die Bounding Box des Orthomosaiks an.
+          </div>
+        </div>
+
+        {/* Opacity */}
+        <div style={{ marginBottom: 16 }}>
+          <label style={labelStyle}>Transparenz: {Math.round((1 - opacity) * 100)}%</label>
+          <input type="range" min="0.1" max="1" step="0.05" value={opacity} onChange={e => setOpacity(e.target.value)}
+            style={{ width: '100%', accentColor: '#8b5cf6' }} />
+        </div>
+
+        {error && <div style={{ fontSize: 12, color: '#f87171', marginBottom: 10, padding: '6px 10px', background: '#f8717110', borderRadius: 6 }}>{error}</div>}
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={handleSave} disabled={uploading}
+            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px 18px', borderRadius: 8, background: uploading ? BORDER : '#8b5cf6', border: 'none', color: '#fff', cursor: uploading ? 'default' : 'pointer', fontSize: 13, fontWeight: 600, fontFamily: "'Space Grotesk', sans-serif" }}>
+            {uploading ? '⏳ Wird hochgeladen...' : <><Upload size={13} /> Hochladen & speichern</>}
+          </button>
+          <button onClick={onCancel}
+            style={{ padding: '9px 14px', borderRadius: 8, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif" }}>
+            Abbrechen
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ─── OPEN DATA LAYERS ──────────────────────────────────────────────────── */
 const OPEN_LAYERS = [
   { id: 'heatisland', label: 'Wärmeinseln', color: '#ef4444',
@@ -367,6 +542,8 @@ export default function MapPage() {
   const [drawingProject, setDrawingProject] = useState(null)
   const [pendingGeometry, setPendingGeometry] = useState(null)
   const [editingFeature, setEditingFeature] = useState(null)
+  const [droneModal, setDroneModal] = useState(null) // project | null
+  const [droneOpacity, setDroneOpacity] = useState({}) // { featureId: opacity }
 
   const isAdmin = user?.role === 'admin' || user?.role === 'manager'
 
@@ -492,6 +669,11 @@ export default function MapPage() {
 
   function deleteFeature(id) {
     if (confirm('Feature löschen?')) deleteMapFeature(id)
+  }
+
+  function onDroneSave(data) {
+    createMapFeature({ id: genId(), project_id: droneModal.id, ...data })
+    setDroneModal(null)
   }
 
   function openEditForm(feat) {
@@ -634,26 +816,47 @@ export default function MapPage() {
                     {isActive && (
                       <div style={{ paddingLeft: 16 }}>
                         {pFeatures.map(feat => {
+                          const isDrone = feat.feature_type === 'drone_image'
                           const modeInfo = FEATURE_MODES.find(m => m.id === feat.feature_type) || {}
                           const featHidden = hiddenFeatures.has(feat.id)
+                          const currentOpacity = droneOpacity[feat.id] ?? feat.properties?.opacity ?? 0.8
                           return (
-                            <div key={feat.id} style={{ display: 'flex', alignItems: 'center', gap: 2, marginBottom: 1 }}>
-                              <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 5, padding: '3px 4px', borderRadius: 4, fontSize: 11, color: featHidden ? MUTED : FG, opacity: featHidden ? 0.45 : 1 }}>
-                                <span style={{ fontSize: 10, flexShrink: 0 }}>{modeInfo.icon || '●'}</span>
-                                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                  {feat.label || modeInfo.label || feat.feature_type}
-                                  {feat.properties?.baumnummer ? <span style={{ color: MUTED, marginLeft: 4, fontFamily: "'Space Mono', monospace", fontSize: 9 }}>#{feat.properties.baumnummer}</span> : null}
-                                </span>
-                              </div>
-                              <button onClick={() => toggleFeature(feat.id)} title={featHidden ? 'Einblenden' : 'Ausblenden'}
-                                style={{ width: 20, height: 20, borderRadius: 4, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                {featHidden ? <EyeOff size={10} /> : <Eye size={10} />}
-                              </button>
-                              {isAdmin && (
-                                <button onClick={() => openEditForm(feat)} title="Bearbeiten"
+                            <div key={feat.id} style={{ marginBottom: isDrone ? 6 : 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 5, padding: '3px 4px', borderRadius: 4, fontSize: 11, color: featHidden ? MUTED : FG, opacity: featHidden ? 0.45 : 1 }}>
+                                  <span style={{ fontSize: 10, flexShrink: 0 }}>{isDrone ? '🚁' : (modeInfo.icon || '●')}</span>
+                                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {feat.label || modeInfo.label || feat.feature_type}
+                                    {feat.properties?.baumnummer ? <span style={{ color: MUTED, marginLeft: 4, fontFamily: "'Space Mono', monospace", fontSize: 9 }}>#{feat.properties.baumnummer}</span> : null}
+                                  </span>
+                                </div>
+                                <button onClick={() => toggleFeature(feat.id)} title={featHidden ? 'Einblenden' : 'Ausblenden'}
                                   style={{ width: 20, height: 20, borderRadius: 4, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                  <Pencil size={9} />
+                                  {featHidden ? <EyeOff size={10} /> : <Eye size={10} />}
                                 </button>
+                                {isAdmin && !isDrone && (
+                                  <button onClick={() => openEditForm(feat)} title="Bearbeiten"
+                                    style={{ width: 20, height: 20, borderRadius: 4, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Pencil size={9} />
+                                  </button>
+                                )}
+                                {isAdmin && isDrone && (
+                                  <button onClick={() => deleteFeature(feat.id)} title="Löschen"
+                                    style={{ width: 20, height: 20, borderRadius: 4, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Trash2 size={9} />
+                                  </button>
+                                )}
+                              </div>
+                              {/* Opacity slider for drone images */}
+                              {isDrone && !featHidden && (
+                                <div style={{ paddingLeft: 20, paddingRight: 4, display: 'flex', alignItems: 'center', gap: 5 }}>
+                                  <SlidersHorizontal size={9} color={MUTED} />
+                                  <input type="range" min="0.05" max="1" step="0.05"
+                                    value={currentOpacity}
+                                    onChange={e => setDroneOpacity(prev => ({ ...prev, [feat.id]: +e.target.value }))}
+                                    style={{ flex: 1, accentColor: '#8b5cf6', height: 3 }} />
+                                  <span style={{ fontSize: 9, color: MUTED, fontFamily: "'Space Mono', monospace", minWidth: 24 }}>{Math.round(currentOpacity * 100)}%</span>
+                                </div>
                               )}
                             </div>
                           )
@@ -670,6 +873,10 @@ export default function MapPage() {
                                   {m.icon} {m.label}
                                 </button>
                               ))}
+                              <button onClick={() => setDroneModal(p)}
+                                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 7px', borderRadius: 5, border: '1px solid #8b5cf640', background: '#8b5cf612', color: '#8b5cf6', cursor: 'pointer', fontSize: 10, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap' }}>
+                                🚁 Drohnenbild
+                              </button>
                             </div>
                           </div>
                         )}
@@ -735,8 +942,22 @@ export default function MapPage() {
 
           {flyTarget && <FlyTo center={flyTarget} />}
 
+          {/* Drone image overlays */}
+          {mapFeatures.filter(f => f.feature_type === 'drone_image' && !hiddenProjects.has(f.project_id) && !hiddenFeatures.has(f.id) && f.properties?.image_url && f.geometry).map(feat => {
+            const coords = feat.geometry.coordinates[0]
+            const lngs = coords.map(c => c[0])
+            const lats = coords.map(c => c[1])
+            const south = Math.min(...lats), north = Math.max(...lats)
+            const west = Math.min(...lngs), east = Math.max(...lngs)
+            const opacity = droneOpacity[feat.id] ?? feat.properties?.opacity ?? 0.8
+            return (
+              <ImageOverlay key={feat.id} url={feat.properties.image_url} bounds={[[south, west], [north, east]]} opacity={opacity} />
+            )
+          })}
+
           {/* map_features rendering */}
           {mapFeatures.map(feat => {
+            if (feat.feature_type === 'drone_image') return null
             if (hiddenProjects.has(feat.project_id) || hiddenFeatures.has(feat.id)) return null
             if (typeFilter && feat.feature_type !== typeFilter) return null
             const q = searchQuery.toLowerCase()
@@ -893,6 +1114,16 @@ export default function MapPage() {
           existingFeature={editingFeature}
           onSave={onFormSave}
           onCancel={cancelDraw}
+        />
+      )}
+
+      {/* Drone image upload modal */}
+      {droneModal && (
+        <DroneImageModal
+          project={droneModal}
+          color={projectColorById[droneModal.id] || A}
+          onSave={onDroneSave}
+          onCancel={() => setDroneModal(null)}
         />
       )}
     </div>
