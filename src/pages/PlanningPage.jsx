@@ -429,8 +429,11 @@ export default function PlanningPage() {
 
               {/* Export */}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button onClick={() => exportPdf(plan, { label: fromMapFeature?.label, beetArea, beetW, beetH })} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#052e16', border: 'none', color: '#fff', borderRadius: 8, padding: '9px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+                  <Download size={13} /> Baumschul-PDF
+                </button>
                 <button onClick={() => exportPlan(plan)} style={{ display: 'flex', alignItems: 'center', gap: 8, background: A14, border: `1px solid ${A20}`, color: A, borderRadius: 8, padding: '9px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-                  <Download size={13} /> Plan exportieren (.txt)
+                  <Download size={13} /> .txt
                 </button>
                 <button onClick={() => setPlan([])} style={{ background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, padding: '9px 16px', cursor: 'pointer', fontSize: 13 }}>
                   Plan leeren
@@ -1271,4 +1274,120 @@ function exportPlan(plan) {
   a.href = URL.createObjectURL(blob)
   a.download = 'pflanzplan-luma.txt'
   a.click()
+}
+
+function exportPdf(plan, { label, beetArea, beetW, beetH } = {}) {
+  const total = plan.reduce((s, p) => s + p.count, 0)
+  const date = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const planTitle = label || `Pflanzplan ${beetW ? `${beetW}m × ${beetH}m` : ''}`
+
+  const MONTH_NAMES = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez']
+  const bloomStr = p => {
+    if (!p.bluete_monate?.length) return '—'
+    const sorted = [...p.bluete_monate].sort((a,b)=>a-b)
+    return `${MONTH_NAMES[sorted[0]-1]}–${MONTH_NAMES[sorted[sorted.length-1]-1]}`
+  }
+
+  const rows = plan.map((p, i) => `
+    <tr>
+      <td class="nr">${i + 1}</td>
+      <td class="swatch-cell"><span class="swatch" style="background:${p.bluete_farbe || '#10b981'}"></span></td>
+      <td class="name">${p.name}</td>
+      <td class="latin">${p.latin || '—'}</td>
+      <td class="center">${p.count}</td>
+      <td class="center">${p.pflanzabstand || 40} cm</td>
+      <td class="center bloom">${bloomStr(p)}</td>
+    </tr>`).join('')
+
+  const html = `<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>${planTitle}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11pt; color: #111; background: #fff; padding: 28mm 20mm; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #052e16; padding-bottom: 10px; margin-bottom: 18px; }
+  .header-left h1 { font-size: 18pt; font-weight: 800; color: #052e16; letter-spacing: -0.02em; line-height: 1; }
+  .header-left p { font-size: 9pt; color: #555; margin-top: 5px; }
+  .header-right { text-align: right; font-size: 9pt; color: #555; line-height: 1.6; }
+  .header-right strong { display: block; font-size: 11pt; color: #052e16; }
+  .meta { display: flex; gap: 24px; margin-bottom: 18px; padding: 10px 14px; background: #f0fdf4; border-radius: 6px; border: 1px solid #bbf7d0; }
+  .meta-item { font-size: 9pt; }
+  .meta-item strong { display: block; font-size: 14pt; font-weight: 800; color: #047a3c; }
+  .meta-item span { color: #555; text-transform: uppercase; font-size: 7.5pt; letter-spacing: 0.06em; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+  thead tr { background: #052e16; color: #fff; }
+  thead th { padding: 7px 10px; font-size: 8pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; text-align: left; }
+  thead th.center { text-align: center; }
+  tbody tr:nth-child(even) { background: #f9fafb; }
+  tbody tr:hover { background: #ecfdf5; }
+  td { padding: 7px 10px; border-bottom: 1px solid #e5e7eb; vertical-align: middle; }
+  td.nr { color: #999; font-size: 9pt; width: 28px; }
+  td.swatch-cell { width: 24px; padding-right: 0; }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.15); }
+  td.name { font-weight: 600; font-size: 11pt; }
+  td.latin { color: #555; font-style: italic; font-size: 9.5pt; }
+  td.center { text-align: center; font-size: 10pt; }
+  td.bloom { font-size: 9pt; color: #047a3c; font-weight: 600; }
+  .footer { margin-top: 28px; padding-top: 10px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; font-size: 8pt; color: #999; }
+  .order-note { margin-top: 18px; padding: 12px 16px; border: 1.5px dashed #bbf7d0; border-radius: 6px; font-size: 9pt; color: #047a3c; background: #f0fdf4; }
+  .order-note strong { display: block; margin-bottom: 4px; font-size: 10pt; color: #052e16; }
+  @media print {
+    body { padding: 15mm 15mm; }
+    @page { margin: 15mm; }
+  }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="header-left">
+    <h1>PFLANZPLAN</h1>
+    <p>LUMA BIOME — ${planTitle}</p>
+  </div>
+  <div class="header-right">
+    <strong>LUMA GmbH</strong>
+    Berlin, ${date}
+  </div>
+</div>
+
+<div class="meta">
+  <div class="meta-item"><strong>${total}</strong><span>Pflanzen gesamt</span></div>
+  <div class="meta-item"><strong>${plan.length}</strong><span>Arten</span></div>
+  ${beetArea ? `<div class="meta-item"><strong>${beetArea.toFixed(1)} m²</strong><span>Fläche</span></div>` : ''}
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Nr.</th>
+      <th></th>
+      <th>Art (Deutsch)</th>
+      <th>Art (Lateinisch)</th>
+      <th class="center">Anzahl</th>
+      <th class="center">Abstand</th>
+      <th class="center">Blüte</th>
+    </tr>
+  </thead>
+  <tbody>${rows}</tbody>
+</table>
+
+<div class="order-note">
+  <strong>Bestellanfrage Baumschule</strong>
+  Bitte Angebot für obige Pflanzliste (${total} Pflanzen, ${plan.length} Arten${beetArea ? `, Fläche ca. ${beetArea.toFixed(1)} m²` : ''}) einreichen.
+  Bevorzugt Regiosaatgut / regionale Herkünfte (§40 BNatSchG). Liefertermin nach Absprache.
+</div>
+
+<div class="footer">
+  <span>LUMA GmbH · Berlin · luma.earth</span>
+  <span>Erstellt mit LUMA BIOME · ${date}</span>
+</div>
+
+<script>window.onload = () => { window.print() }</script>
+</body>
+</html>`
+
+  const w = window.open('', '_blank')
+  w.document.write(html)
+  w.document.close()
 }
