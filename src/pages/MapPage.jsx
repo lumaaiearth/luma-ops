@@ -49,17 +49,20 @@ const TILES = {
   satellite: {
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     attribution: '&copy; <a href="https://www.esri.com">Esri</a>, DigitalGlobe, GeoEye, i-cubed, USDA FSA, USGS, AEX, Getmapping, Aerogrid, IGN, IGP, swisstopo, and the GIS User Community',
-    maxZoom: 19,
+    maxNativeZoom: 19,
+    maxZoom: 22,
   },
   dark: {
     url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    maxZoom: 19,
+    maxNativeZoom: 19,
+    maxZoom: 22,
   },
   light: {
     url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    maxZoom: 19,
+    maxNativeZoom: 19,
+    maxZoom: 22,
   },
 }
 
@@ -164,7 +167,16 @@ export default function MapPage() {
   const [activeLayers, setActiveLayers] = useState(new Set())
   const [expandedClients, setExpandedClients] = useState(new Set(['all']))
   const [hiddenProjects, setHiddenProjects] = useState(new Set())
+  const [hiddenFeatures, setHiddenFeatures] = useState(new Set())
   const isAdmin = user?.role === 'admin' || user?.role === 'manager'
+
+  function toggleFeature(key) {
+    setHiddenFeatures(prev => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+  }
 
   function toggleClientFolder(clientId) {
     setExpandedClients(prev => {
@@ -339,23 +351,33 @@ export default function MapPage() {
                       </button>
                     </div>
 
-                    {/* Sub-layers: GeoJSON features */}
-                    {isActive && p.geojson && (
+                    {/* Vector layers — always visible under project */}
+                    {p.geojson && (
                       <div style={{ paddingLeft: 16, marginBottom: 4 }}>
                         {(p.geojson.features || [p.geojson]).map((feat, fi) => {
                           const geomType = feat.geometry?.type || 'Feature'
-                          const label = feat.properties?.name || `${geomType === 'LineString' ? 'Linie' : 'Fläche'} ${fi + 1}`
+                          const isLine = geomType === 'LineString' || geomType === 'MultiLineString'
+                          const isPoint = geomType === 'Point' || geomType === 'MultiPoint'
+                          const label = feat.properties?.name || (isLine ? `Linie ${fi + 1}` : isPoint ? `Punkt ${fi + 1}` : `Fläche ${fi + 1}`)
+                          const featureKey = `${p.id}-${fi}`
+                          const featHidden = hiddenFeatures.has(featureKey)
                           return (
-                            <div key={fi} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 4px', borderRadius: 4, fontSize: 11, color: MUTED }}>
-                              <div style={{ width: 8, height: 8, borderRadius: 2, background: color, opacity: 0.7, flexShrink: 0 }} />
-                              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+                            <div key={fi} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                              <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, padding: '4px 4px', borderRadius: 4, fontSize: 11, color: featHidden ? MUTED : MUTED }}>
+                                <div style={{ width: isLine ? 12 : 8, height: isLine ? 2 : 8, borderRadius: isLine ? 1 : (isPoint ? '50%' : 2), background: color, opacity: featHidden ? 0.25 : 0.75, flexShrink: 0 }} />
+                                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: featHidden ? 0.35 : 1 }}>{label}</span>
+                              </div>
+                              <button onClick={() => toggleFeature(featureKey)} title={featHidden ? 'Einblenden' : 'Ausblenden'}
+                                style={{ width: 22, height: 22, borderRadius: 4, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                {featHidden ? <EyeOff size={10} /> : <Eye size={10} />}
+                              </button>
                             </div>
                           )
                         })}
-                        {isAdmin && (
+                        {isAdmin && isActive && (
                           <button onClick={() => setDrawingProject(p)}
                             style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 4px', borderRadius: 4, border: 'none', background: 'transparent', color: color, cursor: 'pointer', fontSize: 11, width: '100%', marginTop: 2 }}>
-                            <Pencil size={10} /> {p.geojson ? 'Fläche bearbeiten' : 'Fläche zeichnen'}
+                            <Pencil size={10} /> Fläche bearbeiten
                           </button>
                         )}
                       </div>
@@ -421,10 +443,11 @@ export default function MapPage() {
         <MapContainer
           center={[52.515, 13.405]}
           zoom={11}
+          maxZoom={22}
           style={{ width: '100%', height: '100%' }}
           zoomControl={true}>
 
-          <TileLayer key={tileLayer} url={tile.url} attribution={tile.attribution} maxZoom={tile.maxZoom} />
+          <TileLayer key={tileLayer} url={tile.url} attribution={tile.attribution} maxNativeZoom={tile.maxNativeZoom} maxZoom={tile.maxZoom} />
 
           {/* Open data WMS layers */}
           {OPEN_LAYERS.filter(l => activeLayers.has(l.id)).map(layer => (
@@ -435,43 +458,54 @@ export default function MapPage() {
 
           {flyTarget && <FlyTo center={flyTarget} />}
 
-          {/* Project GeoJSON polygons — clickable with measurement popup */}
-          {mappableProjects.map((p, i) => {
-            if (!p.geojson || hiddenProjects.has(p.id)) return null
+          {/* Project GeoJSON — per-feature for individual visibility + full metadata popup */}
+          {mappableProjects.flatMap((p, i) => {
+            if (!p.geojson || hiddenProjects.has(p.id)) return []
             const color = projectColor(p, i)
-            return (
-              <GeoJSON key={`${p.id}-geo-${(p.geojson?.features || []).length}`} data={p.geojson}
-                style={{ color, weight: 2.5, fillColor: color, fillOpacity: 0.18 }}
-                onEachFeature={(feature, layer) => {
-                  layer.on('click', (e) => {
-                    L.DomEvent.stopPropagation(e)
-                    let area = 0, perimeter = 0
-                    try {
-                      const ll = layer.getLatLngs ? layer.getLatLngs() : []
-                      area = geodesicArea(ll)
-                      perimeter = perimeterMeters(ll)
-                    } catch {}
-                    const featIdx = (p.geojson?.features || []).indexOf(feature) + 1
-                    const label = feature.properties?.name || `Fläche ${featIdx}`
-                    const popup = L.popup({ maxWidth: 240 })
-                      .setLatLng(e.latlng)
-                      .setContent(`
-                        <div style="font-family:'Space Grotesk',sans-serif;min-width:180px">
-                          <div style="font-weight:700;font-size:13px;color:#e8f0f5;margin-bottom:6px;border-left:3px solid ${color};padding-left:8px">${label}</div>
-                          <div style="font-size:10px;color:${color};font-family:'Space Mono',monospace;margin-bottom:8px;padding-left:11px">${p.name}</div>
-                          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
-                            ${area > 0 ? `<div style="background:rgba(255,255,255,0.06);border-radius:6px;padding:6px 8px"><div style="font-size:9px;color:rgba(232,240,245,0.45);margin-bottom:2px;font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:.06em">Fläche</div><div style="font-size:13px;font-weight:700;color:#e8f0f5">${fmtArea(area)}</div></div>` : ''}
-                            ${perimeter > 0 ? `<div style="background:rgba(255,255,255,0.06);border-radius:6px;padding:6px 8px"><div style="font-size:9px;color:rgba(232,240,245,0.45);margin-bottom:2px;font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:.06em">Umfang</div><div style="font-size:13px;font-weight:700;color:#e8f0f5">${fmtLen(perimeter)}</div></div>` : ''}
-                          </div>
-                          <a href="/projects/${p.id}" onclick="event.preventDefault();window._mapNav&&window._mapNav('${p.id}')" style="display:flex;align-items:center;justify-content:center;gap:4px;padding:6px 10px;border-radius:6px;background:${color}22;border:1px solid ${color}44;color:${color};font-size:11px;font-weight:600;text-decoration:none;cursor:pointer">↗ Projektseite</a>
-                        </div>`)
-                    popup.openOn(layer._map)
-                  })
-                  layer.on('mouseover', () => { layer.setStyle({ weight: 3.5, fillOpacity: 0.28 }) })
-                  layer.on('mouseout', () => { layer.setStyle({ weight: 2.5, fillOpacity: 0.18 }) })
-                }}
-              />
-            )
+            const features = p.geojson.features || [p.geojson]
+            return features.map((feat, fi) => {
+              if (hiddenFeatures.has(`${p.id}-${fi}`)) return null
+              const geomType = feat.geometry?.type || ''
+              const isLine = geomType === 'LineString' || geomType === 'MultiLineString'
+              const singleFc = { type: 'FeatureCollection', features: [feat] }
+              return (
+                <GeoJSON key={`${p.id}-geo-${fi}`} data={singleFc}
+                  style={{ color, weight: 2.5, fillColor: color, fillOpacity: isLine ? 0 : 0.18 }}
+                  onEachFeature={(feature, layer) => {
+                    layer.on('click', (e) => {
+                      L.DomEvent.stopPropagation(e)
+                      let area = 0, perimeter = 0
+                      try {
+                        const ll = layer.getLatLngs ? layer.getLatLngs() : []
+                        if (!isLine) area = geodesicArea(ll)
+                        perimeter = perimeterMeters(ll)
+                      } catch {}
+                      const label = feature.properties?.name || (isLine ? `Linie ${fi + 1}` : `Fläche ${fi + 1}`)
+                      const props = feature.properties || {}
+                      const metaRows = Object.entries(props)
+                        .filter(([k, v]) => v != null && v !== '' && k !== 'name')
+                        .map(([k, v]) => `<div style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.05)"><span style="font-size:9px;color:rgba(232,240,245,0.4);font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:.06em;flex-shrink:0;min-width:55px;padding-top:1px">${k}</span><span style="font-size:11px;color:#e8f0f5;flex:1;word-break:break-word">${v}</span></div>`).join('')
+                      const popup = L.popup({ maxWidth: 260 })
+                        .setLatLng(e.latlng)
+                        .setContent(`
+                          <div style="font-family:'Space Grotesk',sans-serif;min-width:180px">
+                            <div style="font-weight:700;font-size:13px;color:#e8f0f5;margin-bottom:4px;border-left:3px solid ${color};padding-left:8px">${label}</div>
+                            <div style="font-size:10px;color:${color};font-family:'Space Mono',monospace;margin-bottom:8px;padding-left:11px">${p.name}</div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:${metaRows ? 8 : 10}px">
+                              ${area > 0 ? `<div style="background:rgba(255,255,255,0.06);border-radius:6px;padding:6px 8px"><div style="font-size:9px;color:rgba(232,240,245,0.45);margin-bottom:2px;font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:.06em">Fläche</div><div style="font-size:13px;font-weight:700;color:#e8f0f5">${fmtArea(area)}</div></div>` : ''}
+                              ${perimeter > 0 ? `<div style="background:rgba(255,255,255,0.06);border-radius:6px;padding:6px 8px"><div style="font-size:9px;color:rgba(232,240,245,0.45);margin-bottom:2px;font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:.06em">${isLine ? 'Länge' : 'Umfang'}</div><div style="font-size:13px;font-weight:700;color:#e8f0f5">${fmtLen(perimeter)}</div></div>` : ''}
+                            </div>
+                            ${metaRows ? `<div style="margin-bottom:10px">${metaRows}</div>` : ''}
+                            <a href="/projects/${p.id}" onclick="event.preventDefault();window._mapNav&&window._mapNav('${p.id}')" style="display:flex;align-items:center;justify-content:center;gap:4px;padding:6px 10px;border-radius:6px;background:${color}22;border:1px solid ${color}44;color:${color};font-size:11px;font-weight:600;text-decoration:none;cursor:pointer">↗ Projektseite</a>
+                          </div>`)
+                      popup.openOn(layer._map)
+                    })
+                    layer.on('mouseover', () => { layer.setStyle({ weight: 3.5, fillOpacity: isLine ? 0 : 0.28 }) })
+                    layer.on('mouseout', () => { layer.setStyle({ weight: 2.5, fillOpacity: isLine ? 0 : 0.18 }) })
+                  }}
+                />
+              )
+            })
           })}
 
           {/* Project markers */}
