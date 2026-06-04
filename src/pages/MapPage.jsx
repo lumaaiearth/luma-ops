@@ -157,7 +157,7 @@ function DrawControl({ mode, onFeatureDrawn, onCancel }) {
 }
 
 /* ─── FEATURE FORM MODAL ────────────────────────────────────────────────── */
-function FeatureForm({ mode, project, color, existingFeature, onSave, onCancel }) {
+function FeatureForm({ mode, project, color, existingFeature, onSave, onCancel, areaM2 }) {
   const isTree = mode === 'tree'
   const modeInfo = FEATURE_MODES.find(m => m.id === mode) || {}
 
@@ -322,6 +322,12 @@ function FeatureForm({ mode, project, color, existingFeature, onSave, onCancel }
             style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px 18px', borderRadius: 8, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: "'Space Grotesk', sans-serif" }}>
             <Save size={13} /> Speichern
           </button>
+          {(mode === 'bed' || mode === 'area') && areaM2 > 0 && (
+            <button onClick={() => { onSave({ label: label || modeInfo.label, properties: form }, true) }}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '9px 12px', borderRadius: 8, background: '#22c55e20', border: '1px solid #22c55e40', color: '#22c55e', cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap' }}>
+              🌿 Floralis →
+            </button>
+          )}
           <button onClick={onCancel}
             style={{ padding: '9px 14px', borderRadius: 8, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif" }}>
             Abbrechen
@@ -652,19 +658,35 @@ export default function MapPage() {
     setPendingGeometry(geometry)
   }
 
-  function onFormSave({ label, properties }) {
+  function calcPendingArea() {
+    if (!pendingGeometry) return 0
+    try {
+      const tmpLayer = L.geoJSON({ type: 'Feature', geometry: pendingGeometry })
+      let area = 0
+      tmpLayer.eachLayer(l => { if (l.getLatLngs) { area = geodesicArea(l.getLatLngs()) } })
+      return area
+    } catch { return 0 }
+  }
+
+  function onFormSave({ label, properties }, goToFloralis = false) {
+    let featureId = genId()
     if (editingFeature) {
       updateMapFeature(editingFeature.id, { label, properties })
+      featureId = editingFeature.id
       setEditingFeature(null)
     } else {
       createMapFeature({
-        id: genId(),
+        id: featureId,
         project_id: drawingProject.id,
         feature_type: drawMode,
         geometry: pendingGeometry,
         label,
         properties,
       })
+    }
+    if (goToFloralis) {
+      const area = calcPendingArea()
+      navigate('/planning', { state: { fromMapFeature: { feature_id: featureId, label: label || drawMode, area_m2: area } } })
     }
     cancelDraw()
   }
@@ -1114,6 +1136,7 @@ export default function MapPage() {
           project={drawingProject}
           color={drawingProject ? projectColorById[drawingProject.id] : A}
           existingFeature={editingFeature}
+          areaM2={calcPendingArea()}
           onSave={onFormSave}
           onCancel={cancelDraw}
         />

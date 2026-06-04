@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { A, SURFACE, BORDER, FG, MUTED, BG, A14, A20 } from '../lib/theme.js'
 import { useTheme } from '../context/ThemeContext.jsx'
 import { useBreakpoint } from '../lib/useBreakpoint.js'
@@ -49,6 +50,7 @@ export default function PlanningPage() {
   const bp = useBreakpoint()
   const isMobile = bp === 'xs' || bp === 'sm'
   const { projects = [], updateProject } = useOps()
+  const location = useLocation()
 
   // ── Filters
   const [licht, setLicht] = useState(null)
@@ -77,6 +79,23 @@ export default function PlanningPage() {
   const [beetW, setBeetW] = useState(4)
   const [beetH, setBeetH] = useState(2)
   const [beetForm, setBeetForm] = useState('rechteck') // 'rechteck'|'oval'
+  const [fromMapFeature, setFromMapFeature] = useState(null)
+
+  // Pre-fill from map navigation state
+  useEffect(() => {
+    const state = location.state
+    if (!state?.fromMapFeature) return
+    const { area_m2, label, feature_id } = state.fromMapFeature
+    if (area_m2 > 0) {
+      // Derive beet dimensions: assume 2:1 ratio
+      const w = Math.round(Math.sqrt(area_m2 * 2) * 10) / 10
+      const h = Math.round((area_m2 / w) * 10) / 10
+      setBeetW(w)
+      setBeetH(h)
+      setActiveTab('plan')
+    }
+    setFromMapFeature(state.fromMapFeature)
+  }, [location.state])
 
   const filtered = useMemo(() => {
     const available = typeof filterPlants === 'function' ? filterPlants({
@@ -130,6 +149,19 @@ export default function PlanningPage() {
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+      {/* ── MAP FEATURE BANNER ──────────────────────────────────────────── */}
+      {fromMapFeature && (
+        <div style={{ background: '#22c55e18', borderBottom: `1px solid #22c55e30`, padding: '8px 24px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          <span style={{ fontSize: 14 }}>🗺️</span>
+          <span style={{ fontSize: 12, color: '#22c55e', fontFamily: "'Space Grotesk', sans-serif" }}>
+            <b>{fromMapFeature.label}</b> aus der Karte · {fromMapFeature.area_m2?.toFixed(1)} m² vorbelegt
+          </span>
+          <button onClick={() => setFromMapFeature(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#22c55e', cursor: 'pointer', display: 'flex', padding: 2 }}>
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* ── HEADER ─────────────────────────────────────────────────────── */}
       <div style={{ padding: isMobile ? '12px 12px 0' : '16px 24px 0', flexShrink: 0 }}>
