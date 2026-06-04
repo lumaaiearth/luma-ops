@@ -1,0 +1,38 @@
+name: Supabase Backup
+
+on:
+  schedule:
+    - cron: '0 2 * * *'   # täglich 04:00 Uhr Berlin (02:00 UTC)
+  workflow_dispatch:        # auch manuell auslösbar
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tabellen exportieren
+        run: |
+          BASE="https://eqwoyfsfyohtcibithak.supabase.co/rest/v1"
+          KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxd295ZnNmeW9odGNpYml0aGFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwNzU1NzUsImV4cCI6MjA5NTY1MTU3NX0.lygoUkOrF627c_FZrgigugmxp-H0Cq_Nv9Au8vFdcSU"
+
+          mkdir -p backup
+          DATE=$(date -u '+%Y-%m-%d')
+
+          for TABLE in jobs recurring_templates projects clients time_entries invoices sensors vehicles app_settings job_photos; do
+            curl -sf \
+              -H "apikey: $KEY" \
+              -H "Authorization: Bearer $KEY" \
+              "$BASE/$TABLE?select=*&limit=10000" \
+              -o "backup/${TABLE}.json" && \
+              echo "$TABLE: $(cat backup/${TABLE}.json | python3 -c 'import sys,json; d=json.load(sys.stdin); print(len(d),"rows")' 2>/dev/null || echo 'exported')" || \
+              echo "$TABLE: FEHLER"
+          done
+
+          echo "Backup $DATE $(date -u '+%H:%M UTC')" > backup/info.txt
+          echo "Tabellen: jobs, recurring_templates, projects, clients, time_entries, invoices, sensors, vehicles, app_settings, job_photos" >> backup/info.txt
+
+      - name: Als Artifact speichern
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-${{ github.run_id }}
+          path: backup/
+          retention-days: 90
