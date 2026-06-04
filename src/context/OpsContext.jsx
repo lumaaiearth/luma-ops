@@ -33,13 +33,14 @@ export function OpsProvider({ children }) {
   const [chips, setChipsState] = useState(() => {
     try { return JSON.parse(localStorage.getItem('luma_chips')) || DEFAULT_CHIPS } catch { return DEFAULT_CHIPS }
   })
+  const [mapFeatures, setMapFeaturesState] = useState([])
   const [loading, setLoading] = useState(true)
 
   // ── Load from Supabase on mount ──────────────────────────────────────────────
   useEffect(() => {
     async function load() {
       try {
-        const [pRows, jRows, rRows, sRows, cRows, vRows, settingsRow] = await Promise.all([
+        const [pRows, jRows, rRows, sRows, cRows, vRows, settingsRow, mfRows] = await Promise.all([
           sb.from('projects').select('*'),
           sb.from('jobs').select('*').order('date'),
           sb.from('recurring_templates').select('*'),
@@ -47,6 +48,7 @@ export function OpsProvider({ children }) {
           sb.from('clients').select('*').order('name'),
           sb.from('vehicles').select('*').order('name'),
           sb.from('app_settings').select('*').eq('key', 'activity_chips').maybeSingle(),
+          sb.from('map_features').select('*').order('created_at'),
         ])
         if (pRows.data?.length) setProjectsState(pRows.data)
         else setProjectsState(getProjects()) // fallback to localStorage seed
@@ -74,6 +76,7 @@ export function OpsProvider({ children }) {
           setChipsState(settingsRow.data.value)
           localStorage.setItem('luma_chips', JSON.stringify(settingsRow.data.value))
         }
+        if (mfRows.data) setMapFeaturesState(mfRows.data)
       } catch {
         // Offline fallback
         setProjectsState(getProjects())
@@ -140,6 +143,13 @@ export function OpsProvider({ children }) {
           if (payload.eventType === 'DELETE') return prev.filter(v => v.id !== payload.old.id)
           if (payload.eventType === 'INSERT') return [...prev.filter(v => v.id !== payload.new.id), payload.new]
           return prev.map(v => v.id === payload.new.id ? payload.new : v)
+        })
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'map_features' }, payload => {
+        setMapFeaturesState(prev => {
+          if (payload.eventType === 'DELETE') return prev.filter(f => f.id !== payload.old.id)
+          if (payload.eventType === 'INSERT') return [...prev.filter(f => f.id !== payload.new.id), payload.new]
+          return prev.map(f => f.id === payload.new.id ? payload.new : f)
         })
       })
       .subscribe()
@@ -299,6 +309,25 @@ export function OpsProvider({ children }) {
     sbDelete('projects', id).catch(dbErr('ops','write'))
   }
 
+  // ── Map Features ─────────────────────────────────────────────────────────────
+  function createMapFeature(data) {
+    const feature = { ...data, id: data.id || genId(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+    setMapFeaturesState(prev => [...prev, feature])
+    sbInsert('map_features', feature).catch(dbErr('map_features', 'write'))
+    return feature
+  }
+
+  function updateMapFeature(id, changes) {
+    const upd = { ...changes, updated_at: new Date().toISOString() }
+    setMapFeaturesState(prev => prev.map(f => f.id === id ? { ...f, ...upd } : f))
+    sbUpdate('map_features', id, upd).catch(dbErr('map_features', 'write'))
+  }
+
+  function deleteMapFeature(id) {
+    setMapFeaturesState(prev => prev.filter(f => f.id !== id))
+    sbDelete('map_features', id).catch(dbErr('map_features', 'write'))
+  }
+
   // ── Clients ──────────────────────────────────────────────────────────────────
   async function createClient(data) {
     const client = { ...data, id: data.id || genId(), created_at: new Date().toISOString() }
@@ -343,7 +372,7 @@ export function OpsProvider({ children }) {
   }
 
   return (
-    <OpsContext.Provider value={{ jobs, recurring, sensors, projects, clients, vehicles, chips, loading, createJob, updateJob, deleteJob, setJobStatus, createRecurring, deleteRecurring, updateSensorValue, createProject, updateProject, deleteProject, createClient, updateClient, deleteClient, createVehicle, updateVehicle, deleteVehicle, saveChips }}>
+    <OpsContext.Provider value={{ jobs, recurring, sensors, projects, clients, vehicles, chips, mapFeatures, loading, createJob, updateJob, deleteJob, setJobStatus, createRecurring, deleteRecurring, updateSensorValue, createProject, updateProject, deleteProject, createClient, updateClient, deleteClient, createVehicle, updateVehicle, deleteVehicle, saveChips, createMapFeature, updateMapFeature, deleteMapFeature }}>
       {children}
     </OpsContext.Provider>
   )
