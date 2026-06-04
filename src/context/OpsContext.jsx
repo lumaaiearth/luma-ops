@@ -34,6 +34,7 @@ export function OpsProvider({ children }) {
     try { return JSON.parse(localStorage.getItem('luma_chips')) || DEFAULT_CHIPS } catch { return DEFAULT_CHIPS }
   })
   const [mapFeatures, setMapFeaturesState] = useState([])
+  const [pflanzplaene, setPflanzplaeneState] = useState([])
   const [loading, setLoading] = useState(true)
 
   // ── Load from Supabase on mount ──────────────────────────────────────────────
@@ -49,6 +50,7 @@ export function OpsProvider({ children }) {
           sb.from('vehicles').select('*').order('name'),
           sb.from('app_settings').select('*').eq('key', 'activity_chips').maybeSingle(),
           sb.from('map_features').select('*').order('created_at'),
+          sb.from('pflanzplaene').select('*').order('created_at', { ascending: false }),
         ])
         if (pRows.data?.length) setProjectsState(pRows.data)
         else setProjectsState(getProjects()) // fallback to localStorage seed
@@ -77,6 +79,8 @@ export function OpsProvider({ children }) {
           localStorage.setItem('luma_chips', JSON.stringify(settingsRow.data.value))
         }
         if (mfRows.data) setMapFeaturesState(mfRows.data)
+        const ppRows = (await sb.from('pflanzplaene').select('*').order('created_at', { ascending: false })).data
+        if (ppRows) setPflanzplaeneState(ppRows)
       } catch {
         // Offline fallback
         setProjectsState(getProjects())
@@ -364,6 +368,34 @@ export function OpsProvider({ children }) {
     sbDelete('vehicles', id).catch(dbErr('ops','write'))
   }
 
+  // ── Pflanzplaene ─────────────────────────────────────────────────────────────
+  async function createPflanzplan(data) {
+    const now = new Date().toISOString()
+    const plan = {
+      titel: 'Unbenannter Plan',
+      status: 'planung',
+      positionen: [],
+      ...data,
+      id: data.id || crypto.randomUUID(),
+      created_at: now,
+      updated_at: now,
+    }
+    setPflanzplaeneState(prev => [plan, ...prev])
+    await sb.from('pflanzplaene').upsert(plan).catch(dbErr('pflanzplaene', 'write'))
+    return plan
+  }
+
+  function updatePflanzplan(id, changes) {
+    const updated = { ...changes, updated_at: new Date().toISOString() }
+    setPflanzplaeneState(prev => prev.map(p => p.id === id ? { ...p, ...updated } : p))
+    sb.from('pflanzplaene').update(updated).eq('id', id).catch(dbErr('pflanzplaene', 'write'))
+  }
+
+  function deletePflanzplan(id) {
+    setPflanzplaeneState(prev => prev.filter(p => p.id !== id))
+    sb.from('pflanzplaene').delete().eq('id', id).catch(dbErr('pflanzplaene', 'write'))
+  }
+
   // ── Chips ────────────────────────────────────────────────────────────────────
   function saveChips(newChips) {
     setChipsState(newChips)
@@ -372,7 +404,7 @@ export function OpsProvider({ children }) {
   }
 
   return (
-    <OpsContext.Provider value={{ jobs, recurring, sensors, projects, clients, vehicles, chips, mapFeatures, loading, createJob, updateJob, deleteJob, setJobStatus, createRecurring, deleteRecurring, updateSensorValue, createProject, updateProject, deleteProject, createClient, updateClient, deleteClient, createVehicle, updateVehicle, deleteVehicle, saveChips, createMapFeature, updateMapFeature, deleteMapFeature }}>
+    <OpsContext.Provider value={{ jobs, recurring, sensors, projects, clients, vehicles, chips, mapFeatures, pflanzplaene, loading, createJob, updateJob, deleteJob, setJobStatus, createRecurring, deleteRecurring, updateSensorValue, createProject, updateProject, deleteProject, createClient, updateClient, deleteClient, createVehicle, updateVehicle, deleteVehicle, saveChips, createMapFeature, updateMapFeature, deleteMapFeature, createPflanzplan, updatePflanzplan, deletePflanzplan }}>
       {children}
     </OpsContext.Provider>
   )

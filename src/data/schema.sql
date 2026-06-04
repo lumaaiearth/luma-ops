@@ -88,3 +88,43 @@ INSERT OR IGNORE INTO kunde (kuerzel, name) VALUES
   ('STROMNETZ', 'Stromnetz Berlin'),
   ('STADT',     'Stadt Berlin'),
   ('LUMA',      'LUMA Homebase / Intern');
+
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- SCHEMA v2 — Pflanzplanung (2026-06-04)
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- Pflanzpläne
+CREATE TABLE IF NOT EXISTS pflanzplaene (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  standort_id  TEXT,
+  projekt_id   TEXT,
+  titel        TEXT NOT NULL DEFAULT 'Unbenannter Plan',
+  status       TEXT NOT NULL DEFAULT 'planung' CHECK(status IN (
+                 'planung',
+                 'pdf_erstellt',
+                 'bestellung',
+                 'bestellung_bestaetigt',
+                 'pflanzung_laufend',
+                 'wachstum',
+                 'maintenance'
+               )),
+  flaeche_m2   REAL,
+  beet_w       REAL,
+  beet_h       REAL,
+  beet_form    TEXT DEFAULT 'rechteck',
+  positionen   JSONB NOT NULL DEFAULT '[]',
+  notizen      TEXT,
+  created_at   TIMESTAMPTZ DEFAULT now(),
+  updated_at   TIMESTAMPTZ DEFAULT now()
+);
+
+-- Status-Verlauf
+CREATE TABLE IF NOT EXISTS pflanzplan_status_log (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  pflanzplan_id UUID NOT NULL REFERENCES pflanzplaene(id) ON DELETE CASCADE,
+  von_status    TEXT,
+  zu_status     TEXT NOT NULL,
+  notiz         TEXT,
+  geaendert_am  TIMESTAMPTZ DEFAULT now()
+);

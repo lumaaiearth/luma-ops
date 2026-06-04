@@ -11,6 +11,26 @@ import {
   Sun, Droplets, FlaskConical, Bug, Bird, Flower, Sprout, TreePine,
 } from 'lucide-react'
 
+/* ─── PFLANZPLAN STATUS ─────────────────────────────────────────────────── */
+const STATUS_LABELS = {
+  planung: 'Planung',
+  pdf_erstellt: 'PDF erstellt',
+  bestellung: 'Bestellt',
+  bestellung_bestaetigt: 'Bestätigt',
+  pflanzung_laufend: 'Pflanzung',
+  wachstum: 'Wachstum',
+  maintenance: 'Pflege',
+}
+const STATUS_COLORS = {
+  planung:                { bg: '#e0f2fe', fg: '#0369a1' },
+  pdf_erstellt:           { bg: '#fef9c3', fg: '#854d0e' },
+  bestellung:             { bg: '#fed7aa', fg: '#9a3412' },
+  bestellung_bestaetigt:  { bg: '#bbf7d0', fg: '#065f46' },
+  pflanzung_laufend:      { bg: '#d1fae5', fg: '#047857' },
+  wachstum:               { bg: '#dcfce7', fg: '#15803d' },
+  maintenance:            { bg: '#f0fdf4', fg: '#166534' },
+}
+
 /* ─── OPTION SETS ───────────────────────────────────────────────────────── */
 const LICHT_OPTS = [
   { value: 1, label: 'Vollsonne', emoji: '☀️', desc: '>6h' },
@@ -49,7 +69,7 @@ export default function PlanningPage() {
   const L = themeId === 'light'
   const bp = useBreakpoint()
   const isMobile = bp === 'xs' || bp === 'sm'
-  const { projects = [], updateProject } = useOps()
+  const { projects = [], updateProject, pflanzplaene = [], createPflanzplan, updatePflanzplan, deletePflanzplan } = useOps()
   const location = useLocation()
 
   // ── Filters
@@ -74,6 +94,10 @@ export default function PlanningPage() {
   const [saveProjectId, setSaveProjectId] = useState('')
   const [savedToProject, setSavedToProject] = useState(false)
   const [sheetPlant, setSheetPlant] = useState(null) // Steckbrief-Sheet
+  const [planTitel, setPlanTitel] = useState('')
+  const [savedPlanId, setSavedPlanId] = useState(null)
+  const [savingPlan, setSavingPlan] = useState(false)
+  const [showSavedPlans, setShowSavedPlans] = useState(false)
 
   // ── Beetplaner
   const [beetW, setBeetW] = useState(4)
@@ -135,6 +159,54 @@ export default function PlanningPage() {
     await updateProject(saveProjectId, { plant_plan: payload })
     setSavedToProject(true)
     setTimeout(() => setSavedToProject(false), 2500)
+  }
+
+  async function savePflanzplan() {
+    if (!plan.length) return
+    setSavingPlan(true)
+    try {
+      const positionen = plan.map(p => ({
+        id: p.id, name: p.name, latin: p.latin, count: p.count,
+        pflanzabstand: p.pflanzabstand, bluete_farbe: p.bluete_farbe,
+        bluete_monate: p.bluete_monate, heimisch: p.heimisch,
+        nektar: p.nektar, raupenfutter: p.raupenfutter,
+      }))
+      const data = {
+        titel: planTitel || `Plan ${new Date().toLocaleDateString('de-DE')}`,
+        status: 'planung',
+        positionen,
+        flaeche_m2: beetArea || null,
+        beet_w: beetW, beet_h: beetH, beet_form: beetForm,
+        projekt_id: saveProjectId || null,
+        standort_id: fromMapFeature?.feature_id || null,
+      }
+      if (savedPlanId) {
+        updatePflanzplan(savedPlanId, { positionen, titel: data.titel, updated_at: new Date().toISOString() })
+      } else {
+        const saved = await createPflanzplan(data)
+        setSavedPlanId(saved.id)
+      }
+      setSavedToProject(true)
+      setTimeout(() => setSavedToProject(false), 2500)
+    } finally {
+      setSavingPlan(false)
+    }
+  }
+
+  function loadPflanzplan(pp) {
+    if (!pp?.positionen?.length) return
+    const restored = pp.positionen.map(pos => {
+      const base = PLANTS.find(p => p.id === pos.id) || {}
+      return { ...base, ...pos }
+    })
+    setPlan(restored)
+    setPlanTitel(pp.titel || '')
+    setSavedPlanId(pp.id)
+    if (pp.beet_w) setBeetW(pp.beet_w)
+    if (pp.beet_h) setBeetH(pp.beet_h)
+    if (pp.beet_form) setBeetForm(pp.beet_form)
+    setActiveTab('plan')
+    setShowSavedPlans(false)
   }
   const beetArea = beetForm === 'oval'
     ? Math.PI * (beetW / 2) * (beetH / 2)
@@ -443,28 +515,81 @@ export default function PlanningPage() {
                 </button>
               </div>
 
-              {/* Attach to project */}
-              {projects.length > 0 && (
-                <div style={{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <select
-                    value={saveProjectId}
-                    onChange={e => { setSaveProjectId(e.target.value); setSavedToProject(false) }}
-                    style={{ flex: 1, minWidth: 180, background: L ? '#fff' : SURFACE, border: `1px solid ${BORDER}`, color: FG, borderRadius: 8, padding: '9px 12px', fontSize: 13, cursor: 'pointer' }}
-                  >
-                    <option value="">— Projekt auswählen —</option>
-                    {projects.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
+              {/* Save Plan */}
+              <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <input
+                    value={planTitel}
+                    onChange={e => setPlanTitel(e.target.value)}
+                    placeholder={`Plan ${new Date().toLocaleDateString('de-DE')}`}
+                    style={{ flex: 1, minWidth: 160, background: L ? '#fff' : SURFACE, border: `1px solid ${BORDER}`, color: FG, borderRadius: 8, padding: '9px 12px', fontSize: 13 }}
+                  />
                   <button
-                    onClick={savePlanToProject}
-                    disabled={!saveProjectId || plan.length === 0}
-                    style={{ display: 'flex', alignItems: 'center', gap: 7, background: saveProjectId && plan.length ? A : (L ? '#e5e7eb' : '#1e2a32'), border: 'none', color: saveProjectId && plan.length ? '#fff' : MUTED, borderRadius: 8, padding: '9px 18px', cursor: saveProjectId && plan.length ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 600, transition: 'background 0.15s' }}
+                    onClick={savePflanzplan}
+                    disabled={plan.length === 0 || savingPlan}
+                    style={{ display: 'flex', alignItems: 'center', gap: 7, background: plan.length ? '#052e16' : (L ? '#e5e7eb' : '#1e2a32'), border: 'none', color: plan.length ? '#fff' : MUTED, borderRadius: 8, padding: '9px 18px', cursor: plan.length ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap' }}
                   >
-                    {savedToProject ? '✓ Gespeichert' : '📎 An Projekt anhängen'}
+                    {savedToProject ? '✓ Gespeichert' : savingPlan ? '...' : savedPlanId ? '💾 Aktualisieren' : '💾 Plan speichern'}
                   </button>
+                  {pflanzplaene.length > 0 && (
+                    <button
+                      onClick={() => setShowSavedPlans(v => !v)}
+                      style={{ background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, padding: '9px 14px', cursor: 'pointer', fontSize: 13 }}
+                    >
+                      📂 {pflanzplaene.length} gespeichert
+                    </button>
+                  )}
                 </div>
-              )}
+
+                {/* Saved Plans List */}
+                {showSavedPlans && pflanzplaene.length > 0 && (
+                  <div style={{ background: L ? '#f9fafb' : '#0f1a22', border: `1px solid ${BORDER}`, borderRadius: 10, overflow: 'hidden' }}>
+                    {pflanzplaene.map(pp => (
+                      <div key={pp.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: `1px solid ${BORDER}`, cursor: 'pointer' }} onClick={() => loadPflanzplan(pp)}>
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: STATUS_COLORS[pp.status]?.bg || A14, color: STATUS_COLORS[pp.status]?.fg || A }}>{STATUS_LABELS[pp.status] || pp.status}</span>
+                        <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: FG }}>{pp.titel}</span>
+                        <span style={{ fontSize: 11, color: MUTED }}>{pp.positionen?.length || 0} Arten</span>
+                        <button onClick={e => { e.stopPropagation(); deletePflanzplan(pp.id); if (savedPlanId === pp.id) setSavedPlanId(null) }} style={{ background: 'none', border: 'none', color: MUTED, cursor: 'pointer', fontSize: 15, padding: '0 2px' }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Status updater for active plan */}
+                {savedPlanId && (() => {
+                  const activePlan = pflanzplaene.find(p => p.id === savedPlanId)
+                  if (!activePlan) return null
+                  const statusList = ['planung','pdf_erstellt','bestellung','bestellung_bestaetigt','pflanzung_laufend','wachstum','maintenance']
+                  const curIdx = statusList.indexOf(activePlan.status)
+                  return (
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <span style={{ fontSize: 11, color: MUTED }}>Status:</span>
+                      {statusList.map((s, i) => (
+                        <button key={s} onClick={() => updatePflanzplan(savedPlanId, { status: s })}
+                          style={{ fontSize: 11, fontWeight: i === curIdx ? 700 : 400, padding: '3px 9px', borderRadius: 20, border: `1px solid ${i === curIdx ? A : BORDER}`, background: i === curIdx ? A14 : 'transparent', color: i === curIdx ? A : MUTED, cursor: 'pointer' }}>
+                          {STATUS_LABELS[s]}
+                        </button>
+                      ))}
+                    </div>
+                  )
+                })()}
+
+                {/* Attach to project */}
+                {projects.length > 0 && (
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <select
+                      value={saveProjectId}
+                      onChange={e => { setSaveProjectId(e.target.value); setSavedToProject(false) }}
+                      style={{ flex: 1, minWidth: 180, background: L ? '#fff' : SURFACE, border: `1px solid ${BORDER}`, color: FG, borderRadius: 8, padding: '9px 12px', fontSize: 13, cursor: 'pointer' }}
+                    >
+                      <option value="">— Projekt verknüpfen —</option>
+                      {projects.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
