@@ -325,7 +325,7 @@ function FeatureForm({ mode, project, color, existingFeature, onSave, onCancel, 
           {(mode === 'bed' || mode === 'area') && areaM2 > 0 && (
             <button onClick={() => { onSave({ label: label || modeInfo.label, properties: form }, true) }}
               style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '9px 12px', borderRadius: 8, background: '#22c55e20', border: '1px solid #22c55e40', color: '#22c55e', cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap' }}>
-              🌿 Floralis →
+              🌿 Florales™ →
             </button>
           )}
           <button onClick={onCancel}
@@ -737,7 +737,7 @@ export default function MapPage() {
   const sidebarContent = (
     <div style={{ width: isMobile ? '100%' : 268, background: SURFACE, borderRight: isMobile ? 'none' : `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100%' }}>
       <div style={{ padding: '16px 14px 12px', borderBottom: `1px solid ${BORDER}` }}>
-        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 10 }}>Karte</div>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 10 }}>Bio™</div>
 
         {/* Tile toggle */}
         <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>

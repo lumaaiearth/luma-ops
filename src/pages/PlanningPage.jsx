@@ -242,7 +242,7 @@ export default function PlanningPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: A14, border: `1px solid ${A20}`, borderRadius: 8, padding: '5px 12px' }}>
               <Leaf size={12} color={A} />
               <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: L ? 700 : 400 }}>
-                Floralis · {PLANTS.length} Arten
+                Florales™ · {PLANTS.length} Arten
               </span>
             </div>
           </div>
