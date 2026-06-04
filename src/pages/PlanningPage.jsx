@@ -501,7 +501,10 @@ export default function PlanningPage() {
 
               {/* Export */}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button onClick={() => exportPdf(plan, { label: fromMapFeature?.label, beetArea, beetW, beetH })} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#052e16', border: 'none', color: '#fff', borderRadius: 8, padding: '9px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+                <button onClick={() => {
+                  exportPdf(plan, { label: fromMapFeature?.label, beetArea, beetW, beetH })
+                  if (savedPlanId) updatePflanzplan(savedPlanId, { status: 'pdf_erstellt' })
+                }} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#052e16', border: 'none', color: '#fff', borderRadius: 8, padding: '9px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
                   <Download size={13} /> Baumschul-PDF
                 </button>
                 <button onClick={() => exportPlan(plan)} style={{ display: 'flex', alignItems: 'center', gap: 8, background: A14, border: `1px solid ${A20}`, color: A, borderRadius: 8, padding: '9px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
@@ -1498,9 +1501,23 @@ function exportPdf(plan, { label, beetArea, beetW, beetH } = {}) {
 </table>
 
 <div class="order-note">
-  <strong>Bestellanfrage Baumschule</strong>
-  Bitte Angebot für obige Pflanzliste (${total} Pflanzen, ${plan.length} Arten${beetArea ? `, Fläche ca. ${beetArea.toFixed(1)} m²` : ''}) einreichen.
-  Bevorzugt Regiosaatgut / regionale Herkünfte (§40 BNatSchG). Liefertermin nach Absprache.
+  <strong>🌿 Bestellanfrage an Baumschule</strong>
+  Bitte Angebot für obige Pflanzliste (${total} Pflanzen, ${plan.length} Arten${beetArea ? `, Fläche ca. ${beetArea.toFixed(1)} m²` : ''}) einreichen.<br>
+  Bevorzugt Regiosaatgut / regionale Herkünfte (§40 BNatSchG). Liefertermin nach Absprache.<br><br>
+  <strong>Angebotsfrist:</strong> __________________ &nbsp;&nbsp; <strong>Lieferwunsch:</strong> __________________
+</div>
+
+<div style="margin-top:18px; border:1px solid #e5e7eb; border-radius:6px; padding:12px 16px;">
+  <div style="font-size:9pt; font-weight:700; color:#052e16; margin-bottom:8px;">Verfügbarkeitsbestätigung Baumschule</div>
+  <table style="width:100%; border-collapse:collapse; font-size:9pt;">
+    <thead><tr style="background:#f9fafb;"><th style="text-align:left;padding:5px 8px;border:1px solid #e5e7eb;">Art</th><th style="text-align:center;padding:5px 8px;border:1px solid #e5e7eb;">Bestellt</th><th style="text-align:center;padding:5px 8px;border:1px solid #e5e7eb;">Verfügbar</th><th style="text-align:left;padding:5px 8px;border:1px solid #e5e7eb;">Alternativ / Notiz</th></tr></thead>
+    <tbody>${plan.map(p => `<tr><td style="padding:5px 8px;border:1px solid #e5e7eb;">${p.name}</td><td style="text-align:center;padding:5px 8px;border:1px solid #e5e7eb;">${p.count}</td><td style="text-align:center;padding:5px 8px;border:1px solid #e5e7eb;">☐ ja &nbsp; ☐ nein</td><td style="padding:5px 8px;border:1px solid #e5e7eb;"></td></tr>`).join('')}</tbody>
+  </table>
+</div>
+
+<div style="margin-top:18px; display:flex; gap:40px; font-size:9pt; color:#555;">
+  <div style="flex:1;">Datum, Unterschrift LUMA:<br><br>_________________________________</div>
+  <div style="flex:1;">Datum, Unterschrift Baumschule:<br><br>_________________________________</div>
 </div>
 
 <div class="footer">
