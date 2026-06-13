@@ -513,8 +513,8 @@ export default function JobModal({ initialDate, initialJob, initialStartTime, in
               onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="…" />
           </div>
 
-          {/* Recurring toggle (new jobs only) */}
-          {!editing && (
+          {/* Recurring toggle */}
+          {!initialJob?.recurring_template_id && (
             <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 16 }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
                 <div onClick={() => setForm(f => ({ ...f, make_recurring: !f.make_recurring }))}
