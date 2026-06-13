@@ -101,7 +101,7 @@ export default function JobPhotos({ jobId, uploadedBy }) {
           {uploading ? <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Camera size={13} />}
           {uploading ? 'Hochladen…' : 'Foto hinzufügen'}
         </button>
-        <input ref={fileRef} type="file" accept="image/*" multiple capture="environment" style={{ display: 'none' }} onChange={e => handleFiles(e.target.files)} />
+        <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => handleFiles(e.target.files)} />
       </div>
       {uploadError && (
         <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: '#ef4444', marginTop: 4, padding: '4px 8px', background: 'rgba(239,68,68,0.1)', borderRadius: 4, border: '1px solid rgba(239,68,68,0.25)' }}>
