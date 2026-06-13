@@ -21,7 +21,7 @@ function StatCard({ label, value, sub, color }) {
 
 export default function DashboardPage() {
   const { jobs, recurring, sensors, projects } = useOps()
-  const { user } = useAuth()
+  const { user, displayName } = useAuth()
   const isMobile = useIsMobile()
   const today = isoToday()
   const tomorrow = addDays(today, 1)
@@ -43,7 +43,7 @@ export default function DashboardPage() {
       {/* Greeting */}
       <div style={{ marginBottom: 28 }}>
         <h1 style={{ fontSize: 26, fontWeight: 400, color: FG, letterSpacing: '-0.02em', marginBottom: 4 }}>
-          Hey {user?.name} 👋
+          Hey {displayName} 👋
         </h1>
         <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: MUTED }}>
           {new Date().toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}

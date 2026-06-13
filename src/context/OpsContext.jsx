@@ -41,7 +41,7 @@ export function OpsProvider({ children }) {
   useEffect(() => {
     async function load() {
       try {
-        const [pRows, jRows, rRows, sRows, cRows, vRows, settingsRow, mfRows] = await Promise.all([
+        const [pRows, jRows, rRows, sRows, cRows, vRows, settingsRow, mfRows, ppRows] = await Promise.all([
           sb.from('projects').select('*'),
           sb.from('jobs').select('*').order('date'),
           sb.from('recurring_templates').select('*'),
@@ -79,9 +79,9 @@ export function OpsProvider({ children }) {
           localStorage.setItem('luma_chips', JSON.stringify(settingsRow.data.value))
         }
         if (mfRows.data) setMapFeaturesState(mfRows.data)
-        const ppRows = (await sb.from('pflanzplaene').select('*').order('created_at', { ascending: false })).data
-        if (ppRows) setPflanzplaeneState(ppRows)
-      } catch {
+        if (ppRows.data) setPflanzplaeneState(ppRows.data)
+      } catch (e) {
+        console.error('[OpsContext] load failed:', e)
         // Offline fallback
         setProjectsState(getProjects())
         setJobsState(getJobs())
@@ -255,7 +255,10 @@ export function OpsProvider({ children }) {
 
   // ── Recurring ───────────────────────────────────────────────────────────────
   function createRecurring(data) {
-    const tmpl = { ...data, id: genId(), last_date: null }
+    // Strip job-only fields that don't exist as columns in recurring_templates
+    // eslint-disable-next-line no-unused-vars
+    const { color, date_end, start_time, end_time, location, vehicle_ids, make_recurring, ...templateFields } = data
+    const tmpl = { ...templateFields, id: genId(), last_date: null }
     setRecurringState(prev => [...prev, tmpl])
     sbUpsert('recurring_templates', [tmpl]).catch(dbErr('ops','write'))
     const job = {

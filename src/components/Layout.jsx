@@ -23,7 +23,8 @@ const NAV = [
 const BOTTOM_NAV = NAV.slice(0, 5)
 
 export default function Layout({ children, fullHeight = false }) {
-  const { user, logout } = useAuth()
+  const { user, profile, displayName, logout } = useAuth()
+  const initials = displayName ? displayName.slice(0, 2).toUpperCase() : '?'
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -63,12 +64,12 @@ export default function Layout({ children, fullHeight = false }) {
       {/* User */}
       <div style={{ padding: '12px 8px', borderTop: `1px solid ${BORDER}` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', marginBottom: 4 }}>
-          <div style={{ width: 28, height: 28, borderRadius: '50%', background: user?.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#001219', fontWeight: 700 }}>{user?.initials}</span>
+          <div style={{ width: 28, height: 28, borderRadius: '50%', background: A, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#001219', fontWeight: 700 }}>{initials}</span>
           </div>
           <div>
-            <div style={{ fontSize: 13, color: FG, fontWeight: 500 }}>{user?.name}</div>
-            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>{user?.role}</div>
+            <div style={{ fontSize: 13, color: FG, fontWeight: 500 }}>{displayName}</div>
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>{profile?.rolle}</div>
           </div>
         </div>
         <button onClick={handleLogout}
@@ -117,8 +118,8 @@ export default function Layout({ children, fullHeight = false }) {
         <div className="mobile-topbar" style={{ display: 'none', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: `1px solid ${BORDER}`, background: SURFACE, flexShrink: 0 }}>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: A, letterSpacing: '0.18em' }}>LUMA OPS</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 28, height: 28, borderRadius: '50%', background: user?.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#001219', fontWeight: 700 }}>{user?.initials}</span>
+            <div style={{ width: 28, height: 28, borderRadius: '50%', background: A, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#001219', fontWeight: 700 }}>{initials}</span>
             </div>
           </div>
         </div>
