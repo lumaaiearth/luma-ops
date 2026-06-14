@@ -3,6 +3,11 @@ import { FolderOpen, Plus, X, ExternalLink, Pencil } from 'lucide-react'
 import { A, SURFACE, BORDER, FG, MUTED, CARD, A06, A14 } from '../lib/theme.js'
 import { sb, sbUpsert, sbDelete } from '../lib/supabase.js'
 
+const LOCAL_KEY = 'luma_drive_folders'
+function saveLocal(folders) {
+  try { localStorage.setItem(LOCAL_KEY, JSON.stringify(folders)) } catch {}
+}
+
 const LABEL_STYLE = {
   fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED,
   letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6, display: 'block',
@@ -56,20 +61,19 @@ export default function DrivePage() {
   const [modal, setModal] = useState(null) // null | { id: null=add | 'id'=edit }
   const [form, setForm] = useState({ name: '', url: '', description: '' })
 
-  // Load from Supabase, fall back to localStorage seed
+  // Load from Supabase, fall back to localStorage, then defaults
   useEffect(() => {
     sb.from('drive_folders').select('*').order('created_at').then(({ data, error }) => {
       if (data?.length) {
         setFolders(data)
+        saveLocal(data)
       } else {
-        // First load: migrate localStorage data or use defaults
         const local = (() => {
-          try { return JSON.parse(localStorage.getItem('luma_drive_folders') || 'null') } catch { return null }
+          try { return JSON.parse(localStorage.getItem(LOCAL_KEY) || 'null') } catch { return null }
         })()
         const seed = local || DEFAULT_FOLDERS
         setFolders(seed)
         if (!error) {
-          // Seed into DB
           sbUpsert('drive_folders', seed.map(f => ({ ...f, files: f.files || [], updated_at: new Date().toISOString() }))).catch(dbErr('seed'))
         }
       }
@@ -92,12 +96,18 @@ export default function DrivePage() {
     if (!form.name.trim()) return
     if (modal.id) {
       const updated = { name: form.name.trim(), url: form.url.trim(), description: form.description.trim(), updated_at: new Date().toISOString() }
-      setFolders(prev => prev.map(f => f.id === modal.id ? { ...f, ...updated } : f))
-      sb.from('drive_folders').update(updated).eq('id', modal.id).catch(dbErr('update'))
+      const next = folders.map(f => f.id === modal.id ? { ...f, ...updated } : f)
+      setFolders(next)
+      saveLocal(next)
+      // Supabase resolves (never rejects) — must check error in .then()
+      sb.from('drive_folders').update(updated).eq('id', modal.id)
+        .then(({ error }) => { if (error) dbErr('update')(error) })
       if (window.__lumaToast) window.__lumaToast('Ordner gespeichert')
     } else {
       const folder = { id: Date.now().toString(), name: form.name.trim(), url: form.url.trim(), description: form.description.trim(), files: [], created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
-      setFolders(prev => [...prev, folder])
+      const next = [...folders, folder]
+      setFolders(next)
+      saveLocal(next)
       sbUpsert('drive_folders', [folder]).catch(dbErr('insert'))
       if (window.__lumaToast) window.__lumaToast('Ordner hinzugefügt')
     }
@@ -105,7 +115,9 @@ export default function DrivePage() {
   }
 
   function handleDelete(id) {
-    setFolders(prev => prev.filter(f => f.id !== id))
+    const next = folders.filter(f => f.id !== id)
+    setFolders(next)
+    saveLocal(next)
     sbDelete('drive_folders', id).catch(dbErr('delete'))
   }
 
