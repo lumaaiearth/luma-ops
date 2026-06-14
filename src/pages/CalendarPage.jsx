@@ -184,6 +184,17 @@ export default function CalendarPage() {
     if (w < 1024) return '5day'  // Tablet → 5 Tage
     return 'week'                 // Desktop → ganze Woche
   })
+  const prevBp = useRef(bp)
+  useEffect(() => {
+    if (bp === prevBp.current) return
+    prevBp.current = bp
+    // Only auto-switch for the default grid views; leave month/schedule/1day alone
+    if (view === '3day' || view === '5day' || view === 'week') {
+      if (bp === 'xs' || bp === 'sm') setView('3day')
+      else if (bp === 'md') setView('5day')
+      else setView('week')
+    }
+  }, [bp])
   const [teamBusy, setTeamBusy] = useState({})
   const [currentMonth, setCurrentMonth] = useState(() => {
     const d = new Date()
@@ -217,9 +228,10 @@ export default function CalendarPage() {
     view === '5day' ? fiveDays :
     weekDays
 
-  // Scroll to current time on mount
+  // Scroll to current time whenever a timed-grid view becomes active
   useEffect(() => {
-    if (view !== 'week' || !scrollRef.current) return
+    const timedViews = ['week', '3day', '5day', '1day']
+    if (!timedViews.includes(view) || !scrollRef.current) return
     const now = new Date()
     const nowMin = now.getHours() * 60 + now.getMinutes()
     const top = Math.max(0, (nowMin / 60 - HOUR_START) * PX_PER_HOUR - 120)
