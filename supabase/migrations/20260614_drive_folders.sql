@@ -1,5 +1,5 @@
--- Migration: drive_folders table + description column (2026-06-14)
--- Fixes: "Could not find the 'description' column of 'drive_folders' in the schema cache"
+-- Migration: drive_folders table + all columns (2026-06-14)
+-- Fixes: schema cache errors for url, description, files columns
 
 CREATE TABLE IF NOT EXISTS drive_folders (
   id          TEXT PRIMARY KEY,
@@ -11,8 +11,11 @@ CREATE TABLE IF NOT EXISTS drive_folders (
   updated_at  TIMESTAMPTZ DEFAULT now()
 );
 
--- Add description column if table already existed without it
+-- Add all columns in case the table already existed with only id/name/created_at
+ALTER TABLE drive_folders ADD COLUMN IF NOT EXISTS url         TEXT;
 ALTER TABLE drive_folders ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE drive_folders ADD COLUMN IF NOT EXISTS files       JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE drive_folders ADD COLUMN IF NOT EXISTS updated_at  TIMESTAMPTZ DEFAULT now();
 
 -- Seed default folder if table is empty
 INSERT INTO drive_folders (id, name, url, description)
