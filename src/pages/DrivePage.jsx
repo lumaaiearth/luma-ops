@@ -94,10 +94,12 @@ export default function DrivePage() {
       const updated = { name: form.name.trim(), url: form.url.trim(), description: form.description.trim(), updated_at: new Date().toISOString() }
       setFolders(prev => prev.map(f => f.id === modal.id ? { ...f, ...updated } : f))
       sb.from('drive_folders').update(updated).eq('id', modal.id).catch(dbErr('update'))
+      if (window.__lumaToast) window.__lumaToast('Ordner gespeichert')
     } else {
       const folder = { id: Date.now().toString(), name: form.name.trim(), url: form.url.trim(), description: form.description.trim(), files: [], created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
       setFolders(prev => [...prev, folder])
       sbUpsert('drive_folders', [folder]).catch(dbErr('insert'))
+      if (window.__lumaToast) window.__lumaToast('Ordner hinzugefügt')
     }
     setModal(null)
   }
@@ -180,10 +182,10 @@ export default function DrivePage() {
 
       {/* Add / Edit modal */}
       {modal && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setModal(null)}>
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(4px)' }} />
-          <form onSubmit={handleSubmit} onClick={e => e.stopPropagation()}
-            style={{ position: 'relative', background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8, padding: 24, width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 14, boxShadow: '0 24px 60px rgba(0,0,0,0.6)' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(4px)', cursor: 'pointer' }} onClick={() => setModal(null)} />
+          <form onSubmit={handleSubmit}
+            style={{ position: 'relative', zIndex: 1, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8, padding: 24, width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 14, boxShadow: '0 24px 60px rgba(0,0,0,0.6)' }}>
             <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 2 }}>
               {isEditing ? 'Ordner bearbeiten' : 'Ordner hinzufügen'}
             </div>
