@@ -195,6 +195,12 @@ export default function CalendarPage() {
       else setView('week')
     }
   }, [bp])
+  // Re-render every minute so the current-time bar stays accurate
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 60_000)
+    return () => clearInterval(id)
+  }, [])
   const [teamBusy, setTeamBusy] = useState({})
   const [currentMonth, setCurrentMonth] = useState(() => {
     const d = new Date()
@@ -463,6 +469,15 @@ export default function CalendarPage() {
     setThreeDayStart(today)
     setFiveDayStart(weekStart(today))
   }
+  function scrollToNow() {
+    goTodayAll()
+    setTimeout(() => {
+      if (!scrollRef.current) return
+      const n = new Date()
+      const top = Math.max(0, (n.getHours() + n.getMinutes() / 60 - HOUR_START) * PX_PER_HOUR - 120)
+      scrollRef.current.scrollTo({ top, behavior: 'smooth' })
+    }, 50)
+  }
 
   const periodLabel = (() => {
     if (view === 'schedule') {
@@ -516,6 +531,10 @@ export default function CalendarPage() {
           )}
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+          <button onClick={scrollToNow}
+            style={{ padding: '5px 10px', borderRadius: 6, border: 'none', background: '#FFD600', color: '#1a1200', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: "'Space Mono', monospace", letterSpacing: '0.04em', boxShadow: '0 0 8px #FFD60066' }}>
+            Now
+          </button>
           <button onClick={() => setModal({ date: today })}
             style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 0 : 6, padding: isMobile ? '7px 10px' : '5px 14px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
             <Plus size={14} />{!isMobile && ' Einsatz'}
@@ -654,8 +673,8 @@ export default function CalendarPage() {
 
                     {/* Current time indicator */}
                     {isToday && nowTop > 0 && nowTop < TOTAL_H && (
-                      <div style={{ position: 'absolute', top: nowTop, left: -1, right: 0, height: 2, background: A, pointerEvents: 'none', zIndex: 2 }}>
-                        <div style={{ position: 'absolute', left: -3, top: -3, width: 8, height: 8, borderRadius: '50%', background: A }} />
+                      <div style={{ position: 'absolute', top: nowTop, left: -1, right: 0, height: 3, background: '#FFD600', pointerEvents: 'none', zIndex: 5, boxShadow: '0 0 8px #FFD60088' }}>
+                        <div style={{ position: 'absolute', left: -5, top: -4, width: 11, height: 11, borderRadius: '50%', background: '#FFD600', boxShadow: '0 0 6px #FFD600' }} />
                       </div>
                     )}
 
