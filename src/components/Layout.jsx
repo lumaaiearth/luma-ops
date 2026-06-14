@@ -115,15 +115,17 @@ export default function Layout({ children, fullHeight = false }) {
 
       {/* Main area */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
-        {/* Mobile topbar */}
-        <div className="mobile-topbar" style={{ display: 'none', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: `1px solid ${BORDER}`, background: SURFACE, flexShrink: 0 }}>
-          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: A, letterSpacing: '0.18em' }}>LUMA OPS</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 28, height: 28, borderRadius: '50%', background: A, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#001219', fontWeight: 700 }}>{initials}</span>
+        {/* Mobile topbar — hidden on fullHeight pages (they have their own controls) */}
+        {!fullHeight && (
+          <div className="mobile-topbar" style={{ display: 'none', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: `1px solid ${BORDER}`, background: SURFACE, flexShrink: 0 }}>
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: A, letterSpacing: '0.18em' }}>LUMA OPS</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 28, height: 28, borderRadius: '50%', background: A, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#001219', fontWeight: 700 }}>{initials}</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         <div className="main-content" style={{ flex: 1, overflowY: fullHeight ? 'hidden' : 'auto', display: fullHeight ? 'flex' : 'block', flexDirection: 'column' }}>
           {children}
