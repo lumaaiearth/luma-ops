@@ -145,7 +145,7 @@ function AllDayStrip({ jobs, gcalEvents, projects, clients, onOpen, date }) {
   const dayJobs = [...lumaJobs, ...gcalAllDay]
   if (!dayJobs.length) return <div style={{ height: 4 }} />
   return (
-    <div style={{ padding: '2px 2px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <div style={{ padding: '2px 2px', display: 'flex', flexDirection: 'column', gap: 2, overflow: 'hidden' }}>
       {dayJobs.slice(0, 3).map(job => {
         const type = JOB_TYPES.find(t => t.id === job.job_type)
         const clientColor = getClientColor(job, projects, clients)
@@ -564,7 +564,7 @@ export default function CalendarPage() {
                     <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: MUTED }}>ganztags</span>
                   </div>
                   {activeDays.map((date, i) => (
-                    <div key={date} style={{ flex: 1, borderRight: i < activeDays.length - 1 ? `1px solid ${BORDER}` : 'none', minHeight: 24 }}>
+                    <div key={date} style={{ flex: 1, minWidth: 0, overflow: 'hidden', borderRight: i < activeDays.length - 1 ? `1px solid ${BORDER}` : 'none', minHeight: 24 }}>
                       <AllDayStrip jobs={jobs} gcalEvents={gcalEvents} projects={projects} clients={clients} date={date} onOpen={openJob} />
                     </div>
                   ))}
