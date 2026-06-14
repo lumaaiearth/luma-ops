@@ -479,31 +479,31 @@ export default function CalendarPage() {
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: BG }}>
       {/* ── Topbar ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? '10px 12px' : '12px 20px', borderBottom: miniMonthOpen ? 'none' : `1px solid ${BORDER}`, background: SURFACE, flexShrink: 0, gap: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 10, flex: 1, minWidth: 0 }}>
           {/* Hamburger */}
           <button onClick={() => setSidebarOpen(true)} style={{ width: 34, height: 34, borderRadius: 7, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <Menu size={16} />
           </button>
-          {!isMobile && <button onClick={goTodayAll} style={{ padding: '5px 12px', borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif" }}>Heute</button>}
-          <button onClick={prevPeriod} style={{ width: isMobile ? 32 : 30, height: isMobile ? 32 : 30, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {!isMobile && <button onClick={goTodayAll} style={{ padding: '5px 12px', borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", flexShrink: 0 }}>Heute</button>}
+          <button onClick={prevPeriod} style={{ width: isMobile ? 32 : 30, height: isMobile ? 32 : 30, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <ChevronLeft size={15} />
           </button>
-          <button onClick={nextPeriod} style={{ width: isMobile ? 32 : 30, height: isMobile ? 32 : 30, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button onClick={nextPeriod} style={{ width: isMobile ? 32 : 30, height: isMobile ? 32 : 30, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <ChevronRight size={15} />
           </button>
           {/* Clickable period label → mini-month */}
           <button onClick={() => { setMiniMonthDisplay(currentMonth); setMiniMonthOpen(v => !v) }}
-            style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0' }}>
-            <span style={{ fontSize: isMobile ? 13 : 15, fontWeight: 500, color: FG, whiteSpace: 'nowrap' }}>{periodLabel}</span>
-            {miniMonthOpen ? <ChevronUp size={13} color={MUTED} /> : <ChevronDown size={13} color={MUTED} />}
+            style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0', minWidth: 0, flex: 1 }}>
+            <span style={{ fontSize: isMobile ? 13 : 15, fontWeight: 500, color: FG, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{periodLabel}</span>
+            <span style={{ flexShrink: 0 }}>{miniMonthOpen ? <ChevronUp size={13} color={MUTED} /> : <ChevronDown size={13} color={MUTED} />}</span>
           </button>
           {gcalConnected && !isMobile && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: "'Space Mono', monospace", fontSize: 10, color: gcalSyncing ? A : MUTED }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: "'Space Mono', monospace", fontSize: 10, color: gcalSyncing ? A : MUTED, flexShrink: 0 }}>
               <CalendarDays size={10} /> {gcalSyncing ? 'sync…' : 'GCal'}
             </span>
           )}
         </div>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
           <button onClick={() => setModal({ date: today })}
             style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 0 : 6, padding: isMobile ? '7px 10px' : '5px 14px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
             <Plus size={14} />{!isMobile && ' Einsatz'}

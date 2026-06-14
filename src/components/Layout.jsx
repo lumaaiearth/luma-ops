@@ -83,13 +83,14 @@ export default function Layout({ children, fullHeight = false }) {
   )
 
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: BG }}>
+    <div className="luma-root" style={{ display: 'flex', overflow: 'hidden', background: BG }}>
       <style>{`
+        .luma-root { height: 100vh; height: 100dvh; }
         @media (max-width: 768px) {
           .desktop-sidebar { display: none !important; }
           .mobile-topbar { display: flex !important; }
           .mobile-bottom-nav { display: flex !important; }
-          .main-content { padding-bottom: 60px; }
+          .main-content { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
         }
         @media (min-width: 769px) {
           .mobile-topbar { display: none !important; }
@@ -132,8 +133,9 @@ export default function Layout({ children, fullHeight = false }) {
         <div className="mobile-bottom-nav" style={{
           display: 'none', alignItems: 'center', justifyContent: 'space-around',
           borderTop: `1px solid ${BORDER}`, background: SURFACE,
-          position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
-          height: 60, paddingBottom: 'env(safe-area-inset-bottom)',
+          position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000,
+          height: 'calc(60px + env(safe-area-inset-bottom))',
+          paddingBottom: 'env(safe-area-inset-bottom)',
         }}>
           {BOTTOM_NAV.map(({ to, icon: Icon, label }) => (
             <NavLink key={to} to={to}
