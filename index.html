@@ -23,10 +23,59 @@
       input, textarea, select { font-family: inherit; }
       select option { background: #0d1a23; color: #e8f0f5; }
       select { color-scheme: dark; }
+
+      /* ── LUMA Loading Screen ── */
+      #luma-loader {
+        position: fixed; inset: 0; z-index: 99999;
+        background: #080f14;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 0;
+        transition: opacity 0.45s ease;
+      }
+      #luma-loader .ll-brand {
+        font-family: 'Space Mono', monospace;
+        font-size: 11px; color: #09BE60;
+        letter-spacing: 0.22em; text-transform: uppercase;
+        margin-bottom: 4px;
+      }
+      #luma-loader .ll-ops {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 32px; font-weight: 300; color: #e8f0f5;
+        letter-spacing: -0.03em; margin-bottom: 44px;
+      }
+      #luma-loader .ll-track {
+        width: 180px; height: 3px;
+        background: rgba(255,255,255,0.07);
+        border-radius: 2px; overflow: hidden;
+      }
+      #luma-loader .ll-fill {
+        height: 100%; width: 0%;
+        background: #09BE60;
+        border-radius: 2px;
+        box-shadow: 0 0 10px #09BE6077;
+        animation: ll-progress 1.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+        transition: width 0.3s ease;
+      }
+      @keyframes ll-progress {
+        0%   { width: 0% }
+        25%  { width: 40% }
+        55%  { width: 65% }
+        80%  { width: 82% }
+        100% { width: 91% }
+      }
     </style>
   </head>
   <body>
     <div id="root"></div>
+
+    <div id="luma-loader">
+      <div class="ll-brand">LUMA</div>
+      <div class="ll-ops">Ops</div>
+      <div class="ll-track">
+        <div class="ll-fill" id="ll-fill"></div>
+      </div>
+    </div>
+
     <script>
       (function(l){if(l.search[1]==='p'){var d=decodeURIComponent(l.search.slice(3));window.history.replaceState(null,null,d+(l.search.indexOf('h=')>-1?decodeURIComponent(l.search.split('h=')[1]):'')+l.hash)}}(window.location));
     </script>
