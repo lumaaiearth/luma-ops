@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { LayoutDashboard, CalendarDays, ListChecks, Radio, Users, Settings, LogOut, Menu, X, Clock, Map, Database, FolderOpen, MoreHorizontal, BarChart2, Flower2 } from 'lucide-react'
+import { LayoutDashboard, CalendarDays, ListChecks, Radio, Users, Settings, LogOut, Menu, X, Clock, Map, Database, FolderOpen, MoreHorizontal, BarChart2, Flower2, UserCog } from 'lucide-react'
 import { A, BG, SURFACE, BORDER, FG, MUTED, A14, A06 } from '../lib/theme.js'
 
 const NAV = [
@@ -63,7 +63,10 @@ export default function Layout({ children, fullHeight = false }) {
 
       {/* User */}
       <div style={{ padding: '12px 8px', borderTop: `1px solid ${BORDER}` }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', marginBottom: 4 }}>
+        <Link to="/profil" onClick={() => setMobileOpen(false)}
+          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', marginBottom: 2, borderRadius: 6, textDecoration: 'none', transition: 'background 0.15s' }}
+          onMouseEnter={e => e.currentTarget.style.background = A06}
+          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
           <div style={{ width: 28, height: 28, borderRadius: '50%', background: A, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#001219', fontWeight: 700 }}>{initials}</span>
           </div>
@@ -71,7 +74,13 @@ export default function Layout({ children, fullHeight = false }) {
             <div style={{ fontSize: 13, color: FG, fontWeight: 500 }}>{displayName}</div>
             <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>{profile?.rolle}</div>
           </div>
-        </div>
+        </Link>
+        <Link to="/einstellungen" onClick={() => setMobileOpen(false)}
+          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 6, textDecoration: 'none', color: MUTED, fontSize: 14, fontFamily: "'Space Grotesk', sans-serif", marginBottom: 2, transition: 'color 0.15s, background 0.15s' }}
+          onMouseEnter={e => { e.currentTarget.style.color = FG; e.currentTarget.style.background = A06 }}
+          onMouseLeave={e => { e.currentTarget.style.color = MUTED; e.currentTarget.style.background = 'transparent' }}>
+          <UserCog size={16} /> Konto &amp; Sicherheit
+        </Link>
         <button onClick={handleLogout}
           style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 12px', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer', color: MUTED, fontSize: 14, fontFamily: "'Space Grotesk', sans-serif", transition: 'color 0.15s, background 0.15s' }}
           onMouseEnter={e => { e.currentTarget.style.color = FG; e.currentTarget.style.background = A06 }}
@@ -120,9 +129,9 @@ export default function Layout({ children, fullHeight = false }) {
           <div className="mobile-topbar" style={{ display: 'none', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: `1px solid ${BORDER}`, background: SURFACE, flexShrink: 0 }}>
             <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: A, letterSpacing: '0.18em' }}>LUMA OPS</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 28, height: 28, borderRadius: '50%', background: A, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Link to="/profil" style={{ width: 28, height: 28, borderRadius: '50%', background: A, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
                 <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#001219', fontWeight: 700 }}>{initials}</span>
-              </div>
+              </Link>
             </div>
           </div>
         )}

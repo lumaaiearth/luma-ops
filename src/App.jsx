@@ -25,6 +25,8 @@ import PlanningPage from './pages/PlanningPage.jsx'
 import EpsAnalysePage from './pages/EpsAnalysePage.jsx'
 import ArticleViewPage from './pages/ArticleViewPage.jsx'
 import KundenPortalPage from './pages/KundenPortalPage.jsx'
+import ProfilePage from './pages/ProfilePage.jsx'
+import AccountSettingsPage from './pages/AccountSettingsPage.jsx'
 
 function RequireAuth({ children, kundeOk = false }) {
   const { user, loading, isKunde } = useAuth()
@@ -58,6 +60,8 @@ function AppRoutes() {
       <Route path="/analyse/:id" element={<RequireAuth><Layout><ErrorBoundary><EpsAnalysePage /></ErrorBoundary></Layout></RequireAuth>} />
       <Route path="/analyse/artikel/:id" element={<RequireAuth><Layout><ErrorBoundary><ArticleViewPage /></ErrorBoundary></Layout></RequireAuth>} />
       <Route path="/portal" element={<RequireAuth kundeOk><ErrorBoundary><KundenPortalPage /></ErrorBoundary></RequireAuth>} />
+      <Route path="/profil" element={<RequireAuth><Layout><ErrorBoundary><ProfilePage /></ErrorBoundary></Layout></RequireAuth>} />
+      <Route path="/einstellungen" element={<RequireAuth><Layout><ErrorBoundary><AccountSettingsPage /></ErrorBoundary></Layout></RequireAuth>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   )

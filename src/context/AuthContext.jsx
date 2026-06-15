@@ -46,6 +46,59 @@ export function AuthProvider({ children }) {
     setProfile(null)
   }
 
+  async function updateProfile({ name, bio_rolle, skills }) {
+    const updates = {}
+    if (name !== undefined) updates.name = name
+    if (bio_rolle !== undefined) updates.bio_rolle = bio_rolle
+    if (skills !== undefined) updates.skills = skills
+    const { error } = await sb.from('user_profile').update(updates).eq('id', user.id)
+    if (error) return { ok: false, error: error.message }
+    await fetchProfile(user)
+    return { ok: true }
+  }
+
+  async function updateEmail(newEmail) {
+    const { error } = await sb.auth.updateUser({ email: newEmail })
+    if (error) return { ok: false, error: error.message }
+    return { ok: true }
+  }
+
+  async function updatePassword(newPassword) {
+    const { error } = await sb.auth.updateUser({ password: newPassword })
+    if (error) return { ok: false, error: error.message }
+    return { ok: true }
+  }
+
+  async function enrollMFA() {
+    const { data, error } = await sb.auth.mfa.enroll({ factorType: 'totp', issuer: 'LUMA Ops' })
+    if (error) return { ok: false, error: error.message }
+    return { ok: true, data }
+  }
+
+  async function challengeMFA(factorId) {
+    const { data, error } = await sb.auth.mfa.challenge({ factorId })
+    if (error) return { ok: false, error: error.message }
+    return { ok: true, challengeId: data.id }
+  }
+
+  async function verifyMFA(factorId, challengeId, code) {
+    const { error } = await sb.auth.mfa.verify({ factorId, challengeId, code })
+    if (error) return { ok: false, error: error.message }
+    return { ok: true }
+  }
+
+  async function unenrollMFA(factorId) {
+    const { error } = await sb.auth.mfa.unenroll({ factorId })
+    if (error) return { ok: false, error: error.message }
+    return { ok: true }
+  }
+
+  async function listMFAFactors() {
+    const { data, error } = await sb.auth.mfa.listFactors()
+    if (error) return { ok: false, error: error.message }
+    return { ok: true, factors: data?.all || [] }
+  }
+
   // Derived role helpers
   const isAdmin      = profile?.rolle === 'admin'
   const isMitarbeiter = profile?.rolle === 'mitarbeiter' || isAdmin
@@ -55,7 +108,7 @@ export function AuthProvider({ children }) {
   const displayName = profile?.name || user?.email?.split('@')[0] || '?'
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, login, logout, isAdmin, isMitarbeiter, isKunde, displayName }}>
+    <AuthContext.Provider value={{ user, profile, loading, login, logout, isAdmin, isMitarbeiter, isKunde, displayName, updateProfile, updateEmail, updatePassword, enrollMFA, challengeMFA, verifyMFA, unenrollMFA, listMFAFactors }}>
       {children}
     </AuthContext.Provider>
   )
