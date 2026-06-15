@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { LayoutDashboard, CalendarDays, ListChecks, Radio, Users, Settings, LogOut, Menu, X, Clock, Map, Database, FolderOpen, MoreHorizontal, BarChart2, Flower2 } from 'lucide-react'
+import { LayoutDashboard, CalendarDays, ListChecks, Radio, Users, Settings, LogOut, Menu, X, Clock, Map, Database, FolderOpen, MoreHorizontal, BarChart2, Flower2, Pencil } from 'lucide-react'
 import { A, BG, SURFACE, BORDER, FG, MUTED, A14, A06 } from '../lib/theme.js'
+import UserProfileModal from './UserProfileModal.jsx'
 
 const NAV = [
   { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
@@ -27,6 +28,7 @@ export default function Layout({ children, fullHeight = false }) {
   const initials = displayName ? displayName.slice(0, 2).toUpperCase() : '?'
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
 
   function handleLogout() {
     logout()
@@ -63,15 +65,21 @@ export default function Layout({ children, fullHeight = false }) {
 
       {/* User */}
       <div style={{ padding: '12px 8px', borderTop: `1px solid ${BORDER}` }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', marginBottom: 4 }}>
+        <button onClick={() => setProfileOpen(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 12px', marginBottom: 4, background: 'transparent', border: 'none', cursor: 'pointer', borderRadius: 6, textAlign: 'left' }}
+          onMouseEnter={e => e.currentTarget.style.background = A06}
+          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
           <div style={{ width: 28, height: 28, borderRadius: '50%', background: A, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#001219', fontWeight: 700 }}>{initials}</span>
           </div>
-          <div>
-            <div style={{ fontSize: 13, color: FG, fontWeight: 500 }}>{displayName}</div>
-            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>{profile?.rolle}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, color: FG, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</span>
+              <Pencil size={10} style={{ color: MUTED, flexShrink: 0 }} />
+            </div>
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>{profile?.bio_rolle || profile?.rolle}</div>
           </div>
-        </div>
+        </button>
         <button onClick={handleLogout}
           style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 12px', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer', color: MUTED, fontSize: 14, fontFamily: "'Space Grotesk', sans-serif", transition: 'color 0.15s, background 0.15s' }}
           onMouseEnter={e => { e.currentTarget.style.color = FG; e.currentTarget.style.background = A06 }}
@@ -163,6 +171,7 @@ export default function Layout({ children, fullHeight = false }) {
           </button>
         </div>
       </div>
+      <UserProfileModal open={profileOpen} onClose={() => setProfileOpen(false)} />
     </div>
   )
 }

@@ -46,6 +46,18 @@ export function AuthProvider({ children }) {
     setProfile(null)
   }
 
+  async function updateProfile(updates) {
+    if (!user) return { ok: false, error: 'Nicht angemeldet' }
+    const { error } = await sb.from('user_profile').update(updates).eq('id', user.id)
+    if (!error) setProfile(prev => ({ ...prev, ...updates }))
+    return { ok: !error, error: error?.message }
+  }
+
+  async function updatePassword(newPassword) {
+    const { error } = await sb.auth.updateUser({ password: newPassword })
+    return { ok: !error, error: error?.message }
+  }
+
   // Derived role helpers
   const isAdmin      = profile?.rolle === 'admin'
   const isMitarbeiter = profile?.rolle === 'mitarbeiter' || isAdmin
@@ -55,7 +67,7 @@ export function AuthProvider({ children }) {
   const displayName = profile?.name || user?.email?.split('@')[0] || '?'
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, login, logout, isAdmin, isMitarbeiter, isKunde, displayName }}>
+    <AuthContext.Provider value={{ user, profile, loading, login, logout, updateProfile, updatePassword, isAdmin, isMitarbeiter, isKunde, displayName }}>
       {children}
     </AuthContext.Provider>
   )
