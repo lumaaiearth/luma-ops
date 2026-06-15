@@ -92,7 +92,7 @@ export default function DrivePage() {
   }
 
   function handleSubmit(e) {
-    e.preventDefault()
+    e?.preventDefault()
     if (!form.name.trim()) return
     if (modal.id) {
       const updated = { name: form.name.trim(), url: form.url.trim(), description: form.description.trim(), updated_at: new Date().toISOString() }
@@ -207,7 +207,7 @@ export default function DrivePage() {
             </div>
             <div>
               <label style={LABEL_STYLE}>Google Drive URL *</label>
-              <input style={INPUT_STYLE} value={form.url} onChange={e => setForm(f => ({ ...f, url: e.target.value }))} placeholder="https://drive.google.com/drive/folders/…" required />
+              <input style={INPUT_STYLE} value={form.url} onChange={e => setForm(f => ({ ...f, url: e.target.value }))} placeholder="https://drive.google.com/drive/folders/…" />
             </div>
             <div>
               <label style={LABEL_STYLE}>Beschreibung <span style={{ fontWeight: 400, color: MUTED }}>(optional)</span></label>
@@ -218,7 +218,7 @@ export default function DrivePage() {
                 style={{ padding: '8px 16px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif" }}>
                 Abbrechen
               </button>
-              <button type="submit"
+              <button type="button" onClick={handleSubmit}
                 style={{ padding: '8px 16px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif" }}>
                 {isEditing ? 'Speichern' : 'Hinzufügen'}
               </button>
