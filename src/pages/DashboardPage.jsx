@@ -1,13 +1,139 @@
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
+import { useWeather } from '../context/WeatherContext.jsx'
 import { A, SURFACE, BORDER, FG, MUTED } from '../lib/theme.js'
 import { JOB_TYPES, TEAM } from '../data/seed.js'
 import { isoToday, addDays, formatDate } from '../lib/storage.js'
-import { AlertTriangle, CheckCircle2, Clock, Repeat } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Clock, Repeat, Droplets, Umbrella, Sun as SunIcon } from 'lucide-react'
 import { useIsMobile } from '../lib/useIsMobile.js'
+import WeatherIcon from '../components/WeatherIcon.jsx'
+import { getWeatherForDate, STATUS_COLOR, WEATHER_CITY } from '../lib/weather.js'
 
 const STATUS_COLORS = { planned: '#6EA8C0', in_progress: A, done: '#22EAA7', cancelled: '#6B7280' }
 const STATUS_LABELS = { planned: 'Geplant', in_progress: 'Läuft', done: 'Erledigt', cancelled: 'Abgesagt' }
+
+const WEATHER_STATUS_LABELS = { good: 'Gut', mixed: 'Gemischt', warn: 'Warnung', danger: 'Alarm' }
+
+function WeatherDayCard({ day, featured = false }) {
+  const sc = STATUS_COLOR[day.status]
+  const isWarn = day.status === 'warn' || day.status === 'danger'
+  const isGood = day.status === 'good'
+
+  return (
+    <div style={{
+      background: SURFACE,
+      border: `1px solid ${isWarn ? sc + '60' : isGood ? sc + '30' : BORDER}`,
+      borderRadius: 8,
+      padding: featured ? '16px 20px' : '10px 12px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: featured ? 10 : 6,
+      minWidth: featured ? 0 : 110,
+      flexShrink: featured ? undefined : 0,
+      position: 'relative',
+      overflow: 'hidden',
+    }}>
+      {/* Status accent bar */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: sc, borderRadius: '8px 8px 0 0', opacity: isGood ? 0.5 : 1 }} />
+
+      {/* Day label */}
+      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: featured ? 11 : 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: 4 }}>
+        {new Date(day.date + 'T00:00:00').toLocaleDateString('de-DE', { weekday: featured ? 'long' : 'short', day: 'numeric', month: featured ? 'long' : 'numeric' })}
+      </div>
+
+      {/* Icon + temp row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: featured ? 12 : 8 }}>
+        <WeatherIcon code={day.wmoCode} size={featured ? 32 : 22} color={sc} />
+        <div>
+          <div style={{ fontSize: featured ? 28 : 18, fontWeight: 300, color: FG, letterSpacing: '-0.03em', lineHeight: 1 }}>
+            {day.tempMax}°
+          </div>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>
+            min {day.tempMin}°
+          </div>
+        </div>
+        {/* Status badge */}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4, padding: '3px 7px', borderRadius: 4, background: sc + '18', border: `1px solid ${sc}40` }}>
+          {isWarn && <AlertTriangle size={10} color={sc} />}
+          {isGood && !isWarn && <CheckCircle2 size={10} color={sc} />}
+          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: sc, fontWeight: 700 }}>
+            {WEATHER_STATUS_LABELS[day.status]}
+          </span>
+        </div>
+      </div>
+
+      {/* Description */}
+      <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: featured ? 13 : 11, color: MUTED }}>{day.label}</div>
+
+      {/* Warnings */}
+      {day.warnings.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {day.warnings.map((w, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: "'Space Mono', monospace", fontSize: 10, color: sc }}>
+              <AlertTriangle size={9} color={sc} />
+              {w}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Detail row (featured only) */}
+      {featured && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 2, paddingTop: 10, borderTop: `1px solid ${BORDER}` }}>
+          <div>
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>Luftfeuchte</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Droplets size={11} color={MUTED} />
+              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 13, color: FG }}>{day.humidity}%</span>
+            </div>
+          </div>
+          <div>
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>Niederschlag</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Umbrella size={11} color={MUTED} />
+              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 13, color: FG }}>{day.precip} mm</span>
+            </div>
+          </div>
+          <div>
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>UV-Index</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <SunIcon size={11} color={MUTED} />
+              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 13, color: day.uvMax >= 7 ? '#F59E0B' : FG }}>{day.uvMax}</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function WeatherSection({ isMobile }) {
+  const forecast = useWeather()
+  const today = isoToday()
+  const days = forecast.filter(d => d.date >= today).slice(0, 7)
+
+  if (days.length === 0) return null
+
+  const [todayFc, ...rest] = days
+
+  return (
+    <div style={{ marginBottom: 28 }}>
+      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 12 }}>
+        Wetter · {WEATHER_CITY}
+      </div>
+      <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }}>
+        {/* Today — featured */}
+        <div style={{ flex: isMobile ? '0 0 240px' : '0 0 300px', minWidth: 0 }}>
+          <WeatherDayCard day={todayFc} featured />
+        </div>
+        {/* Next 6 days — compact */}
+        {rest.map(d => (
+          <WeatherDayCard key={d.date} day={d} />
+        ))}
+      </div>
+    </div>
+  )
+}
 
 function StatCard({ label, value, sub, color }) {
   return (
@@ -88,6 +214,9 @@ export default function DashboardPage() {
         <StatCard label="Meine Einsätze" value={myJobs.length} sub="7 Tage" color={myJobs.length > 0 ? '#22EAA7' : undefined} />
         <StatCard label="Sensoren" value={`${criticalSensors.length + warningSensors.length}`} sub={criticalSensors.length > 0 ? `${criticalSensors.length} kritisch` : 'alles ok'} color={criticalSensors.length > 0 ? '#ef4444' : warningSensors.length > 0 ? '#F59E0B' : undefined} />
       </div>
+
+      {/* Weather */}
+      <WeatherSection isMobile={isMobile} />
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 320px', gap: 20, alignItems: 'start' }}>
         {/* Upcoming jobs */}

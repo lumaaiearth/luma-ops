@@ -6,6 +6,7 @@ import { OpsProvider } from './context/OpsContext.jsx'
 import { GCalProvider } from './context/GCalContext.jsx'
 import { TimeProvider } from './context/TimeContext.jsx'
 import { ThemeProvider } from './context/ThemeContext.jsx'
+import { WeatherProvider } from './context/WeatherContext.jsx'
 import TimePage from './pages/TimePage.jsx'
 import MapPage from './pages/MapPage.jsx'
 import StammdatenPage from './pages/StammdatenPage.jsx'
@@ -94,10 +95,12 @@ export default function App() {
       <AuthProvider>
         <GCalProvider>
           <OpsProvider>
+            <WeatherProvider>
             <TimeProvider>
               <AppRoutes />
               <DbToast />
             </TimeProvider>
+            </WeatherProvider>
           </OpsProvider>
         </GCalProvider>
       </AuthProvider>
