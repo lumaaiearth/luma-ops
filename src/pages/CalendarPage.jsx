@@ -1,13 +1,16 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { ChevronLeft, ChevronRight, Plus, CalendarDays, Menu, X, ChevronDown, ChevronUp, List } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, CalendarDays, Menu, X, ChevronDown, ChevronUp, List, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { useOps } from '../context/OpsContext.jsx'
 import { useGCal } from '../context/GCalContext.jsx'
+import { useWeather } from '../context/WeatherContext.jsx'
 import { A, BG, SURFACE, BORDER, FG, MUTED, A06, A0a, A0d, A14, A40 } from '../lib/theme.js'
 import JobModal from '../components/JobModal.jsx'
 import { JOB_TYPES, TEAM, VEHICLES } from '../data/seed.js'
 import { isoToday, weekStart, getWeekDays, addDays } from '../lib/storage.js'
 import { useBreakpoint } from '../lib/useBreakpoint.js'
 import { fetchTeamBusy } from '../lib/teamBusy.js'
+import WeatherIcon from '../components/WeatherIcon.jsx'
+import { getWeatherForDate, STATUS_COLOR } from '../lib/weather.js'
 
 const DAY_NAMES = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 const HOUR_START = 2
@@ -166,6 +169,7 @@ function AllDayStrip({ jobs, gcalEvents, projects, clients, onOpen, date }) {
 export default function CalendarPage() {
   const { jobs, projects, clients, createJob, updateJob, deleteJob, createRecurring } = useOps()
   const { connected: gcalConnected, events: gcalEvents, calendars: gcalCalendars, enabledCalendars, toggleCalendar, fetchForRange, syncing: gcalSyncing } = useGCal()
+  const weatherForecast = useWeather()
   const bp = useBreakpoint() // 'xs'|'sm'|'md'|'lg'
   const isMobile = bp === 'xs' || bp === 'sm'   // < 768px
   const isTablet = bp === 'md'                   // 768–1023px
@@ -584,6 +588,10 @@ export default function CalendarPage() {
                   const isToday = date === today
                   const d = new Date(date + 'T00:00:00')
                   const dayName = d.toLocaleDateString('de-DE', { weekday: 'short' })
+                  const wfc = getWeatherForDate(weatherForecast, date)
+                  const wsc = wfc ? STATUS_COLOR[wfc.status] : null
+                  const wWarn = wfc && (wfc.status === 'warn' || wfc.status === 'danger')
+                  const wGood = wfc && wfc.status === 'good'
                   return (
                     <div key={date} onClick={() => setModal({ date })}
                       style={{ flex: 1, borderRight: i < activeDays.length - 1 ? `1px solid ${BORDER}` : 'none', padding: isMobile ? '6px 4px' : '8px 6px', cursor: 'pointer', background: isToday ? A0a : 'transparent', textAlign: 'center', userSelect: 'none' }}
@@ -593,6 +601,15 @@ export default function CalendarPage() {
                       <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: isMobile ? 28 : 30, height: isMobile ? 28 : 30, borderRadius: '50%', background: isToday ? A : 'transparent', fontSize: isMobile ? 16 : 18, fontWeight: isToday ? 700 : 400, color: isToday ? '#001219' : FG, marginTop: 2 }}>
                         {d.getDate()}
                       </div>
+                      {/* Weather strip */}
+                      {wfc && (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, marginTop: 4, height: 18 }} title={`${wfc.label} · ${wfc.tempMax}°/${wfc.tempMin}° · ${wfc.precip}mm · UV ${wfc.uvMax}${wfc.warnings.length ? ' · ' + wfc.warnings.join(', ') : ''}`}>
+                          <WeatherIcon code={wfc.wmoCode} size={11} color={wWarn ? wsc : wGood ? wsc : MUTED} />
+                          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: wWarn ? wsc : MUTED }}>{wfc.tempMax}°</span>
+                          {wWarn && <AlertTriangle size={8} color={wsc} />}
+                          {wGood && !isMobile && <CheckCircle2 size={8} color={wsc} />}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
@@ -768,16 +785,28 @@ export default function CalendarPage() {
               const isDragOver = dragOverDate === date
               const dayJobs = jobsForDate(date)
               const d = new Date(date + 'T00:00:00')
+              const wfc = getWeatherForDate(weatherForecast, date)
+              const wsc = wfc ? STATUS_COLOR[wfc.status] : null
+              const wWarn = wfc && (wfc.status === 'warn' || wfc.status === 'danger')
               return (
                 <div key={date}
                   onClick={() => setModal({ date })}
                   onDragOver={e => handleDragOver(e, date)}
                   onDragLeave={() => setDragOverDate(null)}
                   onDrop={e => handleDrop(e, date)}
-                  style={{ minHeight: 80, padding: 8, borderRadius: 6, border: `1px solid ${isDragOver ? A + '80' : isToday ? A + '60' : BORDER}`, background: isDragOver ? A14 : isToday ? A0a : 'transparent', cursor: 'pointer', transition: 'background 0.1s' }}
+                  style={{ minHeight: 80, padding: 8, borderRadius: 6, border: `1px solid ${isDragOver ? A + '80' : isToday ? A + '60' : wWarn ? wsc + '40' : BORDER}`, background: isDragOver ? A14 : isToday ? A0a : 'transparent', cursor: 'pointer', transition: 'background 0.1s' }}
                   onMouseEnter={e => { if (!isDragOver) e.currentTarget.style.background = isToday ? A14 : A06 }}
                   onMouseLeave={e => { if (!isDragOver) e.currentTarget.style.background = isToday ? A0a : 'transparent' }}>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: isToday ? 24 : 'auto', height: isToday ? 24 : 'auto', borderRadius: isToday ? '50%' : 0, background: isToday ? A : 'transparent', fontSize: 13, fontWeight: isToday ? 600 : 400, color: isToday ? '#001219' : FG, marginBottom: 4 }}>{d.getDate()}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: isToday ? 24 : 'auto', height: isToday ? 24 : 'auto', borderRadius: isToday ? '50%' : 0, background: isToday ? A : 'transparent', fontSize: 13, fontWeight: isToday ? 600 : 400, color: isToday ? '#001219' : FG }}>{d.getDate()}</div>
+                    {wfc && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 3 }} title={`${wfc.label} ${wfc.tempMax}°/${wfc.tempMin}°${wfc.warnings.length ? ' · ' + wfc.warnings.join(', ') : ''}`}>
+                        {wWarn && <AlertTriangle size={9} color={wsc} />}
+                        <WeatherIcon code={wfc.wmoCode} size={11} color={wWarn ? wsc : MUTED} />
+                        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: wWarn ? wsc : MUTED }}>{wfc.tempMax}°</span>
+                      </div>
+                    )}
+                  </div>
                   {dayJobs.slice(0, 3).map(job => {
                     const type = JOB_TYPES.find(t => t.id === job.job_type)
                     const clientColor = getClientColor(job, projects, clients)
@@ -821,12 +850,17 @@ export default function CalendarPage() {
                   const type = JOB_TYPES.find(t => t.id === job.job_type)
                   return getClientColor(job, projects, clients) || type?.color || A
                 })
+                const wfc = getWeatherForDate(weatherForecast, date)
+                const wWarn = wfc && (wfc.status === 'warn' || wfc.status === 'danger')
+                const wsc = wfc ? STATUS_COLOR[wfc.status] : null
                 return (
                   <div key={date}
                     onClick={() => setSelectedMonthDate(date)}
                     style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '3px 0', cursor: 'pointer', borderRadius: 6, background: isSelected && !isToday ? A14 : 'transparent' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: '50%', background: isToday ? A : 'transparent', fontSize: 13, fontWeight: isToday || isSelected ? 600 : 400, color: isToday ? '#001219' : isSelected ? A : FG }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: '50%', background: isToday ? A : 'transparent', fontSize: 13, fontWeight: isToday || isSelected ? 600 : 400, color: isToday ? '#001219' : isSelected ? A : FG, position: 'relative' }}>
                       {d.getDate()}
+                      {/* Small weather warning dot top-right of date circle */}
+                      {wWarn && <div style={{ position: 'absolute', top: 1, right: 1, width: 6, height: 6, borderRadius: '50%', background: wsc, border: '1px solid rgba(0,0,0,0.3)' }} />}
                     </div>
                     <div style={{ display: 'flex', gap: 2, height: 5, alignItems: 'center' }}>
                       {dotColors.map((c, idx) => (
@@ -852,7 +886,22 @@ export default function CalendarPage() {
               return (
                 <>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                    <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 13, fontWeight: 500, color: FG }}>{label}</div>
+                    <div>
+                      <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 13, fontWeight: 500, color: FG }}>{label}</div>
+                      {(() => {
+                        const selWfc = getWeatherForDate(weatherForecast, selectedMonthDate)
+                        if (!selWfc) return null
+                        const sc = STATUS_COLOR[selWfc.status]
+                        const isWarn = selWfc.status === 'warn' || selWfc.status === 'danger'
+                        return (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
+                            <WeatherIcon code={selWfc.wmoCode} size={11} color={isWarn ? sc : MUTED} />
+                            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: isWarn ? sc : MUTED }}>{selWfc.label} · {selWfc.tempMax}°/{selWfc.tempMin}°</span>
+                            {isWarn && <AlertTriangle size={9} color={sc} />}
+                          </div>
+                        )
+                      })()}
+                    </div>
                     <button onClick={() => setModal({ date: selectedMonthDate })}
                       style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
                       <Plus size={12} /> Einsatz
