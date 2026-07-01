@@ -1,0 +1,20 @@
+name: Trash Bot
+
+on:
+  schedule:
+    - cron: '0 17 * * *'   # täglich 19:00 Uhr Berlin (17:00 UTC)
+  workflow_dispatch:        # auch manuell auslösbar
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Müllbot aufrufen
+        run: |
+          RESPONSE=$(curl -sf \
+            -X POST \
+            -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxd295ZnNmeW9odGNpYml0aGFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwNzU1NzUsImV4cCI6MjA5NTY1MTU3NX0.lygoUkOrF627c_FZrgigugmxp-H0Cq_Nv9Au8vFdcSU" \
+            -H "Content-Type: application/json" \
+            "https://eqwoyfsfyohtcibithak.supabase.co/functions/v1/trash-bot" \
+            2>&1) || true
+          echo "$RESPONSE"

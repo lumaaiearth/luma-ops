@@ -8,6 +8,7 @@ import { useGCal } from '../context/GCalContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { genId } from '../lib/storage.js'
 import { tgSend } from '../lib/telegram.js'
+import { sb } from '../lib/supabase.js'
 import { Car, Truck, Plus, Trash2, Calendar, ExternalLink, AlertTriangle, Send, Check, RefreshCw, Unlink, FolderOpen, Pencil, X } from 'lucide-react'
 
 const DEFAULT_CHIPS = [
@@ -112,6 +113,63 @@ export default function SettingsPage() {
   const [tgPm, setTgPm] = useState(() => localStorage.getItem('luma_tg_pm') || '')
   const [tgInter, setTgInter] = useState(() => localStorage.getItem('luma_tg_inter') || '')
   const [tgTestStatus, setTgTestStatus] = useState({}) // { pflege: 'ok'|'error', ... }
+
+  // ── Müllkalender ──
+  const [trashIcalUrl, setTrashIcalUrl] = useState('')
+  const [trashTgToken, setTrashTgToken] = useState('')
+  const [trashChatId, setTrashChatId] = useState('')
+  const [trashSaveStatus, setTrashSaveStatus] = useState(null) // null | 'saving' | 'ok' | 'error'
+  const [trashTestStatus, setTrashTestStatus] = useState(null) // null | 'loading' | 'ok' | 'error' | string
+  useState(() => {
+    // Load existing trash bot settings from Supabase on mount
+    sb.from('app_settings')
+      .select('key, value')
+      .in('key', ['trash_ical_url', 'trash_tg_token', 'trash_tg_chat_id'])
+      .then(({ data }) => {
+        if (!data) return
+        const m = Object.fromEntries(data.map(r => [r.key, r.value]))
+        if (m['trash_ical_url']) setTrashIcalUrl(m['trash_ical_url'])
+        if (m['trash_tg_token']) setTrashTgToken(m['trash_tg_token'])
+        if (m['trash_tg_chat_id']) setTrashChatId(m['trash_tg_chat_id'])
+      })
+  })
+
+  async function saveTrashSettings() {
+    setTrashSaveStatus('saving')
+    try {
+      const now = new Date().toISOString()
+      await sb.from('app_settings').upsert([
+        { key: 'trash_ical_url',    value: trashIcalUrl,  updated_at: now },
+        { key: 'trash_tg_token',    value: trashTgToken,  updated_at: now },
+        { key: 'trash_tg_chat_id',  value: trashChatId,   updated_at: now },
+      ], { onConflict: 'key' })
+      setTrashSaveStatus('ok')
+      setTimeout(() => setTrashSaveStatus(null), 3000)
+    } catch {
+      setTrashSaveStatus('error')
+    }
+  }
+
+  async function testTrashBot() {
+    setTrashTestStatus('loading')
+    try {
+      const res = await fetch('https://eqwoyfsfyohtcibithak.supabase.co/functions/v1/trash-bot', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxd295ZnNmeW9odGNpYml0aGFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwNzU1NzUsImV4cCI6MjA5NTY1MTU3NX0.lygoUkOrF627c_FZrgigugmxp-H0Cq_Nv9Au8vFdcSU`,
+          'Content-Type': 'application/json',
+        },
+      })
+      const data = await res.json()
+      if (data.ok) {
+        setTrashTestStatus(data.sent ? 'Nachricht gesendet ✓' : `Kein Termin morgen (${data.tomorrow})`)
+      } else {
+        setTrashTestStatus(`Fehler: ${data.error}`)
+      }
+    } catch (e) {
+      setTrashTestStatus(`Fehler: ${e.message}`)
+    }
+  }
 
   function saveTgSettings() {
     localStorage.setItem('luma_tg_token', tgToken)
@@ -480,6 +538,80 @@ export default function SettingsPage() {
             <li>Einsatz abgesagt oder verschoben → betroffene Gruppe</li>
             <li>Sensor kritisch → LUMA Projektmanagement</li>
             <li>Fahrzeug doppelt gebucht → LUMA Inter</li>
+          </ul>
+        </div>
+      </section>
+
+      {/* ── Müllkalender ── */}
+      <section style={{ marginBottom: 36 }}>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 14 }}>
+          Müllkalender Bot
+        </div>
+        <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, marginBottom: 12 }}>
+          <div style={{ fontSize: 13, color: FG, marginBottom: 14, lineHeight: 1.6 }}>
+            Gibt jeden Abend um 19:00 Uhr eine Telegram-Nachricht aus, wenn am nächsten Tag Müll abgeholt wird.
+            <br />Sperrmüll und Schadstoffmobil werden automatisch herausgefiltert.
+          </div>
+
+          <label style={LABEL}>iCal-URL (Abfuhrkalender deiner Stadt)</label>
+          <input
+            style={{ ...INPUT_STYLE, marginBottom: 14, fontFamily: "'Space Mono', monospace", fontSize: 11 }}
+            value={trashIcalUrl}
+            onChange={e => setTrashIcalUrl(e.target.value)}
+            placeholder="https://www.bsr.de/abfuhrkalender/...ics"
+          />
+
+          <label style={LABEL}>Bot Token</label>
+          <input
+            style={{ ...INPUT_STYLE, marginBottom: 14, fontFamily: "'Space Mono', monospace", fontSize: 12 }}
+            type="password"
+            value={trashTgToken}
+            onChange={e => setTrashTgToken(e.target.value)}
+            placeholder="123456789:AAE..."
+          />
+
+          <label style={LABEL}>Telegram Chat-ID (Haushalt)</label>
+          <input
+            style={{ ...INPUT_STYLE, marginBottom: 16, fontFamily: "'Space Mono', monospace", fontSize: 12 }}
+            value={trashChatId}
+            onChange={e => setTrashChatId(e.target.value)}
+            placeholder="-100123456789"
+          />
+
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button
+              onClick={testTrashBot}
+              disabled={trashTestStatus === 'loading'}
+              style={{ padding: '8px 14px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 12 }}>
+              {trashTestStatus === 'loading' ? 'Läuft…' : 'Jetzt testen'}
+            </button>
+            <button
+              onClick={saveTrashSettings}
+              disabled={trashSaveStatus === 'saving'}
+              style={{ padding: '8px 18px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
+              {trashSaveStatus === 'saving' ? 'Speichert…' : trashSaveStatus === 'ok' ? '✓ Gespeichert' : 'Speichern'}
+            </button>
+          </div>
+
+          {trashTestStatus && trashTestStatus !== 'loading' && (
+            <div style={{ marginTop: 10, padding: '8px 12px', background: trashTestStatus.startsWith('Fehler') ? '#ef444410' : A06, border: `1px solid ${trashTestStatus.startsWith('Fehler') ? '#ef444430' : A18}`, borderRadius: 6, fontFamily: "'Space Mono', monospace", fontSize: 11, color: trashTestStatus.startsWith('Fehler') ? '#ef4444' : A }}>
+              {trashTestStatus}
+            </div>
+          )}
+
+          {trashSaveStatus === 'error' && (
+            <div style={{ marginTop: 10, padding: '8px 12px', background: '#ef444410', border: '1px solid #ef444430', borderRadius: 6, fontFamily: "'Space Mono', monospace", fontSize: 11, color: '#ef4444' }}>
+              Speichern fehlgeschlagen — Supabase-Verbindung prüfen.
+            </div>
+          )}
+        </div>
+
+        <div style={{ padding: '10px 14px', background: A06, border: `1px solid ${A18}`, borderRadius: 6 }}>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Automatisch herausgefiltert</div>
+          <ul style={{ margin: 0, padding: '0 0 0 16px', fontSize: 12, color: MUTED, lineHeight: 2 }}>
+            <li>Sperrmüll / Großmüll</li>
+            <li>Schadstoffmobil / Problemstoffe</li>
+            <li>Elektroschrott</li>
           </ul>
         </div>
       </section>
