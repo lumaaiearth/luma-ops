@@ -1106,7 +1106,7 @@ function PlantCard({ plant: p, onTap, onAdd, onRemove, inPlan, L, shadow, cardBg
           <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginBottom: 6 }}>
             <MBadge emoji="☀️" label={p.licht.map(l => LICHT_LABELS[l]).join('/')} L={L} />
             <MBadge emoji="💧" label={p.wasser.map(w => WASSER_LABELS[w]).join('/')} L={L} />
-            {!isMobile && <MBadge emoji="📏" label={`${p.hoehe[0]}–${p.hoehe[1]}cm`} L={L} />}
+            <MBadge emoji="📏" label={`${p.hoehe[0]}–${p.hoehe[1]}cm`} L={L} />
             <MBadge emoji="🌸" label={`${MONTHS[p.bluete_monate[0]-1]}–${MONTHS[p.bluete_monate[p.bluete_monate.length-1]-1]}`} L={L} />
           </div>
 
