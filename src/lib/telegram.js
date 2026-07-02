@@ -1,20 +1,15 @@
-export function tgSend(chatId, text) {
-  if (!chatId) return
-  const token = localStorage.getItem('luma_tg_token')
-  if (!token) return
-  fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
-  }).catch(() => {})
-}
+import { sb } from './supabase.js'
 
-export function tgGroups() {
-  return {
-    pflege: localStorage.getItem('luma_tg_pflege') || '',
-    pm: localStorage.getItem('luma_tg_pm') || '',
-    inter: localStorage.getItem('luma_tg_inter') || '',
-  }
+// Telegram messages go through the 'tg-send' Edge Function so the bot token
+// stays server-side (Supabase secret TELEGRAM_BOT_TOKEN). Chat IDs are
+// configured in Settings and stored in app_settings under 'telegram_groups'.
+// group: 'pflege' | 'pm' | 'inter' | 'all'
+
+export function tgSend(group, text) {
+  if (!group || !text) return Promise.resolve({ ok: false })
+  return sb.functions.invoke('tg-send', { body: { group, text } })
+    .then(({ data, error }) => (error ? { ok: false, error } : data))
+    .catch(() => ({ ok: false }))
 }
 
 // Returns which groups to notify given a list of assigned user IDs

@@ -1,5 +1,5 @@
 import { TEAM, JOB_TYPES } from '../data/seed.js'
-import { tgSend, tgGroups } from './telegram.js'
+import { tgSend } from './telegram.js'
 
 function getWeekRange() {
   const now = new Date()
@@ -71,12 +71,6 @@ export function maybeSendWeeklySummary(jobs, projects) {
   const text = buildWeeklySummary(jobs, projects)
   if (!text) return
 
-  const groups = tgGroups()
-  const sent = new Set()
-  for (const chatId of Object.values(groups)) {
-    if (chatId && !sent.has(chatId)) {
-      tgSend(chatId, text)
-      sent.add(chatId)
-    }
-  }
+  // 'all' → the Edge Function sends to every distinct configured chat once
+  tgSend('all', text)
 }

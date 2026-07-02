@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Navigate } from 'react-router-dom'
+import { sb } from '../lib/supabase.js'
 import { A, SURFACE, BORDER, FG, MUTED, A06, A08, A18, A20 } from '../lib/theme.js'
 import { useTheme, THEMES } from '../context/ThemeContext.jsx'
 import { VEHICLES, TEAM } from '../data/seed.js'
@@ -90,8 +91,10 @@ function TeamIcalRow({ member }) {
 }
 
 export default function SettingsPage() {
-  const { user } = useAuth()
-  if (user?.role !== 'admin') return <Navigate to="/dashboard" replace />
+  // user.role is the Supabase auth role ('authenticated' for everyone) —
+  // the app role lives in user_profile.rolle, exposed as isAdmin.
+  const { isAdmin } = useAuth()
+  if (!isAdmin) return <Navigate to="/dashboard" replace />
   const { themeId, setTheme } = useTheme()
 
   const { connected: gcalConnected, ready: gcalReady, syncing: gcalSyncing, calendars, calendarId, connect: gcalConnect, disconnect: gcalDisconnect, setCalendarId, reload: gcalReload } = useGCal()
@@ -107,33 +110,45 @@ export default function SettingsPage() {
   const [newChip, setNewChip] = useState('')
   const [gcalEvents, setGcalEvents] = useState([])
 
-  const [tgToken, setTgToken] = useState(() => localStorage.getItem('luma_tg_token') || '')
-  const [tgPflege, setTgPflege] = useState(() => localStorage.getItem('luma_tg_pflege') || '')
-  const [tgPm, setTgPm] = useState(() => localStorage.getItem('luma_tg_pm') || '')
-  const [tgInter, setTgInter] = useState(() => localStorage.getItem('luma_tg_inter') || '')
+  // Telegram chat IDs live in app_settings ('telegram_groups') so they work
+  // on every device. The bot token is a Supabase secret (TELEGRAM_BOT_TOKEN)
+  // used by the tg-send Edge Function — it never reaches the browser.
+  const [tgPflege, setTgPflege] = useState('')
+  const [tgPm, setTgPm] = useState('')
+  const [tgInter, setTgInter] = useState('')
+  const [tgSaved, setTgSaved] = useState(false)
   const [tgTestStatus, setTgTestStatus] = useState({}) // { pflege: 'ok'|'error', ... }
 
-  function saveTgSettings() {
-    localStorage.setItem('luma_tg_token', tgToken)
-    localStorage.setItem('luma_tg_pflege', tgPflege)
-    localStorage.setItem('luma_tg_pm', tgPm)
-    localStorage.setItem('luma_tg_inter', tgInter)
+  useEffect(() => {
+    sb.from('app_settings').select('value').eq('key', 'telegram_groups').maybeSingle().then(({ data }) => {
+      if (data?.value) {
+        setTgPflege(data.value.pflege || '')
+        setTgPm(data.value.pm || '')
+        setTgInter(data.value.inter || '')
+      }
+    })
+  }, [])
+
+  async function saveTgSettings() {
+    const value = { pflege: tgPflege.trim(), pm: tgPm.trim(), inter: tgInter.trim() }
+    const { error } = await sb.from('app_settings').upsert(
+      { key: 'telegram_groups', value, updated_at: new Date().toISOString() },
+      { onConflict: 'key' }
+    )
+    if (error) {
+      window.__lumaToast?.(`⚠️ Speicherfehler (telegram_groups): ${error.message}`)
+    } else {
+      setTgSaved(true)
+      setTimeout(() => setTgSaved(false), 2000)
+    }
   }
 
   async function testTg(group, chatId) {
-    if (!chatId || !tgToken) return
-    localStorage.setItem('luma_tg_token', tgToken)
+    if (!chatId) return
+    await saveTgSettings() // ensure the Edge Function sees the current IDs
     setTgTestStatus(s => ({ ...s, [group]: 'loading' }))
-    try {
-      const res = await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: chatId, text: `✅ LUMA Ops verbunden — Gruppe: ${group}` }),
-      })
-      setTgTestStatus(s => ({ ...s, [group]: res.ok ? 'ok' : 'error' }))
-    } catch {
-      setTgTestStatus(s => ({ ...s, [group]: 'error' }))
-    }
+    const result = await tgSend(group, `✅ LUMA Ops verbunden — Gruppe: ${group}`)
+    setTgTestStatus(s => ({ ...s, [group]: result?.ok ? 'ok' : 'error' }))
   }
 
   function addChip(e) {
@@ -421,16 +436,8 @@ export default function SettingsPage() {
           </div>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, marginBottom: 14 }}>
             Chat-ID ermitteln: Bot in Gruppe schreiben → https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates → "chat":&#123;"id":...&#125;
+            <br />Bot-Token: als Secret <code>TELEGRAM_BOT_TOKEN</code> in Supabase hinterlegt (Dashboard → Edge Functions → Secrets), nicht im Browser.
           </div>
-
-          <label style={LABEL}>Bot Token</label>
-          <input
-            style={{ ...INPUT_STYLE, marginBottom: 16, fontFamily: "'Space Mono', monospace", fontSize: 12 }}
-            type="password"
-            value={tgToken}
-            onChange={e => setTgToken(e.target.value)}
-            placeholder="123456789:AAE..."
-          />
 
           {[
             { key: 'pflege', label: 'LUMA Pflege', members: 'Jona · Anselm · Malte', state: tgPflege, setState: setTgPflege },
@@ -448,12 +455,12 @@ export default function SettingsPage() {
                 />
                 <button
                   onClick={() => testTg(key, state)}
-                  disabled={!state || !tgToken || tgTestStatus[key] === 'loading'}
+                  disabled={!state || tgTestStatus[key] === 'loading'}
                   style={{
                     width: 38, height: 38, borderRadius: 6, flexShrink: 0,
                     background: tgTestStatus[key] === 'ok' ? '#22EAA722' : A06,
                     border: `1px solid ${tgTestStatus[key] === 'ok' ? '#22EAA750' : tgTestStatus[key] === 'error' ? '#ef444450' : BORDER}`,
-                    cursor: state && tgToken ? 'pointer' : 'default',
+                    cursor: state ? 'pointer' : 'default',
                     color: tgTestStatus[key] === 'ok' ? '#22EAA7' : tgTestStatus[key] === 'error' ? '#ef4444' : MUTED,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}
@@ -467,8 +474,8 @@ export default function SettingsPage() {
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <button
               onClick={saveTgSettings}
-              style={{ padding: '8px 18px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
-              Speichern
+              style={{ padding: '8px 18px', borderRadius: 6, background: tgSaved ? '#22EAA722' : A, border: 'none', color: tgSaved ? '#22EAA7' : '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500, transition: 'all 0.2s' }}>
+              {tgSaved ? '✓ Gespeichert' : 'Speichern'}
             </button>
           </div>
         </div>

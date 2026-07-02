@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { sb, sbUpsert, sbDelete, sbUpdate, sbInsert } from '../lib/supabase.js'
 import { getJobs, saveJobs, getRecurring, saveRecurring, getSensors, saveSensors, getProjects, saveProjects, genId, addDays } from '../lib/storage.js'
-import { tgSend, tgGroups, groupsForUsers } from '../lib/telegram.js'
+import { tgSend, groupsForUsers } from '../lib/telegram.js'
 import { maybeSendWeeklySummary } from '../lib/weeklySummary.js'
 import * as gcal from '../lib/gcal.js'
 import { JOB_TYPES, SEED_CLIENTS, VEHICLES as SEED_VEHICLES } from '../data/seed.js'
@@ -183,7 +183,7 @@ export function OpsProvider({ children }) {
       const endStr = data.date_end && data.date_end > data.date
         ? ` – ${new Date(data.date_end + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}`
         : ''
-      tgSend(tgGroups().pflege, `🌿 <b>Neuer Einsatz</b>\n<b>${data.title}</b>\n${project?.name || ''} · ${type?.label || ''}\n📅 ${dateStr}${endStr}`)
+      tgSend('pflege', `🌿 <b>Neuer Einsatz</b>\n<b>${data.title}</b>\n${project?.name || ''} · ${type?.label || ''}\n📅 ${dateStr}${endStr}`)
     }
     if (data.vehicle_id) {
       const conflict = jobs.find(j =>
@@ -191,7 +191,7 @@ export function OpsProvider({ children }) {
         (j.date === data.date || (j.date_end && j.date_end >= data.date && j.date <= (data.date_end || data.date)))
       )
       if (conflict) {
-        tgSend(tgGroups().inter, `⚠️ <b>Fahrzeugkonflikt</b>\nFahrzeug wird doppelt gebucht am ${data.date}:\n– ${conflict.title}\n– ${data.title}`)
+        tgSend('inter', `⚠️ <b>Fahrzeugkonflikt</b>\nFahrzeug wird doppelt gebucht am ${data.date}:\n– ${conflict.title}\n– ${data.title}`)
       }
     }
     return job
@@ -211,12 +211,12 @@ export function OpsProvider({ children }) {
       const groups = groupsForUsers(existing.assigned_users || [])
       const project = projects.find(p => p.id === existing.project_id)
       const msg = `❌ <b>Einsatz abgesagt</b>\n<b>${existing.title}</b>\n${project?.name || ''} · ${existing.date}`
-      groups.forEach(g => tgSend(tgGroups()[g], msg))
+      groups.forEach(g => tgSend(g, msg))
     } else if (existing && changes.date && changes.date !== existing.date) {
       const groups = groupsForUsers(existing.assigned_users || [])
       const project = projects.find(p => p.id === existing.project_id)
       const msg = `📅 <b>Einsatz verschoben</b>\n<b>${existing.title}</b>\n${project?.name || ''}\n${existing.date} → ${changes.date}`
-      groups.forEach(g => tgSend(tgGroups()[g], msg))
+      groups.forEach(g => tgSend(g, msg))
     }
   }
 
@@ -291,7 +291,7 @@ export function OpsProvider({ children }) {
       const next = updated.find(s => s.id === id)
       if (next?.status === 'critical' && prev?.status !== 'critical') {
         const project = projects.find(p => p.id === next.project_id)
-        tgSend(tgGroups().pm, `🚨 <b>Sensor kritisch</b>\n<b>${next.name}</b>\n${project?.name || ''}\nAktuell: ${value}${next.unit} (Min: ${next.threshold_low}${next.unit})`)
+        tgSend('pm', `🚨 <b>Sensor kritisch</b>\n<b>${next.name}</b>\n${project?.name || ''}\nAktuell: ${value}${next.unit} (Min: ${next.threshold_low}${next.unit})`)
       }
       sbUpdate('sensors', id, { value, status: next?.status, last_updated: new Date().toISOString() }).catch(dbErr('ops','write'))
       return updated
