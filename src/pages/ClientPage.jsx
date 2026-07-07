@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, MapPin, Calendar, Clock, Radio, Edit3, Save, X, Building2, Phone, Mail, User, ExternalLink } from 'lucide-react'
+import { ArrowLeft, MapPin, Calendar, Clock, Radio, Edit3, Save, X, Building2, Phone, Mail, User, ExternalLink, ListTodo } from 'lucide-react'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { sbUpdate } from '../lib/supabase.js'
 import { A, BG, SURFACE, BORDER, FG, MUTED, CARD, A06, A14 } from '../lib/theme.js'
-import { TEAM } from '../data/seed.js'
-import { isoToday } from '../lib/storage.js'
+import { TEAM, TASK_STATUSES, TASK_PRIORITIES } from '../data/seed.js'
+import { isoToday, formatDate } from '../lib/storage.js'
+
+const TASK_S = Object.fromEntries(TASK_STATUSES.map(s => [s.id, s]))
+const TASK_P = Object.fromEntries(TASK_PRIORITIES.map(p => [p.id, p]))
 
 const STATUS_COLOR = { planned: '#6EA8C0', in_progress: A, done: '#22EAA7', cancelled: '#6B7280' }
 const STATUS_LABEL = { planned: 'Geplant', in_progress: 'Läuft', done: 'Erledigt', cancelled: 'Abgesagt' }
@@ -28,7 +31,7 @@ function StatCard({ icon: Icon, label, value, color }) {
 export default function ClientPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { clients, projects, jobs, sensors, updateClient } = useOps()
+  const { clients, projects, jobs, sensors, tasks, updateClient, setTaskStatus } = useOps()
   const { user } = useAuth()
   const [tab, setTab] = useState('overview')
   const [editingNotes, setEditingNotes] = useState(false)
@@ -54,6 +57,8 @@ export default function ClientPage() {
   const clientProjects = projects.filter(p => p.client_id === id)
   const clientJobs = jobs.filter(j => clientProjects.some(p => p.id === j.project_id))
   const clientSensors = sensors.filter(s => clientProjects.some(p => p.id === s.project_id))
+  const clientTasks = (tasks || []).filter(t => t.client_id === id || clientProjects.some(p => p.id === t.project_id))
+  const openClientTasks = clientTasks.filter(t => t.status !== 'done' && t.status !== 'archive')
   const doneJobs = clientJobs.filter(j => j.status === 'done')
   const upcomingJobs = clientJobs.filter(j => j.date >= today && j.status !== 'cancelled' && j.status !== 'done')
   const allWorkers = new Set(clientJobs.flatMap(j => j.assigned_users || []))
@@ -67,6 +72,7 @@ export default function ClientPage() {
 
   const TABS = [
     { id: 'overview', label: 'Übersicht', icon: Building2 },
+    { id: 'tasks', label: `Aufgaben (${clientTasks.length})`, icon: ListTodo },
     { id: 'projects', label: `Projekte (${clientProjects.length})`, icon: MapPin },
     { id: 'jobs', label: `Einsätze (${clientJobs.length})`, icon: Calendar },
     { id: 'sensors', label: `Sensoren (${clientSensors.length})`, icon: Radio },
@@ -109,9 +115,9 @@ export default function ClientPage() {
         {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 24 }}>
           <StatCard icon={MapPin} label="Projekte" value={clientProjects.length} color={clientColor} />
+          <StatCard icon={ListTodo} label="Offene Aufgaben" value={openClientTasks.length} color={openClientTasks.length > 0 ? A : undefined} />
           <StatCard icon={Calendar} label="Einsätze gesamt" value={clientJobs.length} />
           <StatCard icon={Clock} label="Davon erledigt" value={doneJobs.length} color="#22EAA7" />
-          <StatCard icon={Calendar} label="Ausstehend" value={upcomingJobs.length} color={A} />
           <StatCard icon={Radio} label="Sensoren" value={clientSensors.length} />
         </div>
 
@@ -262,6 +268,48 @@ export default function ClientPage() {
                 )}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Tab: Aufgaben */}
+        {tab === 'tasks' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {clientTasks.length === 0 && (
+              <div style={{ color: MUTED, fontSize: 13, padding: 20, textAlign: 'center' }}>
+                Keine Aufgaben für diesen Kunden. <button onClick={() => navigate('/tasks')} style={{ color: A, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}>Zur Aufgaben-Seite →</button>
+              </div>
+            )}
+            {[...clientTasks]
+              .sort((a, b) => (a.status === 'done' || a.status === 'archive' ? 1 : 0) - (b.status === 'done' || b.status === 'archive' ? 1 : 0))
+              .map(t => {
+                const st = TASK_S[t.status]
+                const prio = TASK_P[t.priority]
+                const proj = projects.find(p => p.id === t.project_id)
+                const done = t.status === 'done' || t.status === 'archive'
+                const overdue = t.due_date && !done && t.due_date < today
+                const workers = (t.assigned_users || []).map(uid => TEAM.find(x => x.id === uid)).filter(Boolean)
+                return (
+                  <div key={t.id} onClick={() => navigate('/tasks')}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 8, background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, gap: 16, cursor: 'pointer' }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: 13, color: done ? MUTED : FG, fontFamily: "'Space Grotesk', sans-serif", textDecoration: t.status === 'archive' ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 3 }}>
+                        {proj && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED }}>{proj.name}</span>}
+                        {t.due_date && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: overdue ? '#ef4444' : MUTED }}>fällig {formatDate(t.due_date)}</span>}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                      {workers.map(w => (
+                        <div key={w.id} style={{ width: 22, height: 22, borderRadius: '50%', background: w.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: '#001219', fontWeight: 700 }}>{w.initials}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <button onClick={e => { e.stopPropagation(); const order = TASK_STATUSES.map(s => s.id); setTaskStatus(t.id, order[(order.indexOf(t.status) + 1) % order.length]) }}
+                      style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: st?.color, background: `${st?.color}18`, border: `1px solid ${st?.color}40`, padding: '3px 8px', borderRadius: 10, cursor: 'pointer', flexShrink: 0 }}>{st?.label}</button>
+                  </div>
+                )
+              })}
           </div>
         )}
 

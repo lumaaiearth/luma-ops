@@ -15,6 +15,7 @@ import LoginPage from './pages/LoginPage.jsx'
 import DashboardPage from './pages/DashboardPage.jsx'
 import CalendarPage from './pages/CalendarPage.jsx'
 import JobsPage from './pages/JobsPage.jsx'
+import TasksPage from './pages/TasksPage.jsx'
 import SensorsPage from './pages/SensorsPage.jsx'
 import TeamPage from './pages/TeamPage.jsx'
 import SettingsPage from './pages/SettingsPage.jsx'
@@ -45,6 +46,7 @@ function AppRoutes() {
       <Route path="/dashboard" element={<RequireAuth><Layout><ErrorBoundary><DashboardPage /></ErrorBoundary></Layout></RequireAuth>} />
       <Route path="/calendar" element={<RequireAuth><Layout fullHeight><ErrorBoundary><CalendarPage /></ErrorBoundary></Layout></RequireAuth>} />
       <Route path="/jobs" element={<RequireAuth><Layout><ErrorBoundary><JobsPage /></ErrorBoundary></Layout></RequireAuth>} />
+      <Route path="/tasks" element={<RequireAuth><Layout><ErrorBoundary><TasksPage /></ErrorBoundary></Layout></RequireAuth>} />
       <Route path="/sensors" element={<RequireAuth><Layout><ErrorBoundary><SensorsPage /></ErrorBoundary></Layout></RequireAuth>} />
       <Route path="/team" element={<RequireAuth><Layout><ErrorBoundary><TeamPage /></ErrorBoundary></Layout></RequireAuth>} />
       <Route path="/time" element={<RequireAuth><Layout><ErrorBoundary><TimePage /></ErrorBoundary></Layout></RequireAuth>} />

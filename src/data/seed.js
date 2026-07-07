@@ -23,6 +23,51 @@ export const VEHICLES = [
   { id: 'pritsche',   name: 'Pritsche',          model: 'Leihe',               ownership: 'rental', type: 'truck',   color: '#8B5CF6' },
 ]
 
+// ── Aufgaben / Task Management ────────────────────────────────────────────────
+// Notion-artiges Taskboard, vernetzt mit Kunde/Projekt/Team/Einsatz.
+
+// Status-Spalten (Reihenfolge = Board-Reihenfolge). "archive" wird im Board
+// standardmäßig ausgeblendet, ist aber über den Filter erreichbar.
+export const TASK_STATUSES = [
+  { id: 'not_started', label: 'Nicht begonnen', short: 'Offen',    color: '#6B7280' },
+  { id: 'in_progress', label: 'In Arbeit',      short: 'Läuft',    color: '#6EA8C0' },
+  { id: 'waiting',     label: 'Wartet auf …',   short: 'Wartet',   color: '#F59E0B' },
+  { id: 'decision',    label: 'Entscheidung',   short: 'Entsch.',  color: '#A78BFA' },
+  { id: 'done',        label: 'Erledigt',       short: 'Fertig',   color: '#22EAA7' },
+  { id: 'archive',     label: 'Archiv',         short: 'Archiv',   color: '#4B5563' },
+]
+
+export const TASK_PRIORITIES = [
+  { id: 'low',     label: 'Niedrig',      color: '#6EA8C0' },
+  { id: 'medium',  label: 'Mittel',       color: '#F3E0A8' },
+  { id: 'high',    label: 'Hoch',         color: '#F59E0B' },
+  { id: 'extreme', label: 'Sehr wichtig', color: '#ef4444' },
+]
+
+export const TASK_EFFORTS = [
+  { id: 'small',       label: 'Klein',       color: '#22EAA7' },
+  { id: 'medium',      label: 'Mittel',      color: '#F3E0A8' },
+  { id: 'large',       label: 'Groß',        color: '#F59E0B' },
+  { id: 'complicated', label: 'Kompliziert', color: '#ef4444' },
+]
+
+// Aufgabentypen — angelehnt an die Notion-Vorlage (Installation, Reinigung, …)
+export const TASK_TYPES = [
+  { id: 'installation',  label: 'Installation/Montage', color: '#3F51B5' },
+  { id: 'pflege',        label: 'Pflege',               color: '#0B8043' },
+  { id: 'giessen',       label: 'Gießen',               color: '#039BE5' },
+  { id: 'maehen',        label: 'Rasen mähen',          color: '#7CB342' },
+  { id: 'beikraut',      label: 'Beikraut entfernen',   color: '#8D6E63' },
+  { id: 'reinigung',     label: 'Reinigung',            color: '#26A69A' },
+  { id: 'monitoring',    label: 'Monitoring',           color: '#F4511E' },
+  { id: 'pflanzung',     label: 'Pflanzung',            color: '#66BB6A' },
+  { id: 'bestellung',    label: 'Bestellung',           color: '#AB47BC' },
+  { id: 'angebot',       label: 'Angebot',              color: '#EC407A' },
+  { id: 'beratung',      label: 'Beratung/Meeting',     color: '#8E24AA' },
+  { id: 'orga',          label: 'Orga/Verwaltung',      color: '#78909C' },
+  { id: 'sonstiges',     label: 'Sonstiges',            color: '#616161' },
+]
+
 export const JOB_TYPES = [
   { id: 'pflege',       label: 'Pflege',       labelEN: 'Stewardship',   color: '#0B8043' },
   { id: 'baumpflege',   label: 'Baumpflege',   labelEN: 'Tree Care',     color: '#F6BF26' },

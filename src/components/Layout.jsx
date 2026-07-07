@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { LayoutDashboard, CalendarDays, ListChecks, Radio, Users, Settings, LogOut, Menu, X, Clock, Map, Database, FolderOpen, MoreHorizontal, BarChart2, Flower2 } from 'lucide-react'
+import { LayoutDashboard, CalendarDays, ListChecks, Radio, Users, Settings, LogOut, Menu, X, Clock, Map, Database, FolderOpen, MoreHorizontal, BarChart2, Flower2, ListTodo } from 'lucide-react'
 import { A, BG, SURFACE, BORDER, FG, MUTED, A14, A06 } from '../lib/theme.js'
 
 const NAV = [
   { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/calendar',   icon: CalendarDays,    label: 'Kalender' },
+  { to: '/tasks',      icon: ListTodo,        label: 'Aufgaben' },
   { to: '/jobs',       icon: ListChecks,      label: 'Einsätze' },
   { to: '/map',        icon: Map,             label: 'BIOME™' },
   { to: '/analyse',    icon: BarChart2,       label: 'Analysen' },

@@ -3,13 +3,17 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { MapContainer, TileLayer, Marker, GeoJSON, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { ArrowLeft, MapPin, Calendar, Clock, Camera, Radio, FileText, Edit3, Save, X, ExternalLink } from 'lucide-react'
+import { ArrowLeft, MapPin, Calendar, Clock, Camera, Radio, FileText, Edit3, Save, X, ExternalLink, ListTodo, Plus, Trash2 } from 'lucide-react'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { sb } from '../lib/supabase.js'
 import { A, BG, SURFACE, BORDER, FG, MUTED, CARD, A06, A14, A18 } from '../lib/theme.js'
-import { JOB_TYPES, TEAM } from '../data/seed.js'
-import { isoToday } from '../lib/storage.js'
+import { JOB_TYPES, TEAM, TASK_STATUSES, TASK_PRIORITIES } from '../data/seed.js'
+import { isoToday, formatDate } from '../lib/storage.js'
+import TaskModal from '../components/TaskModal.jsx'
+
+const TASK_S = Object.fromEntries(TASK_STATUSES.map(s => [s.id, s]))
+const TASK_P = Object.fromEntries(TASK_PRIORITIES.map(p => [p.id, p]))
 
 const STATUS_COLOR = { planned: '#6EA8C0', in_progress: A, done: '#22EAA7', cancelled: '#6B7280' }
 const STATUS_LABEL = { planned: 'Geplant', in_progress: 'Läuft', done: 'Erledigt', cancelled: 'Abgesagt' }
@@ -44,12 +48,13 @@ function StatCard({ icon: Icon, label, value, color }) {
 export default function ProjectPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { projects, jobs, sensors, clients, updateProject } = useOps()
+  const { projects, jobs, sensors, clients, tasks, updateProject, createTask, updateTask, deleteTask, setTaskStatus } = useOps()
   const { user } = useAuth()
   const [tab, setTab] = useState('overview')
   const [photos, setPhotos] = useState([])
   const [editingNotes, setEditingNotes] = useState(false)
   const [notesVal, setNotesVal] = useState('')
+  const [taskModal, setTaskModal] = useState(null)
   const today = isoToday()
   const isAdmin = user?.role === 'admin' || user?.role === 'manager'
 
@@ -79,6 +84,8 @@ export default function ProjectPage() {
 
   const projectJobs = jobs.filter(j => j.project_id === id).sort((a, b) => b.date.localeCompare(a.date))
   const projectSensors = sensors.filter(s => s.project_id === id)
+  const projectTasks = (tasks || []).filter(t => t.project_id === id)
+  const openTasks = projectTasks.filter(t => t.status !== 'done' && t.status !== 'archive')
   const doneJobs = projectJobs.filter(j => j.status === 'done')
   const upcomingJobs = projectJobs.filter(j => j.date >= today && j.status !== 'cancelled' && j.status !== 'done')
   const lastVisit = doneJobs[0]?.date
@@ -91,10 +98,13 @@ export default function ProjectPage() {
 
   const TABS = [
     { id: 'overview', label: 'Übersicht', icon: MapPin },
+    { id: 'tasks', label: `Aufgaben (${projectTasks.length})`, icon: ListTodo },
     { id: 'jobs', label: `Einsätze (${projectJobs.length})`, icon: Calendar },
     { id: 'photos', label: `Fotos (${photos.length})`, icon: Camera },
     { id: 'sensors', label: `Sensoren (${projectSensors.length})`, icon: Radio },
   ]
+
+  const clientOfProject = clients?.find(c => c.id === project.client_id) || clients?.find(c => c.name === project.client)
 
   return (
     <div style={{ padding: '0 0 40px' }}>
@@ -140,9 +150,9 @@ export default function ProjectPage() {
       <div style={{ padding: '20px 24px' }}>
         {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 24 }}>
+          <StatCard icon={ListTodo} label="Offene Aufgaben" value={openTasks.length} color={openTasks.length > 0 ? A : undefined} />
           <StatCard icon={Calendar} label="Einsätze gesamt" value={projectJobs.length} />
           <StatCard icon={Clock} label="Davon erledigt" value={doneJobs.length} color="#22EAA7" />
-          <StatCard icon={Calendar} label="Nächste Einsätze" value={upcomingJobs.length} color={A} />
           <StatCard icon={Radio} label="Aktive Sensoren" value={projectSensors.length} />
         </div>
 
@@ -269,6 +279,57 @@ export default function ProjectPage() {
           </div>
         )}
 
+        {/* Tab: Aufgaben */}
+        {tab === 'tasks' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED }}>{openTasks.length} offen · {projectTasks.length} gesamt</div>
+              <button onClick={() => setTaskModal({ defaults: { project_id: id, client_id: clientOfProject?.id || '' } })}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 7, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                <Plus size={14} /> Aufgabe
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {projectTasks.length === 0 && (
+                <div style={{ padding: 40, textAlign: 'center', color: MUTED, fontSize: 14 }}>Noch keine Aufgaben für dieses Projekt.</div>
+              )}
+              {projectTasks
+                .sort((a, b) => (a.status === 'done' || a.status === 'archive' ? 1 : 0) - (b.status === 'done' || b.status === 'archive' ? 1 : 0))
+                .map(t => {
+                  const st = TASK_S[t.status]
+                  const prio = TASK_P[t.priority]
+                  const done = t.status === 'done' || t.status === 'archive'
+                  const workers = (t.assigned_users || []).map(uid => TEAM.find(x => x.id === uid)).filter(Boolean)
+                  const overdue = t.due_date && !done && t.due_date < today
+                  return (
+                    <div key={t.id} onClick={() => setTaskModal({ task: t })}
+                      style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, borderRadius: 8, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 500, color: done ? MUTED : FG, textDecoration: t.status === 'archive' ? 'line-through' : 'none', marginBottom: 3 }}>{t.title}</div>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                          <button onClick={e => { e.stopPropagation(); const order = TASK_STATUSES.map(s => s.id); setTaskStatus(t.id, order[(order.indexOf(t.status) + 1) % order.length]) }}
+                            style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: st?.color, background: st?.color + '18', border: `1px solid ${st?.color}40`, padding: '1px 7px', borderRadius: 10, cursor: 'pointer' }}>{st?.label}</button>
+                          {t.due_date && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: overdue ? '#ef4444' : MUTED }}>fällig {formatDate(t.due_date)}{overdue ? ' · überfällig' : ''}</span>}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                        {workers.map(w => (
+                          <div key={w.id} style={{ width: 24, height: 24, borderRadius: '50%', background: w.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: '#001219', fontWeight: 700 }}>{w.initials}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <button onClick={e => { e.stopPropagation(); deleteTask(t.id) }}
+                        style={{ width: 28, height: 28, borderRadius: 5, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  )
+                })}
+            </div>
+          </div>
+        )}
+
         {/* Tab: Einsätze */}
         {tab === 'jobs' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -360,6 +421,19 @@ export default function ProjectPage() {
           </div>
         )}
       </div>
+
+      {taskModal && (
+        <TaskModal
+          initialTask={taskModal.task}
+          defaults={taskModal.defaults}
+          onSave={data => {
+            if (taskModal.task) updateTask(taskModal.task.id, data)
+            else createTask(data)
+            setTaskModal(null)
+          }}
+          onClose={() => setTaskModal(null)}
+        />
+      )}
     </div>
   )
 }

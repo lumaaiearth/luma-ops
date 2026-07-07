@@ -35,13 +35,14 @@ export function OpsProvider({ children }) {
   })
   const [mapFeatures, setMapFeaturesState] = useState([])
   const [pflanzplaene, setPflanzplaeneState] = useState([])
+  const [tasks, setTasksState] = useState([])
   const [loading, setLoading] = useState(true)
 
   // ── Load from Supabase on mount ──────────────────────────────────────────────
   useEffect(() => {
     async function load() {
       try {
-        const [pRows, jRows, rRows, sRows, cRows, vRows, settingsRow, mfRows, ppRows] = await Promise.all([
+        const [pRows, jRows, rRows, sRows, cRows, vRows, settingsRow, mfRows, ppRows, tRows] = await Promise.all([
           sb.from('projects').select('*'),
           sb.from('jobs').select('*').order('date'),
           sb.from('recurring_templates').select('*'),
@@ -51,6 +52,7 @@ export function OpsProvider({ children }) {
           sb.from('app_settings').select('*').eq('key', 'activity_chips').maybeSingle(),
           sb.from('map_features').select('*').order('created_at'),
           sb.from('pflanzplaene').select('*').order('created_at', { ascending: false }),
+          sb.from('tasks').select('*').order('sort_order').order('created_at', { ascending: false }),
         ])
         if (pRows.data?.length) setProjectsState(pRows.data)
         else setProjectsState(getProjects()) // fallback to localStorage seed
@@ -80,6 +82,7 @@ export function OpsProvider({ children }) {
         }
         if (mfRows.data) setMapFeaturesState(mfRows.data)
         if (ppRows.data) setPflanzplaeneState(ppRows.data)
+        if (tRows.data) setTasksState(tRows.data)
       } catch (e) {
         console.error('[OpsContext] load failed:', e)
         // Offline fallback
@@ -154,6 +157,13 @@ export function OpsProvider({ children }) {
           if (payload.eventType === 'DELETE') return prev.filter(f => f.id !== payload.old.id)
           if (payload.eventType === 'INSERT') return [...prev.filter(f => f.id !== payload.new.id), payload.new]
           return prev.map(f => f.id === payload.new.id ? payload.new : f)
+        })
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, payload => {
+        setTasksState(prev => {
+          if (payload.eventType === 'DELETE') return prev.filter(t => t.id !== payload.old.id)
+          if (payload.eventType === 'INSERT') return [...prev.filter(t => t.id !== payload.new.id), payload.new]
+          return prev.map(t => t.id === payload.new.id ? payload.new : t)
         })
       })
       .subscribe()
@@ -399,6 +409,51 @@ export function OpsProvider({ children }) {
     sb.from('pflanzplaene').delete().eq('id', id).catch(dbErr('pflanzplaene', 'write'))
   }
 
+  // ── Tasks / Aufgaben ─────────────────────────────────────────────────────────
+  function createTask(data) {
+    const now = new Date().toISOString()
+    const task = {
+      title: 'Neue Aufgabe',
+      description: '',
+      status: 'not_started',
+      priority: 'medium',
+      assigned_users: [],
+      material: [],
+      tools: [],
+      summary: '',
+      sort_order: 0,
+      ...data,
+      id: data.id || genId(),
+      created_at: now,
+      updated_at: now,
+    }
+    setTasksState(prev => [task, ...prev])
+    sbUpsert('tasks', [task]).catch(dbErr('tasks', 'write'))
+
+    // Benachrichtige zugewiesene Feldkräfte über Telegram (wie bei Einsätzen)
+    if (task.assigned_users?.some(id => ['jona', 'anselm'].includes(id))) {
+      const project = projects.find(p => p.id === task.project_id)
+      const due = task.due_date ? `\n📅 fällig ${new Date(task.due_date + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}` : ''
+      tgSend(tgGroups().pflege, `✅ <b>Neue Aufgabe</b>\n<b>${task.title}</b>${project ? `\n${project.name}` : ''}${due}`)
+    }
+    return task
+  }
+
+  function updateTask(id, changes) {
+    const upd = { ...changes, updated_at: new Date().toISOString() }
+    setTasksState(prev => prev.map(t => t.id === id ? { ...t, ...upd } : t))
+    sbUpdate('tasks', id, upd).catch(dbErr('tasks', 'write'))
+  }
+
+  function deleteTask(id) {
+    setTasksState(prev => prev.filter(t => t.id !== id))
+    sbDelete('tasks', id).catch(dbErr('tasks', 'write'))
+  }
+
+  function setTaskStatus(id, status) {
+    updateTask(id, { status })
+  }
+
   // ── Chips ────────────────────────────────────────────────────────────────────
   function saveChips(newChips) {
     setChipsState(newChips)
@@ -407,7 +462,7 @@ export function OpsProvider({ children }) {
   }
 
   return (
-    <OpsContext.Provider value={{ jobs, recurring, sensors, projects, clients, vehicles, chips, mapFeatures, pflanzplaene, loading, createJob, updateJob, deleteJob, setJobStatus, createRecurring, deleteRecurring, updateSensorValue, createProject, updateProject, deleteProject, createClient, updateClient, deleteClient, createVehicle, updateVehicle, deleteVehicle, saveChips, createMapFeature, updateMapFeature, deleteMapFeature, createPflanzplan, updatePflanzplan, deletePflanzplan }}>
+    <OpsContext.Provider value={{ jobs, recurring, sensors, projects, clients, vehicles, chips, mapFeatures, pflanzplaene, tasks, loading, createJob, updateJob, deleteJob, setJobStatus, createRecurring, deleteRecurring, updateSensorValue, createProject, updateProject, deleteProject, createClient, updateClient, deleteClient, createVehicle, updateVehicle, deleteVehicle, saveChips, createMapFeature, updateMapFeature, deleteMapFeature, createPflanzplan, updatePflanzplan, deletePflanzplan, createTask, updateTask, deleteTask, setTaskStatus }}>
       {children}
     </OpsContext.Provider>
   )

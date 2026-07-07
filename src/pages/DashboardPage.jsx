@@ -1,10 +1,14 @@
+import { useNavigate } from 'react-router-dom'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useWeather } from '../context/WeatherContext.jsx'
-import { A, SURFACE, BORDER, FG, MUTED } from '../lib/theme.js'
-import { JOB_TYPES, TEAM } from '../data/seed.js'
+import { A, SURFACE, BORDER, FG, MUTED, A06 } from '../lib/theme.js'
+import { JOB_TYPES, TEAM, TASK_STATUSES, TASK_PRIORITIES } from '../data/seed.js'
 import { isoToday, addDays, formatDate } from '../lib/storage.js'
-import { AlertTriangle, CheckCircle2, Clock, Repeat, Droplets, Umbrella, Sun as SunIcon } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Clock, Repeat, Droplets, Umbrella, Sun as SunIcon, ListTodo, ChevronRight } from 'lucide-react'
+
+const TASK_S = Object.fromEntries(TASK_STATUSES.map(s => [s.id, s]))
+const TASK_P = Object.fromEntries(TASK_PRIORITIES.map(p => [p.id, p]))
 import { useIsMobile } from '../lib/useIsMobile.js'
 import WeatherIcon from '../components/WeatherIcon.jsx'
 import { getWeatherForDate, STATUS_COLOR, WEATHER_CITY } from '../lib/weather.js'
@@ -135,9 +139,9 @@ function WeatherSection({ isMobile }) {
   )
 }
 
-function StatCard({ label, value, sub, color }) {
+function StatCard({ label, value, sub, color, onClick }) {
   return (
-    <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '20px 24px' }}>
+    <div onClick={onClick} style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '20px 24px', cursor: onClick ? 'pointer' : 'default' }}>
       <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 8 }}>{label}</div>
       <div style={{ fontSize: 32, fontWeight: 300, color: color || FG, letterSpacing: '-0.03em', lineHeight: 1 }}>{value}</div>
       {sub && <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, marginTop: 6 }}>{sub}</div>}
@@ -146,8 +150,9 @@ function StatCard({ label, value, sub, color }) {
 }
 
 export default function DashboardPage() {
-  const { jobs, recurring, sensors, projects } = useOps()
+  const { jobs, recurring, sensors, projects, tasks } = useOps()
   const { user, displayName } = useAuth()
+  const navigate = useNavigate()
   const isMobile = useIsMobile()
   const today = isoToday()
   const tomorrow = addDays(today, 1)
@@ -158,6 +163,17 @@ export default function DashboardPage() {
   const myJobs = weekJobs.filter(j => (j.assigned_users || []).includes(user?.id))
   const criticalSensors = sensors.filter(s => s.status === 'critical')
   const warningSensors = sensors.filter(s => s.status === 'warning')
+
+  const openTasks = (tasks || []).filter(t => t.status !== 'done' && t.status !== 'archive')
+  const myOpenTasks = openTasks
+    .filter(t => (t.assigned_users || []).includes(user?.id))
+    .sort((a, b) => {
+      const rank = { extreme: 0, high: 1, medium: 2, low: 3 }
+      const pr = (rank[a.priority] ?? 9) - (rank[b.priority] ?? 9)
+      if (pr !== 0) return pr
+      return (a.due_date || '9999').localeCompare(b.due_date || '9999')
+    })
+  const overdueTasks = openTasks.filter(t => t.due_date && t.due_date < today)
 
   const upcoming = jobs
     .filter(j => j.date >= today && j.status !== 'done' && j.status !== 'cancelled')
@@ -212,6 +228,7 @@ export default function DashboardPage() {
         <StatCard label="Morgen" value={tomorrowJobs.length} sub="geplant" />
         <StatCard label="Diese Woche" value={weekJobs.length} sub="insgesamt" />
         <StatCard label="Meine Einsätze" value={myJobs.length} sub="7 Tage" color={myJobs.length > 0 ? '#22EAA7' : undefined} />
+        <StatCard label="Offene Aufgaben" value={openTasks.length} sub={overdueTasks.length > 0 ? `${overdueTasks.length} überfällig` : `${myOpenTasks.length} für mich`} color={overdueTasks.length > 0 ? '#ef4444' : openTasks.length > 0 ? A : undefined} onClick={() => navigate('/tasks')} />
         <StatCard label="Sensoren" value={`${criticalSensors.length + warningSensors.length}`} sub={criticalSensors.length > 0 ? `${criticalSensors.length} kritisch` : 'alles ok'} color={criticalSensors.length > 0 ? '#ef4444' : warningSensors.length > 0 ? '#F59E0B' : undefined} />
       </div>
 
@@ -287,6 +304,43 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* Sidebar column: my tasks + recurring */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+
+        {/* My open tasks */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+              Meine Aufgaben
+            </div>
+            <button onClick={() => navigate('/tasks')} style={{ display: 'flex', alignItems: 'center', gap: 2, background: 'none', border: 'none', color: A, cursor: 'pointer', fontSize: 11, fontFamily: "'Space Mono', monospace" }}>
+              alle <ChevronRight size={12} />
+            </button>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {myOpenTasks.length === 0 && (
+              <div style={{ padding: '16px', textAlign: 'center', color: MUTED, fontFamily: "'Space Mono', monospace", fontSize: 11 }}>Keine offenen Aufgaben 🎉</div>
+            )}
+            {myOpenTasks.slice(0, 6).map(t => {
+              const st = TASK_S[t.status]
+              const prio = TASK_P[t.priority]
+              const project = projects.find(p => p.id === t.project_id)
+              const overdue = t.due_date && t.due_date < today
+              return (
+                <div key={t.id} onClick={() => navigate('/tasks')}
+                  style={{ padding: '10px 12px', background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, borderRadius: 8, cursor: 'pointer' }}>
+                  <div style={{ fontSize: 12, fontWeight: 500, color: FG, marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: st?.color, background: st?.color + '18', padding: '1px 6px', borderRadius: 8 }}>{st?.short}</span>
+                    {project && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED }}>{project.name}</span>}
+                    {t.due_date && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: overdue ? '#ef4444' : MUTED, marginLeft: 'auto' }}>{overdue ? '⚠ ' : ''}{formatDate(t.due_date)}</span>}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
         {/* Recurring templates */}
         <div>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 12 }}>
@@ -312,6 +366,7 @@ export default function DashboardPage() {
               )
             })}
           </div>
+        </div>
         </div>
       </div>
     </div>
