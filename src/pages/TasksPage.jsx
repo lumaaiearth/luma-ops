@@ -2,13 +2,24 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
+import { useWeather } from '../context/WeatherContext.jsx'
+import { getWeatherForDate, STATUS_COLOR } from '../lib/weather.js'
 import { A, SURFACE, BORDER, FG, MUTED, BG, A06, A14 } from '../lib/theme.js'
 import { TEAM, TASK_STATUSES, TASK_PRIORITIES, TASK_EFFORTS, TASK_TYPES } from '../data/seed.js'
 import { isoToday, formatDate } from '../lib/storage.js'
 import TaskModal from '../components/TaskModal.jsx'
 import BoardModal from '../components/BoardModal.jsx'
 import { useBreakpoint } from '../lib/useBreakpoint.js'
-import { Plus, Trash2, LayoutGrid, List as ListIcon, Star, User, CalendarClock, MapPin, Settings2, Layers, CheckSquare } from 'lucide-react'
+import { Plus, Trash2, LayoutGrid, List as ListIcon, Star, User, CalendarClock, MapPin, Settings2, Layers, CheckSquare, AlertTriangle, RotateCcw } from 'lucide-react'
+
+// Aufgabentypen, die im Freien stattfinden → wetterabhängig
+const OUTDOOR_TYPES = ['installation', 'pflege', 'giessen', 'maehen', 'beikraut', 'pflanzung', 'reinigung', 'monitoring']
+function weatherWarnColor(task, forecast) {
+  if (!task.due_date || !OUTDOOR_TYPES.includes(task.task_type)) return null
+  const w = getWeatherForDate(forecast, task.due_date)
+  if (w && (w.status === 'warn' || w.status === 'danger')) return STATUS_COLOR[w.status]
+  return null
+}
 
 const byId = arr => Object.fromEntries(arr.map(x => [x.id, x]))
 const S = byId(TASK_STATUSES)
@@ -40,9 +51,10 @@ function zeitraum(t) {
 }
 
 export default function TasksPage() {
-  const { tasks, projects, clients, boards, createTask, updateTask, deleteTask, setTaskStatus, createBoard, updateBoard, deleteBoard } = useOps()
+  const { tasks, deletedTasks, projects, clients, boards, createTask, updateTask, deleteTask, restoreTask, purgeTask, setTaskStatus, createBoard, updateBoard, deleteBoard } = useOps()
   const { user } = useAuth()
   const navigate = useNavigate()
+  const weatherForecast = useWeather()
   const bp = useBreakpoint()
   const isMobile = bp === 'xs' || bp === 'sm'
 
@@ -130,6 +142,9 @@ export default function TasksPage() {
         style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, padding: '8px 10px', borderRadius: 8, border: `1px dashed ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, marginTop: isMobile ? 0 : 4, whiteSpace: 'nowrap' }}>
         <Plus size={13} /> Bereich
       </button>
+      {deletedTasks.length > 0 && (
+        <BoardChip id="trash" label="Papierkorb" emoji={<Trash2 size={13} style={{ verticalAlign: 'middle' }} />} color={MUTED} count={deletedTasks.length} />
+      )}
     </div>
   )
 
@@ -152,10 +167,11 @@ export default function TasksPage() {
                 {currentBoard ? <span>{currentBoard.emoji} {currentBoard.name}</span>
                   : activeBoard === 'mine' ? 'Meine Aufgaben'
                   : activeBoard === 'none' ? 'Ohne Bereich'
+                  : activeBoard === 'trash' ? 'Papierkorb'
                   : 'Offene Aufgaben'}
               </h1>
               <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED, marginTop: 2 }}>
-                {scoped.filter(isOpen).length} offen · {scoped.length} gesamt
+                {activeBoard === 'trash' ? `${deletedTasks.length} gelöscht` : `${scoped.filter(isOpen).length} offen · ${scoped.length} gesamt`}
               </div>
             </div>
             {boardMembers.length > 0 && (
@@ -174,7 +190,30 @@ export default function TasksPage() {
           </button>
         </div>
 
+        {/* Bereichs-Kennzahlen */}
+        {activeBoard !== 'trash' && (() => {
+          const off = scoped.filter(isOpen).length
+          const over = scoped.filter(t => isOpen(t) && t.due_date && t.due_date < today).length
+          const done = scoped.filter(t => t.status === 'done').length
+          const kpis = [
+            ['Offen', off, off > 0 ? A : MUTED],
+            ['Überfällig', over, over > 0 ? '#ef4444' : MUTED],
+            ['Erledigt', done, '#22EAA7'],
+          ]
+          return (
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+              {kpis.map(([label, val, color]) => (
+                <div key={label} style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '8px 16px', minWidth: 92 }}>
+                  <div style={{ fontSize: 22, fontWeight: 300, color, letterSpacing: '-0.02em', lineHeight: 1 }}>{val}</div>
+                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: 4 }}>{label}</div>
+                </div>
+              ))}
+            </div>
+          )
+        })()}
+
         {/* View tabs + filters */}
+        {activeBoard !== 'trash' && (
         <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: 2, background: SURFACE, borderRadius: 8, padding: 4, border: `1px solid ${BORDER}` }}>
             {[['board', 'Board', LayoutGrid], ['list', 'Liste', ListIcon]].map(([id, label, Icon]) => (
@@ -200,9 +239,10 @@ export default function TasksPage() {
             <input type="checkbox" checked={showArchive} onChange={e => setShowArchive(e.target.checked)} style={{ accentColor: A, cursor: 'pointer' }} /> Archiv
           </label>
         </div>
+        )}
 
         {/* BOARD VIEW */}
-        {view === 'board' && (
+        {activeBoard !== 'trash' && view === 'board' && (
           <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8, alignItems: 'flex-start' }}>
             {(showArchive ? TASK_STATUSES : BOARD_STATUSES).map(col => {
               const colTasks = sortTasks(filtered.filter(t => t.status === col.id))
@@ -222,7 +262,7 @@ export default function TasksPage() {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 40 }}>
                     {colTasks.map(t => (
-                      <TaskCard key={t.id} task={t} projects={projects} clients={clients} boards={boards} today={today} navigate={navigate}
+                      <TaskCard key={t.id} task={t} projects={projects} clients={clients} boards={boards} today={today} navigate={navigate} weatherForecast={weatherForecast}
                         showBoard={activeBoard === 'all' || activeBoard === 'mine' || activeBoard === 'none'}
                         onOpen={() => setModal({ task: t })} onDelete={() => deleteTask(t.id)}
                         onCycle={() => cycleStatus(t, setTaskStatus)}
@@ -237,10 +277,44 @@ export default function TasksPage() {
         )}
 
         {/* LIST VIEW */}
-        {view === 'list' && (
-          <TaskTable tasks={sortTasks(filtered)} projects={projects} clients={clients} boards={boards} today={today} isMobile={isMobile} navigate={navigate}
+        {activeBoard !== 'trash' && view === 'list' && (
+          <TaskTable tasks={sortTasks(filtered)} projects={projects} clients={clients} boards={boards} today={today} isMobile={isMobile} navigate={navigate} weatherForecast={weatherForecast}
             showBoard={activeBoard === 'all' || activeBoard === 'mine' || activeBoard === 'none'}
             onOpen={t => setModal({ task: t })} onDelete={deleteTask} onCycle={t => cycleStatus(t, setTaskStatus)} />
+        )}
+
+        {/* PAPIERKORB */}
+        {activeBoard === 'trash' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED, marginBottom: 4 }}>
+              Gelöschte Aufgaben — wiederherstellen oder endgültig entfernen.
+            </div>
+            {deletedTasks.length === 0 && (
+              <div style={{ padding: 40, textAlign: 'center', color: MUTED, fontFamily: "'Space Mono', monospace", fontSize: 12 }}>Papierkorb ist leer</div>
+            )}
+            {[...deletedTasks].sort((a, b) => (b.deleted_at || '').localeCompare(a.deleted_at || '')).map(t => {
+              const prio = P[t.priority]
+              const project = projects.find(p => p.id === t.project_id)
+              return (
+                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, borderRadius: 8 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
+                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, marginTop: 2 }}>
+                      {project ? project.name + ' · ' : ''}gelöscht {t.deleted_at ? formatDate(t.deleted_at.slice(0, 10)) : ''}
+                    </div>
+                  </div>
+                  <button onClick={() => restoreTask(t.id)} title="Wiederherstellen"
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 6, background: A06, border: `1px solid ${A}40`, color: A, cursor: 'pointer', fontSize: 12, flexShrink: 0 }}>
+                    <RotateCcw size={12} /> Wiederherstellen
+                  </button>
+                  <button onClick={() => { if (confirm(`„${t.title}" endgültig löschen?`)) purgeTask(t.id) }} title="Endgültig löschen"
+                    style={{ width: 30, height: 30, borderRadius: 6, background: 'transparent', border: `1px solid #ef444440`, cursor: 'pointer', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
         )}
       </div>
 
@@ -298,7 +372,7 @@ function LocationLink({ task, navigate }) {
 }
 
 /* ─── BOARD CARD ───────────────────────────────────────────────────────────── */
-function TaskCard({ task, projects, clients, boards, today, navigate, showBoard, onOpen, onDelete, onCycle, ...drag }) {
+function TaskCard({ task, projects, clients, boards, today, navigate, weatherForecast, showBoard, onOpen, onDelete, onCycle, ...drag }) {
   const prio = P[task.priority]
   const client = clients.find(c => c.id === task.client_id)
   const project = projects.find(p => p.id === task.project_id)
@@ -308,6 +382,7 @@ function TaskCard({ task, projects, clients, boards, today, navigate, showBoard,
   const done = task.status === 'done' || task.status === 'archive'
   const zr = zeitraum(task)
   const overdue = task.due_date && !done && task.due_date < today
+  const wc = !done ? weatherWarnColor(task, weatherForecast) : null
 
   return (
     <div {...drag} onClick={onOpen}
@@ -333,6 +408,7 @@ function TaskCard({ task, projects, clients, boards, today, navigate, showBoard,
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
           {zr && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: "'Space Mono', monospace", fontSize: 9, color: overdue ? '#ef4444' : MUTED, fontWeight: overdue ? 700 : 400 }}><CalendarClock size={10} />{zr}{overdue ? ' · überfällig' : ''}</span>}
           <LocationLink task={task} navigate={navigate} />
+          {wc && <span title="Wetterwarnung am Fälligkeitstag" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: "'Space Mono', monospace", fontSize: 9, color: wc }}><AlertTriangle size={10} />Wetter</span>}
         </div>
       )}
 
@@ -354,14 +430,14 @@ function TaskCard({ task, projects, clients, boards, today, navigate, showBoard,
 }
 
 /* ─── TABLE / LIST ─────────────────────────────────────────────────────────── */
-function TaskTable({ tasks, projects, clients, boards, today, isMobile, navigate, showBoard, onOpen, onDelete, onCycle }) {
+function TaskTable({ tasks, projects, clients, boards, today, isMobile, navigate, weatherForecast, showBoard, onOpen, onDelete, onCycle }) {
   if (tasks.length === 0) return <div style={{ padding: 40, textAlign: 'center', color: MUTED, fontFamily: "'Space Mono', monospace", fontSize: 12 }}>Keine Aufgaben</div>
 
   if (isMobile) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {tasks.map(t => (
-          <TaskCard key={t.id} task={t} projects={projects} clients={clients} boards={boards} today={today} navigate={navigate} showBoard={showBoard}
+          <TaskCard key={t.id} task={t} projects={projects} clients={clients} boards={boards} today={today} navigate={navigate} weatherForecast={weatherForecast} showBoard={showBoard}
             onOpen={() => onOpen(t)} onDelete={() => onDelete(t.id)} onCycle={() => onCycle(t)} />
         ))}
       </div>
@@ -381,6 +457,7 @@ function TaskTable({ tasks, projects, clients, boards, today, isMobile, navigate
         const done = t.status === 'done' || t.status === 'archive'
         const zr = zeitraum(t)
         const overdue = t.due_date && !done && t.due_date < today
+        const wc = !done ? weatherWarnColor(t, weatherForecast) : null
         return (
           <div key={t.id} onClick={() => onOpen(t)}
             style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr 1fr 0.9fr 1.1fr 0.9fr 40px', gap: 10, padding: '11px 14px', borderBottom: `1px solid ${BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, cursor: 'pointer', alignItems: 'center', background: BG }}
@@ -405,7 +482,7 @@ function TaskTable({ tasks, projects, clients, boards, today, isMobile, navigate
               </button>
             </div>
             <div style={{ fontSize: 11, color: prio?.color }}>{prio?.label}</div>
-            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: overdue ? '#ef4444' : MUTED, fontWeight: overdue ? 700 : 400 }}>{zr || '—'}</div>
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: overdue ? '#ef4444' : MUTED, fontWeight: overdue ? 700 : 400, display: 'flex', alignItems: 'center', gap: 4 }}>{zr || '—'}{wc && <AlertTriangle size={10} color={wc} title="Wetterwarnung" />}</div>
             <div><People ownerId={t.owner_id} collaborators={t.assigned_users} size={22} /></div>
             <button onClick={e => { e.stopPropagation(); onDelete(t.id) }}
               style={{ background: 'transparent', border: `1px solid ${BORDER}`, borderRadius: 5, width: 26, height: 26, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

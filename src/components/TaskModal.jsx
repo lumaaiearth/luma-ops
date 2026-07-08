@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { useTime } from '../context/TimeContext.jsx'
 import { genId, isoToday } from '../lib/storage.js'
 import TaskPhotos from './TaskPhotos.jsx'
+import TaskFiles from './TaskFiles.jsx'
 import { A, SURFACE, BORDER, FG, MUTED, CARD, A06, A08 } from '../lib/theme.js'
 
 const INPUT_STYLE = {
@@ -464,6 +465,13 @@ export default function TaskModal({ initialTask, defaults, onSave, onClose }) {
           {editing && initialTask?.id && (
             <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 16 }}>
               <TaskPhotos taskId={initialTask.id} uploadedBy={user?.id || 'unknown'} />
+            </div>
+          )}
+
+          {/* Datei-Anhänge (nur im Bearbeiten-Modus) */}
+          {editing && initialTask?.id && (
+            <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 16 }}>
+              <TaskFiles taskId={initialTask.id} uploadedBy={user?.id || 'unknown'} />
             </div>
           )}
 

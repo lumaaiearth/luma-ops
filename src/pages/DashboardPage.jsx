@@ -174,6 +174,9 @@ export default function DashboardPage() {
       return (a.due_date || '9999').localeCompare(b.due_date || '9999')
     })
   const overdueTasks = openTasks.filter(t => t.due_date && t.due_date < today)
+  const dueTasks = openTasks
+    .filter(t => t.due_date && t.due_date <= today)
+    .sort((a, b) => a.due_date.localeCompare(b.due_date))
 
   const upcoming = jobs
     .filter(j => j.date >= today && j.status !== 'done' && j.status !== 'cancelled')
@@ -191,6 +194,59 @@ export default function DashboardPage() {
           {new Date().toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
         </div>
       </div>
+
+      {/* Heute — Einsätze + fällige Aufgaben */}
+      {(todayJobs.length > 0 || dueTasks.length > 0) && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 12 }}>
+            Heute
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {todayJobs.map(job => {
+              const type = JOB_TYPES.find(t => t.id === job.job_type)
+              const project = projects.find(p => p.id === job.project_id)
+              const assignees = TEAM.filter(t => (job.assigned_users || []).includes(t.id))
+              return (
+                <div key={`j-${job.id}`} onClick={() => navigate('/jobs')}
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${type?.color || A}`, borderRadius: 8, cursor: 'pointer' }}>
+                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: type?.color || A, background: `${type?.color || A}18`, padding: '2px 7px', borderRadius: 10, flexShrink: 0 }}>Einsatz</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.title}</div>
+                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>{project?.name}{job.start_time ? ` · ${job.start_time}${job.end_time ? `–${job.end_time}` : ''}` : ''}</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                    {assignees.slice(0, 4).map(u => (
+                      <div key={u.id} title={u.name} style={{ width: 22, height: 22, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+            {dueTasks.map(t => {
+              const st = TASK_S[t.status]
+              const prio = TASK_P[t.priority]
+              const project = projects.find(p => p.id === t.project_id)
+              const owner = t.owner_id ? TEAM.find(u => u.id === t.owner_id) : null
+              const overdue = t.due_date < today
+              return (
+                <div key={`t-${t.id}`} onClick={() => navigate('/tasks')}
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: SURFACE, border: `1px solid ${overdue ? '#ef444440' : BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, borderRadius: 8, cursor: 'pointer' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#A78BFA', background: '#A78BFA18', padding: '2px 7px', borderRadius: 10, flexShrink: 0 }}><ListTodo size={10} />Aufgabe</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
+                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: overdue ? '#ef4444' : MUTED }}>
+                      {overdue ? `überfällig seit ${formatDate(t.due_date)}` : 'heute fällig'}{project ? ` · ${project.name}` : ''}{owner ? ` · ${owner.name}` : ''}
+                    </div>
+                  </div>
+                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: st?.color, background: `${st?.color}18`, padding: '2px 7px', borderRadius: 10, flexShrink: 0 }}>{st?.short}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Sensor alerts */}
       {(criticalSensors.length > 0 || warningSensors.length > 0) && (

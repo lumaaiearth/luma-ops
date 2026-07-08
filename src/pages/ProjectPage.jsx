@@ -96,6 +96,16 @@ export default function ProjectPage() {
     setEditingNotes(false)
   }
 
+  function createTasksFromPlan() {
+    if (!project.plant_plan?.length) return
+    const list = project.plant_plan.map(p => `${p.count}× ${p.name}`).join(', ')
+    const total = project.plant_plan.reduce((s, p) => s + (p.count || 0), 0)
+    const base = { project_id: id, client_id: clientOfProject?.id || null, board_id: 'b_pflege', priority: 'medium', status: 'not_started' }
+    createTask({ ...base, title: `Pflanzen bestellen — ${project.name}`, task_type: 'bestellung', description: `${total} Pflanzen (${project.plant_plan.length} Arten) bestellen: ${list}` })
+    createTask({ ...base, title: `Pflanzung durchführen — ${project.name}`, task_type: 'pflanzung', description: `${total} Pflanzen setzen: ${list}` })
+    setTab('tasks')
+  }
+
   const TABS = [
     { id: 'overview', label: 'Übersicht', icon: MapPin },
     { id: 'tasks', label: `Aufgaben (${projectTasks.length})`, icon: ListTodo },
@@ -239,6 +249,10 @@ export default function ProjectPage() {
                     <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Pflanzplan</div>
                     <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A }}>{project.plant_plan.reduce((s, p) => s + p.count, 0)} Pflanzen · {project.plant_plan.length} Arten</span>
                   </div>
+                  <button onClick={createTasksFromPlan}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', justifyContent: 'center', padding: '8px 12px', borderRadius: 6, background: A06, border: `1px solid ${A}40`, color: A, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", marginBottom: 10 }}>
+                    <ListTodo size={13} /> Aufgaben erzeugen (Bestellung + Pflanzung)
+                  </button>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     {project.plant_plan.map(p => (
                       <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', borderBottom: `1px solid ${BORDER}` }}>

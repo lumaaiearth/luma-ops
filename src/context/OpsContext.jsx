@@ -111,7 +111,7 @@ export function OpsProvider({ children }) {
   useEffect(() => {
     if (!loading) {
       maybeSendWeeklySummary(jobs, projects)
-      maybeSendTaskReminders(tasks, projects)
+      maybeSendTaskReminders(tasks.filter(t => !t.deleted_at), projects)
     }
   }, [loading])
 
@@ -261,6 +261,11 @@ export function OpsProvider({ children }) {
 
   function setJobStatus(id, status) {
     updateJob(id, { status })
+    // Einsatz erledigt → verknüpfte Aufgaben mit erledigen
+    if (status === 'done') {
+      tasks.filter(t => t.job_id === id && t.status !== 'done' && t.status !== 'archive' && !t.deleted_at)
+        .forEach(t => updateTask(t.id, { status: 'done' }))
+    }
     const job = jobs.find(j => j.id === id)
     if (status === 'done' && job?.recurring_template_id) {
       const tmpl = recurring.find(r => r.id === job.recurring_template_id)
@@ -483,6 +488,15 @@ export function OpsProvider({ children }) {
   }
 
   function deleteTask(id) {
+    // Soft-Delete → landet im Papierkorb, wird nicht sofort gelöscht
+    updateTask(id, { deleted_at: new Date().toISOString() })
+  }
+
+  function restoreTask(id) {
+    updateTask(id, { deleted_at: null })
+  }
+
+  function purgeTask(id) {
     setTasksState(prev => prev.filter(t => t.id !== id))
     sbDelete('tasks', id).catch(dbErr('tasks', 'write'))
   }
@@ -524,8 +538,11 @@ export function OpsProvider({ children }) {
     sb.from('app_settings').upsert({ key: 'activity_chips', value: newChips, updated_at: new Date().toISOString() }, { onConflict: 'key' }).catch(dbErr('ops','write'))
   }
 
+  const activeTasks = tasks.filter(t => !t.deleted_at)
+  const deletedTasks = tasks.filter(t => t.deleted_at)
+
   return (
-    <OpsContext.Provider value={{ jobs, recurring, sensors, projects, clients, vehicles, chips, mapFeatures, pflanzplaene, tasks, boards, loading, createJob, updateJob, deleteJob, setJobStatus, createRecurring, deleteRecurring, updateSensorValue, createProject, updateProject, deleteProject, createClient, updateClient, deleteClient, createVehicle, updateVehicle, deleteVehicle, saveChips, createMapFeature, updateMapFeature, deleteMapFeature, createPflanzplan, updatePflanzplan, deletePflanzplan, createTask, updateTask, deleteTask, setTaskStatus, createBoard, updateBoard, deleteBoard }}>
+    <OpsContext.Provider value={{ jobs, recurring, sensors, projects, clients, vehicles, chips, mapFeatures, pflanzplaene, tasks: activeTasks, deletedTasks, boards, loading, createJob, updateJob, deleteJob, setJobStatus, createRecurring, deleteRecurring, updateSensorValue, createProject, updateProject, deleteProject, createClient, updateClient, deleteClient, createVehicle, updateVehicle, deleteVehicle, saveChips, createMapFeature, updateMapFeature, deleteMapFeature, createPflanzplan, updatePflanzplan, deletePflanzplan, createTask, updateTask, deleteTask, restoreTask, purgeTask, setTaskStatus, createBoard, updateBoard, deleteBoard }}>
       {children}
     </OpsContext.Provider>
   )
