@@ -3,6 +3,7 @@ import { sb, sbUpsert, sbDelete, sbUpdate, sbInsert } from '../lib/supabase.js'
 import { getJobs, saveJobs, getRecurring, saveRecurring, getSensors, saveSensors, getProjects, saveProjects, genId, addDays } from '../lib/storage.js'
 import { tgSend, tgGroups, groupsForUsers } from '../lib/telegram.js'
 import { maybeSendWeeklySummary } from '../lib/weeklySummary.js'
+import { maybeSendTaskReminders } from '../lib/taskReminders.js'
 import * as gcal from '../lib/gcal.js'
 import { JOB_TYPES, SEED_CLIENTS, VEHICLES as SEED_VEHICLES, SEED_BOARDS } from '../data/seed.js'
 
@@ -108,7 +109,10 @@ export function OpsProvider({ children }) {
 
   // ── Weekly summary: fires Monday 08:00–09:59 on app load ────────────────────
   useEffect(() => {
-    if (!loading) maybeSendWeeklySummary(jobs, projects)
+    if (!loading) {
+      maybeSendWeeklySummary(jobs, projects)
+      maybeSendTaskReminders(tasks, projects)
+    }
   }, [loading])
 
   // ── Realtime subscriptions ───────────────────────────────────────────────────
@@ -308,20 +312,36 @@ export function OpsProvider({ children }) {
   // ── Sensors ─────────────────────────────────────────────────────────────────
   function updateSensorValue(id, value) {
     const prev = sensors.find(s => s.id === id)
-    setSensorsState(current => {
-      const updated = current.map(s => {
-        if (s.id !== id) return s
-        const status = value < s.threshold_low ? (value < s.threshold_low * 0.6 ? 'critical' : 'warning') : 'ok'
-        return { ...s, value, status, last_updated: new Date().toISOString() }
-      })
-      const next = updated.find(s => s.id === id)
-      if (next?.status === 'critical' && prev?.status !== 'critical') {
-        const project = projects.find(p => p.id === next.project_id)
-        tgSend(tgGroups().pm, `🚨 <b>Sensor kritisch</b>\n<b>${next.name}</b>\n${project?.name || ''}\nAktuell: ${value}${next.unit} (Min: ${next.threshold_low}${next.unit})`)
+    const status = prev
+      ? (value < prev.threshold_low ? (value < prev.threshold_low * 0.6 ? 'critical' : 'warning') : 'ok')
+      : 'ok'
+    const now = new Date().toISOString()
+    setSensorsState(current => current.map(s => s.id === id ? { ...s, value, status, last_updated: now } : s))
+    sbUpdate('sensors', id, { value, status, last_updated: now }).catch(dbErr('ops', 'write'))
+
+    // Übergang auf "kritisch": Alarm + automatische Gieß-Aufgabe (je Sensor dedupliziert)
+    if (status === 'critical' && prev?.status !== 'critical') {
+      const project = projects.find(p => p.id === prev?.project_id)
+      const u = prev?.unit || ''
+      tgSend(tgGroups().pm, `🚨 <b>Sensor kritisch</b>\n<b>${prev?.name}</b>\n${project?.name || ''}\nAktuell: ${value}${u} (Min: ${prev?.threshold_low}${u})`)
+
+      const ref = `sensor:${id}`
+      const openExists = tasks.some(t => t.source_ref === ref && t.status !== 'done' && t.status !== 'archive')
+      if (!openExists) {
+        const clientId = project?.client_id || clients.find(c => c.name === project?.client)?.id || null
+        createTask({
+          title: `Gießen nötig: ${prev?.name}`,
+          description: `Sensor „${prev?.name}" ist kritisch (${value}${u}, Schwellwert ${prev?.threshold_low}${u}). Bewässerung prüfen.`,
+          board_id: 'b_pflege',
+          status: 'not_started',
+          priority: 'high',
+          task_type: 'giessen',
+          project_id: prev?.project_id || null,
+          client_id: clientId,
+          source_ref: ref,
+        })
       }
-      sbUpdate('sensors', id, { value, status: next?.status, last_updated: new Date().toISOString() }).catch(dbErr('ops','write'))
-      return updated
-    })
+    }
   }
 
   // ── Projects ─────────────────────────────────────────────────────────────────
@@ -436,6 +456,7 @@ export function OpsProvider({ children }) {
       assigned_users: [],
       material: [],
       tools: [],
+      checklist: [],
       summary: '',
       sort_order: 0,
       ...data,

@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, MapPin, CalendarPlus, ExternalLink } from 'lucide-react'
+import { X, MapPin, CalendarPlus, ExternalLink, CheckSquare, Square, Plus } from 'lucide-react'
 import { TEAM, TASK_STATUSES, TASK_PRIORITIES, TASK_EFFORTS, TASK_TYPES } from '../data/seed.js'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
+import { genId } from '../lib/storage.js'
 import TaskPhotos from './TaskPhotos.jsx'
 import { A, SURFACE, BORDER, FG, MUTED, CARD, A06, A08 } from '../lib/theme.js'
 
@@ -132,8 +133,24 @@ export default function TaskModal({ initialTask, defaults, onSave, onClose }) {
     lng:            initialTask?.lng ?? null,
     material:       initialTask?.material || [],
     tools:          initialTask?.tools || [],
+    checklist:      initialTask?.checklist || [],
     summary:        initialTask?.summary || '',
   })
+  const [checkInput, setCheckInput] = useState('')
+
+  function addCheckItem(text) {
+    const t = text.trim()
+    if (!t) return
+    setForm(f => ({ ...f, checklist: [...f.checklist, { id: genId(), text: t, done: false }] }))
+    setCheckInput('')
+  }
+  function toggleCheckItem(cid) {
+    setForm(f => ({ ...f, checklist: f.checklist.map(i => i.id === cid ? { ...i, done: !i.done } : i) }))
+  }
+  function removeCheckItem(cid) {
+    setForm(f => ({ ...f, checklist: f.checklist.filter(i => i.id !== cid) }))
+  }
+  const checkDone = form.checklist.filter(i => i.done).length
 
   // Location autocomplete (Nominatim, wie bei Einsätzen)
   const [locSuggestions, setLocSuggestions] = useState([])
@@ -192,7 +209,7 @@ export default function TaskModal({ initialTask, defaults, onSave, onClose }) {
       owner_id: form.owner_id || null, assigned_users: form.assigned_users,
       start_date: form.start_date || null, due_date: form.due_date || null,
       location: form.location || null, lat: form.lat ?? null, lng: form.lng ?? null,
-      material: form.material, tools: form.tools, summary: form.summary,
+      material: form.material, tools: form.tools, checklist: form.checklist, summary: form.summary,
     }
   }
 
@@ -384,6 +401,37 @@ export default function TaskModal({ initialTask, defaults, onSave, onClose }) {
           <div>
             <label style={LABEL_STYLE}>Beschreibung</label>
             <textarea style={{ ...INPUT_STYLE, resize: 'vertical', minHeight: 80 }} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Details zur Aufgabe…" />
+          </div>
+
+          {/* Checkliste / Teilaufgaben */}
+          <div>
+            <label style={LABEL_STYLE}>
+              Checkliste{form.checklist.length > 0 && <span style={{ color: A, marginLeft: 6 }}>{checkDone}/{form.checklist.length}</span>}
+            </label>
+            {form.checklist.length > 0 && (
+              <div style={{ height: 4, background: A06, borderRadius: 4, overflow: 'hidden', marginBottom: 10 }}>
+                <div style={{ width: `${Math.round((checkDone / form.checklist.length) * 100)}%`, height: '100%', background: A, transition: 'width 0.2s' }} />
+              </div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
+              {form.checklist.map(item => (
+                <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 2px' }}>
+                  <button type="button" onClick={() => toggleCheckItem(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: item.done ? A : MUTED, display: 'flex', flexShrink: 0, padding: 0 }}>
+                    {item.done ? <CheckSquare size={16} /> : <Square size={16} />}
+                  </button>
+                  <span style={{ flex: 1, fontSize: 13, color: item.done ? MUTED : FG, textDecoration: item.done ? 'line-through' : 'none' }}>{item.text}</span>
+                  <button type="button" onClick={() => removeCheckItem(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, display: 'flex', flexShrink: 0, padding: 0 }}><X size={12} /></button>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input value={checkInput} onChange={e => setCheckInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCheckItem(checkInput) } }}
+                placeholder="Teilaufgabe hinzufügen…"
+                style={{ ...INPUT_STYLE, padding: '8px 10px', fontSize: 13 }} />
+              <button type="button" onClick={() => addCheckItem(checkInput)}
+                style={{ padding: '0 12px', borderRadius: 6, background: A06, border: `1px solid ${BORDER}`, color: A, cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}><Plus size={16} /></button>
+            </div>
           </div>
 
           {/* Summary */}

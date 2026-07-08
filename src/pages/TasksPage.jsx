@@ -8,7 +8,7 @@ import { isoToday, formatDate } from '../lib/storage.js'
 import TaskModal from '../components/TaskModal.jsx'
 import BoardModal from '../components/BoardModal.jsx'
 import { useBreakpoint } from '../lib/useBreakpoint.js'
-import { Plus, Trash2, LayoutGrid, List as ListIcon, Star, User, CalendarClock, MapPin, Settings2, Layers } from 'lucide-react'
+import { Plus, Trash2, LayoutGrid, List as ListIcon, Star, User, CalendarClock, MapPin, Settings2, Layers, CheckSquare } from 'lucide-react'
 
 const byId = arr => Object.fromEntries(arr.map(x => [x.id, x]))
 const S = byId(TASK_STATUSES)
@@ -341,6 +341,11 @@ function TaskCard({ task, projects, clients, boards, today, navigate, showBoard,
           style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 10, background: `${S[task.status]?.color}18`, border: `1px solid ${S[task.status]?.color}40`, color: S[task.status]?.color, cursor: 'pointer', fontFamily: "'Space Mono', monospace", fontSize: 9 }}>
           {S[task.status]?.short}
         </button>
+        {task.checklist?.length > 0 && (
+          <span title="Teilaufgaben" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: "'Space Mono', monospace", fontSize: 9, color: task.checklist.every(i => i.done) ? '#22EAA7' : MUTED }}>
+            <CheckSquare size={10} />{task.checklist.filter(i => i.done).length}/{task.checklist.length}
+          </span>
+        )}
         {eff && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: eff.color }}>{eff.label}</span>}
         <div style={{ marginLeft: 'auto' }}><People ownerId={task.owner_id} collaborators={task.assigned_users} size={20} /></div>
       </div>
@@ -386,6 +391,7 @@ function TaskTable({ tasks, projects, clients, boards, today, isMobile, navigate
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 2 }}>
                 {showBoard && board && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: board.color }}>{board.emoji} {board.name}</span>}
                 <LocationLink task={t} navigate={navigate} />
+                {t.checklist?.length > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: "'Space Mono', monospace", fontSize: 9, color: t.checklist.every(i => i.done) ? '#22EAA7' : MUTED }}><CheckSquare size={10} />{t.checklist.filter(i => i.done).length}/{t.checklist.length}</span>}
               </div>
             </div>
             <div style={{ minWidth: 0, fontSize: 11 }}>
