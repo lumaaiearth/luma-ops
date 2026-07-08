@@ -4,7 +4,7 @@ import { getJobs, saveJobs, getRecurring, saveRecurring, getSensors, saveSensors
 import { tgSend, tgGroups, groupsForUsers } from '../lib/telegram.js'
 import { maybeSendWeeklySummary } from '../lib/weeklySummary.js'
 import * as gcal from '../lib/gcal.js'
-import { JOB_TYPES, SEED_CLIENTS, VEHICLES as SEED_VEHICLES } from '../data/seed.js'
+import { JOB_TYPES, SEED_CLIENTS, VEHICLES as SEED_VEHICLES, SEED_BOARDS } from '../data/seed.js'
 
 // Surface DB errors visibly so data loss is never silent
 function dbErr(table, op) {
@@ -36,13 +36,14 @@ export function OpsProvider({ children }) {
   const [mapFeatures, setMapFeaturesState] = useState([])
   const [pflanzplaene, setPflanzplaeneState] = useState([])
   const [tasks, setTasksState] = useState([])
+  const [boards, setBoardsState] = useState([])
   const [loading, setLoading] = useState(true)
 
   // ── Load from Supabase on mount ──────────────────────────────────────────────
   useEffect(() => {
     async function load() {
       try {
-        const [pRows, jRows, rRows, sRows, cRows, vRows, settingsRow, mfRows, ppRows, tRows] = await Promise.all([
+        const [pRows, jRows, rRows, sRows, cRows, vRows, settingsRow, mfRows, ppRows, tRows, bRows] = await Promise.all([
           sb.from('projects').select('*'),
           sb.from('jobs').select('*').order('date'),
           sb.from('recurring_templates').select('*'),
@@ -53,6 +54,7 @@ export function OpsProvider({ children }) {
           sb.from('map_features').select('*').order('created_at'),
           sb.from('pflanzplaene').select('*').order('created_at', { ascending: false }),
           sb.from('tasks').select('*').order('sort_order').order('created_at', { ascending: false }),
+          sb.from('boards').select('*').order('sort_order'),
         ])
         if (pRows.data?.length) setProjectsState(pRows.data)
         else setProjectsState(getProjects()) // fallback to localStorage seed
@@ -83,6 +85,13 @@ export function OpsProvider({ children }) {
         if (mfRows.data) setMapFeaturesState(mfRows.data)
         if (ppRows.data) setPflanzplaeneState(ppRows.data)
         if (tRows.data) setTasksState(tRows.data)
+        if (bRows.data?.length) {
+          setBoardsState(bRows.data)
+        } else if (bRows.data) {
+          // Erstbefüllung: Standard-Bereiche anlegen
+          sbUpsert('boards', SEED_BOARDS).catch(dbErr('boards', 'write'))
+          setBoardsState(SEED_BOARDS)
+        }
       } catch (e) {
         console.error('[OpsContext] load failed:', e)
         // Offline fallback
@@ -164,6 +173,13 @@ export function OpsProvider({ children }) {
           if (payload.eventType === 'DELETE') return prev.filter(t => t.id !== payload.old.id)
           if (payload.eventType === 'INSERT') return [...prev.filter(t => t.id !== payload.new.id), payload.new]
           return prev.map(t => t.id === payload.new.id ? payload.new : t)
+        })
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'boards' }, payload => {
+        setBoardsState(prev => {
+          if (payload.eventType === 'DELETE') return prev.filter(b => b.id !== payload.old.id)
+          if (payload.eventType === 'INSERT') return [...prev.filter(b => b.id !== payload.new.id), payload.new].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+          return prev.map(b => b.id === payload.new.id ? payload.new : b)
         })
       })
       .subscribe()
@@ -454,6 +470,32 @@ export function OpsProvider({ children }) {
     updateTask(id, { status })
   }
 
+  // ── Boards / Bereiche ────────────────────────────────────────────────────────
+  function createBoard(data) {
+    const board = {
+      name: 'Neuer Bereich', emoji: '📋', color: '#08AA56', members: [], client_id: null,
+      sort_order: boards.length,
+      ...data,
+      id: data.id || genId(),
+      created_at: new Date().toISOString(),
+    }
+    setBoardsState(prev => [...prev, board])
+    sbUpsert('boards', [board]).catch(dbErr('boards', 'write'))
+    return board
+  }
+
+  function updateBoard(id, changes) {
+    setBoardsState(prev => prev.map(b => b.id === id ? { ...b, ...changes } : b))
+    sbUpdate('boards', id, changes).catch(dbErr('boards', 'write'))
+  }
+
+  function deleteBoard(id) {
+    // Aufgaben bleiben erhalten (board_id wird per FK auf NULL gesetzt)
+    setBoardsState(prev => prev.filter(b => b.id !== id))
+    setTasksState(prev => prev.map(t => t.board_id === id ? { ...t, board_id: null } : t))
+    sbDelete('boards', id).catch(dbErr('boards', 'write'))
+  }
+
   // ── Chips ────────────────────────────────────────────────────────────────────
   function saveChips(newChips) {
     setChipsState(newChips)
@@ -462,7 +504,7 @@ export function OpsProvider({ children }) {
   }
 
   return (
-    <OpsContext.Provider value={{ jobs, recurring, sensors, projects, clients, vehicles, chips, mapFeatures, pflanzplaene, tasks, loading, createJob, updateJob, deleteJob, setJobStatus, createRecurring, deleteRecurring, updateSensorValue, createProject, updateProject, deleteProject, createClient, updateClient, deleteClient, createVehicle, updateVehicle, deleteVehicle, saveChips, createMapFeature, updateMapFeature, deleteMapFeature, createPflanzplan, updatePflanzplan, deletePflanzplan, createTask, updateTask, deleteTask, setTaskStatus }}>
+    <OpsContext.Provider value={{ jobs, recurring, sensors, projects, clients, vehicles, chips, mapFeatures, pflanzplaene, tasks, boards, loading, createJob, updateJob, deleteJob, setJobStatus, createRecurring, deleteRecurring, updateSensorValue, createProject, updateProject, deleteProject, createClient, updateClient, deleteClient, createVehicle, updateVehicle, deleteVehicle, saveChips, createMapFeature, updateMapFeature, deleteMapFeature, createPflanzplan, updatePflanzplan, deletePflanzplan, createTask, updateTask, deleteTask, setTaskStatus, createBoard, updateBoard, deleteBoard }}>
       {children}
     </OpsContext.Provider>
   )

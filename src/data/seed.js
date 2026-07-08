@@ -68,6 +68,20 @@ export const TASK_TYPES = [
   { id: 'sonstiges',     label: 'Sonstiges',            color: '#616161' },
 ]
 
+// Bereiche = Projektmanagement-Ebene (wie die Notion-Datenbanken PFLEGE_MASTER,
+// LUMA_MALTE, STROMNETZ_BERLIN …). Gruppierung ÜBER den Aufgaben.
+export const SEED_BOARDS = [
+  { id: 'b_pflege', name: 'Pflege',           emoji: '🌿', color: '#0B8043', members: ['malte', 'lukas', 'jona', 'anselm', 'robert'], client_id: null,          sort_order: 0 },
+  { id: 'b_office', name: 'LUMA Office',       emoji: '🏢', color: '#08AA56', members: ['malte', 'lukas'],                             client_id: null,          sort_order: 1 },
+  { id: 'b_snb',    name: 'Stromnetz Berlin',  emoji: '⚡', color: '#F6BF26', members: ['malte', 'lukas'],                             client_id: 'stromnetz',   sort_order: 2 },
+  { id: 'b_jope',   name: 'JOPE',              emoji: '🏗️', color: '#3F51B5', members: ['malte', 'lukas', 'jona'],                     client_id: 'jope',        sort_order: 3 },
+  { id: 'b_bew',    name: 'BEW',               emoji: '🌲', color: '#0B8043', members: ['malte', 'lukas', 'anselm'],                   client_id: 'bew',         sort_order: 4 },
+  { id: 'b_pp',     name: 'Preußenpark',       emoji: '🌳', color: '#039BE5', members: ['malte', 'robert'],                           client_id: 'gruenflaeche', sort_order: 5 },
+]
+
+export const BOARD_EMOJIS = ['🌿', '🏢', '⚡', '🏗️', '🌲', '🌳', '🐝', '💧', '🌻', '🪴', '📋', '🧰', '📦', '🗺️', '⭐', '🔧']
+export const BOARD_COLORS = ['#0B8043', '#08AA56', '#F6BF26', '#3F51B5', '#039BE5', '#7CB342', '#8E24AA', '#F4511E', '#26A69A', '#EC407A']
+
 export const JOB_TYPES = [
   { id: 'pflege',       label: 'Pflege',       labelEN: 'Stewardship',   color: '#0B8043' },
   { id: 'baumpflege',   label: 'Baumpflege',   labelEN: 'Tree Care',     color: '#F6BF26' },

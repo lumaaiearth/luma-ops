@@ -166,7 +166,7 @@ export default function DashboardPage() {
 
   const openTasks = (tasks || []).filter(t => t.status !== 'done' && t.status !== 'archive')
   const myOpenTasks = openTasks
-    .filter(t => (t.assigned_users || []).includes(user?.id))
+    .filter(t => t.owner_id === user?.id || (t.assigned_users || []).includes(user?.id))
     .sort((a, b) => {
       const rank = { extreme: 0, high: 1, medium: 2, low: 3 }
       const pr = (rank[a.priority] ?? 9) - (rank[b.priority] ?? 9)

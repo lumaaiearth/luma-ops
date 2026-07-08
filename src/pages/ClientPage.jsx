@@ -287,7 +287,7 @@ export default function ClientPage() {
                 const proj = projects.find(p => p.id === t.project_id)
                 const done = t.status === 'done' || t.status === 'archive'
                 const overdue = t.due_date && !done && t.due_date < today
-                const workers = (t.assigned_users || []).map(uid => TEAM.find(x => x.id === uid)).filter(Boolean)
+                const workers = [...new Set([t.owner_id, ...(t.assigned_users || [])].filter(Boolean))].map(uid => TEAM.find(x => x.id === uid)).filter(Boolean)
                 return (
                   <div key={t.id} onClick={() => navigate('/tasks')}
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 8, background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, gap: 16, cursor: 'pointer' }}>

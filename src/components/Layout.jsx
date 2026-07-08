@@ -7,8 +7,8 @@ import { A, BG, SURFACE, BORDER, FG, MUTED, A14, A06 } from '../lib/theme.js'
 const NAV = [
   { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/calendar',   icon: CalendarDays,    label: 'Kalender' },
-  { to: '/tasks',      icon: ListTodo,        label: 'Aufgaben' },
-  { to: '/jobs',       icon: ListChecks,      label: 'Einsätze' },
+  { to: '/tasks',      icon: ListTodo,        label: 'Offene Aufgaben', short: 'Aufgaben' },
+  { to: '/jobs',       icon: ListChecks,      label: 'Einsatzübersicht', short: 'Einsätze' },
   { to: '/map',        icon: Map,             label: 'BIOME™' },
   { to: '/analyse',    icon: BarChart2,       label: 'Analysen' },
   { to: '/planning',   icon: Flower2,         label: 'Florales™' },
@@ -140,7 +140,7 @@ export default function Layout({ children, fullHeight = false }) {
           height: 'calc(60px + env(safe-area-inset-bottom))',
           paddingBottom: 'env(safe-area-inset-bottom)',
         }}>
-          {BOTTOM_NAV.map(({ to, icon: Icon, label }) => (
+          {BOTTOM_NAV.map(({ to, icon: Icon, label, short }) => (
             <NavLink key={to} to={to}
               style={({ isActive }) => ({
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
@@ -151,7 +151,7 @@ export default function Layout({ children, fullHeight = false }) {
               {({ isActive }) => (
                 <>
                   <Icon size={20} />
-                  <span style={{ fontSize: 10, fontWeight: isActive ? 500 : 400 }}>{label}</span>
+                  <span style={{ fontSize: 10, fontWeight: isActive ? 500 : 400 }}>{short || label}</span>
                 </>
               )}
             </NavLink>

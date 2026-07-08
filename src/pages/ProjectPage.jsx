@@ -299,8 +299,12 @@ export default function ProjectPage() {
                   const st = TASK_S[t.status]
                   const prio = TASK_P[t.priority]
                   const done = t.status === 'done' || t.status === 'archive'
-                  const workers = (t.assigned_users || []).map(uid => TEAM.find(x => x.id === uid)).filter(Boolean)
+                  const workerIds = [...new Set([t.owner_id, ...(t.assigned_users || [])].filter(Boolean))]
+                  const workers = workerIds.map(uid => TEAM.find(x => x.id === uid)).filter(Boolean)
                   const overdue = t.due_date && !done && t.due_date < today
+                  const zr = t.start_date && t.due_date && t.start_date !== t.due_date
+                    ? `${formatDate(t.start_date)} – ${formatDate(t.due_date)}`
+                    : t.due_date ? `fällig ${formatDate(t.due_date)}` : t.start_date ? `ab ${formatDate(t.start_date)}` : null
                   return (
                     <div key={t.id} onClick={() => setTaskModal({ task: t })}
                       style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, borderRadius: 8, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }}>
@@ -309,7 +313,7 @@ export default function ProjectPage() {
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                           <button onClick={e => { e.stopPropagation(); const order = TASK_STATUSES.map(s => s.id); setTaskStatus(t.id, order[(order.indexOf(t.status) + 1) % order.length]) }}
                             style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: st?.color, background: st?.color + '18', border: `1px solid ${st?.color}40`, padding: '1px 7px', borderRadius: 10, cursor: 'pointer' }}>{st?.label}</button>
-                          {t.due_date && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: overdue ? '#ef4444' : MUTED }}>fällig {formatDate(t.due_date)}{overdue ? ' · überfällig' : ''}</span>}
+                          {zr && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: overdue ? '#ef4444' : MUTED }}>{zr}{overdue ? ' · überfällig' : ''}</span>}
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>

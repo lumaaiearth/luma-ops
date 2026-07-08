@@ -42,7 +42,7 @@ export default function JobsPage() {
 
       {/* ── Header ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-        <h1 style={{ fontSize: isMobile ? 18 : 22, fontWeight: 400, color: FG, letterSpacing: '-0.02em' }}>Einsätze</h1>
+        <h1 style={{ fontSize: isMobile ? 18 : 22, fontWeight: 400, color: FG, letterSpacing: '-0.02em' }}>Einsatzübersicht</h1>
         <button
           onClick={() => { setEditJob(null); setModal({ date: today }) }}
           style={{ display: 'flex', alignItems: 'center', gap: 6, padding: isMobile ? '9px 14px' : '8px 16px', borderRadius: 7, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>

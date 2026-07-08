@@ -635,11 +635,18 @@ export default function MapPage() {
 
   useEffect(() => {
     const focusId = location.state?.focusProjectId
-    if (!focusId || projects.length === 0) return
-    const p = projects.find(pr => pr.id === focusId)
-    if (p?.lat && p?.lng) {
-      setActiveProject(p.id)
-      setFlyTarget([p.lat, p.lng])
+    if (focusId && projects.length > 0) {
+      const p = projects.find(pr => pr.id === focusId)
+      if (p?.lat && p?.lng) {
+        setActiveProject(p.id)
+        setFlyTarget([p.lat, p.lng])
+        return
+      }
+    }
+    // Aufgaben-Ort (freie Koordinaten, z.B. aus "Auf Karte zeigen")
+    const coords = location.state?.focusCoords
+    if (Array.isArray(coords) && coords.length === 2) {
+      setFlyTarget([coords[0], coords[1]])
     }
   }, [location.state, projects])
 

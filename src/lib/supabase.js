@@ -58,3 +58,27 @@ export async function sbGetJobPhotos(jobId) {
   if (error) throw error
   return data || []
 }
+
+// ── Storage: Task Photos (reuse the 'job-photos' bucket with a task prefix) ─────
+
+export async function sbUploadTaskPhoto(taskId, photoId, blob) {
+  const path = `task_${taskId}/${photoId}.jpg`
+  const { error } = await sb.storage.from('job-photos').upload(path, blob, {
+    contentType: 'image/jpeg',
+    upsert: false,
+  })
+  if (error) throw error
+  const { data } = sb.storage.from('job-photos').getPublicUrl(path)
+  return data.publicUrl
+}
+
+export async function sbDeleteTaskPhoto(taskId, photoId) {
+  const { error } = await sb.storage.from('job-photos').remove([`task_${taskId}/${photoId}.jpg`])
+  if (error) throw error
+}
+
+export async function sbGetTaskPhotos(taskId) {
+  const { data, error } = await sb.from('task_photos').select('*').eq('task_id', taskId).order('created_at', { ascending: true })
+  if (error) throw error
+  return data || []
+}

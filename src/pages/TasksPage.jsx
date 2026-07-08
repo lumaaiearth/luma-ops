@@ -1,12 +1,14 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { A, SURFACE, BORDER, FG, MUTED, BG, A06, A14 } from '../lib/theme.js'
 import { TEAM, TASK_STATUSES, TASK_PRIORITIES, TASK_EFFORTS, TASK_TYPES } from '../data/seed.js'
 import { isoToday, formatDate } from '../lib/storage.js'
 import TaskModal from '../components/TaskModal.jsx'
+import BoardModal from '../components/BoardModal.jsx'
 import { useBreakpoint } from '../lib/useBreakpoint.js'
-import { Plus, Trash2, LayoutGrid, List as ListIcon, User, CalendarClock, Flag } from 'lucide-react'
+import { Plus, Trash2, LayoutGrid, List as ListIcon, Star, User, CalendarClock, MapPin, Settings2, Layers } from 'lucide-react'
 
 const byId = arr => Object.fromEntries(arr.map(x => [x.id, x]))
 const S = byId(TASK_STATUSES)
@@ -14,7 +16,6 @@ const P = byId(TASK_PRIORITIES)
 const E = byId(TASK_EFFORTS)
 const T = byId(TASK_TYPES)
 const PRIO_RANK = { extreme: 0, high: 1, medium: 2, low: 3 }
-
 const BOARD_STATUSES = TASK_STATUSES.filter(s => s.id !== 'archive')
 
 function sortTasks(list) {
@@ -28,14 +29,27 @@ function sortTasks(list) {
   })
 }
 
+function zeitraum(t) {
+  if (t.start_date && t.due_date) {
+    if (t.start_date === t.due_date) return formatDate(t.due_date)
+    return `${formatDate(t.start_date)} – ${formatDate(t.due_date)}`
+  }
+  if (t.due_date) return `fällig ${formatDate(t.due_date)}`
+  if (t.start_date) return `ab ${formatDate(t.start_date)}`
+  return null
+}
+
 export default function TasksPage() {
-  const { tasks, projects, clients, createTask, updateTask, deleteTask, setTaskStatus } = useOps()
+  const { tasks, projects, clients, boards, createTask, updateTask, deleteTask, setTaskStatus, createBoard, updateBoard, deleteBoard } = useOps()
   const { user } = useAuth()
+  const navigate = useNavigate()
   const bp = useBreakpoint()
   const isMobile = bp === 'xs' || bp === 'sm'
 
-  const [view, setView]     = useState('board')  // board | list | mine
-  const [modal, setModal]   = useState(null)     // { task } | { defaults }
+  const [activeBoard, setActiveBoard] = useState('all')  // 'all' | 'mine' | boardId | 'none'
+  const [view, setView]     = useState('board')
+  const [modal, setModal]   = useState(null)
+  const [boardModal, setBoardModal] = useState(null)
   const [fClient, setFClient]     = useState('all')
   const [fProject, setFProject]   = useState('all')
   const [fAssignee, setFAssignee] = useState('all')
@@ -44,182 +58,256 @@ export default function TasksPage() {
   const [dragOver, setDragOver] = useState(null)
 
   const today = isoToday()
+  const sortedBoards = [...boards].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+  const isMine = t => t.owner_id === user?.id || (t.assigned_users || []).includes(user?.id)
+  const isOpen = t => t.status !== 'done' && t.status !== 'archive'
 
-  const filtered = tasks.filter(t =>
+  // Board-scope
+  function inScope(t) {
+    if (activeBoard === 'all') return true
+    if (activeBoard === 'mine') return isMine(t)
+    if (activeBoard === 'none') return !t.board_id
+    return t.board_id === activeBoard
+  }
+
+  const scoped = tasks.filter(inScope)
+  const filtered = scoped.filter(t =>
     (fClient === 'all'   || t.client_id === fClient) &&
     (fProject === 'all'  || t.project_id === fProject) &&
-    (fAssignee === 'all' || (t.assigned_users || []).includes(fAssignee)) &&
-    (view !== 'mine'     || (t.assigned_users || []).includes(user?.id)) &&
+    (fAssignee === 'all' || t.owner_id === fAssignee || (t.assigned_users || []).includes(fAssignee)) &&
     (showArchive || t.status !== 'archive')
   )
 
-  const openTotal = tasks.filter(t => t.status !== 'done' && t.status !== 'archive').length
+  const currentBoard = boards.find(b => b.id === activeBoard)
+  const hasOrphans = tasks.some(t => !t.board_id)
 
   function handleSave(data) {
     if (modal?.task) updateTask(modal.task.id, data)
     else createTask(data)
     setModal(null)
   }
-
-  const SELECT_STYLE = {
-    background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 6,
-    padding: '7px 10px', color: FG, fontSize: 12, fontFamily: "'Space Grotesk', sans-serif",
-    outline: 'none', cursor: 'pointer',
+  function newTaskDefaults(extra = {}) {
+    const b = boards.find(x => x.id === activeBoard)
+    return { defaults: { board_id: b?.id || '', client_id: b?.client_id || '', ...extra } }
+  }
+  function handleBoardSave(data) {
+    if (boardModal?.board) updateBoard(boardModal.board.id, data)
+    else { const b = createBoard(data); setActiveBoard(b.id) }
+    setBoardModal(null)
   }
 
+  const SELECT_STYLE = { background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 6, padding: '7px 10px', color: FG, fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", outline: 'none', cursor: 'pointer' }
+
+  // ── Board switcher entry ──
+  function BoardChip({ id, label, emoji, color, count, onEdit }) {
+    const active = activeBoard === id
+    return (
+      <button onClick={() => setActiveBoard(id)}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, width: isMobile ? 'auto' : '100%', flexShrink: 0, padding: '8px 10px', borderRadius: 8, border: `1px solid ${active ? (color || A) + '70' : 'transparent'}`, background: active ? (color || A) + '18' : 'transparent', cursor: 'pointer', textAlign: 'left', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: 14, width: 18, textAlign: 'center' }}>{emoji}</span>
+        <span style={{ fontSize: 13, color: active ? (color || A) : FG, fontWeight: active ? 600 : 400, flex: 1 }}>{label}</span>
+        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>{count}</span>
+        {onEdit && active && !isMobile && (
+          <span onClick={e => { e.stopPropagation(); onEdit() }} style={{ color: MUTED, display: 'flex', cursor: 'pointer' }}><Settings2 size={13} /></span>
+        )}
+      </button>
+    )
+  }
+
+  const switcher = (
+    <div style={{ display: 'flex', flexDirection: isMobile ? 'row' : 'column', gap: 3, overflowX: isMobile ? 'auto' : 'visible', paddingBottom: isMobile ? 4 : 0 }}>
+      {!isMobile && <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '4px 10px 6px' }}>Ansicht</div>}
+      <BoardChip id="all"  label="Alle Aufgaben" emoji={<Layers size={14} style={{ verticalAlign: 'middle' }} />} color={A} count={tasks.filter(t => showArchive || t.status !== 'archive').length} />
+      <BoardChip id="mine" label="Meine" emoji={<Star size={14} style={{ verticalAlign: 'middle' }} />} color={A} count={tasks.filter(t => isMine(t) && isOpen(t)).length} />
+      {!isMobile && <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '10px 10px 6px' }}>Bereiche</div>}
+      {sortedBoards.map(b => (
+        <BoardChip key={b.id} id={b.id} label={b.name} emoji={b.emoji} color={b.color}
+          count={tasks.filter(t => t.board_id === b.id && isOpen(t)).length}
+          onEdit={() => setBoardModal({ board: b })} />
+      ))}
+      {hasOrphans && <BoardChip id="none" label="Ohne Bereich" emoji="•" color={MUTED} count={tasks.filter(t => !t.board_id && isOpen(t)).length} />}
+      <button onClick={() => setBoardModal({})}
+        style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, padding: '8px 10px', borderRadius: 8, border: `1px dashed ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, marginTop: isMobile ? 0 : 4, whiteSpace: 'nowrap' }}>
+        <Plus size={13} /> Bereich
+      </button>
+    </div>
+  )
+
+  const boardMembers = currentBoard ? TEAM.filter(u => (currentBoard.members || []).includes(u.id)) : []
+
   return (
-    <div style={{ padding: isMobile ? '16px 12px' : 24, maxWidth: view === 'board' ? 1400 : 1100, margin: '0 auto' }}>
+    <div style={{ padding: isMobile ? '14px 12px' : 20, maxWidth: 1500, margin: '0 auto', display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 12 : 20, alignItems: 'flex-start' }}>
 
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
-        <div>
-          <h1 style={{ fontSize: isMobile ? 18 : 22, fontWeight: 400, color: FG, letterSpacing: '-0.02em' }}>Aufgaben</h1>
-          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED, marginTop: 2 }}>{openTotal} offen · {tasks.length} gesamt</div>
-        </div>
-        <button onClick={() => setModal({ defaults: {} })}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: isMobile ? '9px 14px' : '8px 16px', borderRadius: 7, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-          <Plus size={14} />{isMobile ? ' Neu' : ' Neue Aufgabe'}
-        </button>
-      </div>
+      {/* Board switcher */}
+      {isMobile ? switcher : <div style={{ width: 210, flexShrink: 0, position: 'sticky', top: 0 }}>{switcher}</div>}
 
-      {/* View tabs */}
-      <div style={{ display: 'flex', gap: 2, background: SURFACE, borderRadius: 8, padding: 4, border: `1px solid ${BORDER}`, marginBottom: 14, width: 'fit-content' }}>
-        {[['board', 'Board', LayoutGrid], ['list', 'Liste', ListIcon], ['mine', 'Meine', User]].map(([id, label, Icon]) => (
-          <button key={id} onClick={() => setView(id)}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 6, border: 'none', background: view === id ? A : 'transparent', color: view === id ? '#001219' : MUTED, cursor: 'pointer', fontSize: 13, fontWeight: view === id ? 500 : 400, fontFamily: "'Space Grotesk', sans-serif" }}>
-            <Icon size={14} /> {label}
+      {/* Main */}
+      <div style={{ flex: 1, minWidth: 0, width: '100%' }}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div>
+              <h1 style={{ fontSize: isMobile ? 18 : 22, fontWeight: 400, color: FG, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 8 }}>
+                {currentBoard ? <span>{currentBoard.emoji} {currentBoard.name}</span>
+                  : activeBoard === 'mine' ? 'Meine Aufgaben'
+                  : activeBoard === 'none' ? 'Ohne Bereich'
+                  : 'Offene Aufgaben'}
+              </h1>
+              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED, marginTop: 2 }}>
+                {scoped.filter(isOpen).length} offen · {scoped.length} gesamt
+              </div>
+            </div>
+            {boardMembers.length > 0 && (
+              <div style={{ display: 'flex', gap: -4 }}>
+                {boardMembers.map((u, i) => (
+                  <div key={u.id} title={u.name} style={{ width: 26, height: 26, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${BG}`, marginLeft: i === 0 ? 0 : -8 }}>
+                    <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <button onClick={() => setModal(newTaskDefaults())}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: isMobile ? '9px 14px' : '8px 16px', borderRadius: 7, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+            <Plus size={14} />{isMobile ? ' Neu' : ' Neue Aufgabe'}
           </button>
-        ))}
-      </div>
+        </div>
 
-      {/* Filters */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-        <select style={SELECT_STYLE} value={fClient} onChange={e => setFClient(e.target.value)}>
-          <option value="all">Alle Kunden</option>
-          {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        <select style={SELECT_STYLE} value={fProject} onChange={e => setFProject(e.target.value)}>
-          <option value="all">Alle Projekte</option>
-          {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
-        <select style={SELECT_STYLE} value={fAssignee} onChange={e => setFAssignee(e.target.value)}>
-          <option value="all">Alle Zuständigen</option>
-          {TEAM.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-        </select>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: MUTED, cursor: 'pointer', userSelect: 'none' }}>
-          <input type="checkbox" checked={showArchive} onChange={e => setShowArchive(e.target.checked)} style={{ accentColor: A, cursor: 'pointer' }} />
-          Archiv
-        </label>
-        {(fClient !== 'all' || fProject !== 'all' || fAssignee !== 'all') && (
-          <button onClick={() => { setFClient('all'); setFProject('all'); setFAssignee('all') }}
-            style={{ background: 'transparent', border: 'none', color: A, cursor: 'pointer', fontSize: 12 }}>× Filter zurücksetzen</button>
+        {/* View tabs + filters */}
+        <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 2, background: SURFACE, borderRadius: 8, padding: 4, border: `1px solid ${BORDER}` }}>
+            {[['board', 'Board', LayoutGrid], ['list', 'Liste', ListIcon]].map(([id, label, Icon]) => (
+              <button key={id} onClick={() => setView(id)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 6, border: 'none', background: view === id ? A : 'transparent', color: view === id ? '#001219' : MUTED, cursor: 'pointer', fontSize: 13, fontWeight: view === id ? 500 : 400, fontFamily: "'Space Grotesk', sans-serif" }}>
+                <Icon size={14} /> {label}
+              </button>
+            ))}
+          </div>
+          <select style={SELECT_STYLE} value={fClient} onChange={e => setFClient(e.target.value)}>
+            <option value="all">Alle Kunden</option>
+            {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <select style={SELECT_STYLE} value={fProject} onChange={e => setFProject(e.target.value)}>
+            <option value="all">Alle Projekte</option>
+            {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+          <select style={SELECT_STYLE} value={fAssignee} onChange={e => setFAssignee(e.target.value)}>
+            <option value="all">Alle Personen</option>
+            {TEAM.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </select>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: MUTED, cursor: 'pointer', userSelect: 'none' }}>
+            <input type="checkbox" checked={showArchive} onChange={e => setShowArchive(e.target.checked)} style={{ accentColor: A, cursor: 'pointer' }} /> Archiv
+          </label>
+        </div>
+
+        {/* BOARD VIEW */}
+        {view === 'board' && (
+          <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8, alignItems: 'flex-start' }}>
+            {(showArchive ? TASK_STATUSES : BOARD_STATUSES).map(col => {
+              const colTasks = sortTasks(filtered.filter(t => t.status === col.id))
+              const isOver = dragOver === col.id
+              return (
+                <div key={col.id}
+                  onDragOver={e => { e.preventDefault(); setDragOver(col.id) }}
+                  onDragLeave={() => setDragOver(o => o === col.id ? null : o)}
+                  onDrop={e => { e.preventDefault(); if (dragId) setTaskStatus(dragId, col.id); setDragId(null); setDragOver(null) }}
+                  style={{ flex: '0 0 auto', width: isMobile ? 262 : 290, background: isOver ? A06 : 'transparent', border: `1px solid ${isOver ? A + '60' : 'transparent'}`, borderRadius: 10, padding: 4 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px 10px' }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: col.color }} />
+                    <span style={{ fontSize: 13, fontWeight: 600, color: FG }}>{col.label}</span>
+                    <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED, marginLeft: 'auto' }}>{colTasks.length}</span>
+                    <button onClick={() => setModal(newTaskDefaults({ status: col.id }))} title="Aufgabe hinzufügen"
+                      style={{ background: 'transparent', border: 'none', color: MUTED, cursor: 'pointer', padding: 2, display: 'flex' }}><Plus size={14} /></button>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 40 }}>
+                    {colTasks.map(t => (
+                      <TaskCard key={t.id} task={t} projects={projects} clients={clients} boards={boards} today={today} navigate={navigate}
+                        showBoard={activeBoard === 'all' || activeBoard === 'mine' || activeBoard === 'none'}
+                        onOpen={() => setModal({ task: t })} onDelete={() => deleteTask(t.id)}
+                        onCycle={() => cycleStatus(t, setTaskStatus)}
+                        draggable onDragStart={() => setDragId(t.id)} onDragEnd={() => { setDragId(null); setDragOver(null) }} />
+                    ))}
+                    {colTasks.length === 0 && <div style={{ padding: '14px 8px', textAlign: 'center', color: MUTED, fontFamily: "'Space Mono', monospace", fontSize: 10, opacity: 0.6 }}>–</div>}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* LIST VIEW */}
+        {view === 'list' && (
+          <TaskTable tasks={sortTasks(filtered)} projects={projects} clients={clients} boards={boards} today={today} isMobile={isMobile} navigate={navigate}
+            showBoard={activeBoard === 'all' || activeBoard === 'mine' || activeBoard === 'none'}
+            onOpen={t => setModal({ task: t })} onDelete={deleteTask} onCycle={t => cycleStatus(t, setTaskStatus)} />
         )}
       </div>
 
-      {/* ── BOARD VIEW ── */}
-      {view === 'board' && (
-        <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8, alignItems: 'flex-start' }}>
-          {(showArchive ? TASK_STATUSES : BOARD_STATUSES).map(col => {
-            const colTasks = sortTasks(filtered.filter(t => t.status === col.id))
-            const isOver = dragOver === col.id
-            return (
-              <div key={col.id}
-                onDragOver={e => { e.preventDefault(); setDragOver(col.id) }}
-                onDragLeave={() => setDragOver(o => o === col.id ? null : o)}
-                onDrop={e => { e.preventDefault(); if (dragId) setTaskStatus(dragId, col.id); setDragId(null); setDragOver(null) }}
-                style={{ flex: '0 0 auto', width: isMobile ? 260 : 288, background: isOver ? A06 : 'transparent', border: `1px solid ${isOver ? A + '60' : 'transparent'}`, borderRadius: 10, padding: 4, transition: 'background 0.15s, border-color 0.15s' }}>
-                {/* Column header */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px 10px' }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: col.color }} />
-                  <span style={{ fontSize: 13, fontWeight: 600, color: FG }}>{col.label}</span>
-                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED, marginLeft: 'auto' }}>{colTasks.length}</span>
-                  <button onClick={() => setModal({ defaults: { status: col.id } })} title="Aufgabe hinzufügen"
-                    style={{ background: 'transparent', border: 'none', color: MUTED, cursor: 'pointer', padding: 2, display: 'flex' }}>
-                    <Plus size={14} />
-                  </button>
-                </div>
-                {/* Cards */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 40 }}>
-                  {colTasks.map(t => (
-                    <TaskCard key={t.id} task={t} projects={projects} clients={clients} today={today}
-                      onOpen={() => setModal({ task: t })}
-                      onDelete={() => deleteTask(t.id)}
-                      onCycle={() => cycleStatus(t, setTaskStatus)}
-                      draggable
-                      onDragStart={() => setDragId(t.id)}
-                      onDragEnd={() => { setDragId(null); setDragOver(null) }} />
-                  ))}
-                  {colTasks.length === 0 && (
-                    <div style={{ padding: '14px 8px', textAlign: 'center', color: MUTED, fontFamily: "'Space Mono', monospace", fontSize: 10, opacity: 0.6 }}>–</div>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* ── LIST / MINE VIEW ── */}
-      {(view === 'list' || view === 'mine') && (
-        <TaskTable tasks={sortTasks(filtered)} projects={projects} clients={clients} today={today} isMobile={isMobile}
-          onOpen={t => setModal({ task: t })} onDelete={deleteTask} onCycle={t => cycleStatus(t, setTaskStatus)} />
-      )}
-
-      {modal && (
-        <TaskModal
-          initialTask={modal.task}
-          defaults={modal.defaults}
-          onSave={handleSave}
-          onClose={() => setModal(null)}
-        />
+      {modal && <TaskModal initialTask={modal.task} defaults={modal.defaults} onSave={handleSave} onClose={() => setModal(null)} />}
+      {boardModal && (
+        <BoardModal initialBoard={boardModal.board} onSave={handleBoardSave} onClose={() => setBoardModal(null)}
+          onDelete={boardModal.board ? () => { if (confirm(`Bereich „${boardModal.board.name}" löschen? Aufgaben bleiben erhalten.`)) { deleteBoard(boardModal.board.id); if (activeBoard === boardModal.board.id) setActiveBoard('all'); setBoardModal(null) } } : undefined} />
       )}
     </div>
   )
 }
 
-// Klick auf Status-Pill → nächster Status (schneller Wechsel ohne Drag)
 function cycleStatus(task, setTaskStatus) {
   const order = TASK_STATUSES.map(s => s.id)
   const idx = order.indexOf(task.status)
   setTaskStatus(task.id, order[(idx + 1) % order.length])
 }
 
-function DueBadge({ due, done, today }) {
-  if (!due) return null
-  const overdue = !done && due < today
-  const isToday = due === today
-  const color = overdue ? '#ef4444' : isToday ? A : MUTED
+/* ─── People row: owner (ringed) + collaborators ───────────────────────────── */
+function People({ ownerId, collaborators, size = 20 }) {
+  const owner = ownerId ? TEAM.find(t => t.id === ownerId) : null
+  const others = (collaborators || []).map(id => TEAM.find(t => t.id === id)).filter(Boolean).filter(u => u.id !== ownerId)
+  if (!owner && others.length === 0) return null
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: "'Space Mono', monospace", fontSize: 10, color, fontWeight: overdue || isToday ? 700 : 400 }}>
-      <CalendarClock size={10} />
-      {isToday ? 'Heute' : formatDate(due)}{overdue ? ' · überfällig' : ''}
-    </span>
-  )
-}
-
-function Assignees({ ids, size = 22 }) {
-  const people = (ids || []).map(id => TEAM.find(t => t.id === id)).filter(Boolean)
-  if (people.length === 0) return null
-  return (
-    <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
-      {people.slice(0, 4).map(u => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+      {owner && (
+        <div title={`Verantwortlich: ${owner.name}`} style={{ width: size + 2, height: size + 2, borderRadius: '50%', background: owner.color, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${A}`, boxShadow: `0 0 0 1px ${owner.color}` }}>
+          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: size <= 20 ? 7 : 8, color: '#001219', fontWeight: 700 }}>{owner.initials}</span>
+        </div>
+      )}
+      {others.slice(0, 3).map(u => (
         <div key={u.id} title={u.name} style={{ width: size, height: size, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <span style={{ fontFamily: "'Space Mono', monospace", fontSize: size <= 20 ? 7 : 8, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
         </div>
       ))}
-      {people.length > 4 && <div style={{ width: size, height: size, borderRadius: '50%', background: BORDER, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: MUTED }}>+{people.length - 4}</div>}
+      {others.length > 3 && <div style={{ width: size, height: size, borderRadius: '50%', background: BORDER, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: MUTED }}>+{others.length - 3}</div>}
     </div>
   )
 }
 
+function LocationLink({ task, navigate }) {
+  if (!task.location && !(task.lat && task.lng)) return null
+  const label = (task.location || '').split(',')[0]
+  function go(e) {
+    e.stopPropagation()
+    if (task.lat && task.lng) navigate('/map', { state: { focusCoords: [task.lat, task.lng], focusLabel: task.title } })
+    else if (task.project_id) navigate('/map', { state: { focusProjectId: task.project_id } })
+  }
+  return (
+    <button onClick={go} title="Auf Karte zeigen"
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', color: MUTED, cursor: 'pointer', fontFamily: "'Space Mono', monospace", fontSize: 9, padding: 0, maxWidth: 140, overflow: 'hidden' }}>
+      <MapPin size={10} color={A} /><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label || 'Karte'}</span>
+    </button>
+  )
+}
+
 /* ─── BOARD CARD ───────────────────────────────────────────────────────────── */
-function TaskCard({ task, projects, clients, today, onOpen, onDelete, onCycle, ...drag }) {
+function TaskCard({ task, projects, clients, boards, today, navigate, showBoard, onOpen, onDelete, onCycle, ...drag }) {
   const prio = P[task.priority]
   const client = clients.find(c => c.id === task.client_id)
   const project = projects.find(p => p.id === task.project_id)
+  const board = task.board_id ? boards.find(b => b.id === task.board_id) : null
   const type = task.task_type ? T[task.task_type] : null
   const eff = task.effort ? E[task.effort] : null
   const done = task.status === 'done' || task.status === 'archive'
+  const zr = zeitraum(task)
+  const overdue = task.due_date && !done && task.due_date < today
 
   return (
     <div {...drag} onClick={onOpen}
@@ -232,43 +320,43 @@ function TaskCard({ task, projects, clients, today, onOpen, onDelete, onCycle, .
         <Trash2 size={12} />
       </button>
 
-      <div style={{ fontSize: 13, fontWeight: 500, color: done ? MUTED : FG, textDecoration: task.status === 'archive' ? 'line-through' : 'none', lineHeight: 1.35, paddingRight: 20, marginBottom: 8 }}>
-        {task.title}
-      </div>
+      <div style={{ fontSize: 13, fontWeight: 500, color: done ? MUTED : FG, textDecoration: task.status === 'archive' ? 'line-through' : 'none', lineHeight: 1.35, paddingRight: 20, marginBottom: 8 }}>{task.title}</div>
 
-      {/* chips: client / project / type */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: task.assigned_users?.length || task.due_date || eff ? 8 : 0 }}>
-        {client && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: client.color || A, background: `${client.color || A}18`, border: `1px solid ${(client.color || A)}30`, padding: '1px 6px', borderRadius: 4 }}>{client.name.split(' ')[0]}</span>}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
+        {showBoard && board && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: board.color, background: `${board.color}18`, border: `1px solid ${board.color}30`, padding: '1px 6px', borderRadius: 4 }}>{board.emoji} {board.name}</span>}
+        {client && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: client.color || A, background: `${client.color || A}18`, padding: '1px 6px', borderRadius: 4 }}>{client.name.split(' ')[0]}</span>}
         {project && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, background: A06, padding: '1px 6px', borderRadius: 4 }}>{project.name}</span>}
         {type && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: type.color, padding: '1px 4px' }}>{type.label}</span>}
       </div>
 
-      {/* footer */}
+      {(zr || (task.location || (task.lat && task.lng))) && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
+          {zr && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: "'Space Mono', monospace", fontSize: 9, color: overdue ? '#ef4444' : MUTED, fontWeight: overdue ? 700 : 400 }}><CalendarClock size={10} />{zr}{overdue ? ' · überfällig' : ''}</span>}
+          <LocationLink task={task} navigate={navigate} />
+        </div>
+      )}
+
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <button onClick={e => { e.stopPropagation(); onCycle() }} title="Status weiterschalten"
           style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 10, background: `${S[task.status]?.color}18`, border: `1px solid ${S[task.status]?.color}40`, color: S[task.status]?.color, cursor: 'pointer', fontFamily: "'Space Mono', monospace", fontSize: 9 }}>
           {S[task.status]?.short}
         </button>
-        <DueBadge due={task.due_date} done={done} today={today} />
-        {eff && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: eff.color, marginLeft: 'auto' }}>{eff.label}</span>}
-        <div style={{ marginLeft: eff ? 0 : 'auto' }}><Assignees ids={task.assigned_users} size={20} /></div>
+        {eff && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: eff.color }}>{eff.label}</span>}
+        <div style={{ marginLeft: 'auto' }}><People ownerId={task.owner_id} collaborators={task.assigned_users} size={20} /></div>
       </div>
     </div>
   )
 }
 
 /* ─── TABLE / LIST ─────────────────────────────────────────────────────────── */
-function TaskTable({ tasks, projects, clients, today, isMobile, onOpen, onDelete, onCycle }) {
-  if (tasks.length === 0) {
-    return <div style={{ padding: 40, textAlign: 'center', color: MUTED, fontFamily: "'Space Mono', monospace", fontSize: 12 }}>Keine Aufgaben</div>
-  }
+function TaskTable({ tasks, projects, clients, boards, today, isMobile, navigate, showBoard, onOpen, onDelete, onCycle }) {
+  if (tasks.length === 0) return <div style={{ padding: 40, textAlign: 'center', color: MUTED, fontFamily: "'Space Mono', monospace", fontSize: 12 }}>Keine Aufgaben</div>
 
   if (isMobile) {
-    // Mobile: kompakte Karten (dieselbe Optik wie das Board)
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {tasks.map(t => (
-          <TaskCard key={t.id} task={t} projects={projects} clients={clients} today={today}
+          <TaskCard key={t.id} task={t} projects={projects} clients={clients} boards={boards} today={today} navigate={navigate} showBoard={showBoard}
             onOpen={() => onOpen(t)} onDelete={() => onDelete(t.id)} onCycle={() => onCycle(t)} />
         ))}
       </div>
@@ -277,23 +365,28 @@ function TaskTable({ tasks, projects, clients, today, isMobile, onOpen, onDelete
 
   return (
     <div style={{ border: `1px solid ${BORDER}`, borderRadius: 8, overflow: 'hidden' }}>
-      {/* Header row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2.4fr 1fr 1fr 0.9fr 1.1fr 0.8fr 40px', gap: 10, padding: '10px 14px', background: SURFACE, borderBottom: `1px solid ${BORDER}`, fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-        <span>Aufgabe</span><span>Kunde / Projekt</span><span>Status</span><span>Prio</span><span>Fällig</span><span>Zuständig</span><span />
+      <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr 1fr 0.9fr 1.1fr 0.9fr 40px', gap: 10, padding: '10px 14px', background: SURFACE, borderBottom: `1px solid ${BORDER}`, fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+        <span>Aufgabe</span><span>Kunde / Projekt</span><span>Status</span><span>Prio</span><span>Zeitraum</span><span>Team</span><span />
       </div>
       {tasks.map(t => {
         const prio = P[t.priority]
         const client = clients.find(c => c.id === t.client_id)
         const project = projects.find(p => p.id === t.project_id)
+        const board = t.board_id ? boards.find(b => b.id === t.board_id) : null
         const done = t.status === 'done' || t.status === 'archive'
+        const zr = zeitraum(t)
+        const overdue = t.due_date && !done && t.due_date < today
         return (
           <div key={t.id} onClick={() => onOpen(t)}
-            style={{ display: 'grid', gridTemplateColumns: '2.4fr 1fr 1fr 0.9fr 1.1fr 0.8fr 40px', gap: 10, padding: '11px 14px', borderBottom: `1px solid ${BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, cursor: 'pointer', alignItems: 'center', background: BG }}
+            style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr 1fr 0.9fr 1.1fr 0.9fr 40px', gap: 10, padding: '11px 14px', borderBottom: `1px solid ${BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, cursor: 'pointer', alignItems: 'center', background: BG }}
             onMouseEnter={e => e.currentTarget.style.background = A06}
             onMouseLeave={e => e.currentTarget.style.background = BG}>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 500, color: done ? MUTED : FG, textDecoration: t.status === 'archive' ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
-              {t.task_type && T[t.task_type] && <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: T[t.task_type].color, marginTop: 2 }}>{T[t.task_type].label}</div>}
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 2 }}>
+                {showBoard && board && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: board.color }}>{board.emoji} {board.name}</span>}
+                <LocationLink task={t} navigate={navigate} />
+              </div>
             </div>
             <div style={{ minWidth: 0, fontSize: 11 }}>
               {client && <div style={{ color: client.color || A, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{client.name}</div>}
@@ -305,11 +398,9 @@ function TaskTable({ tasks, projects, clients, today, isMobile, onOpen, onDelete
                 {S[t.status]?.label}
               </button>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: prio?.color }}>
-              <Flag size={10} /> {prio?.label}
-            </div>
-            <div><DueBadge due={t.due_date} done={done} today={today} /></div>
-            <div><Assignees ids={t.assigned_users} size={22} /></div>
+            <div style={{ fontSize: 11, color: prio?.color }}>{prio?.label}</div>
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: overdue ? '#ef4444' : MUTED, fontWeight: overdue ? 700 : 400 }}>{zr || '—'}</div>
+            <div><People ownerId={t.owner_id} collaborators={t.assigned_users} size={22} /></div>
             <button onClick={e => { e.stopPropagation(); onDelete(t.id) }}
               style={{ background: 'transparent', border: `1px solid ${BORDER}`, borderRadius: 5, width: 26, height: 26, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Trash2 size={12} />
