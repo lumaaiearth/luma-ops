@@ -9,7 +9,10 @@ import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { sb } from '../lib/supabase.js'
 import { A, BG, SURFACE, BORDER, FG, MUTED, CARD, A06, A10, A14, A18 } from '../lib/theme.js'
-import { TEAM, JOB_TYPES } from '../data/seed.js'
+import { TEAM, JOB_TYPES, TASK_PRIORITIES, TASK_STATUSES } from '../data/seed.js'
+
+const TASK_P = Object.fromEntries(TASK_PRIORITIES.map(p => [p.id, p]))
+const TASK_S = Object.fromEntries(TASK_STATUSES.map(s => [s.id, s]))
 import { isoToday, addDays, genId } from '../lib/storage.js'
 import { useIsMobile } from '../lib/useIsMobile.js'
 import { Layers, Satellite, Map as MapIcon, Pencil, Save, X, ExternalLink, ChevronRight, ChevronDown, FolderOpen, Folder, Eye, EyeOff, Search, MapPin, Plus, Trash2, Upload, Image, SlidersHorizontal } from 'lucide-react'
@@ -540,7 +543,7 @@ const OPEN_LAYERS = [
 
 /* ─── MAIN COMPONENT ────────────────────────────────────────────────────── */
 export default function MapPage() {
-  const { projects, jobs, clients, mapFeatures, createMapFeature, updateMapFeature, deleteMapFeature, updateProject } = useOps()
+  const { projects, jobs, clients, mapFeatures, tasks, createMapFeature, updateMapFeature, deleteMapFeature, updateProject } = useOps()
   const { user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -549,6 +552,7 @@ export default function MapPage() {
 
   const [activeProject, setActiveProject] = useState(null)
   const [showJobs, setShowJobs] = useState(true)
+  const [showTasks, setShowTasks] = useState(true)
   const [flyTarget, setFlyTarget] = useState(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [tileLayer, setTileLayer] = useState('satellite')
@@ -597,6 +601,7 @@ export default function MapPage() {
   }, [upcomingJobs])
 
   const mappableProjects = projects.filter(p => p.lat && p.lng)
+  const mappableTasks = (tasks || []).filter(t => t.lat && t.lng && t.status !== 'done' && t.status !== 'archive')
 
   const projectColor = (p, i) => p.color || PROJECT_COLORS[i % PROJECT_COLORS.length]
 
@@ -775,6 +780,13 @@ export default function MapPage() {
           <div style={{ width: 8, height: 8, borderRadius: 2, background: '#F59E0B' }} />
           Einsätze (14 Tage)
           <span style={{ marginLeft: 'auto', fontFamily: "'Space Mono', monospace", fontSize: 10 }}>{upcomingJobs.length}</span>
+        </button>
+
+        <button onClick={() => setShowTasks(v => !v)}
+          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 6, border: `1px solid ${showTasks ? A + '50' : BORDER}`, background: showTasks ? A14 : 'transparent', color: showTasks ? A : MUTED, cursor: 'pointer', fontSize: 12, width: '100%', marginTop: 6 }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#A78BFA' }} />
+          Aufgaben mit Ort
+          <span style={{ marginLeft: 'auto', fontFamily: "'Space Mono', monospace", fontSize: 10 }}>{mappableTasks.length}</span>
         </button>
       </div>
 
@@ -1126,6 +1138,32 @@ export default function MapPage() {
                         })}
                       </div>
                     )}
+                  </div>
+                </Popup>
+              </Marker>
+            )
+          })}
+
+          {/* Task markers (Aufgaben mit Ort) */}
+          {showTasks && mappableTasks.map((t, i) => {
+            const color = TASK_P[t.priority]?.color || '#A78BFA'
+            const st = TASK_S[t.status]
+            const proj = projects.find(p => p.id === t.project_id)
+            const owner = t.owner_id ? TEAM.find(u => u.id === t.owner_id) : null
+            const offset = ((i % 5) - 2) * 0.0004
+            return (
+              <Marker key={`task-${t.id}`} position={[t.lat + offset, t.lng + offset]} icon={makePin(color, 12)}>
+                <Popup>
+                  <div style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 3 }}>Aufgabe{st ? ` · ${st.label}` : ''}</div>
+                    <div style={{ fontWeight: 600, fontSize: 13, color: '#e8f0f5', marginBottom: 3 }}>{t.title}</div>
+                    {proj && <div style={{ fontSize: 11, color: 'rgba(232,240,245,0.5)', marginBottom: 2 }}>{proj.name}</div>}
+                    {t.due_date && <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: 'rgba(232,240,245,0.6)' }}>fällig {t.due_date}</div>}
+                    {owner && <div style={{ fontSize: 11, color: 'rgba(232,240,245,0.6)', marginTop: 3 }}>👤 {owner.name}</div>}
+                    <button onClick={() => navigate('/tasks')}
+                      style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 8, padding: '5px 10px', borderRadius: 5, background: color + '20', border: `1px solid ${color}50`, color, cursor: 'pointer', fontSize: 11, fontFamily: "'Space Grotesk', sans-serif", width: '100%', justifyContent: 'center' }}>
+                      <ExternalLink size={11} /> Zu den Aufgaben
+                    </button>
                   </div>
                 </Popup>
               </Marker>

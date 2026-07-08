@@ -4,7 +4,8 @@ import { X, MapPin, CalendarPlus, ExternalLink, CheckSquare, Square, Plus } from
 import { TEAM, TASK_STATUSES, TASK_PRIORITIES, TASK_EFFORTS, TASK_TYPES } from '../data/seed.js'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
-import { genId } from '../lib/storage.js'
+import { useTime } from '../context/TimeContext.jsx'
+import { genId, isoToday } from '../lib/storage.js'
 import TaskPhotos from './TaskPhotos.jsx'
 import { A, SURFACE, BORDER, FG, MUTED, CARD, A06, A08 } from '../lib/theme.js'
 
@@ -110,8 +111,18 @@ function TagInput({ id, tags, onChange, placeholder, historyKey }) {
 export default function TaskModal({ initialTask, defaults, onSave, onClose }) {
   const { projects, clients, jobs, boards, createJob, updateTask } = useOps()
   const { user } = useAuth()
+  const { entries, logTime } = useTime()
   const navigate = useNavigate()
   const editing = !!initialTask
+
+  const taskEntries = editing ? (entries || []).filter(e => e.task_id === initialTask.id) : []
+  const loggedHours = taskEntries.reduce((s, e) => s + Number(e.hours || 0), 0)
+  const [timeForm, setTimeForm] = useState({ user_id: user?.id || 'malte', hours: '', date: isoToday(), description: '' })
+  function addTime() {
+    if (!timeForm.hours || Number(timeForm.hours) <= 0) return
+    logTime({ user_id: timeForm.user_id, project_id: form.project_id || null, task_id: initialTask.id, date: timeForm.date, hours: Number(timeForm.hours), description: timeForm.description })
+    setTimeForm(f => ({ ...f, hours: '', description: '' }))
+  }
 
   const [form, setForm] = useState({
     title:          initialTask?.title || '',
@@ -453,6 +464,44 @@ export default function TaskModal({ initialTask, defaults, onSave, onClose }) {
           {editing && initialTask?.id && (
             <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 16 }}>
               <TaskPhotos taskId={initialTask.id} uploadedBy={user?.id || 'unknown'} />
+            </div>
+          )}
+
+          {/* Zeiterfassung (nur im Bearbeiten-Modus) */}
+          {editing && initialTask?.id && (
+            <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 16 }}>
+              <label style={LABEL_STYLE}>
+                Zeiterfassung{loggedHours > 0 && <span style={{ color: A, marginLeft: 6 }}>{loggedHours}h erfasst</span>}
+              </label>
+              {taskEntries.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
+                  {[...taskEntries].sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 6).map(e => {
+                    const u = TEAM.find(x => x.id === e.user_id)
+                    return (
+                      <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: MUTED }}>
+                        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, minWidth: 64 }}>{e.date}</span>
+                        {u && <span style={{ color: u.color, minWidth: 44 }}>{u.name}</span>}
+                        <span style={{ color: FG, fontWeight: 600, minWidth: 34 }}>{e.hours}h</span>
+                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.description}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                <select value={timeForm.user_id} onChange={e => setTimeForm(f => ({ ...f, user_id: e.target.value }))}
+                  style={{ ...INPUT_STYLE, width: 'auto', flex: '0 0 auto', padding: '8px 10px', fontSize: 13 }}>
+                  {TEAM.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                </select>
+                <input type="number" min="0.25" step="0.25" value={timeForm.hours} onChange={e => setTimeForm(f => ({ ...f, hours: e.target.value }))}
+                  placeholder="Std." style={{ ...INPUT_STYLE, width: 70, flex: '0 0 auto', padding: '8px 10px', fontSize: 13 }} />
+                <input type="date" value={timeForm.date} onChange={e => setTimeForm(f => ({ ...f, date: e.target.value }))}
+                  style={{ ...INPUT_STYLE, width: 'auto', flex: '0 0 auto', padding: '8px 10px', fontSize: 13 }} />
+                <input value={timeForm.description} onChange={e => setTimeForm(f => ({ ...f, description: e.target.value }))}
+                  placeholder="Tätigkeit (optional)" style={{ ...INPUT_STYLE, flex: 1, minWidth: 120, padding: '8px 10px', fontSize: 13 }} />
+                <button type="button" onClick={addTime}
+                  style={{ padding: '8px 14px', borderRadius: 6, background: A06, border: `1px solid ${BORDER}`, color: A, cursor: 'pointer', fontSize: 13, flexShrink: 0 }}>+ Zeit</button>
+              </div>
             </div>
           )}
 

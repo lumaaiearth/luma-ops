@@ -1,11 +1,14 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { ChevronLeft, ChevronRight, Plus, CalendarDays, Menu, X, ChevronDown, ChevronUp, List, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { ChevronLeft, ChevronRight, Plus, CalendarDays, Menu, X, ChevronDown, ChevronUp, List, AlertTriangle, CheckCircle2, CheckSquare } from 'lucide-react'
 import { useOps } from '../context/OpsContext.jsx'
 import { useGCal } from '../context/GCalContext.jsx'
 import { useWeather } from '../context/WeatherContext.jsx'
 import { A, BG, SURFACE, BORDER, FG, MUTED, A06, A0a, A0d, A14, A40 } from '../lib/theme.js'
 import JobModal from '../components/JobModal.jsx'
-import { JOB_TYPES, TEAM, VEHICLES } from '../data/seed.js'
+import { JOB_TYPES, TEAM, VEHICLES, TASK_PRIORITIES } from '../data/seed.js'
+
+const TASK_P_CAL = Object.fromEntries(TASK_PRIORITIES.map(p => [p.id, p]))
 import { isoToday, weekStart, getWeekDays, addDays } from '../lib/storage.js'
 import { useBreakpoint } from '../lib/useBreakpoint.js'
 import { fetchTeamBusy } from '../lib/teamBusy.js'
@@ -138,7 +141,7 @@ function EventBlock({ job, projects, clients, onOpen, onPointerDown, isGhost }) 
   )
 }
 
-function AllDayStrip({ jobs, gcalEvents, projects, clients, onOpen, date }) {
+function AllDayStrip({ jobs, gcalEvents, projects, clients, onOpen, date, tasks = [], onTaskClick }) {
   const lumaJobs = jobs.filter(j => {
     if (j.start_time && j.end_time) return false
     if (j.date_end && j.date_end > j.date) return j.date <= date && j.date_end >= date
@@ -146,7 +149,7 @@ function AllDayStrip({ jobs, gcalEvents, projects, clients, onOpen, date }) {
   })
   const gcalAllDay = (gcalEvents || []).filter(e => !e.start_time && e.date === date)
   const dayJobs = [...lumaJobs, ...gcalAllDay]
-  if (!dayJobs.length) return <div style={{ height: 4 }} />
+  if (!dayJobs.length && !tasks.length) return <div style={{ height: 4 }} />
   return (
     <div style={{ padding: '2px 2px', display: 'flex', flexDirection: 'column', gap: 2, overflow: 'hidden' }}>
       {dayJobs.slice(0, 3).map(job => {
@@ -162,12 +165,27 @@ function AllDayStrip({ jobs, gcalEvents, projects, clients, onOpen, date }) {
       {dayJobs.length > 3 && (
         <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, paddingLeft: 4 }}>+{dayJobs.length - 3}</div>
       )}
+      {/* Aufgaben mit Zeitraum als Ganztags-Chips */}
+      {tasks.slice(0, 2).map(t => {
+        const color = TASK_P_CAL[t.priority]?.color || '#A78BFA'
+        return (
+          <div key={`t-${t.id}`} onClick={() => onTaskClick?.(t)} title={t.title}
+            style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: FG, background: `${color}18`, borderLeft: `2px dashed ${color}`, borderRadius: 2, padding: '2px 4px', cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <CheckSquare size={9} color={color} style={{ flexShrink: 0 }} />
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.title}</span>
+          </div>
+        )
+      })}
+      {tasks.length > 2 && (
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, paddingLeft: 4 }}>+{tasks.length - 2} Aufgaben</div>
+      )}
     </div>
   )
 }
 
 export default function CalendarPage() {
-  const { jobs, projects, clients, createJob, updateJob, deleteJob, createRecurring } = useOps()
+  const { jobs, projects, clients, tasks, createJob, updateJob, deleteJob, createRecurring } = useOps()
+  const navigate = useNavigate()
   const { connected: gcalConnected, events: gcalEvents, calendars: gcalCalendars, enabledCalendars, toggleCalendar, fetchForRange, syncing: gcalSyncing } = useGCal()
   const weatherForecast = useWeather()
   const bp = useBreakpoint() // 'xs'|'sm'|'md'|'lg'
@@ -182,6 +200,7 @@ export default function CalendarPage() {
   const [dayViewDate, setDayViewDate] = useState(today)
   const [modal, setModal] = useState(null)
   const [selectedJob, setSelectedJob] = useState(null)
+  const [showTasks, setShowTasks] = useState(true)
   const [view, setView] = useState(() => {
     const w = window.innerWidth
     if (w < 768) return '3day'   // Phone → 3 Tage
@@ -435,9 +454,23 @@ export default function CalendarPage() {
     })
   }
 
+  // Offene Aufgaben, die (per Zeitraum) auf ein Datum fallen
+  const openTasks = showTasks ? (tasks || []).filter(t => t.status !== 'done' && t.status !== 'archive') : []
+  function tasksForDate(date) {
+    return openTasks.filter(t => {
+      const s = t.start_date || t.due_date
+      const e = t.due_date || t.start_date
+      if (!s && !e) return false
+      const lo = s < e ? s : e, hi = e > s ? e : s
+      return date >= lo && date <= hi
+    })
+  }
+  function openTaskInList() { navigate('/tasks') }
+
   const hasAllDay = activeDays.some(d =>
     jobs.some(j => !j.start_time && j.date === d) ||
-    gcalEvents.some(e => !e.start_time && e.date === d)
+    gcalEvents.some(e => !e.start_time && e.date === d) ||
+    tasksForDate(d).length > 0
   )
 
   // Navigation helpers
@@ -623,7 +656,7 @@ export default function CalendarPage() {
                   </div>
                   {activeDays.map((date, i) => (
                     <div key={date} style={{ flex: 1, minWidth: 0, overflow: 'hidden', borderRight: i < activeDays.length - 1 ? `1px solid ${BORDER}` : 'none', minHeight: 24 }}>
-                      <AllDayStrip jobs={jobs} gcalEvents={gcalEvents} projects={projects} clients={clients} date={date} onOpen={openJob} />
+                      <AllDayStrip jobs={jobs} gcalEvents={gcalEvents} projects={projects} clients={clients} date={date} onOpen={openJob} tasks={tasksForDate(date)} onTaskClick={openTaskInList} />
                     </div>
                   ))}
                 </div>
@@ -822,6 +855,16 @@ export default function CalendarPage() {
                     )
                   })}
                   {dayJobs.length > 3 && <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED }}>+{dayJobs.length - 3}</div>}
+                  {tasksForDate(date).slice(0, 2).map(t => {
+                    const color = TASK_P_CAL[t.priority]?.color || '#A78BFA'
+                    return (
+                      <div key={`mt-${t.id}`} onClick={e => { e.stopPropagation(); openTaskInList() }} title={t.title}
+                        style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: FG, background: `${color}18`, borderLeft: `2px dashed ${color}`, borderRadius: 2, padding: '1px 5px', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }}>
+                        <CheckSquare size={9} color={color} style={{ flexShrink: 0 }} />{t.title}
+                      </div>
+                    )
+                  })}
+                  {tasksForDate(date).length > 2 && <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED }}>+{tasksForDate(date).length - 2} Aufgaben</div>}
                 </div>
               )
             })}
@@ -881,6 +924,7 @@ export default function CalendarPage() {
           <div style={{ flex: 1, overflowY: 'auto', padding: '12px 12px 0' }}>
             {(() => {
               const selJobs = jobsForDate(selectedMonthDate)
+              const selTasks = tasksForDate(selectedMonthDate)
               const selD = new Date(selectedMonthDate + 'T00:00:00')
               const label = selD.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })
               return (
@@ -907,9 +951,22 @@ export default function CalendarPage() {
                       <Plus size={12} /> Einsatz
                     </button>
                   </div>
-                  {selJobs.length === 0 && (
-                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED, textAlign: 'center', marginTop: 32 }}>Keine Einsätze</div>
+                  {selJobs.length === 0 && selTasks.length === 0 && (
+                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED, textAlign: 'center', marginTop: 32 }}>Nichts geplant</div>
                   )}
+                  {selTasks.map(t => {
+                    const color = TASK_P_CAL[t.priority]?.color || '#A78BFA'
+                    return (
+                      <div key={`smt-${t.id}`} onClick={openTaskInList}
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, background: SURFACE, border: `1px dashed ${color}55`, marginBottom: 8, cursor: 'pointer' }}>
+                        <CheckSquare size={14} color={color} style={{ flexShrink: 0 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 500, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
+                          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, marginTop: 2 }}>Aufgabe{t.due_date ? ` · fällig ${t.due_date}` : ''}</div>
+                        </div>
+                      </div>
+                    )
+                  })}
                   {selJobs.map(job => {
                     const type = JOB_TYPES.find(t => t.id === job.job_type)
                     const clientColor = getClientColor(job, projects, clients)
@@ -962,6 +1019,7 @@ export default function CalendarPage() {
           enabledCalendars={enabledCalendars} toggleCalendar={toggleCalendar}
           onClose={() => setSidebarOpen(false)}
           goTodayAll={() => { goTodayAll(); setSidebarOpen(false) }}
+          showTasks={showTasks} setShowTasks={setShowTasks}
           BORDER={BORDER} FG={FG} MUTED={MUTED} A={A} A14={A14} SURFACE={SURFACE} BG={BG}
         />
       )}
@@ -1045,7 +1103,7 @@ const VIEW_OPTIONS = [
   { id: 'month',   label: 'Monat' },
 ]
 
-function CalendarSidebar({ view, setView, gcalConnected, gcalCalendars, enabledCalendars, toggleCalendar, onClose, goTodayAll, BORDER, FG, MUTED, A, A14, SURFACE, BG }) {
+function CalendarSidebar({ view, setView, gcalConnected, gcalCalendars, enabledCalendars, toggleCalendar, onClose, goTodayAll, showTasks, setShowTasks, BORDER, FG, MUTED, A, A14, SURFACE, BG }) {
   return (
     <>
       {/* Backdrop */}
@@ -1087,6 +1145,18 @@ function CalendarSidebar({ view, setView, gcalConnected, gcalCalendars, enabledC
               </button>
             ))}
           </div>
+
+          {/* Anzeigen */}
+          <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Anzeigen</div>
+          <button onClick={() => setShowTasks(v => !v)} style={{
+            display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px', borderRadius: 6, border: 'none',
+            background: 'transparent', cursor: 'pointer', textAlign: 'left', width: '100%', marginBottom: 24,
+          }}>
+            <div style={{ width: 14, height: 14, borderRadius: 3, flexShrink: 0, background: showTasks ? '#A78BFA' : 'transparent', border: `2px solid #A78BFA`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {showTasks && <span style={{ color: '#fff', fontSize: 9, fontWeight: 900, lineHeight: 1 }}>✓</span>}
+            </div>
+            <span style={{ fontSize: 13, color: FG, display: 'flex', alignItems: 'center', gap: 6 }}><CheckSquare size={13} color={MUTED} /> Aufgaben (Zeitraum)</span>
+          </button>
 
           {/* GCal calendar list */}
           {gcalConnected && gcalCalendars.length > 0 && (
