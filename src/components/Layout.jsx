@@ -1,27 +1,64 @@
 import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { LayoutDashboard, CalendarDays, ListChecks, Radio, Users, Settings, LogOut, Menu, X, Clock, Map, Database, FolderOpen, MoreHorizontal, BarChart2, Flower2, ListTodo } from 'lucide-react'
-import { A, BG, SURFACE, BORDER, FG, MUTED, A14, A06 } from '../lib/theme.js'
+import { LayoutDashboard, CalendarDays, ListChecks, Radio, Users, Settings, LogOut, Clock, Map, Database, FolderOpen, MoreHorizontal, BarChart2, Flower2, ListTodo } from 'lucide-react'
+import { A, BG, SURFACE, BORDER, FG, MUTED, A14 } from '../lib/theme.js'
+import { Avatar, MONO, SANS } from './ui.jsx'
 
-const NAV = [
-  { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/calendar',   icon: CalendarDays,    label: 'Kalender' },
-  { to: '/tasks',      icon: ListTodo,        label: 'Offene Aufgaben', short: 'Aufgaben' },
-  { to: '/jobs',       icon: ListChecks,      label: 'Einsatzübersicht', short: 'Einsätze' },
-  { to: '/map',        icon: Map,             label: 'BIOME™' },
-  { to: '/analyse',    icon: BarChart2,       label: 'Analysen' },
-  { to: '/planning',   icon: Flower2,         label: 'Florales™' },
-  { to: '/time',       icon: Clock,           label: 'Zeiten' },
-  { to: '/data',       icon: Database,        label: 'Stammdaten' },
-  { to: '/drive',       icon: FolderOpen,      label: 'Drive' },
-  { to: '/sensors',    icon: Radio,           label: 'Sensoren' },
-  { to: '/team',       icon: Users,           label: 'Team' },
-  { to: '/settings',   icon: Settings,        label: 'Einstellungen' },
+// Navigation nach Arbeitskontext gruppiert — 13 flache Einträge sind schwer scannbar
+const NAV_GROUPS = [
+  {
+    label: 'Betrieb',
+    items: [
+      { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+      { to: '/calendar',  icon: CalendarDays,    label: 'Kalender' },
+      { to: '/tasks',     icon: ListTodo,        label: 'Offene Aufgaben', short: 'Aufgaben' },
+      { to: '/jobs',      icon: ListChecks,      label: 'Einsatzübersicht', short: 'Einsätze' },
+    ],
+  },
+  {
+    label: 'Feld & Analyse',
+    items: [
+      { to: '/map',      icon: Map,      label: 'BIOME™' },
+      { to: '/analyse',  icon: BarChart2, label: 'Analysen' },
+      { to: '/planning', icon: Flower2,  label: 'Florales™' },
+      { to: '/sensors',  icon: Radio,    label: 'Sensoren' },
+    ],
+  },
+  {
+    label: 'Verwaltung',
+    items: [
+      { to: '/time',  icon: Clock,      label: 'Zeiten' },
+      { to: '/data',  icon: Database,   label: 'Stammdaten' },
+      { to: '/drive', icon: FolderOpen, label: 'Drive' },
+      { to: '/team',  icon: Users,      label: 'Team' },
+    ],
+  },
 ]
 
-// First 5 nav items show in bottom bar; rest in "More" drawer
-const BOTTOM_NAV = NAV.slice(0, 5)
+const NAV_FLAT = NAV_GROUPS.flatMap(g => g.items)
+
+// Die 5 wichtigsten Ziele in der mobilen Bottom-Bar; Rest im „Mehr"-Drawer
+const BOTTOM_NAV = [NAV_FLAT[0], NAV_FLAT[1], NAV_FLAT[2], NAV_FLAT[3], NAV_FLAT[4]]
+
+function SidebarLink({ to, icon: Icon, label, onNavigate }) {
+  return (
+    <NavLink to={to} onClick={onNavigate}
+      className={({ isActive }) => `lu-nav${isActive ? ' active' : ''}`}
+      style={({ isActive }) => ({
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '9px 12px', borderRadius: 6,
+        textDecoration: 'none',
+        fontFamily: SANS,
+        fontSize: 14, fontWeight: isActive ? 500 : 400,
+        color: isActive ? A : MUTED,
+        background: isActive ? A14 : 'transparent',
+      })}>
+      <Icon size={16} />
+      {label}
+    </NavLink>
+  )
+}
 
 export default function Layout({ children, fullHeight = false }) {
   const { user, profile, displayName, logout } = useAuth()
@@ -34,51 +71,46 @@ export default function Layout({ children, fullHeight = false }) {
     navigate('/login')
   }
 
+  const closeMobile = () => setMobileOpen(false)
+
   const sidebar = (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: SURFACE, borderRight: `1px solid ${BORDER}` }}>
       {/* Brand */}
       <div style={{ padding: '24px 20px 20px', borderBottom: `1px solid ${BORDER}` }}>
-        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: A, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 2 }}>LUMA</div>
-        <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 400, color: FG, letterSpacing: '-0.02em' }}>Ops</div>
+        <div style={{ fontFamily: MONO, fontSize: 11, color: A, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 2 }}>LUMA</div>
+        <div style={{ fontFamily: SANS, fontSize: 18, fontWeight: 400, color: FG, letterSpacing: '-0.02em' }}>Ops</div>
       </div>
 
-      {/* Nav */}
-      <nav style={{ flex: 1, padding: '12px 8px', display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto' }}>
-        {NAV.map(({ to, icon: Icon, label }) => (
-          <NavLink key={to} to={to} onClick={() => setMobileOpen(false)}
-            style={({ isActive }) => ({
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '10px 12px', borderRadius: 6,
-              textDecoration: 'none',
-              fontFamily: "'Space Grotesk', sans-serif",
-              fontSize: 14, fontWeight: isActive ? 500 : 400,
-              color: isActive ? A : MUTED,
-              background: isActive ? A14 : 'transparent',
-              transition: 'background 0.15s, color 0.15s',
-            })}>
-            <Icon size={16} />
-            {label}
-          </NavLink>
+      {/* Nav — gruppiert */}
+      <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto' }}>
+        {NAV_GROUPS.map(group => (
+          <div key={group.label} style={{ marginBottom: 14 }}>
+            <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: '0.16em', textTransform: 'uppercase', padding: '4px 12px 6px', opacity: 0.75 }}>
+              {group.label}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {group.items.map(item => (
+                <SidebarLink key={item.to} {...item} onNavigate={closeMobile} />
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
 
-      {/* User */}
-      <div style={{ padding: '12px 8px', borderTop: `1px solid ${BORDER}` }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', marginBottom: 4 }}>
-          <div style={{ width: 28, height: 28, borderRadius: '50%', background: A, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#001219', fontWeight: 700 }}>{initials}</span>
+      {/* Einstellungen + User */}
+      <div style={{ padding: '10px 8px', borderTop: `1px solid ${BORDER}` }}>
+        <SidebarLink to="/settings" icon={Settings} label="Einstellungen" onNavigate={closeMobile} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', marginTop: 4 }}>
+          <Avatar initials={initials} size={28} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, color: FG, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</div>
+            <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>{profile?.rolle}</div>
           </div>
-          <div>
-            <div style={{ fontSize: 13, color: FG, fontWeight: 500 }}>{displayName}</div>
-            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>{profile?.rolle}</div>
-          </div>
+          <button onClick={handleLogout} title="Abmelden" className="lu-nav"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer', color: MUTED, flexShrink: 0 }}>
+            <LogOut size={15} />
+          </button>
         </div>
-        <button onClick={handleLogout}
-          style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 12px', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer', color: MUTED, fontSize: 14, fontFamily: "'Space Grotesk', sans-serif", transition: 'color 0.15s, background 0.15s' }}
-          onMouseEnter={e => { e.currentTarget.style.color = FG; e.currentTarget.style.background = A06 }}
-          onMouseLeave={e => { e.currentTarget.style.color = MUTED; e.currentTarget.style.background = 'transparent' }}>
-          <LogOut size={16} /> Abmelden
-        </button>
       </div>
     </div>
   )
@@ -106,7 +138,7 @@ export default function Layout({ children, fullHeight = false }) {
 
       {/* Mobile full-menu overlay */}
       {mobileOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 200 }} onClick={() => setMobileOpen(false)}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200 }} onClick={closeMobile}>
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.65)' }} />
           <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 220 }} onClick={e => e.stopPropagation()}>
             {sidebar}
@@ -119,16 +151,12 @@ export default function Layout({ children, fullHeight = false }) {
         {/* Mobile topbar — hidden on fullHeight pages (they have their own controls) */}
         {!fullHeight && (
           <div className="mobile-topbar" style={{ display: 'none', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: `1px solid ${BORDER}`, background: SURFACE, flexShrink: 0 }}>
-            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: A, letterSpacing: '0.18em' }}>LUMA OPS</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 28, height: 28, borderRadius: '50%', background: A, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#001219', fontWeight: 700 }}>{initials}</span>
-              </div>
-            </div>
+            <div style={{ fontFamily: MONO, fontSize: 12, color: A, letterSpacing: '0.18em' }}>LUMA OPS</div>
+            <Avatar initials={initials} size={28} />
           </div>
         )}
 
-        <div className="main-content" style={{ flex: 1, overflowY: fullHeight ? 'hidden' : 'auto', display: fullHeight ? 'flex' : 'block', flexDirection: 'column' }}>
+        <div className="main-content lu-fade-in" style={{ flex: 1, overflowY: fullHeight ? 'hidden' : 'auto', display: fullHeight ? 'flex' : 'block', flexDirection: 'column' }}>
           {children}
         </div>
 
@@ -146,7 +174,7 @@ export default function Layout({ children, fullHeight = false }) {
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
                 padding: '6px 12px', borderRadius: 8, textDecoration: 'none',
                 color: isActive ? A : MUTED, flex: 1,
-                fontFamily: "'Space Grotesk', sans-serif",
+                fontFamily: SANS,
               })}>
               {({ isActive }) => (
                 <>
@@ -158,7 +186,7 @@ export default function Layout({ children, fullHeight = false }) {
           ))}
           {/* More button */}
           <button onClick={() => setMobileOpen(true)}
-            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '6px 12px', background: 'transparent', border: 'none', color: MUTED, flex: 1, cursor: 'pointer', fontFamily: "'Space Grotesk', sans-serif" }}>
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '6px 12px', background: 'transparent', border: 'none', color: MUTED, flex: 1, cursor: 'pointer', fontFamily: SANS }}>
             <MoreHorizontal size={20} />
             <span style={{ fontSize: 10 }}>Mehr</span>
           </button>

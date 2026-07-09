@@ -107,7 +107,7 @@ function DbToast() {
   return (
     <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 8 }}>
       {toasts.map(t => (
-        <div key={t.id} style={{ background: '#7f1d1d', border: '1px solid #dc2626', color: '#fca5a5', padding: '10px 16px', borderRadius: 8, fontSize: 13, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 4px 20px rgba(0,0,0,0.5)', maxWidth: 380 }}>
+        <div key={t.id} className="lu-fade-in" style={{ background: 'color-mix(in srgb, var(--luma-danger) 18%, var(--luma-card))', border: '1px solid color-mix(in srgb, var(--luma-danger) 50%, transparent)', color: 'var(--luma-danger)', padding: '10px 16px', borderRadius: 8, fontSize: 13, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 4px 20px rgba(0,0,0,0.35)', maxWidth: 380 }}>
           {t.msg}
         </div>
       ))}
@@ -136,8 +136,8 @@ function OfflineBadge() {
   if (online && pending === 0) return null
   const offline = !online
   return (
-    <div style={{ position: 'fixed', bottom: 20, left: 20, zIndex: 9998, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 20, background: offline ? '#3a2410' : '#0d2233', border: `1px solid ${offline ? '#f59e0b' : '#3b82f6'}`, color: offline ? '#fbbf24' : '#93c5fd', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 4px 20px rgba(0,0,0,0.5)' }}>
-      <span style={{ width: 8, height: 8, borderRadius: '50%', background: offline ? '#f59e0b' : '#3b82f6' }} />
+    <div className="lu-fade-in" style={{ position: 'fixed', bottom: 20, left: 20, zIndex: 9998, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 20, background: `color-mix(in srgb, ${offline ? 'var(--luma-warn)' : 'var(--luma-info)'} 14%, var(--luma-card))`, border: `1px solid ${offline ? 'var(--luma-warn)' : 'var(--luma-info)'}`, color: offline ? 'var(--luma-warn)' : 'var(--luma-info)', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 4px 20px rgba(0,0,0,0.35)' }}>
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: offline ? 'var(--luma-warn)' : 'var(--luma-info)' }} />
       {offline ? 'Offline' : 'Synchronisiere…'}{pending > 0 ? ` · ${pending} ausstehend` : ''}
     </div>
   )
