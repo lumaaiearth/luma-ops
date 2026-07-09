@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import { AuthProvider, useAuth } from './context/AuthContext.jsx'
 import { OpsProvider } from './context/OpsContext.jsx'
@@ -7,26 +7,29 @@ import { GCalProvider } from './context/GCalContext.jsx'
 import { TimeProvider } from './context/TimeContext.jsx'
 import { ThemeProvider } from './context/ThemeContext.jsx'
 import { WeatherProvider } from './context/WeatherContext.jsx'
-import TimePage from './pages/TimePage.jsx'
-import MapPage from './pages/MapPage.jsx'
-import StammdatenPage from './pages/StammdatenPage.jsx'
 import Layout from './components/Layout.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import DashboardPage from './pages/DashboardPage.jsx'
-import CalendarPage from './pages/CalendarPage.jsx'
-import JobsPage from './pages/JobsPage.jsx'
-import TasksPage from './pages/TasksPage.jsx'
-import SensorsPage from './pages/SensorsPage.jsx'
-import TeamPage from './pages/TeamPage.jsx'
-import SettingsPage from './pages/SettingsPage.jsx'
-import ProjectPage from './pages/ProjectPage.jsx'
-import DrivePage from './pages/DrivePage.jsx'
-import ClientPage from './pages/ClientPage.jsx'
-import AnalysePage from './pages/AnalysePage.jsx'
-import PlanningPage from './pages/PlanningPage.jsx'
-import EpsAnalysePage from './pages/EpsAnalysePage.jsx'
-import ArticleViewPage from './pages/ArticleViewPage.jsx'
-import KundenPortalPage from './pages/KundenPortalPage.jsx'
+
+// Code-Splitting: schwere/selten genutzte Seiten erst bei Bedarf laden
+// (holt Leaflet/GeoTIFF/Recharts aus dem Start-Bundle → schnellerer Erststart)
+const TimePage         = lazy(() => import('./pages/TimePage.jsx'))
+const MapPage          = lazy(() => import('./pages/MapPage.jsx'))
+const StammdatenPage   = lazy(() => import('./pages/StammdatenPage.jsx'))
+const CalendarPage     = lazy(() => import('./pages/CalendarPage.jsx'))
+const JobsPage         = lazy(() => import('./pages/JobsPage.jsx'))
+const TasksPage        = lazy(() => import('./pages/TasksPage.jsx'))
+const SensorsPage      = lazy(() => import('./pages/SensorsPage.jsx'))
+const TeamPage         = lazy(() => import('./pages/TeamPage.jsx'))
+const SettingsPage     = lazy(() => import('./pages/SettingsPage.jsx'))
+const ProjectPage      = lazy(() => import('./pages/ProjectPage.jsx'))
+const DrivePage        = lazy(() => import('./pages/DrivePage.jsx'))
+const ClientPage       = lazy(() => import('./pages/ClientPage.jsx'))
+const AnalysePage      = lazy(() => import('./pages/AnalysePage.jsx'))
+const PlanningPage     = lazy(() => import('./pages/PlanningPage.jsx'))
+const EpsAnalysePage   = lazy(() => import('./pages/EpsAnalysePage.jsx'))
+const ArticleViewPage  = lazy(() => import('./pages/ArticleViewPage.jsx'))
+const KundenPortalPage = lazy(() => import('./pages/KundenPortalPage.jsx'))
 
 function RequireAuth({ children, kundeOk = false }) {
   const { user, loading, isKunde } = useAuth()
@@ -37,30 +40,51 @@ function RequireAuth({ children, kundeOk = false }) {
   return children
 }
 
+function PageLoader() {
+  return (
+    <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#08AA56', fontFamily: "'Space Mono', monospace", fontSize: 12, letterSpacing: '0.15em', textTransform: 'uppercase', opacity: 0.7 }}>
+      lädt…
+    </div>
+  )
+}
+
+// Wrapper: Auth-Schutz + Layout (Sidebar bleibt sichtbar) + Suspense fürs Nachladen
+function Protected({ children, fullHeight = false }) {
+  return (
+    <RequireAuth>
+      <Layout fullHeight={fullHeight}>
+        <ErrorBoundary>
+          <Suspense fallback={<PageLoader />}>{children}</Suspense>
+        </ErrorBoundary>
+      </Layout>
+    </RequireAuth>
+  )
+}
+
 function AppRoutes() {
   const { user } = useAuth()
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
-      <Route path="/" element={<RequireAuth><Layout><Navigate to="/dashboard" replace /></Layout></RequireAuth>} />
-      <Route path="/dashboard" element={<RequireAuth><Layout><ErrorBoundary><DashboardPage /></ErrorBoundary></Layout></RequireAuth>} />
-      <Route path="/calendar" element={<RequireAuth><Layout fullHeight><ErrorBoundary><CalendarPage /></ErrorBoundary></Layout></RequireAuth>} />
-      <Route path="/jobs" element={<RequireAuth><Layout><ErrorBoundary><JobsPage /></ErrorBoundary></Layout></RequireAuth>} />
-      <Route path="/tasks" element={<RequireAuth><Layout><ErrorBoundary><TasksPage /></ErrorBoundary></Layout></RequireAuth>} />
-      <Route path="/sensors" element={<RequireAuth><Layout><ErrorBoundary><SensorsPage /></ErrorBoundary></Layout></RequireAuth>} />
-      <Route path="/team" element={<RequireAuth><Layout><ErrorBoundary><TeamPage /></ErrorBoundary></Layout></RequireAuth>} />
-      <Route path="/time" element={<RequireAuth><Layout><ErrorBoundary><TimePage /></ErrorBoundary></Layout></RequireAuth>} />
-      <Route path="/map" element={<RequireAuth><Layout fullHeight><ErrorBoundary><MapPage /></ErrorBoundary></Layout></RequireAuth>} />
-      <Route path="/settings" element={<RequireAuth><Layout><ErrorBoundary><SettingsPage /></ErrorBoundary></Layout></RequireAuth>} />
-      <Route path="/data" element={<RequireAuth><Layout><ErrorBoundary><StammdatenPage /></ErrorBoundary></Layout></RequireAuth>} />
-      <Route path="/drive" element={<RequireAuth><Layout><ErrorBoundary><DrivePage /></ErrorBoundary></Layout></RequireAuth>} />
-      <Route path="/projects/:id" element={<RequireAuth><Layout><ErrorBoundary><ProjectPage /></ErrorBoundary></Layout></RequireAuth>} />
-      <Route path="/clients/:id" element={<RequireAuth><Layout><ErrorBoundary><ClientPage /></ErrorBoundary></Layout></RequireAuth>} />
-      <Route path="/analyse" element={<RequireAuth><Layout><ErrorBoundary><AnalysePage /></ErrorBoundary></Layout></RequireAuth>} />
-      <Route path="/planning" element={<RequireAuth><Layout fullHeight><ErrorBoundary><PlanningPage /></ErrorBoundary></Layout></RequireAuth>} />
-      <Route path="/analyse/:id" element={<RequireAuth><Layout><ErrorBoundary><EpsAnalysePage /></ErrorBoundary></Layout></RequireAuth>} />
-      <Route path="/analyse/artikel/:id" element={<RequireAuth><Layout><ErrorBoundary><ArticleViewPage /></ErrorBoundary></Layout></RequireAuth>} />
-      <Route path="/portal" element={<RequireAuth kundeOk><ErrorBoundary><KundenPortalPage /></ErrorBoundary></RequireAuth>} />
+      <Route path="/" element={<Protected><Navigate to="/dashboard" replace /></Protected>} />
+      <Route path="/dashboard" element={<Protected><DashboardPage /></Protected>} />
+      <Route path="/calendar" element={<Protected fullHeight><CalendarPage /></Protected>} />
+      <Route path="/jobs" element={<Protected><JobsPage /></Protected>} />
+      <Route path="/tasks" element={<Protected><TasksPage /></Protected>} />
+      <Route path="/sensors" element={<Protected><SensorsPage /></Protected>} />
+      <Route path="/team" element={<Protected><TeamPage /></Protected>} />
+      <Route path="/time" element={<Protected><TimePage /></Protected>} />
+      <Route path="/map" element={<Protected fullHeight><MapPage /></Protected>} />
+      <Route path="/settings" element={<Protected><SettingsPage /></Protected>} />
+      <Route path="/data" element={<Protected><StammdatenPage /></Protected>} />
+      <Route path="/drive" element={<Protected><DrivePage /></Protected>} />
+      <Route path="/projects/:id" element={<Protected><ProjectPage /></Protected>} />
+      <Route path="/clients/:id" element={<Protected><ClientPage /></Protected>} />
+      <Route path="/analyse" element={<Protected><AnalysePage /></Protected>} />
+      <Route path="/planning" element={<Protected fullHeight><PlanningPage /></Protected>} />
+      <Route path="/analyse/:id" element={<Protected><EpsAnalysePage /></Protected>} />
+      <Route path="/analyse/artikel/:id" element={<Protected><ArticleViewPage /></Protected>} />
+      <Route path="/portal" element={<RequireAuth kundeOk><ErrorBoundary><Suspense fallback={<PageLoader />}><KundenPortalPage /></Suspense></ErrorBoundary></RequireAuth>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   )
