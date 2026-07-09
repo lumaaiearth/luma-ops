@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useOps } from '../context/OpsContext.jsx'
-import { A, SURFACE, BORDER, FG, MUTED, CARD, A06, A14, A18, A30 } from '../lib/theme.js'
+import { A, SURFACE, BORDER, FG, MUTED, CARD, A06, A14, A18, A30, WARN, DANGER } from '../lib/theme.js'
+import { Button, EmptyState } from '../components/ui.jsx'
 import { genId } from '../lib/storage.js'
 import { Plus, Pencil, Trash2, X, Check, MapPin, User, Building2, Phone, Mail, ExternalLink } from 'lucide-react'
 
@@ -15,7 +16,7 @@ const LABEL = {
   letterSpacing: '0.12em', textTransform: 'uppercase', display: 'block', marginBottom: 5,
 }
 
-const STATUS_COLORS = { active: A, paused: '#F59E0B', completed: '#6B7280' }
+const STATUS_COLORS = { active: A, paused: WARN, completed: '#6B7280' }
 const STATUS_LABELS = { active: 'Aktiv', paused: 'Pausiert', completed: 'Abgeschlossen' }
 
 // ── Project Form Modal ─────────────────────────────────────────────────────────
@@ -97,7 +98,7 @@ function ProjectModal({ project, clients, onSave, onClose }) {
           </div>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 }}>
             <button type="button" onClick={onClose} style={{ padding: '9px 18px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif" }}>Abbrechen</button>
-            <button type="submit" style={{ padding: '9px 22px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif" }}>
+            <button type="submit" className="lu-btn-primary" style={{ padding: '9px 22px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif" }}>
               {project ? 'Speichern' : 'Anlegen'}
             </button>
           </div>
@@ -161,7 +162,7 @@ function ClientModal({ client, onSave, onClose }) {
           </div>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 }}>
             <button type="button" onClick={onClose} style={{ padding: '9px 18px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif" }}>Abbrechen</button>
-            <button type="submit" style={{ padding: '9px 22px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif" }}>
+            <button type="submit" className="lu-btn-primary" style={{ padding: '9px 22px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif" }}>
               {client ? 'Speichern' : 'Anlegen'}
             </button>
           </div>
@@ -218,7 +219,7 @@ export default function StammdatenPage() {
         <h1 style={{ fontSize: 22, fontWeight: 400, color: FG, letterSpacing: '-0.02em' }}>Stammdaten</h1>
         <button
           onClick={() => tab === 'projects' ? setProjectModal('new') : setClientModal('new')}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
+          className="lu-btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
           <Plus size={14} /> {tab === 'projects' ? 'Neues Projekt' : 'Neuer Kunde'}
         </button>
       </div>
@@ -237,7 +238,7 @@ export default function StammdatenPage() {
       {tab === 'projects' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {sortedProjects.length === 0 && (
-            <div style={{ padding: '32px', textAlign: 'center', color: MUTED, fontFamily: "'Space Mono', monospace", fontSize: 12 }}>Keine Projekte</div>
+            <EmptyState title="Keine Projekte" hint="Lege über „Neues Projekt“ das erste an." />
           )}
           {sortedProjects.map(p => {
             const client = clients.find(c => c.id === p.client_id)
@@ -273,10 +274,10 @@ export default function StammdatenPage() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                  <button onClick={() => setProjectModal(p)} style={{ width: 28, height: 28, borderRadius: 4, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <button onClick={() => setProjectModal(p)} className="lu-btn-ghost" style={{ width: 28, height: 28, borderRadius: 4, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Pencil size={12} />
                   </button>
-                  <button onClick={() => confirmDelete('project', p.id, p.name)} style={{ width: 28, height: 28, borderRadius: 4, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <button onClick={() => confirmDelete('project', p.id, p.name)} className="lu-btn-ghost" style={{ width: 28, height: 28, borderRadius: 4, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Trash2 size={12} />
                   </button>
                 </div>
@@ -290,7 +291,7 @@ export default function StammdatenPage() {
       {tab === 'clients' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {clients.length === 0 && (
-            <div style={{ padding: '32px', textAlign: 'center', color: MUTED, fontFamily: "'Space Mono', monospace", fontSize: 12 }}>Keine Kunden</div>
+            <EmptyState title="Keine Kunden" hint="Lege über „Neuer Kunde“ den ersten an." />
           )}
           {clients.map(c => {
             const clientProjects = projects.filter(p => p.client_id === c.id).sort((a, b) => a.name.localeCompare(b.name))
@@ -332,10 +333,10 @@ export default function StammdatenPage() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                    <button onClick={() => setClientModal(c)} style={{ width: 28, height: 28, borderRadius: 4, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <button onClick={() => setClientModal(c)} className="lu-btn-ghost" style={{ width: 28, height: 28, borderRadius: 4, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <Pencil size={12} />
                     </button>
-                    <button onClick={() => confirmDelete('client', c.id, c.name)} style={{ width: 28, height: 28, borderRadius: 4, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <button onClick={() => confirmDelete('client', c.id, c.name)} className="lu-btn-ghost" style={{ width: 28, height: 28, borderRadius: 4, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <Trash2 size={12} />
                     </button>
                   </div>
@@ -386,14 +387,14 @@ export default function StammdatenPage() {
       {deleteConfirm && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setDeleteConfirm(null)}>
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }} />
-          <div onClick={e => e.stopPropagation()} style={{ position: 'relative', background: CARD, border: `1px solid rgba(239,68,68,0.3)`, borderRadius: 8, padding: '24px 28px', maxWidth: 380, width: '100%', textAlign: 'center', boxShadow: '0 24px 60px rgba(0,0,0,0.5)' }}>
+          <div onClick={e => e.stopPropagation()} className="lu-fade-in" style={{ position: 'relative', background: CARD, border: `1px solid color-mix(in srgb, ${DANGER} 30%, transparent)`, borderRadius: 10, padding: '24px 28px', maxWidth: 380, width: '100%', textAlign: 'center', boxShadow: '0 24px 60px rgba(0,0,0,0.5)' }}>
             <div style={{ fontSize: 14, color: FG, marginBottom: 8 }}>
-              <strong style={{ color: '#ef4444' }}>{deleteConfirm.name}</strong> löschen?
+              <strong style={{ color: DANGER }}>{deleteConfirm.name}</strong> löschen?
             </div>
             <div style={{ fontSize: 12, color: MUTED, marginBottom: 20 }}>Diese Aktion kann nicht rückgängig gemacht werden.</div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-              <button onClick={() => setDeleteConfirm(null)} style={{ padding: '8px 18px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif" }}>Abbrechen</button>
-              <button onClick={doDelete} style={{ padding: '8px 18px', borderRadius: 6, background: '#ef444420', border: '1px solid rgba(239,68,68,0.4)', color: '#ef4444', cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif" }}>Löschen</button>
+              <Button variant="ghost" onClick={() => setDeleteConfirm(null)}>Abbrechen</Button>
+              <Button variant="danger" onClick={doDelete}>Löschen</Button>
             </div>
           </div>
         </div>

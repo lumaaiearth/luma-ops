@@ -121,6 +121,12 @@ a { transition: color 0.15s var(--lu-ease), background 0.15s var(--lu-ease); }
 }
 .lu-tab:hover { color: var(--luma-fg) !important; }
 
+/* Einträge in Dropdown-/Vorschlagslisten */
+.lu-option { cursor: pointer; transition: background 0.12s var(--lu-ease); }
+.lu-option:hover {
+  background: color-mix(in srgb, var(--luma-a) 7%, transparent);
+}
+
 /* ── Sanfter Seiteneinstieg ── */
 .lu-fade-in { animation: lu-fade-in 0.25s var(--lu-ease); }
 @keyframes lu-fade-in {

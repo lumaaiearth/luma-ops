@@ -5,14 +5,14 @@ import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useTime } from '../context/TimeContext.jsx'
 import { sbUpdate } from '../lib/supabase.js'
-import { A, BG, SURFACE, BORDER, FG, MUTED, CARD, A06, A14 } from '../lib/theme.js'
+import { A, BG, SURFACE, BORDER, FG, MUTED, CARD, A06, A14, OK, DANGER, INFO } from '../lib/theme.js'
 import { TEAM, TASK_STATUSES, TASK_PRIORITIES } from '../data/seed.js'
 import { isoToday, formatDate } from '../lib/storage.js'
 
 const TASK_S = Object.fromEntries(TASK_STATUSES.map(s => [s.id, s]))
 const TASK_P = Object.fromEntries(TASK_PRIORITIES.map(p => [p.id, p]))
 
-const STATUS_COLOR = { planned: '#6EA8C0', in_progress: A, done: '#22EAA7', cancelled: '#6B7280' }
+const STATUS_COLOR = { planned: INFO, in_progress: A, done: OK, cancelled: '#6B7280' }
 const STATUS_LABEL = { planned: 'Geplant', in_progress: 'Läuft', done: 'Erledigt', cancelled: 'Abgesagt' }
 
 function StatCard({ icon: Icon, label, value, color }) {
@@ -172,7 +172,7 @@ export default function ClientPage() {
           <StatCard icon={MapPin} label="Projekte" value={clientProjects.length} color={clientColor} />
           <StatCard icon={ListTodo} label="Offene Aufgaben" value={openClientTasks.length} color={openClientTasks.length > 0 ? A : undefined} />
           <StatCard icon={Calendar} label="Einsätze gesamt" value={clientJobs.length} />
-          <StatCard icon={Clock} label="Davon erledigt" value={doneJobs.length} color="#22EAA7" />
+          <StatCard icon={Clock} label="Davon erledigt" value={doneJobs.length} color={OK} />
           <StatCard icon={Radio} label="Sensoren" value={clientSensors.length} />
         </div>
 
@@ -289,7 +289,7 @@ export default function ClientPage() {
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>{new Date(j.date + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}</span>
-                          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: STATUS_COLOR[j.status], background: `${STATUS_COLOR[j.status]}18`, padding: '2px 6px', borderRadius: 10 }}>{STATUS_LABEL[j.status]}</span>
+                          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: STATUS_COLOR[j.status], background: `color-mix(in srgb, ${STATUS_COLOR[j.status]} 10%, transparent)`, padding: '2px 6px', borderRadius: 10 }}>{STATUS_LABEL[j.status]}</span>
                         </div>
                       </div>
                     ))}
@@ -350,7 +350,7 @@ export default function ClientPage() {
                       <div style={{ fontSize: 13, color: done ? MUTED : FG, fontFamily: "'Space Grotesk', sans-serif", textDecoration: t.status === 'archive' ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 3 }}>
                         {proj && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED }}>{proj.name}</span>}
-                        {t.due_date && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: overdue ? '#ef4444' : MUTED }}>fällig {formatDate(t.due_date)}</span>}
+                        {t.due_date && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: overdue ? DANGER : MUTED }}>fällig {formatDate(t.due_date)}</span>}
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
@@ -384,7 +384,7 @@ export default function ClientPage() {
                   onMouseEnter={e => e.currentTarget.style.borderColor = `${A}55`}
                   onMouseLeave={e => e.currentTarget.style.borderColor = BORDER}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.status === 'active' ? '#22EAA7' : MUTED, flexShrink: 0 }} />
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.status === 'active' ? OK : MUTED, flexShrink: 0 }} />
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 14, fontWeight: 500, color: FG, fontFamily: "'Space Grotesk', sans-serif" }}>{p.name}</div>
                       {p.location && <div style={{ fontSize: 11, color: MUTED, fontFamily: "'Space Mono', monospace", marginTop: 2 }}><MapPin size={10} style={{ display: 'inline', marginRight: 3 }} />{p.location}</div>}
@@ -392,7 +392,7 @@ export default function ClientPage() {
                   </div>
                   <div style={{ display: 'flex', gap: 16, flexShrink: 0, fontFamily: "'Space Mono', monospace", fontSize: 11 }}>
                     <span style={{ color: MUTED }}>{pJobs.length} Einsätze</span>
-                    <span style={{ color: '#22EAA7' }}>{pDone} erledigt</span>
+                    <span style={{ color: OK }}>{pDone} erledigt</span>
                     {pSensors.length > 0 && <span style={{ color: A }}>{pSensors.length} Sensoren</span>}
                   </div>
                 </button>
@@ -425,7 +425,7 @@ export default function ClientPage() {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, fontFamily: "'Space Mono', monospace", fontSize: 11 }}>
                     <span style={{ color: MUTED }}>{new Date(j.date + 'T00:00:00').toLocaleDateString('de-DE')}</span>
-                    <span style={{ color: STATUS_COLOR[j.status], background: `${STATUS_COLOR[j.status]}18`, padding: '2px 8px', borderRadius: 10 }}>{STATUS_LABEL[j.status]}</span>
+                    <span style={{ color: STATUS_COLOR[j.status], background: `color-mix(in srgb, ${STATUS_COLOR[j.status]} 10%, transparent)`, padding: '2px 8px', borderRadius: 10 }}>{STATUS_LABEL[j.status]}</span>
                   </div>
                 </div>
               )

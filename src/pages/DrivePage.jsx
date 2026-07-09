@@ -119,7 +119,7 @@ export default function DrivePage() {
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED, marginTop: 4 }}>{folders.length} Ordner gespeichert</div>
         </div>
         <button onClick={openAdd}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif" }}>
+          className="lu-btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif" }}>
           <Plus size={14} /> Ordner hinzufügen
         </button>
       </div>
@@ -205,7 +205,7 @@ export default function DrivePage() {
                 Abbrechen
               </button>
               <button type="submit"
-                style={{ padding: '8px 16px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif" }}>
+                className="lu-btn-primary" style={{ padding: '8px 16px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif" }}>
                 {isEditing ? 'Speichern' : 'Hinzufügen'}
               </button>
             </div>

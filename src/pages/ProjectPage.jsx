@@ -7,7 +7,7 @@ import { ArrowLeft, MapPin, Calendar, Clock, Camera, Radio, FileText, Edit3, Sav
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { sb } from '../lib/supabase.js'
-import { A, BG, SURFACE, BORDER, FG, MUTED, CARD, A06, A14, A18 } from '../lib/theme.js'
+import { A, BG, SURFACE, BORDER, FG, MUTED, CARD, A06, A14, A18, OK, WARN, DANGER, INFO } from '../lib/theme.js'
 import { JOB_TYPES, TEAM, TASK_STATUSES, TASK_PRIORITIES } from '../data/seed.js'
 import { isoToday, formatDate } from '../lib/storage.js'
 import TaskModal from '../components/TaskModal.jsx'
@@ -15,7 +15,7 @@ import TaskModal from '../components/TaskModal.jsx'
 const TASK_S = Object.fromEntries(TASK_STATUSES.map(s => [s.id, s]))
 const TASK_P = Object.fromEntries(TASK_PRIORITIES.map(p => [p.id, p]))
 
-const STATUS_COLOR = { planned: '#6EA8C0', in_progress: A, done: '#22EAA7', cancelled: '#6B7280' }
+const STATUS_COLOR = { planned: INFO, in_progress: A, done: OK, cancelled: '#6B7280' }
 const STATUS_LABEL = { planned: 'Geplant', in_progress: 'Läuft', done: 'Erledigt', cancelled: 'Abgesagt' }
 
 function makePin(color) {
@@ -145,7 +145,7 @@ export default function ProjectPage() {
                   <MapPin size={12} /> {project.location}
                 </span>
               )}
-              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: project.status === 'active' ? '#22EAA7' : MUTED, background: project.status === 'active' ? '#22EAA718' : A06, border: `1px solid ${project.status === 'active' ? '#22EAA740' : BORDER}`, padding: '2px 8px', borderRadius: 20 }}>
+              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: project.status === 'active' ? OK : MUTED, background: project.status === 'active' ? `color-mix(in srgb, ${OK} 10%, transparent)` : A06, border: `1px solid ${project.status === 'active' ? `color-mix(in srgb, ${OK} 25%, transparent)` : BORDER}`, padding: '2px 8px', borderRadius: 20 }}>
                 {project.status || 'aktiv'}
               </span>
             </div>
@@ -162,7 +162,7 @@ export default function ProjectPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 24 }}>
           <StatCard icon={ListTodo} label="Offene Aufgaben" value={openTasks.length} color={openTasks.length > 0 ? A : undefined} />
           <StatCard icon={Calendar} label="Einsätze gesamt" value={projectJobs.length} />
-          <StatCard icon={Clock} label="Davon erledigt" value={doneJobs.length} color="#22EAA7" />
+          <StatCard icon={Clock} label="Davon erledigt" value={doneJobs.length} color={OK} />
           <StatCard icon={Radio} label="Aktive Sensoren" value={projectSensors.length} />
         </div>
 
@@ -215,7 +215,7 @@ export default function ProjectPage() {
                 {project.geojson && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
                     <span style={{ color: MUTED }}>Fläche</span>
-                    <span style={{ color: '#22EAA7', fontSize: 11, fontFamily: "'Space Mono', monospace" }}>● kartiert</span>
+                    <span style={{ color: OK, fontSize: 11, fontFamily: "'Space Mono', monospace" }}>● kartiert</span>
                   </div>
                 )}
               </div>
@@ -299,7 +299,7 @@ export default function ProjectPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED }}>{openTasks.length} offen · {projectTasks.length} gesamt</div>
               <button onClick={() => setTaskModal({ defaults: { project_id: id, client_id: clientOfProject?.id || '' } })}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 7, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                className="lu-btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 7, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
                 <Plus size={14} /> Aufgabe
               </button>
             </div>
@@ -327,7 +327,7 @@ export default function ProjectPage() {
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                           <button onClick={e => { e.stopPropagation(); const order = TASK_STATUSES.map(s => s.id); setTaskStatus(t.id, order[(order.indexOf(t.status) + 1) % order.length]) }}
                             style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: st?.color, background: st?.color + '18', border: `1px solid ${st?.color}40`, padding: '1px 7px', borderRadius: 10, cursor: 'pointer' }}>{st?.label}</button>
-                          {zr && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: overdue ? '#ef4444' : MUTED }}>{zr}{overdue ? ' · überfällig' : ''}</span>}
+                          {zr && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: overdue ? DANGER : MUTED }}>{zr}{overdue ? ' · überfällig' : ''}</span>}
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
@@ -338,7 +338,7 @@ export default function ProjectPage() {
                         ))}
                       </div>
                       <button onClick={e => { e.stopPropagation(); deleteTask(t.id) }}
-                        style={{ width: 28, height: 28, borderRadius: 5, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        className="lu-btn-ghost" style={{ width: 28, height: 28, borderRadius: 5, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <Trash2 size={12} />
                       </button>
                     </div>
@@ -368,7 +368,7 @@ export default function ProjectPage() {
                     <div style={{ fontSize: 14, fontWeight: 500, color: FG, marginBottom: 2 }}>{job.title}</div>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                       {type && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: type.color }}>{type.label}</span>}
-                      <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: STATUS_COLOR[job.status], background: STATUS_COLOR[job.status] + '18', padding: '1px 6px', borderRadius: 10 }}>{STATUS_LABEL[job.status]}</span>
+                      <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: STATUS_COLOR[job.status], background: `color-mix(in srgb, ${STATUS_COLOR[job.status]} 10%, transparent)`, padding: '1px 6px', borderRadius: 10 }}>{STATUS_LABEL[job.status]}</span>
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
@@ -417,7 +417,7 @@ export default function ProjectPage() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
                 {projectSensors.map(s => {
                   const pct = s.threshold_high > 0 ? Math.min((s.value / s.threshold_high) * 100, 100) : 50
-                  const statusColor = s.status === 'critical' ? '#ef4444' : s.status === 'warning' ? '#F59E0B' : '#22EAA7'
+                  const statusColor = s.status === 'critical' ? DANGER : s.status === 'warning' ? WARN : OK
                   return (
                     <div key={s.id} style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, padding: 16 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>

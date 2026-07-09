@@ -322,7 +322,7 @@ function FeatureForm({ mode, project, color, existingFeature, onSave, onCancel, 
 
         <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
           <button onClick={handleSave}
-            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px 18px', borderRadius: 8, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: "'Space Grotesk', sans-serif" }}>
+            className="lu-btn-primary" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px 18px', borderRadius: 8, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: "'Space Grotesk', sans-serif" }}>
             <Save size={13} /> Speichern
           </button>
           {(mode === 'bed' || mode === 'area') && areaM2 > 0 && (

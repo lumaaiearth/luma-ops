@@ -4,10 +4,70 @@
 // damit alle Seiten dieselbe Sprache sprechen.
 // Hover-/Fokus-Feedback kommt aus src/styles/ui.css (lu-* Klassen).
 // ────────────────────────────────────────────────────────────────
-import { A, SURFACE, BORDER, FG, MUTED, DANGER } from '../lib/theme.js'
+import { useEffect } from 'react'
+import { X } from 'lucide-react'
+import { A, SURFACE, BORDER, FG, MUTED, CARD, DANGER } from '../lib/theme.js'
 
 export const MONO = "'Space Mono', monospace"
 export const SANS = "'Space Grotesk', sans-serif"
+
+/** Einheitlicher Formular-Input-Stil (vorher in jedem Modal dupliziert) */
+export const INPUT_STYLE = {
+  width: '100%', background: SURFACE, border: `1px solid ${BORDER}`,
+  borderRadius: 6, padding: '10px 12px', color: FG,
+  fontFamily: SANS, fontSize: 14, outline: 'none',
+}
+
+/** Einheitlicher Formular-Label-Stil */
+export const LABEL_STYLE = {
+  fontFamily: MONO, fontSize: 10, color: MUTED,
+  letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6, display: 'block',
+}
+
+/**
+ * Geteilte Modal-Shell: Overlay mit Blur, Panel mit sticky Header,
+ * Schließen per X, Klick aufs Overlay oder Escape.
+ */
+export function Modal({ eyebrow, eyebrowColor = A, title, onClose, maxWidth = 580, zIndex = 1000, children }) {
+  useEffect(() => {
+    const h = e => { if (e.key === 'Escape') onClose?.() }
+    document.addEventListener('keydown', h)
+    return () => document.removeEventListener('keydown', h)
+  }, [onClose])
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(4px)' }} />
+      <div role="dialog" aria-modal="true" onClick={e => e.stopPropagation()} className="lu-fade-in"
+        style={{ position: 'relative', background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10, width: '100%', maxWidth, maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 32px 80px rgba(0,0,0,0.55)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '18px 24px', borderBottom: `1px solid ${BORDER}`, position: 'sticky', top: 0, background: CARD, zIndex: 2 }}>
+          <div style={{ minWidth: 0 }}>
+            {eyebrow && <div style={{ fontFamily: MONO, fontSize: 10, color: eyebrowColor, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: title ? 2 : 0 }}>{eyebrow}</div>}
+            {title && <div style={{ fontSize: 15, fontWeight: 500, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>}
+          </div>
+          <button type="button" onClick={onClose} aria-label="Schließen" className="lu-btn-ghost"
+            style={{ background: 'transparent', border: `1px solid ${BORDER}`, borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <X size={16} />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+/** Einheitliche Aktionszeile am Modal-Ende: optional Extra-Aktion links, Abbrechen/Speichern rechts */
+export function ModalActions({ left, onCancel, submitLabel = 'Speichern', cancelLabel = 'Abbrechen' }) {
+  return (
+    <div style={{ display: 'flex', gap: 10, justifyContent: left ? 'space-between' : 'flex-end', alignItems: 'center', paddingTop: 4, flexWrap: 'wrap' }}>
+      {left || null}
+      <div style={{ display: 'flex', gap: 10 }}>
+        <Button variant="ghost" type="button" onClick={onCancel} style={{ padding: '10px 20px', fontSize: 14 }}>{cancelLabel}</Button>
+        <Button type="submit" style={{ padding: '10px 24px', fontSize: 14 }}>{submitLabel}</Button>
+      </div>
+    </div>
+  )
+}
 
 /** Mono-Uppercase-Abschnittslabel — optional mit Aktion rechts (z.B. „alle →") */
 export function SectionLabel({ children, action, style }) {

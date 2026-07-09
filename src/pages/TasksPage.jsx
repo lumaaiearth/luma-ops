@@ -4,7 +4,8 @@ import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useWeather } from '../context/WeatherContext.jsx'
 import { getWeatherForDate, STATUS_COLOR } from '../lib/weather.js'
-import { A, SURFACE, BORDER, FG, MUTED, BG, A06, A14 } from '../lib/theme.js'
+import { A, SURFACE, BORDER, FG, MUTED, BG, A06, OK, DANGER } from '../lib/theme.js'
+import { Button, EmptyState } from '../components/ui.jsx'
 import { TEAM, TASK_STATUSES, TASK_PRIORITIES, TASK_EFFORTS, TASK_TYPES } from '../data/seed.js'
 import { isoToday, formatDate } from '../lib/storage.js'
 import TaskModal from '../components/TaskModal.jsx'
@@ -114,8 +115,8 @@ export default function TasksPage() {
   function BoardChip({ id, label, emoji, color, count, onEdit }) {
     const active = activeBoard === id
     return (
-      <button onClick={() => setActiveBoard(id)}
-        style={{ display: 'flex', alignItems: 'center', gap: 8, width: isMobile ? 'auto' : '100%', flexShrink: 0, padding: '8px 10px', borderRadius: 8, border: `1px solid ${active ? (color || A) + '70' : 'transparent'}`, background: active ? (color || A) + '18' : 'transparent', cursor: 'pointer', textAlign: 'left', whiteSpace: 'nowrap' }}>
+      <button onClick={() => setActiveBoard(id)} className={active ? 'lu-nav active' : 'lu-nav'}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, width: isMobile ? 'auto' : '100%', flexShrink: 0, padding: '8px 10px', borderRadius: 8, border: `1px solid ${active ? (color || A) + '70' : 'transparent'}`, background: active ? (color || A) + '18' : 'transparent', cursor: 'pointer', textAlign: 'left', whiteSpace: 'nowrap', color: MUTED }}>
         <span style={{ fontSize: 14, width: 18, textAlign: 'center' }}>{emoji}</span>
         <span style={{ fontSize: 13, color: active ? (color || A) : FG, fontWeight: active ? 600 : 400, flex: 1 }}>{label}</span>
         <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>{count}</span>
@@ -138,7 +139,7 @@ export default function TasksPage() {
           onEdit={() => setBoardModal({ board: b })} />
       ))}
       {hasOrphans && <BoardChip id="none" label="Ohne Bereich" emoji="•" color={MUTED} count={tasks.filter(t => !t.board_id && isOpen(t)).length} />}
-      <button onClick={() => setBoardModal({})}
+      <button onClick={() => setBoardModal({})} className="lu-btn-ghost"
         style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, padding: '8px 10px', borderRadius: 8, border: `1px dashed ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, marginTop: isMobile ? 0 : 4, whiteSpace: 'nowrap' }}>
         <Plus size={13} /> Bereich
       </button>
@@ -184,10 +185,9 @@ export default function TasksPage() {
               </div>
             )}
           </div>
-          <button onClick={() => setModal(newTaskDefaults())}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: isMobile ? '9px 14px' : '8px 16px', borderRadius: 7, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-            <Plus size={14} />{isMobile ? ' Neu' : ' Neue Aufgabe'}
-          </button>
+          <Button icon={Plus} onClick={() => setModal(newTaskDefaults())}>
+            {isMobile ? 'Neu' : 'Neue Aufgabe'}
+          </Button>
         </div>
 
         {/* Bereichs-Kennzahlen */}
@@ -197,8 +197,8 @@ export default function TasksPage() {
           const done = scoped.filter(t => t.status === 'done').length
           const kpis = [
             ['Offen', off, off > 0 ? A : MUTED],
-            ['Überfällig', over, over > 0 ? '#ef4444' : MUTED],
-            ['Erledigt', done, '#22EAA7'],
+            ['Überfällig', over, over > 0 ? DANGER : MUTED],
+            ['Erledigt', done, OK],
           ]
           return (
             <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
@@ -290,7 +290,7 @@ export default function TasksPage() {
               Gelöschte Aufgaben — wiederherstellen oder endgültig entfernen.
             </div>
             {deletedTasks.length === 0 && (
-              <div style={{ padding: 40, textAlign: 'center', color: MUTED, fontFamily: "'Space Mono', monospace", fontSize: 12 }}>Papierkorb ist leer</div>
+              <EmptyState icon={Trash2} title="Papierkorb ist leer" />
             )}
             {[...deletedTasks].sort((a, b) => (b.deleted_at || '').localeCompare(a.deleted_at || '')).map(t => {
               const prio = P[t.priority]
@@ -303,12 +303,12 @@ export default function TasksPage() {
                       {project ? project.name + ' · ' : ''}gelöscht {t.deleted_at ? formatDate(t.deleted_at.slice(0, 10)) : ''}
                     </div>
                   </div>
-                  <button onClick={() => restoreTask(t.id)} title="Wiederherstellen"
+                  <button onClick={() => restoreTask(t.id)} title="Wiederherstellen" className="lu-btn-ghost"
                     style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 6, background: A06, border: `1px solid ${A}40`, color: A, cursor: 'pointer', fontSize: 12, flexShrink: 0 }}>
                     <RotateCcw size={12} /> Wiederherstellen
                   </button>
-                  <button onClick={() => { if (confirm(`„${t.title}" endgültig löschen?`)) purgeTask(t.id) }} title="Endgültig löschen"
-                    style={{ width: 30, height: 30, borderRadius: 6, background: 'transparent', border: `1px solid #ef444440`, cursor: 'pointer', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <button onClick={() => { if (confirm(`„${t.title}" endgültig löschen?`)) purgeTask(t.id) }} title="Endgültig löschen" className="lu-btn-danger"
+                    style={{ width: 30, height: 30, borderRadius: 6, background: 'transparent', border: `1px solid color-mix(in srgb, ${DANGER} 25%, transparent)`, cursor: 'pointer', color: DANGER, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <Trash2 size={13} />
                   </button>
                 </div>
@@ -385,8 +385,8 @@ function TaskCard({ task, projects, clients, boards, today, navigate, weatherFor
   const wc = !done ? weatherWarnColor(task, weatherForecast) : null
 
   return (
-    <div {...drag} onClick={onOpen}
-      style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, borderRadius: 8, padding: '10px 12px', cursor: 'pointer', position: 'relative' }}
+    <div {...drag} onClick={onOpen} className="lu-card lu-clickable"
+      style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, borderRadius: 8, padding: '10px 12px', position: 'relative' }}
       onMouseEnter={e => { const d = e.currentTarget.querySelector('.card-del'); if (d) d.style.opacity = 1 }}
       onMouseLeave={e => { const d = e.currentTarget.querySelector('.card-del'); if (d) d.style.opacity = 0 }}>
 
@@ -406,7 +406,7 @@ function TaskCard({ task, projects, clients, boards, today, navigate, weatherFor
 
       {(zr || (task.location || (task.lat && task.lng))) && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
-          {zr && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: "'Space Mono', monospace", fontSize: 9, color: overdue ? '#ef4444' : MUTED, fontWeight: overdue ? 700 : 400 }}><CalendarClock size={10} />{zr}{overdue ? ' · überfällig' : ''}</span>}
+          {zr && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: "'Space Mono', monospace", fontSize: 9, color: overdue ? DANGER : MUTED, fontWeight: overdue ? 700 : 400 }}><CalendarClock size={10} />{zr}{overdue ? ' · überfällig' : ''}</span>}
           <LocationLink task={task} navigate={navigate} />
           {wc && <span title="Wetterwarnung am Fälligkeitstag" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: "'Space Mono', monospace", fontSize: 9, color: wc }}><AlertTriangle size={10} />Wetter</span>}
         </div>
@@ -418,7 +418,7 @@ function TaskCard({ task, projects, clients, boards, today, navigate, weatherFor
           {S[task.status]?.short}
         </button>
         {task.checklist?.length > 0 && (
-          <span title="Teilaufgaben" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: "'Space Mono', monospace", fontSize: 9, color: task.checklist.every(i => i.done) ? '#22EAA7' : MUTED }}>
+          <span title="Teilaufgaben" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: "'Space Mono', monospace", fontSize: 9, color: task.checklist.every(i => i.done) ? OK : MUTED }}>
             <CheckSquare size={10} />{task.checklist.filter(i => i.done).length}/{task.checklist.length}
           </span>
         )}
@@ -431,7 +431,7 @@ function TaskCard({ task, projects, clients, boards, today, navigate, weatherFor
 
 /* ─── TABLE / LIST ─────────────────────────────────────────────────────────── */
 function TaskTable({ tasks, projects, clients, boards, today, isMobile, navigate, weatherForecast, showBoard, onOpen, onDelete, onCycle }) {
-  if (tasks.length === 0) return <div style={{ padding: 40, textAlign: 'center', color: MUTED, fontFamily: "'Space Mono', monospace", fontSize: 12 }}>Keine Aufgaben</div>
+  if (tasks.length === 0) return <EmptyState title="Keine Aufgaben" hint="Passe die Filter an oder lege eine neue Aufgabe an." />
 
   if (isMobile) {
     return (
@@ -459,16 +459,14 @@ function TaskTable({ tasks, projects, clients, boards, today, isMobile, navigate
         const overdue = t.due_date && !done && t.due_date < today
         const wc = !done ? weatherWarnColor(t, weatherForecast) : null
         return (
-          <div key={t.id} onClick={() => onOpen(t)}
-            style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr 1fr 0.9fr 1.1fr 0.9fr 40px', gap: 10, padding: '11px 14px', borderBottom: `1px solid ${BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, cursor: 'pointer', alignItems: 'center', background: BG }}
-            onMouseEnter={e => e.currentTarget.style.background = A06}
-            onMouseLeave={e => e.currentTarget.style.background = BG}>
+          <div key={t.id} onClick={() => onOpen(t)} className="lu-option"
+            style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr 1fr 0.9fr 1.1fr 0.9fr 40px', gap: 10, padding: '11px 14px', borderBottom: `1px solid ${BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, alignItems: 'center' }}>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 500, color: done ? MUTED : FG, textDecoration: t.status === 'archive' ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 2 }}>
                 {showBoard && board && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: board.color }}>{board.emoji} {board.name}</span>}
                 <LocationLink task={t} navigate={navigate} />
-                {t.checklist?.length > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: "'Space Mono', monospace", fontSize: 9, color: t.checklist.every(i => i.done) ? '#22EAA7' : MUTED }}><CheckSquare size={10} />{t.checklist.filter(i => i.done).length}/{t.checklist.length}</span>}
+                {t.checklist?.length > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: "'Space Mono', monospace", fontSize: 9, color: t.checklist.every(i => i.done) ? OK : MUTED }}><CheckSquare size={10} />{t.checklist.filter(i => i.done).length}/{t.checklist.length}</span>}
               </div>
             </div>
             <div style={{ minWidth: 0, fontSize: 11 }}>
@@ -482,9 +480,9 @@ function TaskTable({ tasks, projects, clients, boards, today, isMobile, navigate
               </button>
             </div>
             <div style={{ fontSize: 11, color: prio?.color }}>{prio?.label}</div>
-            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: overdue ? '#ef4444' : MUTED, fontWeight: overdue ? 700 : 400, display: 'flex', alignItems: 'center', gap: 4 }}>{zr || '—'}{wc && <AlertTriangle size={10} color={wc} title="Wetterwarnung" />}</div>
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: overdue ? DANGER : MUTED, fontWeight: overdue ? 700 : 400, display: 'flex', alignItems: 'center', gap: 4 }}>{zr || '—'}{wc && <AlertTriangle size={10} color={wc} title="Wetterwarnung" />}</div>
             <div><People ownerId={t.owner_id} collaborators={t.assigned_users} size={22} /></div>
-            <button onClick={e => { e.stopPropagation(); onDelete(t.id) }}
+            <button onClick={e => { e.stopPropagation(); onDelete(t.id) }} title="Löschen" className="lu-btn-danger"
               style={{ background: 'transparent', border: `1px solid ${BORDER}`, borderRadius: 5, width: 26, height: 26, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Trash2 size={12} />
             </button>

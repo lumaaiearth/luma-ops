@@ -461,7 +461,7 @@ export default function PlanningPage() {
                   </div>
                   {/* Add button */}
                   <button onClick={() => { addToPlan(sheetPlant); setSheetPlant(null) }}
-                    style={{ width: '100%', padding: '14px', borderRadius: 12, background: A, border: 'none', color: '#001219', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
+                    className="lu-btn-primary" style={{ width: '100%', padding: '14px', borderRadius: 12, background: A, border: 'none', color: '#001219', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
                     + Zum Plan hinzufügen
                   </button>
                 </div>

@@ -574,7 +574,7 @@ export default function CalendarPage() {
           </button>
           {!isMobile && (
             <button onClick={() => setModal({ date: today })}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 14px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+              className="lu-btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 14px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
               <Plus size={14} /> Einsatz
             </button>
           )}
@@ -584,7 +584,7 @@ export default function CalendarPage() {
       {/* Mobile FAB — floating + button above bottom nav */}
       {isMobile && (
         <button onClick={() => setModal({ date: today })}
-          style={{ position: 'fixed', bottom: 'calc(60px + env(safe-area-inset-bottom) + 16px)', right: 16, width: 52, height: 52, borderRadius: '50%', background: A, border: 'none', color: '#001219', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.45)', zIndex: 90 }}>
+          className="lu-btn-primary" style={{ position: 'fixed', bottom: 'calc(60px + env(safe-area-inset-bottom) + 16px)', right: 16, width: 52, height: 52, borderRadius: '50%', background: A, border: 'none', color: '#001219', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.45)', zIndex: 90 }}>
           <Plus size={22} />
         </button>
       )}
@@ -947,7 +947,7 @@ export default function CalendarPage() {
                       })()}
                     </div>
                     <button onClick={() => setModal({ date: selectedMonthDate })}
-                      style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                      className="lu-btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
                       <Plus size={12} /> Einsatz
                     </button>
                   </div>
