@@ -5,6 +5,7 @@ import { useOps } from '../context/OpsContext.jsx'
 import { useGCal } from '../context/GCalContext.jsx'
 import { useWeather } from '../context/WeatherContext.jsx'
 import { A, BG, SURFACE, BORDER, FG, MUTED, A06, A0a, A0d, A14, A40 } from '../lib/theme.js'
+import { EmptyState, SANS } from '../components/ui.jsx'
 import JobModal from '../components/JobModal.jsx'
 import { JOB_TYPES, TEAM, VEHICLES, TASK_PRIORITIES } from '../data/seed.js'
 
@@ -545,14 +546,14 @@ export default function CalendarPage() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? '10px 12px' : '12px 20px', borderBottom: miniMonthOpen ? 'none' : `1px solid ${BORDER}`, background: SURFACE, flexShrink: 0, gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 10, flex: 1, minWidth: 0 }}>
           {/* Hamburger */}
-          <button onClick={() => setSidebarOpen(true)} style={{ width: 34, height: 34, borderRadius: 7, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <button onClick={() => setSidebarOpen(true)} title="Kalender-Optionen" className="lu-btn-ghost" style={{ width: 34, height: 34, borderRadius: 7, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <Menu size={16} />
           </button>
-          {!isMobile && <button onClick={goTodayAll} style={{ padding: '5px 12px', borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", flexShrink: 0 }}>Heute</button>}
-          <button onClick={prevPeriod} style={{ width: isMobile ? 32 : 30, height: isMobile ? 32 : 30, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          {!isMobile && <button onClick={goTodayAll} className="lu-btn-ghost" style={{ padding: '5px 12px', borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", flexShrink: 0 }}>Heute</button>}
+          <button onClick={prevPeriod} title="Zurück" className="lu-btn-ghost" style={{ width: isMobile ? 32 : 30, height: isMobile ? 32 : 30, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <ChevronLeft size={15} />
           </button>
-          <button onClick={nextPeriod} style={{ width: isMobile ? 32 : 30, height: isMobile ? 32 : 30, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <button onClick={nextPeriod} title="Weiter" className="lu-btn-ghost" style={{ width: isMobile ? 32 : 30, height: isMobile ? 32 : 30, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <ChevronRight size={15} />
           </button>
           {/* Clickable period label → mini-month */}
@@ -568,6 +569,17 @@ export default function CalendarPage() {
           )}
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+          {/* Ansichts-Umschalter — auf Desktop sichtbar statt nur im Drawer versteckt */}
+          {!isMobile && (
+            <div style={{ display: 'flex', gap: 2, background: BG, borderRadius: 7, padding: 3, border: `1px solid ${BORDER}`, marginRight: 4 }}>
+              {VIEW_OPTIONS.map(v => (
+                <button key={v.id} onClick={() => setView(v.id)} className="lu-tab"
+                  style={{ padding: '4px 10px', borderRadius: 5, border: 'none', background: view === v.id ? A14 : 'transparent', color: view === v.id ? A : MUTED, cursor: 'pointer', fontSize: 12, fontWeight: view === v.id ? 600 : 400, fontFamily: SANS, whiteSpace: 'nowrap' }}>
+                  {v.label}
+                </button>
+              ))}
+            </div>
+          )}
           <button onClick={scrollToNow}
             style={{ padding: '5px 10px', borderRadius: 6, border: 'none', background: '#FFD600', color: '#1a1200', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: "'Space Mono', monospace", letterSpacing: '0.04em', boxShadow: '0 0 8px #FFD60066' }}>
             Now
@@ -716,19 +728,19 @@ export default function CalendarPage() {
 
                 return (
                   <div key={date}
-                    style={{ flex: 1, position: 'relative', borderRight: i < activeDays.length - 1 ? `1px solid ${BORDER}` : 'none', background: isDragOver ? A0d : isToday ? `${A}06` : 'transparent', transition: 'background 0.1s', cursor: 'crosshair' }}
+                    style={{ flex: 1, position: 'relative', borderRight: i < activeDays.length - 1 ? `1px solid ${BORDER}` : 'none', background: isDragOver ? A0d : isToday ? `color-mix(in srgb, ${A} 2%, transparent)` : 'transparent', transition: 'background 0.1s', cursor: 'crosshair' }}
                     onClick={e => handleColumnClick(e, date)}
                     onDragOver={e => handleDragOver(e, date)}
                     onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) { setDragOverDate(null); setDragPreview(null) } }}
                     onDrop={e => handleDrop(e, date)}>
 
-                    {/* Hour grid lines — subtle, within day column only */}
+                    {/* Hour grid lines — subtle, theme-aware, within day column only */}
                     {HOURS.map(h => (
-                      <div key={h} style={{ position: 'absolute', top: (h - HOUR_START) * PX_PER_HOUR, left: 0, right: 0, borderTop: '1px solid rgba(255,255,255,0.07)', pointerEvents: 'none' }} />
+                      <div key={h} style={{ position: 'absolute', top: (h - HOUR_START) * PX_PER_HOUR, left: 0, right: 0, borderTop: `1px solid color-mix(in srgb, ${FG} 7%, transparent)`, pointerEvents: 'none' }} />
                     ))}
                     {/* Half-hour lines */}
                     {HOURS.map(h => (
-                      <div key={`h-${h}`} style={{ position: 'absolute', top: (h - HOUR_START) * PX_PER_HOUR + PX_PER_HOUR / 2, left: 0, right: 0, borderTop: '1px solid rgba(255,255,255,0.035)', pointerEvents: 'none' }} />
+                      <div key={`h-${h}`} style={{ position: 'absolute', top: (h - HOUR_START) * PX_PER_HOUR + PX_PER_HOUR / 2, left: 0, right: 0, borderTop: `1px solid color-mix(in srgb, ${FG} 3.5%, transparent)`, pointerEvents: 'none' }} />
                     ))}
 
                     {/* Current time indicator */}
@@ -827,7 +839,7 @@ export default function CalendarPage() {
                   onDragOver={e => handleDragOver(e, date)}
                   onDragLeave={() => setDragOverDate(null)}
                   onDrop={e => handleDrop(e, date)}
-                  style={{ minHeight: 80, padding: 8, borderRadius: 6, border: `1px solid ${isDragOver ? A + '80' : isToday ? A + '60' : wWarn ? wsc + '40' : BORDER}`, background: isDragOver ? A14 : isToday ? A0a : 'transparent', cursor: 'pointer', transition: 'background 0.1s' }}
+                  style={{ minHeight: 80, padding: 8, borderRadius: 6, border: `1px solid ${isDragOver ? `color-mix(in srgb, ${A} 50%, transparent)` : isToday ? `color-mix(in srgb, ${A} 38%, transparent)` : wWarn ? wsc + '40' : BORDER}`, background: isDragOver ? A14 : isToday ? A0a : 'transparent', cursor: 'pointer', transition: 'background 0.1s' }}
                   onMouseEnter={e => { if (!isDragOver) e.currentTarget.style.background = isToday ? A14 : A06 }}
                   onMouseLeave={e => { if (!isDragOver) e.currentTarget.style.background = isToday ? A0a : 'transparent' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -952,12 +964,12 @@ export default function CalendarPage() {
                     </button>
                   </div>
                   {selJobs.length === 0 && selTasks.length === 0 && (
-                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED, textAlign: 'center', marginTop: 32 }}>Nichts geplant</div>
+                    <EmptyState title="Nichts geplant" hint="Tippe auf „Einsatz“, um etwas anzulegen." style={{ marginTop: 24 }} />
                   )}
                   {selTasks.map(t => {
                     const color = TASK_P_CAL[t.priority]?.color || '#A78BFA'
                     return (
-                      <div key={`smt-${t.id}`} onClick={openTaskInList}
+                      <div key={`smt-${t.id}`} onClick={openTaskInList} className="lu-card lu-clickable"
                         style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, background: SURFACE, border: `1px dashed ${color}55`, marginBottom: 8, cursor: 'pointer' }}>
                         <CheckSquare size={14} color={color} style={{ flexShrink: 0 }} />
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -972,8 +984,8 @@ export default function CalendarPage() {
                     const clientColor = getClientColor(job, projects, clients)
                     return (
                       <div key={job.id}
-                        onClick={() => openJob(job)}
-                        style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 8, background: SURFACE, border: `1px solid ${BORDER}`, marginBottom: 8, cursor: 'pointer' }}>
+                        onClick={() => openJob(job)} className="lu-card lu-clickable"
+                        style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 8, background: SURFACE, border: `1px solid ${BORDER}`, marginBottom: 8 }}>
                         <div style={{ width: 3, alignSelf: 'stretch', borderRadius: 2, background: type?.color || A, flexShrink: 0 }} />
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 500, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.title}</div>
@@ -1067,9 +1079,9 @@ function MiniMonth({ displayMonth, today, onMonthChange, onSelectDate, BORDER, F
   return (
     <div style={{ background: SURFACE, borderBottom: `1px solid ${BORDER}`, padding: '8px 16px 12px', flexShrink: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-        <button onClick={prevM} style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronLeft size={13} /></button>
+        <button onClick={prevM} className="lu-btn-ghost" style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronLeft size={13} /></button>
         <span style={{ fontSize: 13, fontWeight: 600, color: FG }}>{label}</span>
-        <button onClick={nextM} style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronRight size={13} /></button>
+        <button onClick={nextM} className="lu-btn-ghost" style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronRight size={13} /></button>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
         {MINI_DAY_NAMES.map(d => (
@@ -1080,7 +1092,7 @@ function MiniMonth({ displayMonth, today, onMonthChange, onSelectDate, BORDER, F
           const isToday = date === today
           const d = new Date(date + 'T00:00:00')
           return (
-            <button key={date} onClick={() => onSelectDate(date)} style={{
+            <button key={date} onClick={() => onSelectDate(date)} className="lu-option" style={{
               width: '100%', aspectRatio: '1', borderRadius: '50%', border: 'none',
               background: isToday ? A : 'transparent',
               color: isToday ? '#001219' : FG,
@@ -1117,14 +1129,14 @@ function CalendarSidebar({ view, setView, gcalConnected, gcalCalendars, enabledC
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${BORDER}` }}>
           <span style={{ fontSize: 15, fontWeight: 700, color: FG }}>Kalender</span>
-          <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button onClick={onClose} className="lu-btn-ghost" style={{ width: 30, height: 30, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <X size={14} />
           </button>
         </div>
 
         <div style={{ padding: '16px 20px', flex: 1 }}>
           {/* Heute Button */}
-          <button onClick={goTodayAll} style={{ width: '100%', padding: '10px 0', borderRadius: 8, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif", marginBottom: 20 }}>
+          <button onClick={goTodayAll} className="lu-btn-ghost" style={{ width: '100%', padding: '10px 0', borderRadius: 8, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif", marginBottom: 20 }}>
             Heute
           </button>
 
@@ -1132,7 +1144,7 @@ function CalendarSidebar({ view, setView, gcalConnected, gcalCalendars, enabledC
           <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Ansicht</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 24 }}>
             {VIEW_OPTIONS.map(v => (
-              <button key={v.id} onClick={() => setView(v.id)} style={{
+              <button key={v.id} onClick={() => setView(v.id)} className={view === v.id ? 'lu-nav active' : 'lu-nav'} style={{
                 display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
                 borderRadius: 8, border: 'none', textAlign: 'left', cursor: 'pointer',
                 background: view === v.id ? A14 : 'transparent',
@@ -1221,8 +1233,8 @@ function ScheduleView({ startDate, jobs, gcalEvents, projects, clients, today, o
 
   if (daysWithEvents.length === 0) {
     return (
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 8 }}>
-        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: MUTED }}>Keine Termine in den nächsten 90 Tagen</div>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <EmptyState icon={CalendarDays} title="Keine Termine in den nächsten 90 Tagen" hint="Klicke auf „Einsatz“, um einen Termin anzulegen." style={{ border: 'none' }} />
       </div>
     )
   }
@@ -1255,6 +1267,7 @@ function ScheduleView({ startDate, jobs, gcalEvents, projects, clients, today, o
                 const accentColor = ev.calendarColor || clientColor
                 return (
                   <div key={ev.id} onClick={() => !ev.isGCal && onOpen(ev)}
+                    className={ev.isGCal ? 'lu-card' : 'lu-card lu-clickable'}
                     style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 8, background: SURFACE, border: `1px solid ${BORDER}`, cursor: ev.isGCal ? 'default' : 'pointer' }}>
                     <div style={{ width: 3, alignSelf: 'stretch', borderRadius: 2, background: accentColor, flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>

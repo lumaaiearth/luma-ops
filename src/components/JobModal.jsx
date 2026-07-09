@@ -282,7 +282,7 @@ export default function JobModal({ initialDate, initialJob, initialStartTime, in
                 <option value="__new__">+ Neues Projekt anlegen</option>
               </select>
               {clientName && (
-                <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: `${typeColor}99`, marginTop: 4, paddingLeft: 2 }}>
+                <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: `color-mix(in srgb, ${typeColor} 60%, transparent)`, marginTop: 4, paddingLeft: 2 }}>
                   {clientName}
                 </div>
               )}
@@ -290,7 +290,7 @@ export default function JobModal({ initialDate, initialJob, initialStartTime, in
             <div>
               <label style={LABEL_STYLE}>Typ &amp; Farbe</label>
               <div style={{ display: 'flex', gap: 6, alignItems: 'stretch' }}>
-                <select style={{ ...INPUT_STYLE, flex: 1, borderColor: typeColor + '60', color: typeColor }} value={form.job_type} onChange={e => setForm(f => ({ ...f, job_type: e.target.value }))}>
+                <select style={{ ...INPUT_STYLE, flex: 1, borderColor: `color-mix(in srgb, ${typeColor} 38%, transparent)`, color: typeColor }} value={form.job_type} onChange={e => setForm(f => ({ ...f, job_type: e.target.value }))}>
                   {JOB_TYPES.map(t => <option key={t.id} value={t.id} style={{ color: FG }}>{t.label}</option>)}
                 </select>
                 <div style={{ position: 'relative', flexShrink: 0 }}>
@@ -421,9 +421,9 @@ export default function JobModal({ initialDate, initialJob, initialStartTime, in
                   const active = form.vehicle_ids.includes(v.id)
                   return (
                     <button key={v.id} type="button" onClick={() => toggleVehicle(v.id)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 20, background: active ? `${A}18` : 'rgba(255,255,255,0.05)', border: `1px solid ${active ? A + '70' : BORDER}`, cursor: 'pointer', transition: 'all 0.15s' }}>
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 20, background: active ? `color-mix(in srgb, ${A} 9%, transparent)` : 'rgba(255,255,255,0.05)', border: `1px solid ${active ? `color-mix(in srgb, ${A} 44%, transparent)` : BORDER}`, cursor: 'pointer', transition: 'all 0.15s' }}>
                       <span style={{ fontSize: 13, color: active ? A : MUTED }}>{v.name}</span>
-                      {v.plate && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: active ? `${A}99` : MUTED + '80' }}>{v.plate}</span>}
+                      {v.plate && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: active ? `color-mix(in srgb, ${A} 60%, transparent)` : MUTED + '80' }}>{v.plate}</span>}
                     </button>
                   )
                 })}
@@ -439,7 +439,7 @@ export default function JobModal({ initialDate, initialJob, initialStartTime, in
               onClick={() => document.getElementById('luma-tool-input').focus()}
             >
               {form.tools.map((t, i) => (
-                <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 12, background: A08, border: `1px solid ${A}30`, fontSize: 12, color: FG, flexShrink: 0 }}>
+                <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 12, background: A08, border: `1px solid color-mix(in srgb, ${A} 19%, transparent)`, fontSize: 12, color: FG, flexShrink: 0 }}>
                   {t}
                   <button type="button" onClick={e => { e.stopPropagation(); removeTool(i) }}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 0, display: 'flex', alignItems: 'center', lineHeight: 1 }}>

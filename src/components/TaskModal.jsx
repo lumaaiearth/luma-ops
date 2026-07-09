@@ -82,7 +82,7 @@ function TagInput({ id, tags, onChange, placeholder, historyKey }) {
     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, padding: '7px 10px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 6, cursor: 'text', minHeight: 42 }}
       onClick={() => document.getElementById(id)?.focus()}>
       {tags.map((t, i) => (
-        <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 12, background: A08, border: `1px solid ${A}30`, fontSize: 12, color: FG, flexShrink: 0 }}>
+        <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 12, background: A08, border: `1px solid color-mix(in srgb, ${A} 19%, transparent)`, fontSize: 12, color: FG, flexShrink: 0 }}>
           {t}
           <button type="button" onClick={e => { e.stopPropagation(); onChange(tags.filter((_, j) => j !== i)) }}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 0, display: 'flex', alignItems: 'center', lineHeight: 1 }}>
@@ -279,7 +279,7 @@ export default function TaskModal({ initialTask, defaults, onSave, onClose }) {
             </div>
             <div>
               <label style={LABEL_STYLE}>Aufgabentyp</label>
-              <select style={{ ...INPUT_STYLE, borderColor: form.task_type ? typeColor + '60' : BORDER, color: form.task_type ? typeColor : FG }} value={form.task_type} onChange={e => setForm(f => ({ ...f, task_type: e.target.value }))}>
+              <select style={{ ...INPUT_STYLE, borderColor: form.task_type ? `color-mix(in srgb, ${typeColor} 38%, transparent)` : BORDER, color: form.task_type ? typeColor : FG }} value={form.task_type} onChange={e => setForm(f => ({ ...f, task_type: e.target.value }))}>
                 <option value="" style={{ color: FG }}>— Typ wählen —</option>
                 {TASK_TYPES.map(t => <option key={t.id} value={t.id} style={{ color: FG }}>{t.label}</option>)}
               </select>
@@ -498,7 +498,7 @@ export default function TaskModal({ initialTask, defaults, onSave, onClose }) {
             submitLabel={editing ? 'Speichern' : 'Aufgabe anlegen'}
             left={
               <button type="button" onClick={convertToJob} title="Aus dieser Aufgabe einen terminierten Einsatz erstellen" className="lu-btn-ghost"
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 6, background: 'transparent', border: `1px solid ${A}55`, color: A, cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif" }}>
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 6, background: 'transparent', border: `1px solid color-mix(in srgb, ${A} 33%, transparent)`, color: A, cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif" }}>
                 <CalendarPlus size={14} /> In Einsatz umwandeln
               </button>
             }

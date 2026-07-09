@@ -116,7 +116,7 @@ export default function TasksPage() {
     const active = activeBoard === id
     return (
       <button onClick={() => setActiveBoard(id)} className={active ? 'lu-nav active' : 'lu-nav'}
-        style={{ display: 'flex', alignItems: 'center', gap: 8, width: isMobile ? 'auto' : '100%', flexShrink: 0, padding: '8px 10px', borderRadius: 8, border: `1px solid ${active ? (color || A) + '70' : 'transparent'}`, background: active ? (color || A) + '18' : 'transparent', cursor: 'pointer', textAlign: 'left', whiteSpace: 'nowrap', color: MUTED }}>
+        style={{ display: 'flex', alignItems: 'center', gap: 8, width: isMobile ? 'auto' : '100%', flexShrink: 0, padding: '8px 10px', borderRadius: 8, border: `1px solid ${active ? `color-mix(in srgb, ${color || A} 44%, transparent)` : 'transparent'}`, background: active ? `color-mix(in srgb, ${color || A} 10%, transparent)` : 'transparent', cursor: 'pointer', textAlign: 'left', whiteSpace: 'nowrap', color: MUTED }}>
         <span style={{ fontSize: 14, width: 18, textAlign: 'center' }}>{emoji}</span>
         <span style={{ fontSize: 13, color: active ? (color || A) : FG, fontWeight: active ? 600 : 400, flex: 1 }}>{label}</span>
         <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>{count}</span>
@@ -252,7 +252,7 @@ export default function TasksPage() {
                   onDragOver={e => { e.preventDefault(); setDragOver(col.id) }}
                   onDragLeave={() => setDragOver(o => o === col.id ? null : o)}
                   onDrop={e => { e.preventDefault(); if (dragId) setTaskStatus(dragId, col.id); setDragId(null); setDragOver(null) }}
-                  style={{ flex: '0 0 auto', width: isMobile ? 262 : 290, background: isOver ? A06 : 'transparent', border: `1px solid ${isOver ? A + '60' : 'transparent'}`, borderRadius: 10, padding: 4 }}>
+                  style={{ flex: '0 0 auto', width: isMobile ? 262 : 290, background: isOver ? A06 : 'transparent', border: `1px solid ${isOver ? `color-mix(in srgb, ${A} 38%, transparent)` : 'transparent'}`, borderRadius: 10, padding: 4 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px 10px' }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: col.color }} />
                     <span style={{ fontSize: 13, fontWeight: 600, color: FG }}>{col.label}</span>
@@ -304,7 +304,7 @@ export default function TasksPage() {
                     </div>
                   </div>
                   <button onClick={() => restoreTask(t.id)} title="Wiederherstellen" className="lu-btn-ghost"
-                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 6, background: A06, border: `1px solid ${A}40`, color: A, cursor: 'pointer', fontSize: 12, flexShrink: 0 }}>
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 6, background: A06, border: `1px solid color-mix(in srgb, ${A} 25%, transparent)`, color: A, cursor: 'pointer', fontSize: 12, flexShrink: 0 }}>
                     <RotateCcw size={12} /> Wiederherstellen
                   </button>
                   <button onClick={() => { if (confirm(`„${t.title}" endgültig löschen?`)) purgeTask(t.id) }} title="Endgültig löschen" className="lu-btn-danger"
@@ -399,7 +399,7 @@ function TaskCard({ task, projects, clients, boards, today, navigate, weatherFor
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
         {showBoard && board && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: board.color, background: `${board.color}18`, border: `1px solid ${board.color}30`, padding: '1px 6px', borderRadius: 4 }}>{board.emoji} {board.name}</span>}
-        {client && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: client.color || A, background: `${client.color || A}18`, padding: '1px 6px', borderRadius: 4 }}>{client.name.split(' ')[0]}</span>}
+        {client && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: client.color || A, background: `color-mix(in srgb, ${client.color || A} 10%, transparent)`, padding: '1px 6px', borderRadius: 4 }}>{client.name.split(' ')[0]}</span>}
         {project && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, background: A06, padding: '1px 6px', borderRadius: 4 }}>{project.name}</span>}
         {type && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: type.color, padding: '1px 4px' }}>{type.label}</span>}
       </div>

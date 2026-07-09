@@ -200,7 +200,7 @@ export default function DashboardPage() {
               return (
                 <div key={`j-${job.id}`} onClick={() => navigate('/jobs')} className="lu-card lu-clickable"
                   style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${type?.color || A}`, borderRadius: 8 }}>
-                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: type?.color || A, background: `${type?.color || A}18`, padding: '2px 7px', borderRadius: 10, flexShrink: 0 }}>Einsatz</span>
+                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: type?.color || A, background: `color-mix(in srgb, ${type?.color || A} 10%, transparent)`, padding: '2px 7px', borderRadius: 10, flexShrink: 0 }}>Einsatz</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 500, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.title}</div>
                     <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>{project?.name}{job.start_time ? ` · ${job.start_time}${job.end_time ? `–${job.end_time}` : ''}` : ''}</div>
@@ -307,7 +307,7 @@ export default function DashboardPage() {
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                         <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: isToday ? A : MUTED, fontWeight: isToday ? 700 : 400 }}>{isToday ? 'Heute' : isTomorrow ? 'Morgen' : formatDate(job.date)}</span>
                         {project && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: type?.color }}>{project.name}</span>}
-                        <span style={{ marginLeft: 'auto', padding: '2px 7px', borderRadius: 4, background: `${STATUS_COLORS[job.status]}18`, fontFamily: "'Space Mono', monospace", fontSize: 9, color: STATUS_COLORS[job.status] }}>{STATUS_LABELS[job.status]}</span>
+                        <span style={{ marginLeft: 'auto', padding: '2px 7px', borderRadius: 4, background: `color-mix(in srgb, ${STATUS_COLORS[job.status]} 10%, transparent)`, fontFamily: "'Space Mono', monospace", fontSize: 9, color: STATUS_COLORS[job.status] }}>{STATUS_LABELS[job.status]}</span>
                       </div>
                     </>
                   ) : (
@@ -329,7 +329,7 @@ export default function DashboardPage() {
                         ))}
                         {assignees.length > 4 && <div style={{ width: 22, height: 22, borderRadius: '50%', background: BORDER, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: MUTED }}>+{assignees.length - 4}</div>}
                       </div>
-                      <div style={{ padding: '3px 8px', borderRadius: 4, background: `${STATUS_COLORS[job.status]}18`, border: `1px solid ${STATUS_COLORS[job.status]}40`, fontFamily: "'Space Mono', monospace", fontSize: 9, color: STATUS_COLORS[job.status], flexShrink: 0 }}>
+                      <div style={{ padding: '3px 8px', borderRadius: 4, background: `color-mix(in srgb, ${STATUS_COLORS[job.status]} 10%, transparent)`, border: `1px solid color-mix(in srgb, ${STATUS_COLORS[job.status]} 25%, transparent)`, fontFamily: "'Space Mono', monospace", fontSize: 9, color: STATUS_COLORS[job.status], flexShrink: 0 }}>
                         {STATUS_LABELS[job.status]}
                       </div>
                     </div>

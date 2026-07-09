@@ -191,7 +191,7 @@ function FeatureForm({ mode, project, color, existingFeature, onSave, onCancel, 
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: (modeInfo.color || A) + '20', border: `1px solid ${modeInfo.color || A}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: `color-mix(in srgb, ${modeInfo.color || A} 13%, transparent)`, border: `1px solid color-mix(in srgb, ${modeInfo.color || A} 25%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>
             {modeInfo.icon}
           </div>
           <div>
@@ -769,21 +769,21 @@ export default function MapPage() {
         <div style={{ display: 'flex', gap: 3, marginBottom: 10, flexWrap: 'wrap' }}>
           {[['satellite', Satellite, 'Satellit'], ['sentinel', Satellite, 'Sentinel-2'], ['dark', MapIcon, 'Dunkel'], ['light', Layers, 'Hell']].map(([id, Icon, label]) => (
             <button key={id} onClick={() => setTileLayer(id)}
-              style={{ flex: 1, minWidth: 52, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '6px 4px', borderRadius: 6, border: `1px solid ${tileLayer === id ? A + '60' : BORDER}`, background: tileLayer === id ? A14 : 'transparent', color: tileLayer === id ? A : MUTED, cursor: 'pointer', fontSize: 9, fontFamily: "'Space Grotesk', sans-serif" }}>
+              style={{ flex: 1, minWidth: 52, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '6px 4px', borderRadius: 6, border: `1px solid ${tileLayer === id ? `color-mix(in srgb, ${A} 38%, transparent)` : BORDER}`, background: tileLayer === id ? A14 : 'transparent', color: tileLayer === id ? A : MUTED, cursor: 'pointer', fontSize: 9, fontFamily: "'Space Grotesk', sans-serif" }}>
               <Icon size={12} />{label}
             </button>
           ))}
         </div>
 
         <button onClick={() => setShowJobs(v => !v)}
-          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 6, border: `1px solid ${showJobs ? A + '50' : BORDER}`, background: showJobs ? A14 : 'transparent', color: showJobs ? A : MUTED, cursor: 'pointer', fontSize: 12, width: '100%' }}>
+          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 6, border: `1px solid ${showJobs ? `color-mix(in srgb, ${A} 31%, transparent)` : BORDER}`, background: showJobs ? A14 : 'transparent', color: showJobs ? A : MUTED, cursor: 'pointer', fontSize: 12, width: '100%' }}>
           <div style={{ width: 8, height: 8, borderRadius: 2, background: '#F59E0B' }} />
           Einsätze (14 Tage)
           <span style={{ marginLeft: 'auto', fontFamily: "'Space Mono', monospace", fontSize: 10 }}>{upcomingJobs.length}</span>
         </button>
 
         <button onClick={() => setShowTasks(v => !v)}
-          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 6, border: `1px solid ${showTasks ? A + '50' : BORDER}`, background: showTasks ? A14 : 'transparent', color: showTasks ? A : MUTED, cursor: 'pointer', fontSize: 12, width: '100%', marginTop: 6 }}>
+          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 6, border: `1px solid ${showTasks ? `color-mix(in srgb, ${A} 31%, transparent)` : BORDER}`, background: showTasks ? A14 : 'transparent', color: showTasks ? A : MUTED, cursor: 'pointer', fontSize: 12, width: '100%', marginTop: 6 }}>
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#A78BFA' }} />
           Aufgaben mit Ort
           <span style={{ marginLeft: 'auto', fontFamily: "'Space Mono', monospace", fontSize: 10 }}>{mappableTasks.length}</span>
@@ -1178,7 +1178,7 @@ export default function MapPage() {
 
         {/* Draw mode indicator banner */}
         {drawMode && !pendingGeometry && (
-          <div style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: SURFACE, border: `1px solid ${FEATURE_MODES.find(m => m.id === drawMode)?.color || A}60`, borderRadius: 8, padding: '8px 16px', fontSize: 12, color: FG, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 2px 12px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: SURFACE, border: `1px solid color-mix(in srgb, ${FEATURE_MODES.find(m => m.id === drawMode)?.color || A} 38%, transparent)`, borderRadius: 8, padding: '8px 16px', fontSize: 12, color: FG, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 2px 12px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', gap: 8 }}>
             <span>{FEATURE_MODES.find(m => m.id === drawMode)?.icon}</span>
             <span>{drawMode === 'tree' || drawMode === 'point' ? 'Auf Karte klicken um zu platzieren' : 'Fläche zeichnen, dann Doppelklick zum Abschließen'}</span>
           </div>

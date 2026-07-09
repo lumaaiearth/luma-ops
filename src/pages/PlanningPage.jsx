@@ -451,7 +451,7 @@ export default function PlanningPage() {
                   {/* Links */}
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
                     <a href={`https://de.wikipedia.org/wiki/${sheetPlant.latin.replace(/ /g,'_')}`} target="_blank" rel="noopener noreferrer"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: A, fontWeight: 600, textDecoration: 'none', padding: '7px 14px', borderRadius: 8, background: A14, border: `1px solid ${A}30` }}>
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: A, fontWeight: 600, textDecoration: 'none', padding: '7px 14px', borderRadius: 8, background: A14, border: `1px solid color-mix(in srgb, ${A} 19%, transparent)` }}>
                       <ExternalLink size={12} /> Wikipedia
                     </a>
                     <a href={`https://www.floraweb.de/pflanzenarten/suche.xsql?taxname=${encodeURIComponent(sheetPlant.latin)}`} target="_blank" rel="noopener noreferrer"

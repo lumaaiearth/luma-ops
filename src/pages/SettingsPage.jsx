@@ -208,7 +208,7 @@ export default function SettingsPage() {
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10,
                   padding: '10px 14px', borderRadius: 8, cursor: 'pointer',
-                  border: `1px solid ${active ? A + '80' : BORDER}`,
+                  border: `1px solid ${active ? `color-mix(in srgb, ${A} 50%, transparent)` : BORDER}`,
                   background: active ? A08 : SURFACE,
                   transition: 'all 0.15s',
                 }}
@@ -234,7 +234,7 @@ export default function SettingsPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase' }}>Fuhrpark</div>
           <button onClick={() => setShowAddVehicle(v => !v)}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 6, background: showAddVehicle ? A18 : 'transparent', border: `1px solid ${showAddVehicle ? A + '50' : BORDER}`, color: showAddVehicle ? A : MUTED, cursor: 'pointer', fontSize: 12 }}>
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 6, background: showAddVehicle ? A18 : 'transparent', border: `1px solid ${showAddVehicle ? `color-mix(in srgb, ${A} 31%, transparent)` : BORDER}`, color: showAddVehicle ? A : MUTED, cursor: 'pointer', fontSize: 12 }}>
             <Plus size={12} /> Fahrzeug / Gerät
           </button>
         </div>
@@ -286,7 +286,7 @@ export default function SettingsPage() {
         <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 14 }}>
           Google Kalender Sync
         </div>
-        <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${gcalConnected ? A + '40' : BORDER}`, borderRadius: 8, marginBottom: 12 }}>
+        <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${gcalConnected ? `color-mix(in srgb, ${A} 25%, transparent)` : BORDER}`, borderRadius: 8, marginBottom: 12 }}>
           {!gcalConnected ? (
             <div>
               <div style={{ fontSize: 13, color: FG, marginBottom: 10, lineHeight: 1.6 }}>
@@ -489,7 +489,7 @@ export default function SettingsPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase' }}>Projekte</div>
           <button onClick={() => { setShowAddProject(v => !v); setNewP({ name: '', location: '', client: '' }) }}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 6, background: showAddProject ? A18 : 'transparent', border: `1px solid ${showAddProject ? A + '50' : BORDER}`, color: showAddProject ? A : MUTED, cursor: 'pointer', fontSize: 12 }}>
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 6, background: showAddProject ? A18 : 'transparent', border: `1px solid ${showAddProject ? `color-mix(in srgb, ${A} 31%, transparent)` : BORDER}`, color: showAddProject ? A : MUTED, cursor: 'pointer', fontSize: 12 }}>
             <Plus size={13} /> Projekt hinzufügen
           </button>
         </div>

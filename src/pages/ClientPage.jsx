@@ -255,7 +255,7 @@ export default function ClientPage() {
                       return (
                         <button key={p.id} onClick={() => navigate(`/projects/${p.id}`)}
                           style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: 6, background: A06, border: `1px solid ${BORDER}`, cursor: 'pointer', textAlign: 'left' }}
-                          onMouseEnter={e => e.currentTarget.style.borderColor = `${A}55`}
+                          onMouseEnter={e => e.currentTarget.style.borderColor = `color-mix(in srgb, ${A} 33%, transparent)`}
                           onMouseLeave={e => e.currentTarget.style.borderColor = BORDER}>
                           <div>
                             <div style={{ fontSize: 13, color: FG, fontFamily: "'Space Grotesk', sans-serif" }}>{p.name}</div>
@@ -381,7 +381,7 @@ export default function ClientPage() {
               return (
                 <button key={p.id} onClick={() => navigate(`/projects/${p.id}`)}
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderRadius: 8, background: SURFACE, border: `1px solid ${BORDER}`, cursor: 'pointer', textAlign: 'left', gap: 16 }}
-                  onMouseEnter={e => e.currentTarget.style.borderColor = `${A}55`}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = `color-mix(in srgb, ${A} 33%, transparent)`}
                   onMouseLeave={e => e.currentTarget.style.borderColor = BORDER}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.status === 'active' ? OK : MUTED, flexShrink: 0 }} />

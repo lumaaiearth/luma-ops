@@ -61,7 +61,7 @@ export default function SensorsPage() {
         <div style={{ display: 'flex', gap: 8 }}>
           <button
             onClick={() => setSimulating(s => !s)}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 6, border: `1px solid ${simulating ? A + '60' : BORDER}`, background: simulating ? A14 : 'transparent', color: simulating ? A : MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif" }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 6, border: `1px solid ${simulating ? `color-mix(in srgb, ${A} 38%, transparent)` : BORDER}`, background: simulating ? A14 : 'transparent', color: simulating ? A : MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif" }}
           >
             <Wifi size={14} /> {simulating ? 'Live AN' : 'Simulation starten'}
           </button>

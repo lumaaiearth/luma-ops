@@ -86,7 +86,7 @@ function ProjectModal({ project, clients, onSave, onClose }) {
             <div style={{ display: 'flex', gap: 8 }}>
               {Object.entries(STATUS_LABELS).map(([k, v]) => (
                 <button key={k} type="button" onClick={() => setForm(f => ({ ...f, status: k }))}
-                  style={{ padding: '6px 12px', borderRadius: 4, border: `1px solid ${form.status === k ? STATUS_COLORS[k] : BORDER}`, background: form.status === k ? `${STATUS_COLORS[k]}18` : 'transparent', color: form.status === k ? STATUS_COLORS[k] : MUTED, fontSize: 12, cursor: 'pointer', fontFamily: "'Space Grotesk', sans-serif" }}>
+                  style={{ padding: '6px 12px', borderRadius: 4, border: `1px solid ${form.status === k ? STATUS_COLORS[k] : BORDER}`, background: form.status === k ? `color-mix(in srgb, ${STATUS_COLORS[k]} 10%, transparent)` : 'transparent', color: form.status === k ? STATUS_COLORS[k] : MUTED, fontSize: 12, cursor: 'pointer', fontFamily: "'Space Grotesk', sans-serif" }}>
                   {v}
                 </button>
               ))}
@@ -304,7 +304,7 @@ export default function StammdatenPage() {
                   </button>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                      <button onClick={() => navigate(`/clients/${c.id}`)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 13, fontWeight: 500, color: A, textAlign: 'left', textDecoration: 'underline', textDecorationColor: `${A}40` }}>{c.name}</button>
+                      <button onClick={() => navigate(`/clients/${c.id}`)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 13, fontWeight: 500, color: A, textAlign: 'left', textDecoration: 'underline', textDecorationColor: `color-mix(in srgb, ${A} 25%, transparent)` }}>{c.name}</button>
                       {clientProjects.length > 0 && (
                         <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: A, background: A14, padding: '2px 6px', borderRadius: 4, cursor: 'pointer' }} onClick={() => setExpandedClient(isExpanded ? null : c.id)}>
                           {clientProjects.length} Projekt{clientProjects.length > 1 ? 'e' : ''}

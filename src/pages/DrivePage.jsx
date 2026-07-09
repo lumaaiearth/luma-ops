@@ -129,7 +129,7 @@ export default function DrivePage() {
         {folders.map(folder => (
           <div key={folder.id}
             style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, padding: 16, display: 'flex', flexDirection: 'column', gap: 10, position: 'relative', transition: 'border-color 0.15s', overflow: 'hidden' }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = `${A}55`}
+            onMouseEnter={e => e.currentTarget.style.borderColor = `color-mix(in srgb, ${A} 33%, transparent)`}
             onMouseLeave={e => e.currentTarget.style.borderColor = BORDER}>
 
             <DriveCardHeader />
@@ -158,7 +158,7 @@ export default function DrivePage() {
             </div>
 
             <a href={folder.url} target="_blank" rel="noopener noreferrer"
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '7px 12px', borderRadius: 6, border: `1px solid ${A}45`, background: A06, color: A, textDecoration: 'none', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", fontWeight: 500, transition: 'background 0.15s' }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '7px 12px', borderRadius: 6, border: `1px solid color-mix(in srgb, ${A} 27%, transparent)`, background: A06, color: A, textDecoration: 'none', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", fontWeight: 500, transition: 'background 0.15s' }}
               onMouseEnter={e => e.currentTarget.style.background = A14}
               onMouseLeave={e => e.currentTarget.style.background = A06}>
               <ExternalLink size={12} /> In Drive öffnen
@@ -170,7 +170,7 @@ export default function DrivePage() {
         {!modal && (
           <div onClick={openAdd}
             style={{ border: `1px dashed ${BORDER}`, borderRadius: 8, padding: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer', minHeight: 180, color: MUTED, transition: 'border-color 0.15s, color 0.15s' }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = `${A}60`; e.currentTarget.style.color = A }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = `color-mix(in srgb, ${A} 38%, transparent)`; e.currentTarget.style.color = A }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.color = MUTED }}>
             <Plus size={22} />
             <span style={{ fontSize: 12, fontFamily: "'Space Grotesk', sans-serif" }}>Ordner hinzufügen</span>

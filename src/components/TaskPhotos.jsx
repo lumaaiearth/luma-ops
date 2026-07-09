@@ -113,7 +113,7 @@ export default function TaskPhotos({ taskId, uploadedBy }) {
       {photos.length === 0 && !uploading && (
         <div onClick={() => fileRef.current?.click()}
           style={{ border: `1px dashed ${BORDER}`, borderRadius: 6, padding: '20px', textAlign: 'center', cursor: 'pointer', color: MUTED, fontSize: 12, fontFamily: "'Space Mono', monospace" }}
-          onMouseEnter={e => e.currentTarget.style.borderColor = A + '60'}
+          onMouseEnter={e => e.currentTarget.style.borderColor = `color-mix(in srgb, ${A} 38%, transparent)`}
           onMouseLeave={e => e.currentTarget.style.borderColor = BORDER}>
           Fotos tippen oder ablegen
         </div>

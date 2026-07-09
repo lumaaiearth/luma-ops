@@ -1,9 +1,10 @@
 import { useState, useMemo, useCallback } from 'react'
-import { Plus, Trash2, Check, Clock, TrendingUp, FileText, ChevronLeft, ChevronRight, X, Download, Printer, BarChart2 } from 'lucide-react'
+import { Plus, Trash2, Check, Clock, TrendingUp, FileText, ChevronLeft, ChevronRight, Download, Printer, BarChart2 } from 'lucide-react'
 import { useTime } from '../context/TimeContext.jsx'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
-import { A, SURFACE, BORDER, FG, MUTED, CARD, A06, A08, A18, A20 } from '../lib/theme.js'
+import { A, SURFACE, BORDER, FG, MUTED, CARD, A06, A08, A18, A20, OK, WARN } from '../lib/theme.js'
+import { Modal, ModalActions, EmptyState } from '../components/ui.jsx'
 import { TEAM, HOUR_TARGETS } from '../data/seed.js'
 import { genId, isoToday, addDays, weekStart, getWeekDays } from '../lib/storage.js'
 
@@ -167,7 +168,7 @@ function LogForm({ onSave, prefill, onClose }) {
       <div style={{ gridColumn: '1 / -1' }}>
         <label style={LABEL}>
           Kalender-Einsatz
-          <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, marginLeft: 6, color: 'rgba(232,240,245,0.3)', fontSize: 9 }}>
+          <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, marginLeft: 6, color: MUTED, fontSize: 9 }}>
             — optional, verknüpft Stunden mit einem Job aus dem Kalender
           </span>
         </label>
@@ -187,17 +188,15 @@ function LogForm({ onSave, prefill, onClose }) {
         />
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 6 }}>
           {chips.map(chip => (
-            <button key={chip} type="button" onClick={() => appendChip(chip)}
-              style={{ padding: '3px 9px', borderRadius: 12, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 11, fontFamily: "'Space Grotesk', sans-serif", transition: 'border-color 0.15s, color 0.15s' }}
-              onMouseEnter={e => { e.target.style.borderColor = A; e.target.style.color = A }}
-              onMouseLeave={e => { e.target.style.borderColor = BORDER; e.target.style.color = MUTED }}>
+            <button key={chip} type="button" onClick={() => appendChip(chip)} className="lu-chip"
+              style={{ padding: '3px 9px', borderRadius: 12, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 11, fontFamily: "'Space Grotesk', sans-serif" }}>
               {chip}
             </button>
           ))}
         </div>
       </div>
       <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-        {onClose && <button type="button" onClick={onClose} style={{ padding: '8px 16px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 13 }}>Abbrechen</button>}
+        {onClose && <button type="button" onClick={onClose} className="lu-btn-ghost" style={{ padding: '8px 16px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 13 }}>Abbrechen</button>}
         <button type="submit" className="lu-btn-primary" style={{ padding: '8px 20px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
           Eintragen
         </button>
@@ -245,7 +244,7 @@ function TabErfassen() {
                     <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A }}>{project?.name}</span>
                     {project?.client && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED }}>· {project.client}</span>}
                     {entry.invoice_id && (
-                      <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#22EAA7', background: '#22EAA720', padding: '1px 5px', borderRadius: 3 }}>abgerechnet</span>
+                      <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: OK, background: `color-mix(in srgb, ${OK} 12%, transparent)`, padding: '1px 5px', borderRadius: 3 }}>abgerechnet</span>
                     )}
                   </div>
                   <div style={{ fontSize: 12, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -262,7 +261,7 @@ function TabErfassen() {
             )
           })}
           {recent.length === 0 && (
-            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED, padding: '12px 0' }}>Noch keine Einträge</div>
+            <EmptyState icon={Clock} title="Noch keine Einträge" hint="Trage links deine ersten Stunden ein." />
           )}
         </div>
       </div>
@@ -284,7 +283,7 @@ function PersonCard({ uid, entries, projects, range }) {
 
   const kontostand = t?.type === 'weekly' ? personKontostand(uid, entries) : null
   const annualTarget = yearTargetTotal(uid)
-  const kColor = kontostand === null ? MUTED : kontostand > 0 ? '#22EAA7' : kontostand < 0 ? '#F59E0B' : MUTED
+  const kColor = kontostand === null ? MUTED : kontostand > 0 ? OK : kontostand < 0 ? WARN : MUTED
 
   // Top projects in selected range
   const topProjects = projects
@@ -335,19 +334,19 @@ function PersonCard({ uid, entries, projects, range }) {
 
       {/* KPI row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-        <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 6, padding: '8px 10px' }}>
+        <div style={{ background: `color-mix(in srgb, ${FG} 3%, transparent)`, borderRadius: 6, padding: '8px 10px' }}>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 16, fontWeight: 700, color: u.color }}>{rangeH}h</div>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: MUTED, marginTop: 2 }}>
             {range === 'woche' ? 'Diese Woche' : range === 'monat' ? 'Dieser Monat' : range === 'quartal' ? 'Dieses Quartal' : 'Dieses Jahr'}
           </div>
         </div>
-        <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 6, padding: '8px 10px' }}>
+        <div style={{ background: `color-mix(in srgb, ${FG} 3%, transparent)`, borderRadius: 6, padding: '8px 10px' }}>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 16, fontWeight: 700, color: FG }}>{weekH}h</div>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: MUTED, marginTop: 2 }}>
             {t?.type === 'weekly' ? `Ziel: ${t.weekly}h/Wo` : 'Diese Woche'}
           </div>
         </div>
-        <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 6, padding: '8px 10px' }}>
+        <div style={{ background: `color-mix(in srgb, ${FG} 3%, transparent)`, borderRadius: 6, padding: '8px 10px' }}>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 16, fontWeight: 700, color: FG }}>{yearH}h</div>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: MUTED, marginTop: 2 }}>
             {annualTarget ? `Soll: ${annualTarget}h` : 'Jahrestotal'}
@@ -360,10 +359,10 @@ function PersonCard({ uid, entries, projects, range }) {
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
             <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED }}>Jahresfortschritt</span>
-            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: annualPct >= 100 ? '#22EAA7' : u.color }}>{annualPct.toFixed(0)}%</span>
+            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: annualPct >= 100 ? OK : u.color }}>{annualPct.toFixed(0)}%</span>
           </div>
-          <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 4, height: 7, overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${annualPct}%`, background: annualPct >= 100 ? '#22EAA7' : u.color, borderRadius: 4, transition: 'width 0.4s' }} />
+          <div style={{ background: `color-mix(in srgb, ${FG} 6%, transparent)`, borderRadius: 4, height: 7, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${annualPct}%`, background: annualPct >= 100 ? OK : u.color, borderRadius: 4, transition: 'width 0.4s' }} />
           </div>
           {kontostand !== null && (
             <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: kColor, marginTop: 4 }}>
@@ -384,7 +383,7 @@ function PersonCard({ uid, entries, projects, range }) {
                   <span style={{ fontSize: 11, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '75%' }}>{p.name}</span>
                   <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: u.color, flexShrink: 0 }}>{p.h}h</span>
                 </div>
-                <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 2, height: 3 }}>
+                <div style={{ background: `color-mix(in srgb, ${FG} 6%, transparent)`, borderRadius: 2, height: 3 }}>
                   <div style={{ width: `${(p.h / maxPH) * 100}%`, height: '100%', background: u.color, borderRadius: 2, opacity: 0.7 }} />
                 </div>
               </div>
@@ -420,10 +419,10 @@ function KontostandCard({ uid, entries }) {
   })
 
   const kontostand = monthDataWithCum[nowMonth - 1]?.kum ?? 0
-  const kColor = kontostand > 0 ? '#22EAA7' : kontostand < 0 ? '#F59E0B' : MUTED
+  const kColor = kontostand > 0 ? OK : kontostand < 0 ? WARN : MUTED
 
   const ROWSTYLE = { fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, paddingRight: 12, textTransform: 'uppercase', whiteSpace: 'nowrap', verticalAlign: 'middle', paddingBottom: 3 }
-  const CELLSTYLE = (i) => ({ fontFamily: "'Space Mono', monospace", fontSize: 10, textAlign: 'center', padding: '2px 5px', background: i + 1 === nowMonth ? 'rgba(8,170,86,0.07)' : 'transparent', verticalAlign: 'middle' })
+  const CELLSTYLE = (i) => ({ fontFamily: "'Space Mono', monospace", fontSize: 10, textAlign: 'center', padding: '2px 5px', background: i + 1 === nowMonth ? `color-mix(in srgb, ${A} 7%, transparent)` : 'transparent', verticalAlign: 'middle' })
 
   return (
     <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8 }}>
@@ -463,7 +462,7 @@ function KontostandCard({ uid, entries }) {
             <tr>
               <td style={ROWSTYLE}>Ist</td>
               {monthDataWithCum.map((d, i) => (
-                <td key={i} style={{ ...CELLSTYLE(i), color: d.ist !== null ? FG : 'rgba(232,240,245,0.2)' }}>
+                <td key={i} style={{ ...CELLSTYLE(i), color: d.ist !== null ? FG : `color-mix(in srgb, ${FG} 20%, transparent)` }}>
                   {d.ist !== null ? `${d.ist}h` : '—'}
                 </td>
               ))}
@@ -471,7 +470,7 @@ function KontostandCard({ uid, entries }) {
             <tr>
               <td style={ROWSTYLE}>Saldo</td>
               {monthDataWithCum.map((d, i) => (
-                <td key={i} style={{ ...CELLSTYLE(i), color: d.saldo === null ? 'rgba(232,240,245,0.2)' : d.saldo >= 0 ? '#22EAA7' : '#F59E0B', fontWeight: d.saldo !== null ? 500 : 400 }}>
+                <td key={i} style={{ ...CELLSTYLE(i), color: d.saldo === null ? `color-mix(in srgb, ${FG} 20%, transparent)` : d.saldo >= 0 ? OK : WARN, fontWeight: d.saldo !== null ? 500 : 400 }}>
                   {d.saldo === null ? '—' : (d.saldo >= 0 ? `+${d.saldo}` : `${d.saldo}`)}
                 </td>
               ))}
@@ -479,7 +478,7 @@ function KontostandCard({ uid, entries }) {
             <tr>
               <td style={{ ...ROWSTYLE, paddingTop: 6, borderTop: `1px solid ${BORDER}` }}>Konto</td>
               {monthDataWithCum.map((d, i) => (
-                <td key={i} style={{ ...CELLSTYLE(i), color: d.kum === null ? 'rgba(232,240,245,0.2)' : d.kum > 0 ? '#22EAA7' : d.kum < 0 ? '#F59E0B' : MUTED, borderTop: `1px solid ${BORDER}` }}>
+                <td key={i} style={{ ...CELLSTYLE(i), color: d.kum === null ? `color-mix(in srgb, ${FG} 20%, transparent)` : d.kum > 0 ? OK : d.kum < 0 ? WARN : MUTED, borderTop: `1px solid ${BORDER}` }}>
                   {d.kum === null ? '—' : (d.kum > 0 ? `+${d.kum}` : `${d.kum}`)}
                 </td>
               ))}
@@ -519,8 +518,8 @@ function TabUebersicht() {
         <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Zeitraum:</span>
         <div style={{ display: 'flex', gap: 4 }}>
           {RANGE_OPTS.map(opt => (
-            <button key={opt.id} onClick={() => setRange(opt.id)}
-              style={{ padding: '5px 13px', borderRadius: 20, border: `1px solid ${range === opt.id ? A : BORDER}`, background: range === opt.id ? A : 'transparent', color: range === opt.id ? '#001219' : MUTED, cursor: 'pointer', fontSize: 12, fontWeight: range === opt.id ? 500 : 400, fontFamily: "'Space Grotesk', sans-serif", transition: 'all 0.15s' }}>
+            <button key={opt.id} onClick={() => setRange(opt.id)} className={range === opt.id ? undefined : 'lu-chip'}
+              style={{ padding: '5px 13px', borderRadius: 20, border: `1px solid ${range === opt.id ? A : BORDER}`, background: range === opt.id ? A : 'transparent', color: range === opt.id ? '#001219' : MUTED, cursor: 'pointer', fontSize: 12, fontWeight: range === opt.id ? 500 : 400, fontFamily: "'Space Grotesk', sans-serif" }}>
               {opt.label}
             </button>
           ))}
@@ -544,7 +543,7 @@ function TabUebersicht() {
               </div>
             )
           })}
-          <div style={{ marginLeft: 'auto', fontFamily: "'Space Mono', monospace", fontSize: 11, color: Math.abs(balanceDiff) < 5 ? '#22EAA7' : '#F59E0B' }}>
+          <div style={{ marginLeft: 'auto', fontFamily: "'Space Mono', monospace", fontSize: 11, color: Math.abs(balanceDiff) < 5 ? OK : WARN }}>
             {Math.abs(balanceDiff) < 2 ? '✓ Ausgeglichen' : balanceDiff > 0 ? `Malte +${balanceDiff.toFixed(1)}h` : `Lukas +${Math.abs(balanceDiff).toFixed(1)}h`}
           </div>
         </div>
@@ -646,13 +645,13 @@ function TabAbrechnung() {
           <button
             onClick={() => exportCSV(filteredForExport, invoices, projects)}
             disabled={!filteredForExport.length}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 6, background: filteredForExport.length ? A18 : 'transparent', border: `1px solid ${filteredForExport.length ? A + '50' : BORDER}`, color: filteredForExport.length ? A : MUTED, cursor: filteredForExport.length ? 'pointer' : 'default', fontSize: 12 }}>
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 6, background: filteredForExport.length ? A18 : 'transparent', border: `1px solid ${filteredForExport.length ? `color-mix(in srgb, ${A} 31%, transparent)` : BORDER}`, color: filteredForExport.length ? A : MUTED, cursor: filteredForExport.length ? 'pointer' : 'default', fontSize: 12 }}>
             <Download size={12} /> CSV
           </button>
           <button
             onClick={() => exportPDF(filteredForExport, invoices, exportLabel, projects)}
             disabled={!filteredForExport.length}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 6, background: filteredForExport.length ? 'rgba(255,255,255,0.05)' : 'transparent', border: `1px solid ${BORDER}`, color: filteredForExport.length ? FG : MUTED, cursor: filteredForExport.length ? 'pointer' : 'default', fontSize: 12 }}>
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 6, background: filteredForExport.length ? `color-mix(in srgb, ${FG} 5%, transparent)` : 'transparent', border: `1px solid ${BORDER}`, color: filteredForExport.length ? FG : MUTED, cursor: filteredForExport.length ? 'pointer' : 'default', fontSize: 12 }}>
             <Printer size={12} /> PDF / Drucken
           </button>
         </div>
@@ -671,7 +670,7 @@ function TabAbrechnung() {
                     <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>{project.client}</div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 16, fontWeight: 700, color: '#F59E0B' }}>{totalHours}h</span>
+                    <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 16, fontWeight: 700, color: WARN }}>{totalHours}h</span>
                     <button
                       onClick={() => openInvoiceForm(project.id, pEntries.map(e => e.id))}
                       className="lu-btn-primary" style={{ padding: '6px 12px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
@@ -702,14 +701,8 @@ function TabAbrechnung() {
 
       {/* Invoice form modal */}
       {newInvoice && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }} onClick={() => setNewInvoice(null)} />
-          <div style={{ position: 'relative', background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8, width: '100%', maxWidth: 460, padding: 24 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: A, letterSpacing: '0.15em', textTransform: 'uppercase' }}>Rechnung erstellen</div>
-              <button onClick={() => setNewInvoice(null)} style={{ background: 'transparent', border: 'none', color: MUTED, cursor: 'pointer' }}><X size={16} /></button>
-            </div>
-            <form onSubmit={submitInvoice} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <Modal eyebrow="Rechnung erstellen" onClose={() => setNewInvoice(null)} maxWidth={460}>
+            <form onSubmit={submitInvoice} style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
                   <label style={LABEL}>Rechnungsnummer *</label>
@@ -731,31 +724,27 @@ function TabAbrechnung() {
               <div style={{ padding: '10px 14px', background: A08, border: `1px solid ${A20}`, borderRadius: 6, fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED }}>
                 {entries.filter(e => newInvoice.entry_ids.includes(e.id)).reduce((s, e) => s + Number(e.hours), 0)}h werden als abgerechnet markiert
               </div>
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                <button type="button" onClick={() => setNewInvoice(null)} style={{ padding: '8px 16px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 13 }}>Abbrechen</button>
-                <button type="submit" className="lu-btn-primary" style={{ padding: '8px 20px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>Rechnung anlegen</button>
-              </div>
+              <ModalActions onCancel={() => setNewInvoice(null)} submitLabel="Rechnung anlegen" />
             </form>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {/* Existing invoices */}
       <div>
         <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 10 }}>Rechnungen</div>
         {filteredInvoices.length === 0 && (
-          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED, padding: '8px 0' }}>Noch keine Rechnungen</div>
+          <EmptyState icon={FileText} title="Noch keine Rechnungen" hint="Erstelle eine Rechnung aus den nicht abgerechneten Stunden oben." />
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {[...filteredInvoices].sort((a, b) => b.date_issued.localeCompare(a.date_issued)).map(inv => {
             const project = projects.find(p => p.id === inv.project_id)
             const paid = !!inv.date_paid
             return (
-              <div key={inv.id} style={{ padding: '14px 16px', background: SURFACE, border: `1px solid ${paid ? '#22EAA730' : BORDER}`, borderRadius: 8, display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div key={inv.id} style={{ padding: '14px 16px', background: SURFACE, border: `1px solid ${paid ? `color-mix(in srgb, ${OK} 20%, transparent)` : BORDER}`, borderRadius: 8, display: 'flex', alignItems: 'center', gap: 14 }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 3 }}>
                     <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: FG, fontWeight: 500 }}>{inv.invoice_number}</span>
-                    <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, padding: '2px 7px', borderRadius: 10, background: paid ? '#22EAA720' : '#F59E0B20', color: paid ? '#22EAA7' : '#F59E0B', border: `1px solid ${paid ? '#22EAA740' : '#F59E0B40'}` }}>
+                    <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, padding: '2px 7px', borderRadius: 10, background: paid ? `color-mix(in srgb, ${OK} 12%, transparent)` : `color-mix(in srgb, ${WARN} 12%, transparent)`, color: paid ? OK : WARN, border: `1px solid ${paid ? `color-mix(in srgb, ${OK} 25%, transparent)` : `color-mix(in srgb, ${WARN} 25%, transparent)`}` }}>
                       {paid ? `bezahlt ${inv.date_paid}` : 'offen'}
                     </span>
                   </div>
@@ -768,7 +757,7 @@ function TabAbrechnung() {
                 <div style={{ display: 'flex', gap: 6 }}>
                   {!paid && (
                     <button onClick={() => markPaid(inv.id)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 6, background: '#22EAA718', border: '1px solid #22EAA740', color: '#22EAA7', cursor: 'pointer', fontSize: 12 }}>
+                      style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 6, background: `color-mix(in srgb, ${OK} 10%, transparent)`, border: `1px solid color-mix(in srgb, ${OK} 25%, transparent)`, color: OK, cursor: 'pointer', fontSize: 12 }}>
                       <Check size={11} /> Als bezahlt
                     </button>
                   )}
@@ -900,12 +889,12 @@ function StackedBarChart({ weeks, persons }) {
             })}
             {totals[wi] > 0 && (
               <text x={x + barW / 2} y={yBottom - 4} textAnchor="middle"
-                fontSize={8} fill="rgba(232,240,245,0.5)" fontFamily="'Space Mono', monospace">
+                fontSize={8} style={{ fill: MUTED }} fontFamily="'Space Mono', monospace">
                 {totals[wi]}h
               </text>
             )}
             <text x={x + barW / 2} y={svgH - 4} textAnchor="middle"
-              fontSize={8} fill="rgba(232,240,245,0.35)" fontFamily="'Space Mono', monospace">
+              fontSize={8} style={{ fill: MUTED, opacity: 0.7 }} fontFamily="'Space Mono', monospace">
               {week.label}
             </text>
           </g>
@@ -1000,8 +989,8 @@ function TabStatistiken() {
         <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Zeitraum:</span>
         <div style={{ display: 'flex', gap: 4 }}>
           {RANGE_OPTS.map(opt => (
-            <button key={opt.id} onClick={() => setRange(opt.id)}
-              style={{ padding: '5px 13px', borderRadius: 20, border: `1px solid ${range === opt.id ? A : BORDER}`, background: range === opt.id ? A : 'transparent', color: range === opt.id ? '#001219' : MUTED, cursor: 'pointer', fontSize: 12, fontWeight: range === opt.id ? 500 : 400, fontFamily: "'Space Grotesk', sans-serif", transition: 'all 0.15s' }}>
+            <button key={opt.id} onClick={() => setRange(opt.id)} className={range === opt.id ? undefined : 'lu-chip'}
+              style={{ padding: '5px 13px', borderRadius: 20, border: `1px solid ${range === opt.id ? A : BORDER}`, background: range === opt.id ? A : 'transparent', color: range === opt.id ? '#001219' : MUTED, cursor: 'pointer', fontSize: 12, fontWeight: range === opt.id ? 500 : 400, fontFamily: "'Space Grotesk', sans-serif" }}>
               {opt.label}
             </button>
           ))}
@@ -1022,7 +1011,7 @@ function TabStatistiken() {
               </div>
               <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 24, fontWeight: 700, color: p.color, marginBottom: 4, lineHeight: 1 }}>{p.h}h</div>
               {kontostand !== null && (
-                <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: kontostand > 0 ? '#22EAA7' : kontostand < 0 ? '#F59E0B' : MUTED }}>
+                <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: kontostand > 0 ? OK : kontostand < 0 ? WARN : MUTED }}>
                   {kontostand > 0 ? `+${kontostand}h` : `${kontostand}h`} Konto
                 </div>
               )}
@@ -1119,7 +1108,7 @@ export default function TimePage() {
       {/* Tab bar */}
       <div style={{ display: 'flex', gap: 4, background: A06, borderRadius: 8, padding: 4, marginBottom: 24, width: 'fit-content' }}>
         {visibleTabs.map(({ id, label, icon: Icon }) => (
-          <button key={id} onClick={() => setTab(id)}
+          <button key={id} onClick={() => setTab(id)} className={activeTab === id ? undefined : 'lu-tab'}
             style={{
               display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', borderRadius: 6, border: 'none',
               background: activeTab === id ? A : 'transparent',
@@ -1131,7 +1120,7 @@ export default function TimePage() {
             <Icon size={13} />
             {label}
             {id === 'abrechnung' && unbilledCount > 0 && activeTab !== 'abrechnung' && (
-              <span style={{ position: 'absolute', top: 4, right: 6, width: 16, height: 16, borderRadius: '50%', background: '#F59E0B', color: '#001219', fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ position: 'absolute', top: 4, right: 6, width: 16, height: 16, borderRadius: '50%', background: WARN, color: '#001219', fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {unbilledCount > 9 ? '9+' : unbilledCount}
               </span>
             )}

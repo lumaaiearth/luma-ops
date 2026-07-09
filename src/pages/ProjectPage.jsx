@@ -133,11 +133,11 @@ export default function ProjectPage() {
                 const dest = clientObj ? `/clients/${clientObj.id}` : null
                 return dest ? (
                   <button onClick={() => navigate(dest)}
-                    style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: A, background: A06, border: `1px solid ${A}30`, padding: '3px 10px', borderRadius: 20, cursor: 'pointer', textDecoration: 'underline', textDecorationColor: `${A}40` }}>
+                    style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: A, background: A06, border: `1px solid color-mix(in srgb, ${A} 19%, transparent)`, padding: '3px 10px', borderRadius: 20, cursor: 'pointer', textDecoration: 'underline', textDecorationColor: `color-mix(in srgb, ${A} 25%, transparent)` }}>
                     {project.client}
                   </button>
                 ) : (
-                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: A, background: A06, border: `1px solid ${A}30`, padding: '3px 10px', borderRadius: 20 }}>{project.client}</span>
+                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: A, background: A06, border: `1px solid color-mix(in srgb, ${A} 19%, transparent)`, padding: '3px 10px', borderRadius: 20 }}>{project.client}</span>
                 )
               })()}
               {project.location && (
@@ -250,7 +250,7 @@ export default function ProjectPage() {
                     <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A }}>{project.plant_plan.reduce((s, p) => s + p.count, 0)} Pflanzen · {project.plant_plan.length} Arten</span>
                   </div>
                   <button onClick={createTasksFromPlan}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', justifyContent: 'center', padding: '8px 12px', borderRadius: 6, background: A06, border: `1px solid ${A}40`, color: A, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", marginBottom: 10 }}>
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', justifyContent: 'center', padding: '8px 12px', borderRadius: 6, background: A06, border: `1px solid color-mix(in srgb, ${A} 25%, transparent)`, color: A, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", marginBottom: 10 }}>
                     <ListTodo size={13} /> Aufgaben erzeugen (Bestellung + Pflanzung)
                   </button>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
