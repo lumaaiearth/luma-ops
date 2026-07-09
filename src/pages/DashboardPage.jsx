@@ -2,7 +2,8 @@ import { useNavigate } from 'react-router-dom'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useWeather } from '../context/WeatherContext.jsx'
-import { A, SURFACE, BORDER, FG, MUTED, A06 } from '../lib/theme.js'
+import { A, SURFACE, BORDER, FG, MUTED, OK, WARN, DANGER, INFO } from '../lib/theme.js'
+import { StatCard, EmptyState } from '../components/ui.jsx'
 import { JOB_TYPES, TEAM, TASK_STATUSES, TASK_PRIORITIES } from '../data/seed.js'
 import { isoToday, addDays, formatDate } from '../lib/storage.js'
 import { AlertTriangle, CheckCircle2, Clock, Repeat, Droplets, Umbrella, Sun as SunIcon, ListTodo, ChevronRight } from 'lucide-react'
@@ -13,7 +14,7 @@ import { useIsMobile } from '../lib/useIsMobile.js'
 import WeatherIcon from '../components/WeatherIcon.jsx'
 import { getWeatherForDate, STATUS_COLOR, WEATHER_CITY } from '../lib/weather.js'
 
-const STATUS_COLORS = { planned: '#6EA8C0', in_progress: A, done: '#22EAA7', cancelled: '#6B7280' }
+const STATUS_COLORS = { planned: INFO, in_progress: A, done: OK, cancelled: '#6B7280' }
 const STATUS_LABELS = { planned: 'Geplant', in_progress: 'Läuft', done: 'Erledigt', cancelled: 'Abgesagt' }
 
 const WEATHER_STATUS_LABELS = { good: 'Gut', mixed: 'Gemischt', warn: 'Warnung', danger: 'Alarm' }
@@ -102,7 +103,7 @@ function WeatherDayCard({ day, featured = false }) {
             <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>UV-Index</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <SunIcon size={11} color={MUTED} />
-              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 13, color: day.uvMax >= 7 ? '#F59E0B' : FG }}>{day.uvMax}</span>
+              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 13, color: day.uvMax >= 7 ? WARN : FG }}>{day.uvMax}</span>
             </div>
           </div>
         </div>
@@ -139,16 +140,6 @@ function WeatherSection({ isMobile }) {
   )
 }
 
-function StatCard({ label, value, sub, color, onClick }) {
-  return (
-    <div onClick={onClick} style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '20px 24px', cursor: onClick ? 'pointer' : 'default' }}>
-      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 8 }}>{label}</div>
-      <div style={{ fontSize: 32, fontWeight: 300, color: color || FG, letterSpacing: '-0.03em', lineHeight: 1 }}>{value}</div>
-      {sub && <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, marginTop: 6 }}>{sub}</div>}
-    </div>
-  )
-}
-
 export default function DashboardPage() {
   const { jobs, recurring, sensors, projects, tasks } = useOps()
   const { user, displayName } = useAuth()
@@ -174,6 +165,9 @@ export default function DashboardPage() {
       return (a.due_date || '9999').localeCompare(b.due_date || '9999')
     })
   const overdueTasks = openTasks.filter(t => t.due_date && t.due_date < today)
+  const dueTasks = openTasks
+    .filter(t => t.due_date && t.due_date <= today)
+    .sort((a, b) => a.due_date.localeCompare(b.due_date))
 
   const upcoming = jobs
     .filter(j => j.date >= today && j.status !== 'done' && j.status !== 'cancelled')
@@ -192,28 +186,70 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Heute — Einsätze + fällige Aufgaben */}
+      {(todayJobs.length > 0 || dueTasks.length > 0) && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 12 }}>
+            Heute
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {todayJobs.map(job => {
+              const type = JOB_TYPES.find(t => t.id === job.job_type)
+              const project = projects.find(p => p.id === job.project_id)
+              const assignees = TEAM.filter(t => (job.assigned_users || []).includes(t.id))
+              return (
+                <div key={`j-${job.id}`} onClick={() => navigate('/jobs')} className="lu-card lu-clickable"
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${type?.color || A}`, borderRadius: 8 }}>
+                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: type?.color || A, background: `${type?.color || A}18`, padding: '2px 7px', borderRadius: 10, flexShrink: 0 }}>Einsatz</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.title}</div>
+                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>{project?.name}{job.start_time ? ` · ${job.start_time}${job.end_time ? `–${job.end_time}` : ''}` : ''}</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                    {assignees.slice(0, 4).map(u => (
+                      <div key={u.id} title={u.name} style={{ width: 22, height: 22, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+            {dueTasks.map(t => {
+              const st = TASK_S[t.status]
+              const prio = TASK_P[t.priority]
+              const project = projects.find(p => p.id === t.project_id)
+              const owner = t.owner_id ? TEAM.find(u => u.id === t.owner_id) : null
+              const overdue = t.due_date < today
+              return (
+                <div key={`t-${t.id}`} onClick={() => navigate('/tasks')} className="lu-card lu-clickable"
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: SURFACE, border: `1px solid ${overdue ? `color-mix(in srgb, ${DANGER} 30%, transparent)` : BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, borderRadius: 8 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#A78BFA', background: '#A78BFA18', padding: '2px 7px', borderRadius: 10, flexShrink: 0 }}><ListTodo size={10} />Aufgabe</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
+                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: overdue ? DANGER : MUTED }}>
+                      {overdue ? `überfällig seit ${formatDate(t.due_date)}` : 'heute fällig'}{project ? ` · ${project.name}` : ''}{owner ? ` · ${owner.name}` : ''}
+                    </div>
+                  </div>
+                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: st?.color, background: `${st?.color}18`, padding: '2px 7px', borderRadius: 10, flexShrink: 0 }}>{st?.short}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Sensor alerts */}
       {(criticalSensors.length > 0 || warningSensors.length > 0) && (
         <div style={{ marginBottom: 24 }}>
-          {criticalSensors.map(s => {
+          {[...criticalSensors.map(s => ({ s, level: 'crit' })), ...warningSensors.map(s => ({ s, level: 'warn' }))].map(({ s, level }) => {
             const project = projects.find(p => p.id === s.project_id)
+            const c = level === 'crit' ? DANGER : WARN
             return (
-              <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: '#ef444418', border: '1px solid #ef444440', borderRadius: 8, marginBottom: 8 }}>
-                <AlertTriangle size={16} color="#ef4444" />
+              <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: `color-mix(in srgb, ${c} 10%, transparent)`, border: `1px solid color-mix(in srgb, ${c} 30%, transparent)`, borderRadius: 8, marginBottom: 8 }}>
+                <AlertTriangle size={16} color={c} />
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: '#ef4444' }}>Kritisch: {s.name}</div>
-                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED }}>{project?.name} · {s.value}{s.unit} (Schwellwert: {s.threshold_low}{s.unit})</div>
-                </div>
-              </div>
-            )
-          })}
-          {warningSensors.map(s => {
-            const project = projects.find(p => p.id === s.project_id)
-            return (
-              <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: '#F59E0B18', border: '1px solid #F59E0B40', borderRadius: 8, marginBottom: 8 }}>
-                <AlertTriangle size={16} color="#F59E0B" />
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: '#F59E0B' }}>Warnung: {s.name}</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: c }}>{level === 'crit' ? 'Kritisch' : 'Warnung'}: {s.name}</div>
                   <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED }}>{project?.name} · {s.value}{s.unit} (Schwellwert: {s.threshold_low}{s.unit})</div>
                 </div>
               </div>
@@ -227,9 +263,9 @@ export default function DashboardPage() {
         <StatCard label="Heute" value={todayJobs.length} sub={`${todayJobs.filter(j => j.status === 'done').length} erledigt`} color={todayJobs.length > 0 ? A : undefined} />
         <StatCard label="Morgen" value={tomorrowJobs.length} sub="geplant" />
         <StatCard label="Diese Woche" value={weekJobs.length} sub="insgesamt" />
-        <StatCard label="Meine Einsätze" value={myJobs.length} sub="7 Tage" color={myJobs.length > 0 ? '#22EAA7' : undefined} />
-        <StatCard label="Offene Aufgaben" value={openTasks.length} sub={overdueTasks.length > 0 ? `${overdueTasks.length} überfällig` : `${myOpenTasks.length} für mich`} color={overdueTasks.length > 0 ? '#ef4444' : openTasks.length > 0 ? A : undefined} onClick={() => navigate('/tasks')} />
-        <StatCard label="Sensoren" value={`${criticalSensors.length + warningSensors.length}`} sub={criticalSensors.length > 0 ? `${criticalSensors.length} kritisch` : 'alles ok'} color={criticalSensors.length > 0 ? '#ef4444' : warningSensors.length > 0 ? '#F59E0B' : undefined} />
+        <StatCard label="Meine Einsätze" value={myJobs.length} sub="7 Tage" color={myJobs.length > 0 ? OK : undefined} />
+        <StatCard label="Offene Aufgaben" value={openTasks.length} sub={overdueTasks.length > 0 ? `${overdueTasks.length} überfällig` : `${myOpenTasks.length} für mich`} color={overdueTasks.length > 0 ? DANGER : openTasks.length > 0 ? A : undefined} onClick={() => navigate('/tasks')} />
+        <StatCard label="Sensoren" value={`${criticalSensors.length + warningSensors.length}`} sub={criticalSensors.length > 0 ? `${criticalSensors.length} kritisch` : 'alles ok'} color={criticalSensors.length > 0 ? DANGER : warningSensors.length > 0 ? WARN : undefined} />
       </div>
 
       {/* Weather */}
@@ -243,7 +279,7 @@ export default function DashboardPage() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {upcoming.length === 0 && (
-              <div style={{ padding: '24px', textAlign: 'center', color: MUTED, fontFamily: "'Space Mono', monospace", fontSize: 12 }}>Keine Einsätze geplant</div>
+              <EmptyState title="Keine Einsätze geplant" hint="Neue Einsätze legst du in der Einsatzübersicht an." />
             )}
             {upcoming.map(job => {
               const type = JOB_TYPES.find(t => t.id === job.job_type)
@@ -319,7 +355,7 @@ export default function DashboardPage() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {myOpenTasks.length === 0 && (
-              <div style={{ padding: '16px', textAlign: 'center', color: MUTED, fontFamily: "'Space Mono', monospace", fontSize: 11 }}>Keine offenen Aufgaben 🎉</div>
+              <EmptyState title="Keine offenen Aufgaben 🎉" style={{ padding: '20px 16px' }} />
             )}
             {myOpenTasks.slice(0, 6).map(t => {
               const st = TASK_S[t.status]
@@ -328,12 +364,13 @@ export default function DashboardPage() {
               const overdue = t.due_date && t.due_date < today
               return (
                 <div key={t.id} onClick={() => navigate('/tasks')}
-                  style={{ padding: '10px 12px', background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, borderRadius: 8, cursor: 'pointer' }}>
+                  className="lu-card lu-clickable"
+                  style={{ padding: '10px 12px', background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, borderRadius: 8 }}>
                   <div style={{ fontSize: 12, fontWeight: 500, color: FG, marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: st?.color, background: st?.color + '18', padding: '1px 6px', borderRadius: 8 }}>{st?.short}</span>
                     {project && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED }}>{project.name}</span>}
-                    {t.due_date && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: overdue ? '#ef4444' : MUTED, marginLeft: 'auto' }}>{overdue ? '⚠ ' : ''}{formatDate(t.due_date)}</span>}
+                    {t.due_date && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: overdue ? DANGER : MUTED, marginLeft: 'auto' }}>{overdue ? '⚠ ' : ''}{formatDate(t.due_date)}</span>}
                   </div>
                 </div>
               )
@@ -353,13 +390,13 @@ export default function DashboardPage() {
               const daysUntil = Math.ceil((new Date(r.next_date + 'T00:00:00') - new Date(today + 'T00:00:00')) / 86400000)
               const overdue = daysUntil < 0
               return (
-                <div key={r.id} style={{ padding: '12px 14px', background: SURFACE, border: `1px solid ${overdue ? '#ef444440' : BORDER}`, borderRadius: 8 }}>
+                <div key={r.id} style={{ padding: '12px 14px', background: SURFACE, border: `1px solid ${overdue ? `color-mix(in srgb, ${DANGER} 30%, transparent)` : BORDER}`, borderRadius: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
                     <div style={{ fontSize: 12, fontWeight: 500, color: FG }}>{r.title}</div>
                     <Repeat size={12} color={type?.color || A} style={{ flexShrink: 0, marginTop: 2 }} />
                   </div>
                   <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: type?.color, marginBottom: 4 }}>{project?.name}</div>
-                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: overdue ? '#ef4444' : MUTED }}>
+                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: overdue ? DANGER : MUTED }}>
                     {overdue ? `${Math.abs(daysUntil)} Tage überfällig` : daysUntil === 0 ? 'Heute fällig' : `in ${daysUntil} Tagen · alle ${r.interval_days}d`}
                   </div>
                 </div>

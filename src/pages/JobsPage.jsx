@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { useOps } from '../context/OpsContext.jsx'
-import { A, SURFACE, BORDER, FG, MUTED, BG, A14, A20 } from '../lib/theme.js'
+import { A, SURFACE, BORDER, FG, MUTED, OK, DANGER, INFO } from '../lib/theme.js'
+import { PageHeader, Button, Tabs, Chips, EmptyState, Badge } from '../components/ui.jsx'
 import { JOB_TYPES, TEAM, VEHICLES } from '../data/seed.js'
 import { formatDate, isoToday } from '../lib/storage.js'
 import JobModal from '../components/JobModal.jsx'
 import { useBreakpoint } from '../lib/useBreakpoint.js'
 import { Plus, Repeat, Trash2, CheckCircle2, Circle, Pencil, ChevronRight } from 'lucide-react'
 
-const STATUS_COLORS  = { planned: '#6EA8C0', in_progress: A, done: '#22EAA7', cancelled: '#6B7280' }
+const STATUS_COLORS  = { planned: INFO, in_progress: A, done: OK, cancelled: '#6B7280' }
 const STATUS_LABELS  = { planned: 'Geplant', in_progress: 'Läuft', done: 'Erledigt', cancelled: 'Abgesagt' }
 const DURATION_LABEL = { full: 'Ganztags', half_am: 'Vormittag', half_pm: 'Nachmittag' }
 
@@ -41,49 +42,46 @@ export default function JobsPage() {
     <div style={{ padding: isMobile ? '16px 12px' : 24, maxWidth: 1000, margin: '0 auto' }}>
 
       {/* ── Header ── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-        <h1 style={{ fontSize: isMobile ? 18 : 22, fontWeight: 400, color: FG, letterSpacing: '-0.02em' }}>Einsatzübersicht</h1>
-        <button
-          onClick={() => { setEditJob(null); setModal({ date: today }) }}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: isMobile ? '9px 14px' : '8px 16px', borderRadius: 7, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-          <Plus size={14} />{!isMobile && ' Neuer Einsatz'}
-          {isMobile && ' Neu'}
-        </button>
-      </div>
+      <PageHeader
+        title="Einsatzübersicht"
+        isMobile={isMobile}
+        actions={
+          <Button icon={Plus} onClick={() => { setEditJob(null); setModal({ date: today }) }}>
+            {isMobile ? 'Neu' : 'Neuer Einsatz'}
+          </Button>
+        }
+      />
 
       {/* ── Tabs ── */}
-      <div style={{ display: 'flex', borderBottom: `1px solid ${BORDER}`, marginBottom: 16 }}>
-        {[['jobs', `Einsätze (${jobs.length})`], ['recurring', `Wiederkehrend (${recurring.length})`]].map(([id, label]) => (
-          <button key={id} onClick={() => setTab(id)}
-            style={{ padding: isMobile ? '9px 14px' : '10px 20px', border: 'none', background: 'transparent', color: tab === id ? A : MUTED, fontFamily: "'Space Grotesk', sans-serif", fontSize: isMobile ? 12 : 13, cursor: 'pointer', borderBottom: `2px solid ${tab === id ? A : 'transparent'}`, marginBottom: -1, whiteSpace: 'nowrap' }}>
-            {label}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        tabs={[['jobs', `Einsätze (${jobs.length})`], ['recurring', `Wiederkehrend (${recurring.length})`]]}
+        active={tab}
+        onChange={setTab}
+        isMobile={isMobile}
+      />
 
       {/* ── Jobs List ── */}
       {tab === 'jobs' && (
         <>
           {/* Filter chips */}
-          <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap', overflowX: isMobile ? 'auto' : 'visible', paddingBottom: 2 }}>
-            {[
+          <Chips
+            options={[
               ['all', 'Alle'],
               ['planned', 'Geplant'],
               ['in_progress', 'Läuft'],
               ['done', 'Erledigt'],
               ['cancelled', 'Abgesagt'],
-            ].map(([f, lbl]) => (
-              <button key={f} onClick={() => setFilter(f)}
-                style={{ padding: '5px 12px', borderRadius: 20, border: `1px solid ${filter === f ? (STATUS_COLORS[f] || A) : BORDER}`, background: filter === f ? `${STATUS_COLORS[f] || A}18` : 'transparent', color: filter === f ? (STATUS_COLORS[f] || A) : MUTED, cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap', flexShrink: 0 }}>
-                {lbl}
-              </button>
-            ))}
-          </div>
+            ]}
+            value={filter}
+            onChange={setFilter}
+            colors={STATUS_COLORS}
+            style={{ marginBottom: 14, overflowX: isMobile ? 'auto' : 'visible', paddingBottom: 2 }}
+          />
 
           {/* Job rows */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {filteredJobs.length === 0 && (
-              <div style={{ padding: 32, textAlign: 'center', color: MUTED, fontFamily: "'Space Mono', monospace", fontSize: 12 }}>Keine Einsätze</div>
+              <EmptyState title="Keine Einsätze" hint={filter !== 'all' ? 'Für diesen Filter gibt es keine Einträge.' : 'Lege mit „Neuer Einsatz“ den ersten an.'} />
             )}
             {filteredJobs.map(job => (
               <JobRow
@@ -107,7 +105,7 @@ export default function JobsPage() {
       {tab === 'recurring' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {recurring.length === 0 && (
-            <div style={{ padding: 32, textAlign: 'center', color: MUTED, fontFamily: "'Space Mono', monospace", fontSize: 12 }}>Keine Vorlagen</div>
+            <EmptyState title="Keine Vorlagen" hint="Wiederkehrende Einsätze erstellst du über „Neuer Einsatz“." />
           )}
           {recurring.map(r => {
             const type      = JOB_TYPES.find(t => t.id === r.job_type)
@@ -125,12 +123,12 @@ export default function JobsPage() {
                     <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: type?.color, marginBottom: 3 }}>
                       {project?.name} · alle {r.interval_days} Tage
                     </div>
-                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: daysUntil < 0 ? '#ef4444' : daysUntil === 0 ? A : MUTED }}>
+                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: daysUntil < 0 ? DANGER : daysUntil === 0 ? A : MUTED }}>
                       Nächster: {formatDate(r.next_date)}&nbsp;
                       {daysUntil < 0 ? `(${Math.abs(daysUntil)}d überfällig)` : daysUntil === 0 ? '(heute)' : `(in ${daysUntil}d)`}
                     </div>
                   </div>
-                  <button onClick={() => deleteRecurring(r.id)} style={{ width: 32, height: 32, borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <button onClick={() => deleteRecurring(r.id)} className="lu-btn-danger" style={{ width: 32, height: 32, borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <Trash2 size={13} />
                   </button>
                 </div>
@@ -174,7 +172,7 @@ function JobRow({ job, projects, today, isMobile, onToggleStatus, onEdit, onDele
   if (isMobile) {
     // ── MOBILE LAYOUT: 2-row card ──────────────────────────────────────────
     return (
-      <div style={{
+      <div className="lu-card" style={{
         background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8,
         borderLeft: `3px solid ${type?.color || A}`,
         overflow: 'hidden',
@@ -219,9 +217,7 @@ function JobRow({ job, projects, today, isMobile, onToggleStatus, onEdit, onDele
           )}
 
           {/* Status badge */}
-          <span style={{ padding: '2px 7px', borderRadius: 4, background: `${STATUS_COLORS[job.status]}18`, fontFamily: "'Space Mono', monospace", fontSize: 9, color: STATUS_COLORS[job.status], flexShrink: 0 }}>
-            {STATUS_LABELS[job.status]}
-          </span>
+          <Badge color={STATUS_COLORS[job.status]}>{STATUS_LABELS[job.status]}</Badge>
 
           {/* Assignee avatars */}
           <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
@@ -243,7 +239,7 @@ function JobRow({ job, projects, today, isMobile, onToggleStatus, onEdit, onDele
 
   // ── DESKTOP LAYOUT: horizontal row ───────────────────────────────────────
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 6, borderLeft: `3px solid ${type?.color || A}` }}>
+    <div className="lu-card" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 6, borderLeft: `3px solid ${type?.color || A}` }}>
 
       {/* Status toggle */}
       <button onClick={onToggleStatus}
@@ -291,16 +287,14 @@ function JobRow({ job, projects, today, isMobile, onToggleStatus, onEdit, onDele
       </div>
 
       {/* Status badge */}
-      <div style={{ padding: '3px 8px', borderRadius: 4, background: `${STATUS_COLORS[job.status]}18`, fontFamily: "'Space Mono', monospace", fontSize: 9, color: STATUS_COLORS[job.status], flexShrink: 0 }}>
-        {STATUS_LABELS[job.status]}
-      </div>
+      <Badge color={STATUS_COLORS[job.status]}>{STATUS_LABELS[job.status]}</Badge>
 
       {/* Actions */}
       <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-        <button onClick={onEdit} style={{ width: 28, height: 28, borderRadius: 5, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <button onClick={onEdit} title="Bearbeiten" className="lu-btn-ghost" style={{ width: 28, height: 28, borderRadius: 5, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Pencil size={12} />
         </button>
-        <button onClick={onDelete} style={{ width: 28, height: 28, borderRadius: 5, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <button onClick={onDelete} title="Löschen" className="lu-btn-danger" style={{ width: 28, height: 28, borderRadius: 5, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Trash2 size={12} />
         </button>
       </div>

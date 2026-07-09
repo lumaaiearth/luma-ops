@@ -3,6 +3,8 @@ import { Camera, X, Loader, Trash2, ZoomIn } from 'lucide-react'
 import { A, BORDER, FG, MUTED, SURFACE } from '../lib/theme.js'
 import { sbUploadPhoto, sbDeletePhoto, sbGetJobPhotos, sbInsert, sbDelete, sb } from '../lib/supabase.js'
 import { genId } from '../lib/storage.js'
+import { queueUpload } from '../lib/uploadQueue.js'
+import { isNetworkError } from '../lib/outbox.js'
 
 async function compressImage(file) {
   return new Promise((resolve, reject) => {
@@ -59,16 +61,21 @@ export default function JobPhotos({ jobId, uploadedBy }) {
     let anyFailed = false
     for (const file of Array.from(files)) {
       if (!file.type.startsWith('image/')) continue
+      const photoId = genId()
+      let blob
+      try { blob = await compressImage(file) } catch { blob = file }
+      const path = `${jobId}/${photoId}.jpg`
+      const row = { id: photoId, job_id: jobId, photo_id: photoId, uploaded_by: uploadedBy, created_at: new Date().toISOString() }
       try {
-        const photoId = genId()
-        const blob = await compressImage(file)
         const url = await sbUploadPhoto(jobId, photoId, blob)
-        const row = { id: photoId, job_id: jobId, url, uploaded_by: uploadedBy, created_at: new Date().toISOString() }
-        setPhotos(prev => [...prev, row])
-        sbInsert('job_photos', row).catch(console.error)
+        const full = { ...row, url }
+        setPhotos(prev => [...prev, full])
+        sbInsert('job_photos', full).catch(console.error)
       } catch (e) {
-        console.error('Upload failed:', e)
-        anyFailed = true
+        if (isNetworkError(e) || !navigator.onLine) {
+          await queueUpload({ id: photoId, bucket: 'job-photos', path, contentType: 'image/jpeg', blob, table: 'job_photos', row })
+          setPhotos(prev => [...prev, { ...row, url: URL.createObjectURL(blob), _pending: true }])
+        } else { console.error('Upload failed:', e); anyFailed = true }
       }
     }
     if (anyFailed) setUploadError('Upload fehlgeschlagen — Supabase Bucket "job-photos" prüfen')

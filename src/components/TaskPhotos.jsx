@@ -3,6 +3,8 @@ import { Camera, X, Loader, Trash2, ZoomIn } from 'lucide-react'
 import { A, BORDER, FG, MUTED, SURFACE } from '../lib/theme.js'
 import { sbUploadTaskPhoto, sbDeleteTaskPhoto, sbGetTaskPhotos, sbInsert, sbDelete } from '../lib/supabase.js'
 import { genId } from '../lib/storage.js'
+import { queueUpload } from '../lib/uploadQueue.js'
+import { isNetworkError } from '../lib/outbox.js'
 
 async function compressImage(file) {
   return new Promise((resolve, reject) => {
@@ -44,16 +46,21 @@ export default function TaskPhotos({ taskId, uploadedBy }) {
     let anyFailed = false
     for (const file of Array.from(files)) {
       if (!file.type.startsWith('image/')) continue
+      const photoId = genId()
+      let blob
+      try { blob = await compressImage(file) } catch { blob = file }
+      const path = `task_${taskId}/${photoId}.jpg`
+      const row = { id: photoId, task_id: taskId, photo_id: photoId, uploaded_by: uploadedBy, created_at: new Date().toISOString() }
       try {
-        const photoId = genId()
-        const blob = await compressImage(file)
         const url = await sbUploadTaskPhoto(taskId, photoId, blob)
-        const row = { id: photoId, task_id: taskId, photo_id: photoId, url, uploaded_by: uploadedBy, created_at: new Date().toISOString() }
-        setPhotos(prev => [...prev, row])
-        sbInsert('task_photos', row).catch(console.error)
+        const full = { ...row, url }
+        setPhotos(prev => [...prev, full])
+        sbInsert('task_photos', full).catch(console.error)
       } catch (e) {
-        console.error('Upload failed:', e)
-        anyFailed = true
+        if (isNetworkError(e) || !navigator.onLine) {
+          await queueUpload({ id: photoId, bucket: 'job-photos', path, contentType: 'image/jpeg', blob, table: 'task_photos', row })
+          setPhotos(prev => [...prev, { ...row, url: URL.createObjectURL(blob), _pending: true }])
+        } else { console.error('Upload failed:', e); anyFailed = true }
       }
     }
     if (anyFailed) setUploadError('Upload fehlgeschlagen — Supabase Bucket "job-photos" prüfen')
@@ -97,6 +104,7 @@ export default function TaskPhotos({ taskId, uploadedBy }) {
               style={{ position: 'relative', aspectRatio: '1', borderRadius: 6, overflow: 'hidden', background: SURFACE, border: `1px solid ${BORDER}`, cursor: 'pointer' }}
               onClick={() => setLightbox(photo)}>
               <img src={photo.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+              {photo._pending && <div title="Wird bei Netz hochgeladen" style={{ position: 'absolute', top: 3, right: 3, background: 'rgba(245,158,11,0.9)', color: '#1a1200', borderRadius: 4, fontSize: 9, padding: '1px 4px', fontWeight: 700 }}>⏳</div>}
             </div>
           ))}
         </div>

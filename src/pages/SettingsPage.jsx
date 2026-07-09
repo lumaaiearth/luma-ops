@@ -48,7 +48,7 @@ function VehicleCard({ v, onDelete }) {
         </div>
       </div>
       {onDelete && (
-        <button onClick={onDelete} style={{ width: 28, height: 28, borderRadius: 4, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <button onClick={onDelete} className="lu-btn-ghost" style={{ width: 28, height: 28, borderRadius: 4, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Trash2 size={12} />
         </button>
       )}
@@ -264,7 +264,7 @@ export default function SettingsPage() {
             </div>
             <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button type="button" onClick={() => setShowAddVehicle(false)} style={{ padding: '8px 16px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 13 }}>Abbrechen</button>
-              <button type="submit" style={{ padding: '8px 16px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>Hinzufügen</button>
+              <button type="submit" className="lu-btn-primary" style={{ padding: '8px 16px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>Hinzufügen</button>
             </div>
           </form>
         )}
@@ -309,10 +309,10 @@ export default function SettingsPage() {
                   {gcalSyncing && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A }}>sync…</span>}
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={gcalReload} style={{ width: 30, height: 30, borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <button onClick={gcalReload} className="lu-btn-ghost" style={{ width: 30, height: 30, borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <RefreshCw size={12} />
                   </button>
-                  <button onClick={gcalDisconnect} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, fontSize: 12 }}>
+                  <button onClick={gcalDisconnect} className="lu-btn-ghost" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, fontSize: 12 }}>
                     <Unlink size={11} /> Trennen
                   </button>
                 </div>
@@ -467,7 +467,7 @@ export default function SettingsPage() {
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <button
               onClick={saveTgSettings}
-              style={{ padding: '8px 18px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
+              className="lu-btn-primary" style={{ padding: '8px 18px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
               Speichern
             </button>
           </div>
@@ -519,7 +519,7 @@ export default function SettingsPage() {
                   createProject({ id: newP.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''), ...newP })
                   setShowAddProject(false)
                 }}
-                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
+                className="lu-btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
                 <Check size={13} /> Hinzufügen
               </button>
             </div>
@@ -545,7 +545,7 @@ export default function SettingsPage() {
                     <input style={INPUT_STYLE} value={editP.client} onChange={e => setEditP(v => ({ ...v, client: e.target.value }))} />
                   </div>
                   <div style={{ display: 'flex', gap: 6 }}>
-                    <button onClick={() => { updateProject(p.id, editP); setEditProjectId(null) }} style={{ padding: '8px 12px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 12 }}><Check size={13} /></button>
+                    <button onClick={() => { updateProject(p.id, editP); setEditProjectId(null) }} className="lu-btn-primary" style={{ padding: '8px 12px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 12 }}><Check size={13} /></button>
                     <button onClick={() => setEditProjectId(null)} style={{ padding: '8px 12px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 12 }}>✕</button>
                   </div>
                 </div>
@@ -560,11 +560,11 @@ export default function SettingsPage() {
                   </div>
                   <div style={{ display: 'flex', gap: 4 }}>
                     <button onClick={() => { setEditProjectId(p.id); setEditP({ name: p.name, location: p.location || '', client: p.client || '' }) }}
-                      style={{ width: 28, height: 28, borderRadius: 4, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      className="lu-btn-ghost" style={{ width: 28, height: 28, borderRadius: 4, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <Pencil size={11} />
                     </button>
                     <button onClick={() => deleteProject(p.id)}
-                      style={{ width: 28, height: 28, borderRadius: 4, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      className="lu-btn-ghost" style={{ width: 28, height: 28, borderRadius: 4, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <Trash2 size={12} />
                     </button>
                   </div>

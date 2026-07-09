@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { A, BG, BORDER, FG, MUTED, CARD } from '../lib/theme.js'
+import { A, BG, BORDER, FG, MUTED, CARD, DANGER } from '../lib/theme.js'
+import { Button } from '../components/ui.jsx'
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -47,7 +48,7 @@ export default function LoginPage() {
               placeholder="name@luma.earth"
               autoComplete="email"
               required
-              style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: `1px solid ${error ? '#ef4444' : BORDER}`, borderRadius: 6, padding: '10px 12px', color: FG, fontFamily: "'Space Grotesk', sans-serif", fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
+              style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: `1px solid ${error ? DANGER : BORDER}`, borderRadius: 6, padding: '10px 12px', color: FG, fontFamily: "'Space Grotesk', sans-serif", fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
             />
           </div>
           <div style={{ marginBottom: 20 }}>
@@ -60,23 +61,19 @@ export default function LoginPage() {
               onChange={e => setPassword(e.target.value)}
               autoComplete="current-password"
               required
-              style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: `1px solid ${error ? '#ef4444' : BORDER}`, borderRadius: 6, padding: '10px 12px', color: FG, fontFamily: "'Space Grotesk', sans-serif", fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
+              style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: `1px solid ${error ? DANGER : BORDER}`, borderRadius: 6, padding: '10px 12px', color: FG, fontFamily: "'Space Grotesk', sans-serif", fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
             />
           </div>
 
           {error && (
-            <div style={{ marginBottom: 16, padding: '8px 12px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 6, color: '#ef4444', fontSize: 13 }}>
+            <div style={{ marginBottom: 16, padding: '8px 12px', background: `color-mix(in srgb, ${DANGER} 12%, transparent)`, border: `1px solid color-mix(in srgb, ${DANGER} 30%, transparent)`, borderRadius: 6, color: DANGER, fontSize: 13 }}>
               {error}
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            style={{ width: '100%', background: loading ? 'rgba(8,170,86,0.4)' : A, border: 'none', borderRadius: 6, padding: '11px', color: '#fff', fontFamily: "'Space Grotesk', sans-serif", fontSize: 14, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', transition: 'opacity 0.15s' }}
-          >
-            {loading ? 'Anmelden...' : 'Anmelden'}
-          </button>
+          <Button type="submit" disabled={loading} style={{ width: '100%', padding: '11px', fontSize: 14 }}>
+            {loading ? 'Anmelden…' : 'Anmelden'}
+          </Button>
         </form>
 
         <p style={{ textAlign: 'center', fontSize: 12, color: MUTED }}>

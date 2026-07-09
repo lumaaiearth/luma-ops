@@ -7,6 +7,13 @@ export const FG      = 'var(--luma-fg)'
 export const MUTED   = 'var(--luma-muted)'
 export const CARD    = 'var(--luma-card)'    // modal / overlay backgrounds
 
+// Semantische Statusfarben — pro Theme definiert (helles Theme = dunklere Töne).
+// Statt verstreuter Hex-Werte (#ef4444 …) überall diese Tokens verwenden.
+export const OK      = 'var(--luma-ok)'
+export const WARN    = 'var(--luma-warn)'
+export const DANGER  = 'var(--luma-danger)'
+export const INFO    = 'var(--luma-info)'
+
 // Alpha variants of accent color via color-mix() — auto-adapt to any theme
 const mix = (pct) => `color-mix(in srgb, var(--luma-a) ${pct}%, transparent)`
 export const A06 = mix(2.4)

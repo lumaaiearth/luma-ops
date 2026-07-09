@@ -1,17 +1,18 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, MapPin, Calendar, Clock, Radio, Edit3, Save, X, Building2, Phone, Mail, User, ExternalLink, ListTodo } from 'lucide-react'
+import { ArrowLeft, MapPin, Calendar, Clock, Radio, Edit3, Save, X, Building2, Phone, Mail, User, ExternalLink, ListTodo, Printer } from 'lucide-react'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
+import { useTime } from '../context/TimeContext.jsx'
 import { sbUpdate } from '../lib/supabase.js'
-import { A, BG, SURFACE, BORDER, FG, MUTED, CARD, A06, A14 } from '../lib/theme.js'
+import { A, BG, SURFACE, BORDER, FG, MUTED, CARD, A06, A14, OK, DANGER, INFO } from '../lib/theme.js'
 import { TEAM, TASK_STATUSES, TASK_PRIORITIES } from '../data/seed.js'
 import { isoToday, formatDate } from '../lib/storage.js'
 
 const TASK_S = Object.fromEntries(TASK_STATUSES.map(s => [s.id, s]))
 const TASK_P = Object.fromEntries(TASK_PRIORITIES.map(p => [p.id, p]))
 
-const STATUS_COLOR = { planned: '#6EA8C0', in_progress: A, done: '#22EAA7', cancelled: '#6B7280' }
+const STATUS_COLOR = { planned: INFO, in_progress: A, done: OK, cancelled: '#6B7280' }
 const STATUS_LABEL = { planned: 'Geplant', in_progress: 'Läuft', done: 'Erledigt', cancelled: 'Abgesagt' }
 
 function StatCard({ icon: Icon, label, value, color }) {
@@ -32,6 +33,7 @@ export default function ClientPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { clients, projects, jobs, sensors, tasks, updateClient, setTaskStatus } = useOps()
+  const { entries } = useTime()
   const { user } = useAuth()
   const [tab, setTab] = useState('overview')
   const [editingNotes, setEditingNotes] = useState(false)
@@ -70,6 +72,53 @@ export default function ClientPage() {
     setEditingNotes(false)
   }
 
+  function exportClientReport() {
+    const projIds = clientProjects.map(p => p.id)
+    const hours = (entries || []).filter(e => projIds.includes(e.project_id)).reduce((s, e) => s + Number(e.hours || 0), 0)
+    const doneJobsN = clientJobs.filter(j => j.status === 'done').length
+    const openT = clientTasks.filter(t => t.status !== 'done' && t.status !== 'archive')
+    const esc = s => String(s ?? '').replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]))
+    const projRows = clientProjects.map(p => {
+      const pj = jobs.filter(j => j.project_id === p.id)
+      const ph = (entries || []).filter(e => e.project_id === p.id).reduce((s, e) => s + Number(e.hours || 0), 0)
+      return `<tr><td>${esc(p.name)}</td><td>${esc(p.location || '')}</td><td>${pj.length}</td><td>${ph}h</td></tr>`
+    }).join('')
+    const jobRows = [...clientJobs].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 25)
+      .map(j => `<tr><td>${j.date}</td><td>${esc(j.title)}</td><td>${esc(clientProjects.find(p => p.id === j.project_id)?.name || '')}</td><td>${STATUS_LABEL[j.status] || j.status}</td></tr>`).join('')
+    const taskRows = openT.map(t => `<tr><td>${esc(t.title)}</td><td>${esc(clientProjects.find(p => p.id === t.project_id)?.name || '')}</td><td>${t.due_date || '—'}</td></tr>`).join('')
+    const html = `<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><title>LUMA Report — ${esc(client.name)}</title>
+      <style>
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #1a1a1a; margin: 32px; }
+        h1 { font-size: 20px; margin-bottom: 2px; } h2 { font-size: 14px; margin: 24px 0 8px; border-bottom: 2px solid #08AA56; padding-bottom: 4px; }
+        .meta { color: #6b7280; font-size: 11px; margin-bottom: 18px; }
+        .kpis { display: flex; gap: 24px; margin: 12px 0 4px; }
+        .kpi b { display: block; font-size: 22px; font-weight: 600; } .kpi span { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; }
+        table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+        th { text-align: left; padding: 6px 10px; border-bottom: 2px solid #e5e7eb; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; }
+        td { padding: 6px 10px; border-bottom: 1px solid #f3f4f6; }
+        @media print { body { margin: 16px; } }
+      </style></head><body>
+      <h1>${esc(client.name)}</h1>
+      <div class="meta">LUMA Ops — Kundenreport · Erstellt: ${new Date().toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
+      <div class="kpis">
+        <div class="kpi"><b>${clientProjects.length}</b><span>Projekte</span></div>
+        <div class="kpi"><b>${clientJobs.length}</b><span>Einsätze</span></div>
+        <div class="kpi"><b>${doneJobsN}</b><span>erledigt</span></div>
+        <div class="kpi"><b>${openT.length}</b><span>offene Aufgaben</span></div>
+        <div class="kpi"><b>${hours}h</b><span>erfasst</span></div>
+      </div>
+      <h2>Projekte</h2>
+      <table><thead><tr><th>Projekt</th><th>Standort</th><th>Einsätze</th><th>Stunden</th></tr></thead><tbody>${projRows || '<tr><td colspan=4>—</td></tr>'}</tbody></table>
+      <h2>Offene Aufgaben</h2>
+      <table><thead><tr><th>Aufgabe</th><th>Projekt</th><th>Fällig</th></tr></thead><tbody>${taskRows || '<tr><td colspan=3>Keine offenen Aufgaben</td></tr>'}</tbody></table>
+      <h2>Einsätze (zuletzt)</h2>
+      <table><thead><tr><th>Datum</th><th>Titel</th><th>Projekt</th><th>Status</th></tr></thead><tbody>${jobRows || '<tr><td colspan=4>—</td></tr>'}</tbody></table>
+      <script>window.onload = () => window.print()</script>
+    </body></html>`
+    const w = window.open('', '_blank')
+    if (w) { w.document.write(html); w.document.close() }
+  }
+
   const TABS = [
     { id: 'overview', label: 'Übersicht', icon: Building2 },
     { id: 'tasks', label: `Aufgaben (${clientTasks.length})`, icon: ListTodo },
@@ -104,10 +153,16 @@ export default function ClientPage() {
               </div>
             </div>
           </div>
-          <button onClick={() => navigate('/data', { state: { tab: 'clients' } })}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", flexShrink: 0 }}>
-            <ExternalLink size={13} /> In Stammdaten
-          </button>
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+            <button onClick={exportClientReport}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 6, border: 'none', background: A, color: '#001219', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: "'Space Grotesk', sans-serif" }}>
+              <Printer size={13} /> Report
+            </button>
+            <button onClick={() => navigate('/data', { state: { tab: 'clients' } })}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif" }}>
+              <ExternalLink size={13} /> In Stammdaten
+            </button>
+          </div>
         </div>
       </div>
 
@@ -117,7 +172,7 @@ export default function ClientPage() {
           <StatCard icon={MapPin} label="Projekte" value={clientProjects.length} color={clientColor} />
           <StatCard icon={ListTodo} label="Offene Aufgaben" value={openClientTasks.length} color={openClientTasks.length > 0 ? A : undefined} />
           <StatCard icon={Calendar} label="Einsätze gesamt" value={clientJobs.length} />
-          <StatCard icon={Clock} label="Davon erledigt" value={doneJobs.length} color="#22EAA7" />
+          <StatCard icon={Clock} label="Davon erledigt" value={doneJobs.length} color={OK} />
           <StatCard icon={Radio} label="Sensoren" value={clientSensors.length} />
         </div>
 
@@ -234,7 +289,7 @@ export default function ClientPage() {
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>{new Date(j.date + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}</span>
-                          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: STATUS_COLOR[j.status], background: `${STATUS_COLOR[j.status]}18`, padding: '2px 6px', borderRadius: 10 }}>{STATUS_LABEL[j.status]}</span>
+                          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: STATUS_COLOR[j.status], background: `color-mix(in srgb, ${STATUS_COLOR[j.status]} 10%, transparent)`, padding: '2px 6px', borderRadius: 10 }}>{STATUS_LABEL[j.status]}</span>
                         </div>
                       </div>
                     ))}
@@ -295,7 +350,7 @@ export default function ClientPage() {
                       <div style={{ fontSize: 13, color: done ? MUTED : FG, fontFamily: "'Space Grotesk', sans-serif", textDecoration: t.status === 'archive' ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 3 }}>
                         {proj && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED }}>{proj.name}</span>}
-                        {t.due_date && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: overdue ? '#ef4444' : MUTED }}>fällig {formatDate(t.due_date)}</span>}
+                        {t.due_date && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: overdue ? DANGER : MUTED }}>fällig {formatDate(t.due_date)}</span>}
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
@@ -329,7 +384,7 @@ export default function ClientPage() {
                   onMouseEnter={e => e.currentTarget.style.borderColor = `${A}55`}
                   onMouseLeave={e => e.currentTarget.style.borderColor = BORDER}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.status === 'active' ? '#22EAA7' : MUTED, flexShrink: 0 }} />
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.status === 'active' ? OK : MUTED, flexShrink: 0 }} />
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 14, fontWeight: 500, color: FG, fontFamily: "'Space Grotesk', sans-serif" }}>{p.name}</div>
                       {p.location && <div style={{ fontSize: 11, color: MUTED, fontFamily: "'Space Mono', monospace", marginTop: 2 }}><MapPin size={10} style={{ display: 'inline', marginRight: 3 }} />{p.location}</div>}
@@ -337,7 +392,7 @@ export default function ClientPage() {
                   </div>
                   <div style={{ display: 'flex', gap: 16, flexShrink: 0, fontFamily: "'Space Mono', monospace", fontSize: 11 }}>
                     <span style={{ color: MUTED }}>{pJobs.length} Einsätze</span>
-                    <span style={{ color: '#22EAA7' }}>{pDone} erledigt</span>
+                    <span style={{ color: OK }}>{pDone} erledigt</span>
                     {pSensors.length > 0 && <span style={{ color: A }}>{pSensors.length} Sensoren</span>}
                   </div>
                 </button>
@@ -370,7 +425,7 @@ export default function ClientPage() {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, fontFamily: "'Space Mono', monospace", fontSize: 11 }}>
                     <span style={{ color: MUTED }}>{new Date(j.date + 'T00:00:00').toLocaleDateString('de-DE')}</span>
-                    <span style={{ color: STATUS_COLOR[j.status], background: `${STATUS_COLOR[j.status]}18`, padding: '2px 8px', borderRadius: 10 }}>{STATUS_LABEL[j.status]}</span>
+                    <span style={{ color: STATUS_COLOR[j.status], background: `color-mix(in srgb, ${STATUS_COLOR[j.status]} 10%, transparent)`, padding: '2px 8px', borderRadius: 10 }}>{STATUS_LABEL[j.status]}</span>
                   </div>
                 </div>
               )

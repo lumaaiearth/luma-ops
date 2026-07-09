@@ -198,7 +198,7 @@ function LogForm({ onSave, prefill, onClose }) {
       </div>
       <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
         {onClose && <button type="button" onClick={onClose} style={{ padding: '8px 16px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 13 }}>Abbrechen</button>}
-        <button type="submit" style={{ padding: '8px 20px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
+        <button type="submit" className="lu-btn-primary" style={{ padding: '8px 20px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
           Eintragen
         </button>
       </div>
@@ -254,7 +254,7 @@ function TabErfassen() {
                 </div>
                 {!entry.invoice_id && (
                   <button onClick={() => deleteEntry(entry.id)}
-                    style={{ width: 26, height: 26, borderRadius: 4, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    className="lu-btn-ghost" style={{ width: 26, height: 26, borderRadius: 4, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <Trash2 size={11} />
                   </button>
                 )}
@@ -674,7 +674,7 @@ function TabAbrechnung() {
                     <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 16, fontWeight: 700, color: '#F59E0B' }}>{totalHours}h</span>
                     <button
                       onClick={() => openInvoiceForm(project.id, pEntries.map(e => e.id))}
-                      style={{ padding: '6px 12px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
+                      className="lu-btn-primary" style={{ padding: '6px 12px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
                       Rechnung erstellen
                     </button>
                   </div>
@@ -733,7 +733,7 @@ function TabAbrechnung() {
               </div>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                 <button type="button" onClick={() => setNewInvoice(null)} style={{ padding: '8px 16px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 13 }}>Abbrechen</button>
-                <button type="submit" style={{ padding: '8px 20px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>Rechnung anlegen</button>
+                <button type="submit" className="lu-btn-primary" style={{ padding: '8px 20px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>Rechnung anlegen</button>
               </div>
             </form>
           </div>
@@ -773,7 +773,7 @@ function TabAbrechnung() {
                     </button>
                   )}
                   <button onClick={() => deleteInvoice(inv.id)}
-                    style={{ width: 28, height: 28, borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    className="lu-btn-ghost" style={{ width: 28, height: 28, borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Trash2 size={11} />
                   </button>
                 </div>

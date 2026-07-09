@@ -17,7 +17,7 @@ jobs:
           mkdir -p backup
           DATE=$(date -u '+%Y-%m-%d')
 
-          for TABLE in jobs recurring_templates projects clients time_entries invoices sensors vehicles app_settings job_photos; do
+          for TABLE in jobs recurring_templates projects clients time_entries invoices sensors vehicles app_settings job_photos tasks boards task_photos task_files map_features drive_folders project_documents pflanzplaene plant_species; do
             curl -sf \
               -H "apikey: $KEY" \
               -H "Authorization: Bearer $KEY" \
@@ -28,7 +28,7 @@ jobs:
           done
 
           echo "Backup $DATE $(date -u '+%H:%M UTC')" > backup/info.txt
-          echo "Tabellen: jobs, recurring_templates, projects, clients, time_entries, invoices, sensors, vehicles, app_settings, job_photos" >> backup/info.txt
+          echo "Tabellen: jobs, recurring_templates, projects, clients, time_entries, invoices, sensors, vehicles, app_settings, job_photos, tasks, boards, task_photos, task_files, map_features, drive_folders, project_documents, pflanzplaene, plant_species" >> backup/info.txt
 
       - name: Als Artifact speichern
         uses: actions/upload-artifact@v4

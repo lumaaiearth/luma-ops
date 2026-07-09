@@ -6,18 +6,8 @@ import { useAuth } from '../context/AuthContext.jsx'
 import JobPhotos from './JobPhotos.jsx'
 
 import { A, SURFACE, BORDER, FG, MUTED, CARD, A06, A08, A14 } from '../lib/theme.js'
+import { Modal, ModalActions, INPUT_STYLE, LABEL_STYLE } from './ui.jsx'
 import { isoToday } from '../lib/storage.js'
-
-const INPUT_STYLE = {
-  width: '100%', background: SURFACE, border: `1px solid ${BORDER}`,
-  borderRadius: 6, padding: '10px 12px', color: FG,
-  fontFamily: "'Space Grotesk', sans-serif", fontSize: 14, outline: 'none',
-}
-
-const LABEL_STYLE = {
-  fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED,
-  letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6, display: 'block',
-}
 
 const TIME_SLOTS = Array.from({ length: 96 }, (_, i) => {
   const h = Math.floor(i / 4), m = (i % 4) * 15
@@ -64,6 +54,7 @@ function TimePicker({ value, onChange }) {
             return (
               <div key={slot}
                 onMouseDown={e => { e.preventDefault(); onChange(slot); setOpen(false) }}
+                className={sel ? undefined : 'lu-option'}
                 style={{
                   padding: '8px 14px', cursor: 'pointer',
                   fontFamily: "'Space Mono', monospace", fontSize: 12,
@@ -71,8 +62,6 @@ function TimePicker({ value, onChange }) {
                   background: sel ? A14 : 'transparent',
                   borderLeft: sel ? `2px solid ${A}` : '2px solid transparent',
                 }}
-                onMouseEnter={e => { if (!sel) e.currentTarget.style.background = A06 }}
-                onMouseLeave={e => { if (!sel) e.currentTarget.style.background = 'transparent' }}
               >
                 {slot}
               </div>
@@ -104,31 +93,18 @@ function QuickProjectModal({ clients, onSave, onClose }) {
     onSave(project)
   }
 
-  const INPUT = {
-    width: '100%', background: A06, border: `1px solid ${BORDER}`,
-    borderRadius: 6, padding: '9px 12px', color: '#e8f0f5',
-    fontFamily: "'Space Grotesk', sans-serif", fontSize: 13, outline: 'none',
-  }
-
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
-      <div onClick={e => e.stopPropagation()} style={{ position: 'relative', background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8, width: '100%', maxWidth: 380, boxShadow: '0 24px 60px rgba(0,0,0,0.7)', padding: 20 }}>
-        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 14 }}>Neues Projekt</div>
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <input style={INPUT} value={name} onChange={e => setName(e.target.value)} placeholder="Projektname *" required autoFocus />
-          <select style={INPUT} value={clientId} onChange={e => setClientId(e.target.value)}>
-            <option value="">Kein Auftraggeber</option>
-            {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-          <input style={INPUT} value={location} onChange={e => setLocation(e.target.value)} placeholder="Standort / Adresse" />
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
-            <button type="button" onClick={onClose} style={{ padding: '8px 14px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: 'rgba(232,240,245,0.4)', cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif" }}>Abbrechen</button>
-            <button type="submit" style={{ padding: '8px 16px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 12, fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif" }}>Anlegen</button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <Modal eyebrow="Neues Projekt" onClose={onClose} maxWidth={380} zIndex={1100}>
+      <form onSubmit={handleSubmit} style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <input style={INPUT_STYLE} value={name} onChange={e => setName(e.target.value)} placeholder="Projektname *" required autoFocus />
+        <select style={INPUT_STYLE} value={clientId} onChange={e => setClientId(e.target.value)}>
+          <option value="">Kein Auftraggeber</option>
+          {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+        <input style={INPUT_STYLE} value={location} onChange={e => setLocation(e.target.value)} placeholder="Standort / Adresse" />
+        <ModalActions onCancel={onClose} submitLabel="Anlegen" />
+      </form>
+    </Modal>
   )
 }
 
@@ -277,30 +253,13 @@ export default function JobModal({ initialDate, initialJob, initialStartTime, in
 
   return (
     <>
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }} />
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          position: 'relative', background: CARD,
-          border: `1px solid ${BORDER}`, borderRadius: 8,
-          width: '100%', maxWidth: 580, maxHeight: '92vh', overflowY: 'auto',
-          boxShadow: '0 32px 80px rgba(0,0,0,0.6)',
-        }}
-      >
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 24px', borderBottom: `1px solid ${BORDER}`, position: 'sticky', top: 0, background: CARD, zIndex: 1 }}>
-          <div>
-            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: typeColor, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 2 }}>
-              {editing ? 'Einsatz bearbeiten' : 'Neuer Einsatz'}
-            </div>
-            <div style={{ fontSize: 15, fontWeight: 500, color: FG }}>{form.title || 'Titel eingeben…'}</div>
-          </div>
-          <button onClick={onClose} style={{ background: A06, border: 'none', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <X size={16} />
-          </button>
-        </div>
-
+    <Modal
+      eyebrow={editing ? 'Einsatz bearbeiten' : 'Neuer Einsatz'}
+      eyebrowColor={typeColor}
+      title={form.title || 'Titel eingeben…'}
+      onClose={onClose}
+      maxWidth={580}
+    >
         <form onSubmit={handleSubmit} style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>
 
           {/* Title */}
@@ -412,15 +371,14 @@ export default function JobModal({ initialDate, initialJob, initialStartTime, in
               {locationOpen && locationSuggestions.length > 0 && (
                 <div style={{
                   position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 500,
-                  background: '#0d1a23', border: `1px solid ${BORDER}`, borderRadius: 6,
+                  background: CARD, border: `1px solid ${BORDER}`, borderRadius: 6,
                   maxHeight: 220, overflowY: 'auto', boxShadow: '0 12px 32px rgba(0,0,0,0.55)',
                 }}>
                   {locationSuggestions.map((item, i) => (
                     <div key={i}
                       onMouseDown={e => { e.preventDefault(); selectLocation(item) }}
-                      style={{ padding: '9px 14px', cursor: 'pointer', borderBottom: i < locationSuggestions.length - 1 ? `1px solid ${BORDER}` : 'none' }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(8,170,86,0.08)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      className="lu-option"
+                      style={{ padding: '9px 14px', borderBottom: i < locationSuggestions.length - 1 ? `1px solid ${BORDER}` : 'none' }}
                     >
                       <div style={{ fontSize: 13, color: FG, fontFamily: "'Space Grotesk', sans-serif", lineHeight: 1.3 }}>
                         {item.address?.road ? `${item.address.road}${item.address.house_number ? ' ' + item.address.house_number : ''}` : item.display_name.split(',')[0]}
@@ -546,19 +504,9 @@ export default function JobModal({ initialDate, initialJob, initialStartTime, in
           )}
 
           {/* Actions */}
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 }}>
-            <button type="button" onClick={onClose}
-              style={{ padding: '10px 20px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 14, fontFamily: "'Space Grotesk', sans-serif" }}>
-              Abbrechen
-            </button>
-            <button type="submit"
-              style={{ padding: '10px 24px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 14, fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif" }}>
-              {editing ? 'Speichern' : form.make_recurring ? 'Vorlage erstellen' : 'Einsatz anlegen'}
-            </button>
-          </div>
+          <ModalActions onCancel={onClose} submitLabel={editing ? 'Speichern' : form.make_recurring ? 'Vorlage erstellen' : 'Einsatz anlegen'} />
         </form>
-      </div>
-    </div>
+    </Modal>
 
     {showQuickProject && (
       <QuickProjectModal

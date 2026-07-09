@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useOps } from '../context/OpsContext.jsx'
-import { A, SURFACE, BORDER, FG, MUTED, A08, A14, A20 } from '../lib/theme.js'
+import { A, SURFACE, BORDER, FG, MUTED, A08, A14, A20, WARN, DANGER } from '../lib/theme.js'
 import { AlertTriangle, CheckCircle2, RefreshCw, Wifi } from 'lucide-react'
 
 const TYPE_LABELS = { soil_moisture: 'Bodenfeuchte', soil_temp: 'Bodentemperatur', air_temp: 'Lufttemperatur', rainfall: 'Niederschlag' }
@@ -74,13 +74,13 @@ export default function SensorsPage() {
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, marginBottom: 4 }}>Sensoren gesamt</div>
           <div style={{ fontSize: 28, fontWeight: 300, color: FG }}>{sensors.length}</div>
         </div>
-        <div style={{ padding: '14px 16px', background: warningCount > 0 ? '#F59E0B10' : SURFACE, border: `1px solid ${warningCount > 0 ? '#F59E0B40' : BORDER}`, borderRadius: 8 }}>
+        <div style={{ padding: '14px 16px', background: warningCount > 0 ? `color-mix(in srgb, ${WARN} 8%, transparent)` : SURFACE, border: `1px solid ${warningCount > 0 ? `color-mix(in srgb, ${WARN} 30%, transparent)` : BORDER}`, borderRadius: 8 }}>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, marginBottom: 4 }}>Warnungen</div>
-          <div style={{ fontSize: 28, fontWeight: 300, color: warningCount > 0 ? '#F59E0B' : FG }}>{warningCount}</div>
+          <div style={{ fontSize: 28, fontWeight: 300, color: warningCount > 0 ? WARN : FG }}>{warningCount}</div>
         </div>
-        <div style={{ padding: '14px 16px', background: criticalCount > 0 ? '#ef444410' : SURFACE, border: `1px solid ${criticalCount > 0 ? '#ef444440' : BORDER}`, borderRadius: 8 }}>
+        <div style={{ padding: '14px 16px', background: criticalCount > 0 ? `color-mix(in srgb, ${DANGER} 8%, transparent)` : SURFACE, border: `1px solid ${criticalCount > 0 ? `color-mix(in srgb, ${DANGER} 30%, transparent)` : BORDER}`, borderRadius: 8 }}>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, marginBottom: 4 }}>Kritisch</div>
-          <div style={{ fontSize: 28, fontWeight: 300, color: criticalCount > 0 ? '#ef4444' : FG }}>{criticalCount}</div>
+          <div style={{ fontSize: 28, fontWeight: 300, color: criticalCount > 0 ? DANGER : FG }}>{criticalCount}</div>
         </div>
       </div>
 
@@ -92,9 +92,9 @@ export default function SensorsPage() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 }}>
             {ps.map(s => {
-              const statusColor = s.status === 'critical' ? '#ef4444' : s.status === 'warning' ? '#F59E0B' : A
-              const bgColor = s.status === 'critical' ? '#ef444410' : s.status === 'warning' ? '#F59E0B10' : A08
-              const borderColor2 = s.status === 'critical' ? '#ef444440' : s.status === 'warning' ? '#F59E0B40' : BORDER
+              const statusColor = s.status === 'critical' ? DANGER : s.status === 'warning' ? WARN : A
+              const bgColor = s.status === 'ok' ? A08 : `color-mix(in srgb, ${statusColor} 8%, transparent)`
+              const borderColor2 = s.status === 'ok' ? BORDER : `color-mix(in srgb, ${statusColor} 30%, transparent)`
               return (
                 <div key={s.id} style={{ padding: '16px 18px', background: bgColor, border: `1px solid ${borderColor2}`, borderRadius: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -115,7 +115,7 @@ export default function SensorsPage() {
                     <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED }}>Max: {s.threshold_high}{s.unit}</div>
                   </div>
                   {s.status !== 'ok' && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, padding: '6px 10px', background: `${statusColor}18`, borderRadius: 4 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, padding: '6px 10px', background: `color-mix(in srgb, ${statusColor} 10%, transparent)`, borderRadius: 4 }}>
                       <AlertTriangle size={11} color={statusColor} />
                       <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: statusColor }}>
                         {s.status === 'critical' ? 'Gießen erforderlich' : 'Feuchtigkeit prüfen'}

@@ -7,17 +7,9 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { useTime } from '../context/TimeContext.jsx'
 import { genId, isoToday } from '../lib/storage.js'
 import TaskPhotos from './TaskPhotos.jsx'
+import TaskFiles from './TaskFiles.jsx'
 import { A, SURFACE, BORDER, FG, MUTED, CARD, A06, A08 } from '../lib/theme.js'
-
-const INPUT_STYLE = {
-  width: '100%', background: SURFACE, border: `1px solid ${BORDER}`,
-  borderRadius: 6, padding: '10px 12px', color: FG,
-  fontFamily: "'Space Grotesk', sans-serif", fontSize: 14, outline: 'none',
-}
-const LABEL_STYLE = {
-  fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED,
-  letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6, display: 'block',
-}
+import { Modal, ModalActions, INPUT_STYLE, LABEL_STYLE } from './ui.jsx'
 
 /* ─── Pill selector (single choice from a coloured list) ───────────────────── */
 function PillSelect({ options, value, onChange, allowNull = false }) {
@@ -261,24 +253,13 @@ export default function TaskModal({ initialTask, defaults, onSave, onClose }) {
   const linkableJobs = jobs.filter(j => !form.project_id || j.project_id === form.project_id)
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }} />
-      <div onClick={e => e.stopPropagation()}
-        style={{ position: 'relative', background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8, width: '100%', maxWidth: 640, maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}>
-
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 24px', borderBottom: `1px solid ${BORDER}`, position: 'sticky', top: 0, background: CARD, zIndex: 2 }}>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: board?.color || typeColor, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 2 }}>
-              {board ? `${board.emoji} ${board.name}` : (editing ? 'Aufgabe bearbeiten' : 'Neue Aufgabe')}
-            </div>
-            <div style={{ fontSize: 15, fontWeight: 500, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{form.title || 'Titel eingeben…'}</div>
-          </div>
-          <button onClick={onClose} style={{ background: A06, border: 'none', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <X size={16} />
-          </button>
-        </div>
-
+    <Modal
+      eyebrow={board ? `${board.emoji} ${board.name}` : (editing ? 'Aufgabe bearbeiten' : 'Neue Aufgabe')}
+      eyebrowColor={board?.color || typeColor}
+      title={form.title || 'Titel eingeben…'}
+      onClose={onClose}
+      maxWidth={640}
+    >
         <form onSubmit={handleSubmit} style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>
 
           {/* Title */}
@@ -381,12 +362,11 @@ export default function TaskModal({ initialTask, defaults, onSave, onClose }) {
               <input style={{ ...INPUT_STYLE, paddingLeft: 34 }} value={form.location} onChange={e => handleLocationChange(e.target.value)}
                 onFocus={() => locSuggestions.length > 0 && setLocOpen(true)} placeholder="Adresse eingeben…" autoComplete="off" />
               {locOpen && locSuggestions.length > 0 && (
-                <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 500, background: '#0d1a23', border: `1px solid ${BORDER}`, borderRadius: 6, maxHeight: 220, overflowY: 'auto', boxShadow: '0 12px 32px rgba(0,0,0,0.55)' }}>
+                <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 500, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 6, maxHeight: 220, overflowY: 'auto', boxShadow: '0 12px 32px rgba(0,0,0,0.55)' }}>
                   {locSuggestions.map((item, i) => (
                     <div key={i} onMouseDown={e => { e.preventDefault(); selectLocation(item) }}
-                      style={{ padding: '9px 14px', cursor: 'pointer', borderBottom: i < locSuggestions.length - 1 ? `1px solid ${BORDER}` : 'none' }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(8,170,86,0.08)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                      className="lu-option"
+                      style={{ padding: '9px 14px', borderBottom: i < locSuggestions.length - 1 ? `1px solid ${BORDER}` : 'none' }}>
                       <div style={{ fontSize: 13, color: FG, lineHeight: 1.3 }}>{item.display_name.split(',').slice(0, 2).join(',')}</div>
                       <div style={{ fontSize: 10, color: MUTED, fontFamily: "'Space Mono', monospace", marginTop: 2 }}>{[item.address?.city || item.address?.town, item.address?.postcode].filter(Boolean).join(' · ')}</div>
                     </div>
@@ -467,6 +447,13 @@ export default function TaskModal({ initialTask, defaults, onSave, onClose }) {
             </div>
           )}
 
+          {/* Datei-Anhänge (nur im Bearbeiten-Modus) */}
+          {editing && initialTask?.id && (
+            <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 16 }}>
+              <TaskFiles taskId={initialTask.id} uploadedBy={user?.id || 'unknown'} />
+            </div>
+          )}
+
           {/* Zeiterfassung (nur im Bearbeiten-Modus) */}
           {editing && initialTask?.id && (
             <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 16 }}>
@@ -506,22 +493,17 @@ export default function TaskModal({ initialTask, defaults, onSave, onClose }) {
           )}
 
           {/* Actions */}
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'center', paddingTop: 4, flexWrap: 'wrap' }}>
-            <button type="button" onClick={convertToJob} title="Aus dieser Aufgabe einen terminierten Einsatz erstellen"
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 6, background: 'transparent', border: `1px solid ${A}55`, color: A, cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif" }}>
-              <CalendarPlus size={14} /> In Einsatz umwandeln
-            </button>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button type="button" onClick={onClose}
-                style={{ padding: '10px 20px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 14, fontFamily: "'Space Grotesk', sans-serif" }}>Abbrechen</button>
-              <button type="submit"
-                style={{ padding: '10px 24px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 14, fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif" }}>
-                {editing ? 'Speichern' : 'Aufgabe anlegen'}
+          <ModalActions
+            onCancel={onClose}
+            submitLabel={editing ? 'Speichern' : 'Aufgabe anlegen'}
+            left={
+              <button type="button" onClick={convertToJob} title="Aus dieser Aufgabe einen terminierten Einsatz erstellen" className="lu-btn-ghost"
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 6, background: 'transparent', border: `1px solid ${A}55`, color: A, cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif" }}>
+                <CalendarPlus size={14} /> In Einsatz umwandeln
               </button>
-            </div>
-          </div>
+            }
+          />
         </form>
-      </div>
-    </div>
+    </Modal>
   )
 }
