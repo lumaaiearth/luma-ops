@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { MapContainer, TileLayer, WMSTileLayer, Marker, Popup, useMap, GeoJSON, ImageOverlay } from 'react-leaflet'
+import { MapContainer, TileLayer, WMSTileLayer, Marker, Popup, useMap, GeoJSON, ImageOverlay, Circle } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import '@geoman-io/leaflet-geoman-free'
@@ -15,7 +15,7 @@ const TASK_P = Object.fromEntries(TASK_PRIORITIES.map(p => [p.id, p]))
 const TASK_S = Object.fromEntries(TASK_STATUSES.map(s => [s.id, s]))
 import { isoToday, addDays, genId } from '../lib/storage.js'
 import { useIsMobile } from '../lib/useIsMobile.js'
-import { Layers, Satellite, Map as MapIcon, Pencil, Save, X, ExternalLink, ChevronRight, ChevronDown, FolderOpen, Folder, Eye, EyeOff, Search, MapPin, Plus, Trash2, Upload, Image, SlidersHorizontal } from 'lucide-react'
+import { Layers, Satellite, Map as MapIcon, Pencil, Save, X, ExternalLink, ChevronRight, ChevronDown, FolderOpen, Folder, Eye, EyeOff, Search, MapPin, Plus, Trash2, Upload, Image, SlidersHorizontal, Ruler, Move, LocateFixed } from 'lucide-react'
 
 /* ─── GEO HELPERS ───────────────────────────────────────────────────────── */
 function geodesicArea(latLngs) {
@@ -42,6 +42,25 @@ function perimeterMeters(latLngs) {
     const b = L.latLng(pts[(i + 1) % pts.length].lat ?? pts[(i + 1) % pts.length][0], pts[(i + 1) % pts.length].lng ?? pts[(i + 1) % pts.length][1])
     d += a.distanceTo(b)
   }
+  return d
+}
+
+// Offene Streckenlänge (ohne Ringschluss) — für Linien & Mess-Modus
+function openPathMeters(latLngs) {
+  const pts = Array.isArray(latLngs[0]) ? latLngs.flat(Infinity) : latLngs
+  let d = 0
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = L.latLng(pts[i].lat ?? pts[i][0], pts[i].lng ?? pts[i][1])
+    const b = L.latLng(pts[i + 1].lat ?? pts[i + 1][0], pts[i + 1].lng ?? pts[i + 1][1])
+    d += a.distanceTo(b)
+  }
+  return d
+}
+
+function geomLineLength(geometry) {
+  const pts = (geometry?.coordinates || []).map(([lng, lat]) => L.latLng(lat, lng))
+  let d = 0
+  for (let i = 0; i < pts.length - 1; i++) d += pts[i].distanceTo(pts[i + 1])
   return d
 }
 
@@ -109,6 +128,15 @@ function makeTreeIcon(color, size = 18) {
   })
 }
 
+function makeUserIcon() {
+  return L.divIcon({
+    html: `<div style="width:16px;height:16px;border-radius:50%;background:#3b82f6;border:3px solid #fff;box-shadow:0 0 0 2px rgba(59,130,246,0.35),0 2px 8px rgba(0,0,0,0.5)"></div>`,
+    className: '',
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+  })
+}
+
 function FlyTo({ center }) {
   const map = useMap()
   useEffect(() => {
@@ -118,14 +146,16 @@ function FlyTo({ center }) {
 }
 
 /* ─── DRAW CONTROL ──────────────────────────────────────────────────────── */
-function DrawControl({ mode, onFeatureDrawn, onCancel }) {
+function DrawControl({ mode, onFeatureDrawn, onCancel, onLiveMeasure }) {
   const map = useMap()
+  const workingRef = useRef(null)
 
   useEffect(() => {
     if (!map || !mode) return
 
     const isPoint = mode === 'tree' || mode === 'point'
-    const isLine = mode === 'line'
+    const isLine = mode === 'line' || mode === 'measure'
+    const shapeName = isPoint ? 'Marker' : isLine ? 'Line' : 'Polygon'
 
     if (isPoint) {
       map.pm.enableDraw('Marker', { snappable: false })
@@ -135,17 +165,55 @@ function DrawControl({ mode, onFeatureDrawn, onCancel }) {
       map.pm.enableDraw('Polygon', { snappable: true })
     }
 
+    function computeLive() {
+      const wl = workingRef.current
+      if (!wl?.getLatLngs) return
+      try {
+        const flat = (Array.isArray(wl.getLatLngs()?.[0]) ? wl.getLatLngs().flat(Infinity) : wl.getLatLngs()) || []
+        if (flat.length < 2) { onLiveMeasure?.(null); return }
+        onLiveMeasure?.({
+          length: openPathMeters(flat),
+          area: !isLine && flat.length >= 3 ? geodesicArea(flat) : 0,
+        })
+      } catch { /* Zwischenstand nicht messbar */ }
+    }
+
+    function onDrawStart(e) {
+      workingRef.current = e.workingLayer
+      e.workingLayer?.on?.('pm:vertexadded', computeLive)
+    }
+
     function onDrawEnd(e) {
       const geojson = e.layer.toGeoJSON()
       map.removeLayer(e.layer)
       map.pm.disableDraw()
+      onLiveMeasure?.(null)
       onFeatureDrawn(geojson.geometry)
     }
 
+    // Esc = abbrechen, Backspace = letzten Eckpunkt entfernen
+    function onKey(ev) {
+      const tag = document.activeElement?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (ev.key === 'Escape') {
+        ev.preventDefault()
+        onCancel()
+      } else if (ev.key === 'Backspace' && !isPoint) {
+        ev.preventDefault()
+        try { map.pm.Draw[shapeName]._removeLastVertex(); computeLive() } catch { /* noch kein Punkt gesetzt */ }
+      }
+    }
+
+    map.on('pm:drawstart', onDrawStart)
     map.on('pm:create', onDrawEnd)
+    document.addEventListener('keydown', onKey)
     return () => {
+      map.off('pm:drawstart', onDrawStart)
       map.off('pm:create', onDrawEnd)
+      document.removeEventListener('keydown', onKey)
       map.pm.disableDraw()
+      onLiveMeasure?.(null)
+      workingRef.current = null
     }
   }, [map, mode])
 
@@ -153,9 +221,23 @@ function DrawControl({ mode, onFeatureDrawn, onCancel }) {
     <div style={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 1000 }}>
       <button onClick={onCancel}
         style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, background: SURFACE, border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 2px 12px rgba(0,0,0,0.4)' }}>
-        <X size={14} /> Abbrechen
+        <X size={14} /> Abbrechen <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, opacity: 0.6 }}>Esc</span>
       </button>
     </div>
+  )
+}
+
+/* ─── GPS / STANDORT ────────────────────────────────────────────────────── */
+function UserLocation({ userPos }) {
+  if (!userPos) return null
+  return (
+    <>
+      {userPos.accuracy > 0 && (
+        <Circle center={[userPos.lat, userPos.lng]} radius={userPos.accuracy}
+          pathOptions={{ color: '#3b82f6', weight: 1, opacity: 0.5, fillColor: '#3b82f6', fillOpacity: 0.08 }} />
+      )}
+      <Marker position={[userPos.lat, userPos.lng]} icon={makeUserIcon()} zIndexOffset={1000} />
+    </>
   )
 }
 
@@ -571,7 +653,57 @@ export default function MapPage() {
   const [droneModal, setDroneModal] = useState(null) // project | null
   const [droneOpacity, setDroneOpacity] = useState({}) // { featureId: opacity }
 
+  // Toolbar / Bearbeiten / GPS / Messen
+  const [drawProjectId, setDrawProjectId] = useState(null)   // Zielprojekt der Toolbar
+  const [projectHint, setProjectHint] = useState(false)      // "erst Projekt wählen"-Hinweis
+  const [editMode, setEditMode] = useState(false)            // Geometrien verschieben/editieren
+  const [gpsOn, setGpsOn] = useState(false)
+  const [userPos, setUserPos] = useState(null)               // { lat, lng, accuracy }
+  const [measureResult, setMeasureResult] = useState(null)   // { length }
+  const [liveMeasure, setLiveMeasure] = useState(null)       // { length, area } während des Zeichnens
+  const featureLayers = useRef(new Map())                    // featureId -> Leaflet-Layer (für Edit-Modus)
+  const editModeRef = useRef(false)
+  useEffect(() => { editModeRef.current = editMode }, [editMode])
+
   const isAdmin = user?.role === 'admin' || user?.role === 'manager'
+
+  // Toolbar-Projekt folgt der Sidebar-Auswahl
+  useEffect(() => { if (activeProject) setDrawProjectId(activeProject) }, [activeProject])
+
+  // GPS: Standort verfolgen, beim ersten Fix hinfliegen
+  useEffect(() => {
+    if (!gpsOn) { setUserPos(null); return }
+    if (!navigator.geolocation) {
+      window.__lumaToast?.('GPS wird von diesem Gerät nicht unterstützt')
+      setGpsOn(false)
+      return
+    }
+    let first = true
+    const id = navigator.geolocation.watchPosition(
+      pos => {
+        const p = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy || 0 }
+        setUserPos(p)
+        if (first) { first = false; setFlyTarget([p.lat, p.lng]) }
+      },
+      err => {
+        window.__lumaToast?.(`Standort nicht verfügbar: ${err.message}`)
+        setGpsOn(false)
+      },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+    )
+    return () => navigator.geolocation.clearWatch(id)
+  }, [gpsOn])
+
+  // Bearbeiten-Modus: Geoman-Editing auf allen Feature-Layern an/aus
+  useEffect(() => {
+    featureLayers.current.forEach(layer => {
+      try {
+        if (!layer._map) return
+        if (editMode) layer.pm?.enable({ allowSelfIntersection: true })
+        else layer.pm?.disable()
+      } catch { /* Layer gerade entfernt */ }
+    })
+  }, [editMode])
 
   function toggleClientFolder(clientId) {
     setExpandedClients(prev => { const next = new Set(prev); next.has(clientId) ? next.delete(clientId) : next.add(clientId); return next })
@@ -668,9 +800,46 @@ export default function MapPage() {
 
   function startDraw(project, mode) {
     setDrawingProject(project)
+    if (project?.id) setDrawProjectId(project.id)
     setDrawMode(mode)
     setPendingGeometry(null)
+    setEditMode(false)
+    setMeasureResult(null)
     if (isMobile) setSidebarOpen(false)
+  }
+
+  // Toolbar-Einstieg: Zeichnen mit dem in der Toolbar gewählten Projekt
+  function startDrawFromToolbar(mode) {
+    if (mode === 'measure') {
+      setDrawingProject(null)
+      setDrawMode('measure')
+      setPendingGeometry(null)
+      setEditMode(false)
+      setMeasureResult(null)
+      return
+    }
+    const proj = mappableProjects.find(p => p.id === drawProjectId)
+    if (!proj) {
+      setProjectHint(true)
+      setTimeout(() => setProjectHint(false), 2500)
+      return
+    }
+    startDraw(proj, mode)
+  }
+
+  // GPS-Erfassung: Baum direkt an der eigenen Position anlegen
+  function captureTreeAtPosition() {
+    const proj = mappableProjects.find(p => p.id === drawProjectId)
+    if (!proj) {
+      setProjectHint(true)
+      setTimeout(() => setProjectHint(false), 2500)
+      return
+    }
+    if (!userPos) return
+    setDrawingProject(proj)
+    setDrawMode('tree')
+    setEditMode(false)
+    setPendingGeometry({ type: 'Point', coordinates: [userPos.lng, userPos.lat] })
   }
 
   function cancelDraw() {
@@ -678,10 +847,24 @@ export default function MapPage() {
     setDrawingProject(null)
     setPendingGeometry(null)
     setEditingFeature(null)
+    setLiveMeasure(null)
   }
 
   function onFeatureDrawn(geometry) {
+    if (drawMode === 'measure') {
+      setMeasureResult({ length: geomLineLength(geometry) })
+      cancelDraw()
+      return
+    }
     setPendingGeometry(geometry)
+  }
+
+  // Geometrie-Änderung aus dem Bearbeiten-Modus speichern
+  function saveEditedGeometry(featId, layer) {
+    try {
+      const geometry = layer.toGeoJSON().geometry
+      updateMapFeature(featId, { geometry })
+    } catch { /* Layer nicht serialisierbar */ }
   }
 
   function calcPendingArea() {
@@ -1014,6 +1197,9 @@ export default function MapPage() {
 
           {flyTarget && <FlyTo center={flyTarget} />}
 
+          {/* Eigener Standort (GPS) */}
+          <UserLocation userPos={userPos} />
+
           {/* Drone image overlays */}
           {mapFeatures.filter(f => f.feature_type === 'drone_image' && !hiddenProjects.has(f.project_id) && !hiddenFeatures.has(f.id) && f.properties?.image_url && f.geometry).map(feat => {
             const coords = feat.geometry.coordinates[0]
@@ -1042,8 +1228,15 @@ export default function MapPage() {
             if (geom.type === 'Point') {
               const [lng, lat] = geom.coordinates
               const icon = feat.feature_type === 'tree' ? makeTreeIcon(color) : makePin(color, 14)
+              const canDrag = isAdmin && editMode
               return (
-                <Marker key={feat.id} position={[lat, lng]} icon={icon}>
+                <Marker key={feat.id} position={[lat, lng]} icon={icon} draggable={canDrag}
+                  eventHandlers={{
+                    dragend: e => {
+                      const ll = e.target.getLatLng()
+                      updateMapFeature(feat.id, { geometry: { type: 'Point', coordinates: [ll.lng, ll.lat] } })
+                    },
+                  }}>
                   <Popup>
                     <div dangerouslySetInnerHTML={{ __html: buildPopupHtml(feat, color) }} />
                   </Popup>
@@ -1057,7 +1250,14 @@ export default function MapPage() {
               <GeoJSON key={feat.id} data={{ type: 'Feature', geometry: geom }}
                 style={{ color, weight: 2.5, fillColor: color, fillOpacity: isLine ? 0 : 0.18 }}
                 onEachFeature={(_, layer) => {
+                  // Für den Bearbeiten-Modus registrieren & Änderungen speichern
+                  featureLayers.current.set(feat.id, layer)
+                  layer.on('pm:edit', () => saveEditedGeometry(feat.id, layer))
+                  if (isAdmin && editModeRef.current) {
+                    try { layer.pm?.enable({ allowSelfIntersection: true }) } catch {}
+                  }
                   layer.on('click', (e) => {
+                    if (editModeRef.current) return  // im Bearbeiten-Modus kein Popup
                     L.DomEvent.stopPropagation(e)
                     let area = 0, perimeter = 0
                     try {
@@ -1172,15 +1372,114 @@ export default function MapPage() {
 
           {/* Active draw mode */}
           {drawMode && !pendingGeometry && (
-            <DrawControl mode={drawMode} onFeatureDrawn={onFeatureDrawn} onCancel={cancelDraw} />
+            <DrawControl mode={drawMode} onFeatureDrawn={onFeatureDrawn} onCancel={cancelDraw} onLiveMeasure={setLiveMeasure} />
           )}
         </MapContainer>
 
+        {/* ── Zeichen-Toolbar (schwebend) ── */}
+        {!drawMode && (
+          <div style={{ position: 'absolute', top: isMobile ? 56 : 12, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, display: 'flex', alignItems: 'center', gap: 4, background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, padding: 4, boxShadow: '0 2px 14px rgba(0,0,0,0.4)', maxWidth: 'calc(100% - 24px)', overflowX: 'auto' }}>
+            {isAdmin && (
+              <>
+                <select value={drawProjectId || ''} onChange={e => setDrawProjectId(e.target.value || null)}
+                  title="Projekt für neue Features"
+                  style={{ maxWidth: 130, padding: '5px 6px', borderRadius: 6, border: `1px solid ${projectHint ? 'var(--luma-danger)' : BORDER}`, background: 'transparent', color: drawProjectId ? FG : MUTED, fontSize: 11, fontFamily: "'Space Grotesk', sans-serif", outline: 'none', cursor: 'pointer', flexShrink: 0 }}>
+                  <option value="">Projekt wählen…</option>
+                  {mappableProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+                {FEATURE_MODES.map(m => (
+                  <button key={m.id} onClick={() => startDrawFromToolbar(m.id)} title={`${m.label} — ${m.desc}`} className="lu-chip"
+                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: '1px solid transparent', background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
+                    <span style={{ fontSize: 13 }}>{m.icon}</span>{!isMobile && m.label}
+                  </button>
+                ))}
+                <button onClick={() => setEditMode(v => !v)} title="Bearbeiten: Punkte verschieben, Eckpunkte ziehen"
+                  style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: `1px solid ${editMode ? `color-mix(in srgb, ${A} 44%, transparent)` : 'transparent'}`, background: editMode ? A14 : 'transparent', color: editMode ? A : MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  <Move size={13} />{!isMobile && 'Bearbeiten'}
+                </button>
+                <div style={{ width: 1, alignSelf: 'stretch', background: BORDER, margin: '2px 2px', flexShrink: 0 }} />
+              </>
+            )}
+            <button onClick={() => startDrawFromToolbar('measure')} title="Strecke messen (wird nicht gespeichert)" className="lu-chip"
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: '1px solid transparent', background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
+              <Ruler size={13} />{!isMobile && 'Messen'}
+            </button>
+            <button onClick={() => setGpsOn(v => !v)} title="Meinen Standort anzeigen (GPS)"
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: `1px solid ${gpsOn ? 'rgba(59,130,246,0.5)' : 'transparent'}`, background: gpsOn ? 'rgba(59,130,246,0.14)' : 'transparent', color: gpsOn ? '#3b82f6' : MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
+              <LocateFixed size={13} />{!isMobile && 'Standort'}
+            </button>
+            {isAdmin && gpsOn && userPos && (
+              <button onClick={captureTreeAtPosition} title="Baum an meiner aktuellen GPS-Position erfassen"
+                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 7, border: '1px solid #22c55e50', background: '#22c55e18', color: '#22c55e', cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0, fontWeight: 600 }}>
+                🌳 Baum hier
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Projekt-Hinweis */}
+        {projectHint && (
+          <div className="lu-fade-in" style={{ position: 'absolute', top: isMobile ? 104 : 58, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: 'color-mix(in srgb, var(--luma-danger) 15%, var(--luma-card))', border: '1px solid color-mix(in srgb, var(--luma-danger) 45%, transparent)', borderRadius: 8, padding: '6px 14px', fontSize: 12, color: 'var(--luma-danger)', fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 2px 12px rgba(0,0,0,0.4)' }}>
+            Bitte zuerst links in der Toolbar ein Projekt wählen
+          </div>
+        )}
+
+        {/* Bearbeiten-Modus Banner */}
+        {editMode && !drawMode && (
+          <div style={{ position: 'absolute', top: isMobile ? 104 : 58, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: SURFACE, border: `1px solid color-mix(in srgb, ${A} 38%, transparent)`, borderRadius: 8, padding: '7px 14px', fontSize: 12, color: FG, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 2px 12px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Move size={13} color={A} />
+            <span>Bearbeiten aktiv — Punkte verschieben, Eckpunkte ziehen. Änderungen werden automatisch gespeichert.</span>
+            <button onClick={() => setEditMode(false)} className="lu-btn-primary"
+              style={{ padding: '3px 10px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+              Fertig
+            </button>
+          </div>
+        )}
+
         {/* Draw mode indicator banner */}
         {drawMode && !pendingGeometry && (
-          <div style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: SURFACE, border: `1px solid color-mix(in srgb, ${FEATURE_MODES.find(m => m.id === drawMode)?.color || A} 38%, transparent)`, borderRadius: 8, padding: '8px 16px', fontSize: 12, color: FG, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 2px 12px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span>{FEATURE_MODES.find(m => m.id === drawMode)?.icon}</span>
-            <span>{drawMode === 'tree' || drawMode === 'point' ? 'Auf Karte klicken um zu platzieren' : 'Fläche zeichnen, dann Doppelklick zum Abschließen'}</span>
+          <div style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: SURFACE, border: `1px solid color-mix(in srgb, ${drawMode === 'measure' ? '#38bdf8' : FEATURE_MODES.find(m => m.id === drawMode)?.color || A} 38%, transparent)`, borderRadius: 8, padding: '8px 16px', fontSize: 12, color: FG, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 2px 12px rgba(0,0,0,0.5)', maxWidth: 'calc(100% - 24px)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span>{drawMode === 'measure' ? '📏' : FEATURE_MODES.find(m => m.id === drawMode)?.icon}</span>
+              <span>
+                {drawMode === 'tree' || drawMode === 'point'
+                  ? 'Auf die Karte tippen, um zu platzieren'
+                  : drawMode === 'measure'
+                    ? 'Messpunkte setzen — letzten Punkt doppelt antippen zum Abschließen'
+                    : drawMode === 'line'
+                      ? 'Punkte setzen — letzten Punkt doppelt antippen zum Abschließen'
+                      : 'Eckpunkte setzen — ersten Punkt antippen oder Doppelklick zum Abschließen'}
+              </span>
+              {liveMeasure && (
+                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: A, fontWeight: 700, marginLeft: 6, whiteSpace: 'nowrap' }}>
+                  {liveMeasure.area > 0 ? `${fmtArea(liveMeasure.area)} · ` : ''}{fmtLen(liveMeasure.length)}
+                </span>
+              )}
+            </div>
+            {drawMode !== 'tree' && drawMode !== 'point' && (
+              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, marginTop: 4, letterSpacing: '0.04em' }}>
+                Backspace = letzter Punkt zurück · Esc = abbrechen
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Mess-Ergebnis */}
+        {measureResult && !drawMode && (
+          <div className="lu-fade-in" style={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: SURFACE, border: '1px solid rgba(56,189,248,0.4)', borderRadius: 10, padding: '10px 16px', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Ruler size={15} color="#38bdf8" />
+            <div>
+              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Gemessene Strecke</div>
+              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 18, fontWeight: 700, color: '#38bdf8', lineHeight: 1.2 }}>{fmtLen(measureResult.length)}</div>
+            </div>
+            <button onClick={() => startDrawFromToolbar('measure')} className="lu-btn-ghost" title="Erneut messen"
+              style={{ padding: '5px 10px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 11 }}>
+              Erneut
+            </button>
+            <button onClick={() => setMeasureResult(null)} className="lu-btn-ghost" aria-label="Schließen"
+              style={{ width: 26, height: 26, borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <X size={12} />
+            </button>
           </div>
         )}
 
