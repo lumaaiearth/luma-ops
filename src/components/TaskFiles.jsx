@@ -3,6 +3,8 @@ import { Paperclip, X, Loader, Trash2, Download, FileText } from 'lucide-react'
 import { A, BORDER, FG, MUTED, SURFACE } from '../lib/theme.js'
 import { sbUploadTaskFile, sbDeleteTaskFile, sbGetTaskFiles, sbInsert, sbDelete } from '../lib/supabase.js'
 import { genId } from '../lib/storage.js'
+import { queueUpload } from '../lib/uploadQueue.js'
+import { isNetworkError } from '../lib/outbox.js'
 
 function fmtSize(n) {
   if (!n) return ''
@@ -27,13 +29,20 @@ export default function TaskFiles({ taskId, uploadedBy }) {
     setUploading(true); setError(null)
     let failed = false
     for (const file of Array.from(fileList)) {
+      const fileId = genId()
+      const path = `taskfile_${taskId}/${fileId}`
+      const row = { id: fileId, task_id: taskId, name: file.name, file_type: file.type || '', size: file.size || null, uploaded_by: uploadedBy, created_at: new Date().toISOString() }
       try {
-        const fileId = genId()
         const url = await sbUploadTaskFile(taskId, fileId, file)
-        const row = { id: fileId, task_id: taskId, name: file.name, url, file_type: file.type || '', size: file.size || null, uploaded_by: uploadedBy, created_at: new Date().toISOString() }
-        setFiles(prev => [...prev, row])
-        sbInsert('task_files', row).catch(console.error)
-      } catch (e) { console.error('Upload failed:', e); failed = true }
+        const full = { ...row, url }
+        setFiles(prev => [...prev, full])
+        sbInsert('task_files', full).catch(console.error)
+      } catch (e) {
+        if (isNetworkError(e) || !navigator.onLine) {
+          await queueUpload({ id: fileId, bucket: 'job-photos', path, contentType: file.type || 'application/octet-stream', blob: file, table: 'task_files', row })
+          setFiles(prev => [...prev, { ...row, url: URL.createObjectURL(file), _pending: true }])
+        } else { console.error('Upload failed:', e); failed = true }
+      }
     }
     if (failed) setError('Upload fehlgeschlagen — Supabase Bucket "job-photos" prüfen')
     setUploading(false)
@@ -68,6 +77,7 @@ export default function TaskFiles({ taskId, uploadedBy }) {
           <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 6 }}>
             <FileText size={14} color={A} style={{ flexShrink: 0 }} />
             <a href={f.url} target="_blank" rel="noreferrer" style={{ flex: 1, minWidth: 0, fontSize: 13, color: FG, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</a>
+            {f._pending && <span title="Wird bei Netz hochgeladen" style={{ fontSize: 10, color: '#f59e0b', flexShrink: 0 }}>⏳</span>}
             {f.size ? <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, flexShrink: 0 }}>{fmtSize(f.size)}</span> : null}
             <a href={f.url} target="_blank" rel="noreferrer" download style={{ color: MUTED, display: 'flex', flexShrink: 0 }}><Download size={13} /></a>
             <button type="button" onClick={() => handleDelete(f)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, display: 'flex', flexShrink: 0, padding: 0 }}><Trash2 size={12} /></button>

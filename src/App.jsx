@@ -10,6 +10,7 @@ import { WeatherProvider } from './context/WeatherContext.jsx'
 import Layout from './components/Layout.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import DashboardPage from './pages/DashboardPage.jsx'
+import { outboxCount } from './lib/outbox.js'
 
 // Code-Splitting: schwere/selten genutzte Seiten erst bei Bedarf laden
 // (holt Leaflet/GeoTIFF/Recharts aus dem Start-Bundle → schnellerer Erststart)
@@ -114,6 +115,34 @@ function DbToast() {
   )
 }
 
+function OfflineBadge() {
+  const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine)
+  const [pending, setPending] = useState(outboxCount())
+  useEffect(() => {
+    const on = () => setOnline(true)
+    const off = () => setOnline(false)
+    const oc = e => setPending(e.detail)
+    window.addEventListener('online', on)
+    window.addEventListener('offline', off)
+    window.addEventListener('luma-outbox', oc)
+    const t = setInterval(() => setPending(outboxCount()), 5000)
+    return () => {
+      window.removeEventListener('online', on)
+      window.removeEventListener('offline', off)
+      window.removeEventListener('luma-outbox', oc)
+      clearInterval(t)
+    }
+  }, [])
+  if (online && pending === 0) return null
+  const offline = !online
+  return (
+    <div style={{ position: 'fixed', bottom: 20, left: 20, zIndex: 9998, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 20, background: offline ? '#3a2410' : '#0d2233', border: `1px solid ${offline ? '#f59e0b' : '#3b82f6'}`, color: offline ? '#fbbf24' : '#93c5fd', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 4px 20px rgba(0,0,0,0.5)' }}>
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: offline ? '#f59e0b' : '#3b82f6' }} />
+      {offline ? 'Offline' : 'Synchronisiere…'}{pending > 0 ? ` · ${pending} ausstehend` : ''}
+    </div>
+  )
+}
+
 export default function App() {
   return (
     <ThemeProvider>
@@ -125,6 +154,7 @@ export default function App() {
             <TimeProvider>
               <AppRoutes />
               <DbToast />
+              <OfflineBadge />
             </TimeProvider>
             </WeatherProvider>
           </OpsProvider>
