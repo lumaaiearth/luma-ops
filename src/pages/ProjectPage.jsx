@@ -49,14 +49,13 @@ export default function ProjectPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { projects, jobs, sensors, clients, tasks, updateProject, createTask, updateTask, deleteTask, setTaskStatus } = useOps()
-  const { user } = useAuth()
+  const { isAdmin } = useAuth()
   const [tab, setTab] = useState('overview')
   const [photos, setPhotos] = useState([])
   const [editingNotes, setEditingNotes] = useState(false)
   const [notesVal, setNotesVal] = useState('')
   const [taskModal, setTaskModal] = useState(null)
   const today = isoToday()
-  const isAdmin = user?.role === 'admin' || user?.role === 'manager'
 
   const project = projects.find(p => p.id === id)
 

@@ -34,12 +34,11 @@ export default function ClientPage() {
   const navigate = useNavigate()
   const { clients, projects, jobs, sensors, tasks, updateClient, setTaskStatus } = useOps()
   const { entries } = useTime()
-  const { user } = useAuth()
+  const { isAdmin } = useAuth()
   const [tab, setTab] = useState('overview')
   const [editingNotes, setEditingNotes] = useState(false)
   const [notesVal, setNotesVal] = useState('')
   const today = isoToday()
-  const isAdmin = user?.role === 'admin' || user?.role === 'manager'
 
   const client = clients.find(c => c.id === id)
 

@@ -493,8 +493,7 @@ function KontostandCard({ uid, entries }) {
 function TabUebersicht() {
   const { entries } = useTime()
   const { projects } = useOps()
-  const { user } = useAuth()
-  const isAdmin = user?.role === 'admin'
+  const { user, isAdmin } = useAuth()
   const today = isoToday()
   const [range, setRange] = useState('jahr')
 
@@ -1090,8 +1089,7 @@ const ADMIN_TABS = new Set(['statistiken', 'abrechnung'])
 export default function TimePage() {
   const [tab, setTab] = useState('erfassen')
   const { entries } = useTime()
-  const { user } = useAuth()
-  const isAdmin = user?.role === 'admin'
+  const { user, isAdmin } = useAuth()
   const unbilledCount = entries.filter(e => !e.invoice_id).length
 
   const visibleTabs = TABS.filter(t => !ADMIN_TABS.has(t.id) || isAdmin)

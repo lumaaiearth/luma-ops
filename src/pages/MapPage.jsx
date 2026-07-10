@@ -659,7 +659,7 @@ const OPEN_LAYERS = [
 /* ─── MAIN COMPONENT ────────────────────────────────────────────────────── */
 export default function MapPage() {
   const { projects, jobs, clients, mapFeatures, tasks, createMapFeature, updateMapFeature, deleteMapFeature, updateProject } = useOps()
-  const { user } = useAuth()
+  const { isAdmin } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const today = isoToday()
@@ -704,7 +704,6 @@ export default function MapPage() {
   const editModeRef = useRef(false)
   useEffect(() => { editModeRef.current = editMode }, [editMode])
 
-  const isAdmin = user?.role === 'admin' || user?.role === 'manager'
 
   // Toolbar-Projekt folgt der Sidebar-Auswahl
   useEffect(() => { if (activeProject) setDrawProjectId(activeProject) }, [activeProject])
