@@ -237,6 +237,18 @@ export default function CalendarPage() {
     const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
   })
   const [scheduleStart, setScheduleStart] = useState(today)
+
+  // Deep-Link: /calendar?date=YYYY-MM-DD springt zum Datum
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const d = params.get('date')
+    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+      jumpToDate(d)
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const scrollRef = useRef(null)
   const gridContainerRef = useRef(null)
   // ── Pointer drag state ──

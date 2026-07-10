@@ -7,6 +7,17 @@ import { maybeSendTaskReminders } from '../lib/taskReminders.js'
 import * as gcal from '../lib/gcal.js'
 import { JOB_TYPES, SEED_CLIENTS, VEHICLES as SEED_VEHICLES, SEED_BOARDS } from '../data/seed.js'
 
+// Messwert-Historie: max. ein Reading pro Sensor pro 5 Minuten aufzeichnen,
+// damit die Simulation die Tabelle nicht flutet. Fehler still schlucken
+// (History ist ein Nebenprodukt, kein kritischer Schreibpfad).
+const lastReadingAt = {}
+function recordSensorReading(sensorId, value) {
+  const now = Date.now()
+  if (lastReadingAt[sensorId] && now - lastReadingAt[sensorId] < 5 * 60_000) return
+  lastReadingAt[sensorId] = now
+  sbInsert('sensor_readings', { sensor_id: sensorId, value }).catch(() => {})
+}
+
 // Surface DB errors visibly so data loss is never silent
 function dbErr(table, op) {
   return (err) => {
@@ -323,6 +334,7 @@ export function OpsProvider({ children }) {
     const now = new Date().toISOString()
     setSensorsState(current => current.map(s => s.id === id ? { ...s, value, status, last_updated: now } : s))
     sbUpdate('sensors', id, { value, status, last_updated: now }).catch(dbErr('ops', 'write'))
+    recordSensorReading(id, value)
 
     // Übergang auf "kritisch": Alarm + automatische Gieß-Aufgabe (je Sensor dedupliziert)
     if (status === 'critical' && prev?.status !== 'critical') {

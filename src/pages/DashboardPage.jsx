@@ -249,7 +249,7 @@ export default function DashboardPage() {
               const project = projects.find(p => p.id === job.project_id)
               const assignees = TEAM.filter(t => (job.assigned_users || []).includes(t.id))
               return (
-                <div key={`j-${job.id}`} onClick={() => navigate('/jobs')} className="lu-card lu-clickable"
+                <div key={`j-${job.id}`} onClick={() => navigate(`/jobs?open=${job.id}`)} className="lu-card lu-clickable"
                   style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${type?.color || A}`, borderRadius: 14 }}>
                   <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: type?.color || A, background: `color-mix(in srgb, ${type?.color || A} 10%, transparent)`, padding: '2px 7px', borderRadius: 10, flexShrink: 0 }}>Einsatz</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -273,7 +273,7 @@ export default function DashboardPage() {
               const owner = t.owner_id ? TEAM.find(u => u.id === t.owner_id) : null
               const overdue = t.due_date < today
               return (
-                <div key={`t-${t.id}`} onClick={() => navigate('/tasks')} className="lu-card lu-clickable"
+                <div key={`t-${t.id}`} onClick={() => navigate(`/tasks?open=${t.id}`)} className="lu-card lu-clickable"
                   style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: SURFACE, border: `1px solid ${overdue ? `color-mix(in srgb, ${DANGER} 30%, transparent)` : BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, borderRadius: 14 }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#A78BFA', background: '#A78BFA18', padding: '2px 7px', borderRadius: 10, flexShrink: 0 }}><ListTodo size={10} />Aufgabe</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -297,7 +297,7 @@ export default function DashboardPage() {
             const project = projects.find(p => p.id === s.project_id)
             const c = level === 'crit' ? DANGER : WARN
             return (
-              <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: `color-mix(in srgb, ${c} 10%, transparent)`, border: `1px solid color-mix(in srgb, ${c} 30%, transparent)`, borderRadius: 14, marginBottom: 8 }}>
+              <div key={s.id} onClick={() => navigate('/sensors')} className="lu-card lu-clickable" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: `color-mix(in srgb, ${c} 10%, transparent)`, border: `1px solid color-mix(in srgb, ${c} 30%, transparent)`, borderRadius: 14, marginBottom: 8 }}>
                 <AlertTriangle size={16} color={c} />
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 500, color: c }}>{level === 'crit' ? 'Kritisch' : 'Warnung'}: {s.name}</div>
@@ -311,13 +311,13 @@ export default function DashboardPage() {
 
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 28 }}>
-        <StatCard label="Heute" value={todayJobs.length} sub={`${todayJobs.filter(j => j.status === 'done').length} erledigt`} color={todayJobs.length > 0 ? A : undefined} />
-        <StatCard label="Morgen" value={tomorrowJobs.length} sub="geplant" />
-        <StatCard label="Diese Woche" value={weekJobs.length}
+        <StatCard label="Heute" value={todayJobs.length} sub={`${todayJobs.filter(j => j.status === 'done').length} erledigt`} color={todayJobs.length > 0 ? A : undefined} onClick={() => navigate(`/calendar?date=${today}`)} />
+        <StatCard label="Morgen" value={tomorrowJobs.length} sub="geplant" onClick={() => navigate(`/calendar?date=${tomorrow}`)} />
+        <StatCard label="Diese Woche" value={weekJobs.length} onClick={() => navigate('/jobs')}
           sub={<>vs. Vorwoche <span style={{ color: weekTrend > 0 ? OK : weekTrend < 0 ? WARN : MUTED }}>{weekTrend > 0 ? '▲' : weekTrend < 0 ? '▼' : '·'} {Math.abs(weekTrend)}</span></>} />
-        <StatCard label="Meine Einsätze" value={myJobs.length} sub="7 Tage" color={myJobs.length > 0 ? OK : undefined} />
+        <StatCard label="Meine Einsätze" value={myJobs.length} sub="7 Tage" color={myJobs.length > 0 ? OK : undefined} onClick={() => navigate('/jobs')} />
         <StatCard label="Offene Aufgaben" value={openTasks.length} sub={overdueTasks.length > 0 ? `${overdueTasks.length} überfällig` : `${myOpenTasks.length} für mich`} color={overdueTasks.length > 0 ? DANGER : openTasks.length > 0 ? A : undefined} onClick={() => navigate('/tasks')} />
-        <StatCard label="Sensoren" value={`${criticalSensors.length + warningSensors.length}`} sub={criticalSensors.length > 0 ? `${criticalSensors.length} kritisch` : 'alles ok'} color={criticalSensors.length > 0 ? DANGER : warningSensors.length > 0 ? WARN : undefined} />
+        <StatCard label="Sensoren" value={`${criticalSensors.length + warningSensors.length}`} sub={criticalSensors.length > 0 ? `${criticalSensors.length} kritisch` : 'alles ok'} color={criticalSensors.length > 0 ? DANGER : warningSensors.length > 0 ? WARN : undefined} onClick={() => navigate('/sensors')} />
       </div>
 
       {/* Weather */}
@@ -340,7 +340,8 @@ export default function DashboardPage() {
               const isToday = job.date === today
               const isTomorrow = job.date === tomorrow
               return (
-                <div key={job.id} style={{ padding: isMobile ? '10px 12px' : '12px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, borderLeft: `3px solid ${type?.color || A}` }}>
+                <div key={job.id} onClick={() => navigate(`/jobs?open=${job.id}`)} className="lu-card lu-clickable"
+                  style={{ padding: isMobile ? '10px 12px' : '12px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, borderLeft: `3px solid ${type?.color || A}` }}>
                   {isMobile ? (
                     <>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
@@ -371,7 +372,14 @@ export default function DashboardPage() {
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 500, color: FG, marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.title}</div>
-                        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: type?.color }}>{project?.name}</div>
+                        {project && (
+                          <span onClick={e => { e.stopPropagation(); navigate(`/projects/${project.id}`) }} title="Zur Projektseite"
+                            style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: type?.color, cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'transparent' }}
+                            onMouseEnter={e => e.currentTarget.style.textDecorationColor = 'currentcolor'}
+                            onMouseLeave={e => e.currentTarget.style.textDecorationColor = 'transparent'}>
+                            {project.name}
+                          </span>
+                        )}
                       </div>
                       <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                         {assignees.slice(0, 4).map(u => (
@@ -415,7 +423,7 @@ export default function DashboardPage() {
               const project = projects.find(p => p.id === t.project_id)
               const overdue = t.due_date && t.due_date < today
               return (
-                <div key={t.id} onClick={() => navigate('/tasks')}
+                <div key={t.id} onClick={() => navigate(`/tasks?open=${t.id}`)}
                   className="lu-card lu-clickable"
                   style={{ padding: '10px 12px', background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, borderRadius: 14 }}>
                   <div style={{ fontSize: 12, fontWeight: 500, color: FG, marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
@@ -442,7 +450,8 @@ export default function DashboardPage() {
               const daysUntil = Math.ceil((new Date(r.next_date + 'T00:00:00') - new Date(today + 'T00:00:00')) / 86400000)
               const overdue = daysUntil < 0
               return (
-                <div key={r.id} style={{ padding: '12px 14px', background: SURFACE, border: `1px solid ${overdue ? `color-mix(in srgb, ${DANGER} 30%, transparent)` : BORDER}`, borderRadius: 14 }}>
+                <div key={r.id} onClick={() => navigate('/jobs?tab=recurring')} className="lu-card lu-clickable"
+                  style={{ padding: '12px 14px', background: SURFACE, border: `1px solid ${overdue ? `color-mix(in srgb, ${DANGER} 30%, transparent)` : BORDER}`, borderRadius: 14 }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
                     <div style={{ fontSize: 12, fontWeight: 500, color: FG }}>{r.title}</div>
                     <Repeat size={12} color={type?.color || A} style={{ flexShrink: 0, marginTop: 2 }} />

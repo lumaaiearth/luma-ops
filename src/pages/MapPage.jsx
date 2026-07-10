@@ -831,6 +831,25 @@ export default function MapPage() {
     return () => { delete window._mapNav }
   }, [navigate])
 
+  // Deep-Link: /map?feature=<id> fliegt zum Feature und öffnet bei Bäumen das Panel
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const fid = params.get('feature')
+    if (!fid || mapFeatures.length === 0) return
+    const feat = mapFeatures.find(f => f.id === fid)
+    if (feat?.geometry) {
+      const coords = feat.geometry.type === 'Point'
+        ? [feat.geometry.coordinates[1], feat.geometry.coordinates[0]]
+        : (() => {
+            const first = feat.geometry.coordinates.flat(Infinity)
+            return first.length >= 2 ? [first[1], first[0]] : null
+          })()
+      if (coords) setFlyTarget(coords)
+      if (feat.feature_type === 'tree') setPanelFeatureId(feat.id)
+    }
+    window.history.replaceState(null, '', window.location.pathname)
+  }, [mapFeatures.length])
+
   function focusProject(p) {
     setActiveProject(p.id === activeProject ? null : p.id)
     if (p.lat && p.lng) setFlyTarget([p.lat, p.lng])

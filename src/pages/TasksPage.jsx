@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useWeather } from '../context/WeatherContext.jsx'
@@ -62,6 +62,17 @@ export default function TasksPage() {
   const [activeBoard, setActiveBoard] = useState('all')  // 'all' | 'mine' | boardId | 'none'
   const [view, setView]     = useState('board')
   const [modal, setModal]   = useState(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  // Deep-Link: /tasks?open=<id> öffnet die Aufgabe direkt
+  useEffect(() => {
+    const openId = searchParams.get('open')
+    if (!openId || tasks.length === 0) return
+    const t = tasks.find(x => x.id === openId)
+    if (t) setModal({ task: t })
+    searchParams.delete('open')
+    setSearchParams(searchParams, { replace: true })
+  }, [searchParams, tasks.length])
   const [boardModal, setBoardModal] = useState(null)
   const [fClient, setFClient]     = useState('all')
   const [fProject, setFProject]   = useState('all')

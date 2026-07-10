@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useOps } from '../context/OpsContext.jsx'
 import { A, SURFACE, BORDER, FG, MUTED, OK, DANGER, INFO } from '../lib/theme.js'
 import { PageHeader, Button, Tabs, Chips, EmptyState, Badge } from '../components/ui.jsx'
@@ -14,10 +15,21 @@ const DURATION_LABEL = { full: 'Ganztags', half_am: 'Vormittag', half_pm: 'Nachm
 
 export default function JobsPage() {
   const { jobs, recurring, projects, clients, createJob, updateJob, deleteJob, setJobStatus, createRecurring, deleteRecurring } = useOps()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [modal, setModal]   = useState(null)
   const [editJob, setEditJob] = useState(null)
-  const [tab, setTab]       = useState('jobs')
+  const [tab, setTab]       = useState(() => searchParams.get('tab') === 'recurring' ? 'recurring' : 'jobs')
   const [filter, setFilter] = useState('all')
+
+  // Deep-Link: /jobs?open=<id> öffnet den Einsatz direkt
+  useEffect(() => {
+    const openId = searchParams.get('open')
+    if (!openId || jobs.length === 0) return
+    const job = jobs.find(j => j.id === openId)
+    if (job) { setEditJob(job); setModal({ job }) }
+    searchParams.delete('open')
+    setSearchParams(searchParams, { replace: true })
+  }, [searchParams, jobs.length])
   const today = isoToday()
   const bp = useBreakpoint()
   const isMobile = bp === 'xs' || bp === 'sm'
