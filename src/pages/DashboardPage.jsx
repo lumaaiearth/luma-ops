@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -28,7 +29,7 @@ function WeatherDayCard({ day, featured = false }) {
     <div style={{
       background: SURFACE,
       border: `1px solid ${isWarn ? sc + '60' : isGood ? sc + '30' : BORDER}`,
-      borderRadius: 8,
+      borderRadius: 14,
       padding: featured ? '16px 20px' : '10px 12px',
       display: 'flex',
       flexDirection: 'column',
@@ -39,7 +40,7 @@ function WeatherDayCard({ day, featured = false }) {
       overflow: 'hidden',
     }}>
       {/* Status accent bar */}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: sc, borderRadius: '8px 8px 0 0', opacity: isGood ? 0.5 : 1 }} />
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: sc, borderRadius: '14px 14px 0 0', opacity: isGood ? 0.5 : 1 }} />
 
       {/* Day label */}
       <div style={{ fontFamily: "'Space Mono', monospace", fontSize: featured ? 11 : 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: 4 }}>
@@ -115,27 +116,74 @@ function WeatherDayCard({ day, featured = false }) {
 function WeatherSection({ isMobile }) {
   const forecast = useWeather()
   const today = isoToday()
+  const [expanded, setExpanded] = useState(false)
   const days = forecast.filter(d => d.date >= today).slice(0, 7)
 
   if (days.length === 0) return null
 
   const [todayFc, ...rest] = days
+  const warnDays = rest.filter(d => d.status === 'warn' || d.status === 'danger')
+  const tsc = STATUS_COLOR[todayFc.status]
+  const tWarn = todayFc.status === 'warn' || todayFc.status === 'danger'
 
   return (
     <div style={{ marginBottom: 28 }}>
-      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 12 }}>
-        Wetter · {WEATHER_CITY}
-      </div>
-      <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }}>
-        {/* Today — featured */}
-        <div style={{ flex: isMobile ? '0 0 240px' : '0 0 300px', minWidth: 0 }}>
-          <WeatherDayCard day={todayFc} featured />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+          Wetter · {WEATHER_CITY}
         </div>
-        {/* Next 6 days — compact */}
-        {rest.map(d => (
-          <WeatherDayCard key={d.date} day={d} />
-        ))}
+        <button onClick={() => setExpanded(v => !v)} className="lu-btn-ghost"
+          style={{ display: 'flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', color: A, cursor: 'pointer', fontSize: 11, fontFamily: "'Space Mono', monospace", padding: '2px 6px', borderRadius: 6 }}>
+          {expanded ? 'weniger' : '7 Tage'} <ChevronRight size={12} style={{ transform: expanded ? 'rotate(-90deg)' : 'rotate(90deg)', transition: 'transform 0.15s' }} />
+        </button>
       </div>
+
+      {/* Kompakte Heute-Zeile — Details nur bei Bedarf (Dashboard-Verdichtung) */}
+      {!expanded && (
+        <div className="lu-card" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: SURFACE, border: `1px solid ${tWarn ? `color-mix(in srgb, ${tsc} 38%, transparent)` : BORDER}`, borderRadius: 14, flexWrap: 'wrap' }}>
+          <WeatherIcon code={todayFc.wmoCode} size={26} color={tsc} />
+          <div style={{ fontSize: 22, fontWeight: 300, color: FG, letterSpacing: '-0.03em', lineHeight: 1 }}>{todayFc.tempMax}°</div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 12, color: FG }}>{todayFc.label}</div>
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED }}>min {todayFc.tempMin}° · {todayFc.precip} mm</div>
+          </div>
+          {todayFc.warnings.length > 0 && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: "'Space Mono', monospace", fontSize: 10, color: tsc, background: `color-mix(in srgb, ${tsc} 10%, transparent)`, border: `1px solid color-mix(in srgb, ${tsc} 30%, transparent)`, padding: '3px 9px', borderRadius: 10 }}>
+              <AlertTriangle size={10} /> {todayFc.warnings[0]}
+            </span>
+          )}
+          {/* Warnungen der nächsten Tage als kompakte Badges */}
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+            {warnDays.slice(0, 3).map(d => {
+              const sc = STATUS_COLOR[d.status]
+              return (
+                <span key={d.date} title={`${d.label}${d.warnings.length ? ' · ' + d.warnings.join(', ') : ''}`}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: "'Space Mono', monospace", fontSize: 10, color: sc, background: `color-mix(in srgb, ${sc} 10%, transparent)`, border: `1px solid color-mix(in srgb, ${sc} 30%, transparent)`, padding: '3px 9px', borderRadius: 10 }}>
+                  <AlertTriangle size={10} />
+                  {new Date(d.date + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'short' })} {d.tempMax}°
+                </span>
+              )
+            })}
+            {warnDays.length === 0 && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>
+                <CheckCircle2 size={11} color={STATUS_COLOR.good} /> nächste Tage ohne Warnung
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Volle 7-Tage-Ansicht */}
+      {expanded && (
+        <div className="lu-fade-in" style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }}>
+          <div style={{ flex: isMobile ? '0 0 240px' : '0 0 300px', minWidth: 0 }}>
+            <WeatherDayCard day={todayFc} featured />
+          </div>
+          {rest.map(d => (
+            <WeatherDayCard key={d.date} day={d} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -151,6 +199,9 @@ export default function DashboardPage() {
   const todayJobs = jobs.filter(j => j.date === today)
   const tomorrowJobs = jobs.filter(j => j.date === tomorrow)
   const weekJobs = jobs.filter(j => j.date >= today && j.date <= addDays(today, 7))
+  // Trend: kommende 7 Tage vs. vergangene 7 Tage
+  const prevWeekJobs = jobs.filter(j => j.date >= addDays(today, -7) && j.date < today)
+  const weekTrend = weekJobs.length - prevWeekJobs.length
   const myJobs = weekJobs.filter(j => (j.assigned_users || []).includes(user?.id))
   const criticalSensors = sensors.filter(s => s.status === 'critical')
   const warningSensors = sensors.filter(s => s.status === 'warning')
@@ -176,14 +227,14 @@ export default function DashboardPage() {
 
   return (
     <div style={{ padding: isMobile ? 16 : 24, maxWidth: 1100, margin: '0 auto' }}>
-      {/* Greeting */}
+      {/* Kopf: Eyebrow über großem Titel (Referenz-Stil) */}
       <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 400, color: FG, letterSpacing: '-0.02em', marginBottom: 4 }}>
-          Hey {displayName} 👋
-        </h1>
-        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: MUTED }}>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED, letterSpacing: '0.08em', marginBottom: 6 }}>
           {new Date().toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
         </div>
+        <h1 style={{ fontSize: isMobile ? 26 : 32, fontWeight: 500, color: FG, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
+          Hey {displayName} 👋
+        </h1>
       </div>
 
       {/* Heute — Einsätze + fällige Aufgaben */}
@@ -199,7 +250,7 @@ export default function DashboardPage() {
               const assignees = TEAM.filter(t => (job.assigned_users || []).includes(t.id))
               return (
                 <div key={`j-${job.id}`} onClick={() => navigate('/jobs')} className="lu-card lu-clickable"
-                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${type?.color || A}`, borderRadius: 8 }}>
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${type?.color || A}`, borderRadius: 14 }}>
                   <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: type?.color || A, background: `color-mix(in srgb, ${type?.color || A} 10%, transparent)`, padding: '2px 7px', borderRadius: 10, flexShrink: 0 }}>Einsatz</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 500, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.title}</div>
@@ -223,7 +274,7 @@ export default function DashboardPage() {
               const overdue = t.due_date < today
               return (
                 <div key={`t-${t.id}`} onClick={() => navigate('/tasks')} className="lu-card lu-clickable"
-                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: SURFACE, border: `1px solid ${overdue ? `color-mix(in srgb, ${DANGER} 30%, transparent)` : BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, borderRadius: 8 }}>
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: SURFACE, border: `1px solid ${overdue ? `color-mix(in srgb, ${DANGER} 30%, transparent)` : BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, borderRadius: 14 }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#A78BFA', background: '#A78BFA18', padding: '2px 7px', borderRadius: 10, flexShrink: 0 }}><ListTodo size={10} />Aufgabe</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 500, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
@@ -246,7 +297,7 @@ export default function DashboardPage() {
             const project = projects.find(p => p.id === s.project_id)
             const c = level === 'crit' ? DANGER : WARN
             return (
-              <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: `color-mix(in srgb, ${c} 10%, transparent)`, border: `1px solid color-mix(in srgb, ${c} 30%, transparent)`, borderRadius: 8, marginBottom: 8 }}>
+              <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: `color-mix(in srgb, ${c} 10%, transparent)`, border: `1px solid color-mix(in srgb, ${c} 30%, transparent)`, borderRadius: 14, marginBottom: 8 }}>
                 <AlertTriangle size={16} color={c} />
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 500, color: c }}>{level === 'crit' ? 'Kritisch' : 'Warnung'}: {s.name}</div>
@@ -262,7 +313,8 @@ export default function DashboardPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 28 }}>
         <StatCard label="Heute" value={todayJobs.length} sub={`${todayJobs.filter(j => j.status === 'done').length} erledigt`} color={todayJobs.length > 0 ? A : undefined} />
         <StatCard label="Morgen" value={tomorrowJobs.length} sub="geplant" />
-        <StatCard label="Diese Woche" value={weekJobs.length} sub="insgesamt" />
+        <StatCard label="Diese Woche" value={weekJobs.length}
+          sub={<>vs. Vorwoche <span style={{ color: weekTrend > 0 ? OK : weekTrend < 0 ? WARN : MUTED }}>{weekTrend > 0 ? '▲' : weekTrend < 0 ? '▼' : '·'} {Math.abs(weekTrend)}</span></>} />
         <StatCard label="Meine Einsätze" value={myJobs.length} sub="7 Tage" color={myJobs.length > 0 ? OK : undefined} />
         <StatCard label="Offene Aufgaben" value={openTasks.length} sub={overdueTasks.length > 0 ? `${overdueTasks.length} überfällig` : `${myOpenTasks.length} für mich`} color={overdueTasks.length > 0 ? DANGER : openTasks.length > 0 ? A : undefined} onClick={() => navigate('/tasks')} />
         <StatCard label="Sensoren" value={`${criticalSensors.length + warningSensors.length}`} sub={criticalSensors.length > 0 ? `${criticalSensors.length} kritisch` : 'alles ok'} color={criticalSensors.length > 0 ? DANGER : warningSensors.length > 0 ? WARN : undefined} />
@@ -288,7 +340,7 @@ export default function DashboardPage() {
               const isToday = job.date === today
               const isTomorrow = job.date === tomorrow
               return (
-                <div key={job.id} style={{ padding: isMobile ? '10px 12px' : '12px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, borderLeft: `3px solid ${type?.color || A}` }}>
+                <div key={job.id} style={{ padding: isMobile ? '10px 12px' : '12px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, borderLeft: `3px solid ${type?.color || A}` }}>
                   {isMobile ? (
                     <>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
@@ -365,7 +417,7 @@ export default function DashboardPage() {
               return (
                 <div key={t.id} onClick={() => navigate('/tasks')}
                   className="lu-card lu-clickable"
-                  style={{ padding: '10px 12px', background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, borderRadius: 8 }}>
+                  style={{ padding: '10px 12px', background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, borderRadius: 14 }}>
                   <div style={{ fontSize: 12, fontWeight: 500, color: FG, marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: st?.color, background: st?.color + '18', padding: '1px 6px', borderRadius: 8 }}>{st?.short}</span>
@@ -390,7 +442,7 @@ export default function DashboardPage() {
               const daysUntil = Math.ceil((new Date(r.next_date + 'T00:00:00') - new Date(today + 'T00:00:00')) / 86400000)
               const overdue = daysUntil < 0
               return (
-                <div key={r.id} style={{ padding: '12px 14px', background: SURFACE, border: `1px solid ${overdue ? `color-mix(in srgb, ${DANGER} 30%, transparent)` : BORDER}`, borderRadius: 8 }}>
+                <div key={r.id} style={{ padding: '12px 14px', background: SURFACE, border: `1px solid ${overdue ? `color-mix(in srgb, ${DANGER} 30%, transparent)` : BORDER}`, borderRadius: 14 }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
                     <div style={{ fontSize: 12, fontWeight: 500, color: FG }}>{r.title}</div>
                     <Repeat size={12} color={type?.color || A} style={{ flexShrink: 0, marginTop: 2 }} />

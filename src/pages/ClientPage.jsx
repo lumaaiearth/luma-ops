@@ -17,7 +17,7 @@ const STATUS_LABEL = { planned: 'Geplant', in_progress: 'Läuft', done: 'Erledig
 
 function StatCard({ icon: Icon, label, value, color }) {
   return (
-    <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
+    <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
       <div style={{ width: 36, height: 36, borderRadius: 8, background: A06, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
         <Icon size={16} color={color || A} />
       </div>
@@ -177,7 +177,7 @@ export default function ClientPage() {
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: 2, background: SURFACE, borderRadius: 8, padding: 4, border: `1px solid ${BORDER}`, marginBottom: 24, overflowX: 'auto' }}>
+        <div style={{ display: 'flex', gap: 2, background: SURFACE, borderRadius: 14, padding: 4, border: `1px solid ${BORDER}`, marginBottom: 24, overflowX: 'auto' }}>
           {TABS.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '1 0 auto', padding: '8px 14px', borderRadius: 6, border: 'none', background: tab === t.id ? A : 'transparent', color: tab === t.id ? '#001219' : MUTED, cursor: 'pointer', fontSize: 13, fontWeight: tab === t.id ? 500 : 400, whiteSpace: 'nowrap', fontFamily: "'Space Grotesk', sans-serif" }}>
@@ -191,7 +191,7 @@ export default function ClientPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'start' }}>
             {/* Kontakt */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, padding: 16 }}>
+              <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 16 }}>
                 <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 14 }}>Kontakt</div>
                 {[
                   { icon: User, label: 'Ansprechpartner', value: client.contact_name },
@@ -220,7 +220,7 @@ export default function ClientPage() {
 
               {/* Team */}
               {allWorkers.size > 0 && (
-                <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, padding: 16 }}>
+                <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 16 }}>
                   <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 12 }}>Eingesetztes Team</div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {[...allWorkers].map(uid => {
@@ -243,7 +243,7 @@ export default function ClientPage() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {/* Letzte Projekte */}
-              <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, padding: 16 }}>
+              <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 16 }}>
                 <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 12 }}>Projekte</div>
                 {clientProjects.length === 0 ? (
                   <div style={{ color: MUTED, fontSize: 13 }}>Keine Projekte zugeordnet.</div>
@@ -276,7 +276,7 @@ export default function ClientPage() {
 
               {/* Letzte Einsätze */}
               {clientJobs.length > 0 && (
-                <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, padding: 16 }}>
+                <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 16 }}>
                   <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 12 }}>Letzte Einsätze</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {[...clientJobs].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4).map(j => (
@@ -298,7 +298,7 @@ export default function ClientPage() {
               )}
 
               {/* Notes */}
-              <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, padding: 16 }}>
+              <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                   <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Notizen</div>
                   {isAdmin && !editingNotes && (
@@ -345,7 +345,7 @@ export default function ClientPage() {
                 const workers = [...new Set([t.owner_id, ...(t.assigned_users || [])].filter(Boolean))].map(uid => TEAM.find(x => x.id === uid)).filter(Boolean)
                 return (
                   <div key={t.id} onClick={() => navigate('/tasks')}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 8, background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, gap: 16, cursor: 'pointer' }}>
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 14, background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, gap: 16, cursor: 'pointer' }}>
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ fontSize: 13, color: done ? MUTED : FG, fontFamily: "'Space Grotesk', sans-serif", textDecoration: t.status === 'archive' ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 3 }}>
@@ -380,7 +380,7 @@ export default function ClientPage() {
               const pSensors = sensors.filter(s => s.project_id === p.id)
               return (
                 <button key={p.id} onClick={() => navigate(`/projects/${p.id}`)}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderRadius: 8, background: SURFACE, border: `1px solid ${BORDER}`, cursor: 'pointer', textAlign: 'left', gap: 16 }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderRadius: 14, background: SURFACE, border: `1px solid ${BORDER}`, cursor: 'pointer', textAlign: 'left', gap: 16 }}
                   onMouseEnter={e => e.currentTarget.style.borderColor = `color-mix(in srgb, ${A} 33%, transparent)`}
                   onMouseLeave={e => e.currentTarget.style.borderColor = BORDER}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
@@ -410,7 +410,7 @@ export default function ClientPage() {
             {[...clientJobs].sort((a, b) => b.date.localeCompare(a.date)).map(j => {
               const proj = clientProjects.find(p => p.id === j.project_id)
               return (
-                <div key={j.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 8, background: SURFACE, border: `1px solid ${BORDER}`, gap: 16 }}>
+                <div key={j.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 14, background: SURFACE, border: `1px solid ${BORDER}`, gap: 16 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLOR[j.status], flexShrink: 0 }} />
                     <div style={{ minWidth: 0 }}>
@@ -442,7 +442,7 @@ export default function ClientPage() {
             {clientSensors.map(s => {
               const proj = clientProjects.find(p => p.id === s.project_id)
               return (
-                <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 8, background: SURFACE, border: `1px solid ${BORDER}`, gap: 16 }}>
+                <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 14, background: SURFACE, border: `1px solid ${BORDER}`, gap: 16 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <Radio size={16} color={A} />
                     <div>

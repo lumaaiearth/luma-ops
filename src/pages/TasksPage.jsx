@@ -203,7 +203,7 @@ export default function TasksPage() {
           return (
             <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
               {kpis.map(([label, val, color]) => (
-                <div key={label} style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '8px 16px', minWidth: 92 }}>
+                <div key={label} style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '8px 16px', minWidth: 92 }}>
                   <div style={{ fontSize: 22, fontWeight: 300, color, letterSpacing: '-0.02em', lineHeight: 1 }}>{val}</div>
                   <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: 4 }}>{label}</div>
                 </div>
@@ -215,7 +215,7 @@ export default function TasksPage() {
         {/* View tabs + filters */}
         {activeBoard !== 'trash' && (
         <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
-          <div style={{ display: 'flex', gap: 2, background: SURFACE, borderRadius: 8, padding: 4, border: `1px solid ${BORDER}` }}>
+          <div style={{ display: 'flex', gap: 2, background: SURFACE, borderRadius: 14, padding: 4, border: `1px solid ${BORDER}` }}>
             {[['board', 'Board', LayoutGrid], ['list', 'Liste', ListIcon]].map(([id, label, Icon]) => (
               <button key={id} onClick={() => setView(id)}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 6, border: 'none', background: view === id ? A : 'transparent', color: view === id ? '#001219' : MUTED, cursor: 'pointer', fontSize: 13, fontWeight: view === id ? 500 : 400, fontFamily: "'Space Grotesk', sans-serif" }}>
@@ -296,7 +296,7 @@ export default function TasksPage() {
               const prio = P[t.priority]
               const project = projects.find(p => p.id === t.project_id)
               return (
-                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, borderRadius: 8 }}>
+                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, borderRadius: 14 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
                     <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, marginTop: 2 }}>
@@ -386,7 +386,7 @@ function TaskCard({ task, projects, clients, boards, today, navigate, weatherFor
 
   return (
     <div {...drag} onClick={onOpen} className="lu-card lu-clickable"
-      style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, borderRadius: 8, padding: '10px 12px', position: 'relative' }}
+      style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, borderRadius: 14, padding: '10px 12px', position: 'relative' }}
       onMouseEnter={e => { const d = e.currentTarget.querySelector('.card-del'); if (d) d.style.opacity = 1 }}
       onMouseLeave={e => { const d = e.currentTarget.querySelector('.card-del'); if (d) d.style.opacity = 0 }}>
 

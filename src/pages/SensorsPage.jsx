@@ -70,7 +70,7 @@ export default function SensorsPage() {
 
       {/* Summary strip */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 24 }}>
-        <div style={{ padding: '14px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8 }}>
+        <div style={{ padding: '14px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14 }}>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, marginBottom: 4 }}>Sensoren gesamt</div>
           <div style={{ fontSize: 28, fontWeight: 300, color: FG }}>{sensors.length}</div>
         </div>

@@ -77,6 +77,7 @@ export const THEMES = [
       '--luma-border':  'rgba(0,0,0,0.14)',
       '--luma-fg':      '#0a1409',
       '--luma-muted':   'rgba(10,20,9,0.54)',
+      '--lu-shadow':    '0 1px 3px rgba(10,20,9,0.07), 0 6px 16px rgba(10,20,9,0.05)',
       ...SEMANTIC_LIGHT,
     },
   },

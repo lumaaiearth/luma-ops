@@ -24,7 +24,7 @@ export default function TeamPage() {
           const myJobs = jobs.filter(j => j.assigned_users.includes(u.id) && j.date >= today && j.date <= next7 && j.status !== 'cancelled')
           const todayJob = myJobs.find(j => j.date === today)
           return (
-            <div key={u.id} style={{ padding: '18px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, borderTop: `3px solid ${u.color}` }}>
+            <div key={u.id} style={{ padding: '18px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, borderTop: `3px solid ${u.color}` }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
                 <div style={{ width: 40, height: 40, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
@@ -63,7 +63,7 @@ export default function TeamPage() {
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
         {TG_GROUPS.map(g => (
-          <div key={g.name} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 18px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8 }}>
+          <div key={g.name} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 18px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14 }}>
             <div style={{ width: 36, height: 36, borderRadius: '50%', background: `${g.color}22`, border: `1px solid ${g.color}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <span style={{ fontSize: 16 }}>✈</span>
             </div>

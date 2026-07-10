@@ -32,7 +32,7 @@ const TYPE_LABELS = { van: 'Transporter', car: 'PKW', trailer: 'Anhänger', lift
 function VehicleCard({ v, onDelete }) {
   const isOwned = v.ownership === 'owned'
   return (
-    <div style={{ padding: '14px 16px', background: SURFACE, border: `1px solid ${isOwned ? v.color + '30' : BORDER}`, borderRadius: 8, display: 'flex', alignItems: 'center', gap: 14 }}>
+    <div style={{ padding: '14px 16px', background: SURFACE, border: `1px solid ${isOwned ? v.color + '30' : BORDER}`, borderRadius: 14, display: 'flex', alignItems: 'center', gap: 14 }}>
       <div style={{ width: 40, height: 40, borderRadius: 8, background: `${v.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
         {TYPE_ICONS[v.type] || '🚐'}
       </div>
@@ -65,7 +65,7 @@ function TeamIcalRow({ member }) {
     setSaved(true); setTimeout(() => setSaved(false), 2000)
   }
   return (
-    <div style={{ padding: '12px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8 }}>
+    <div style={{ padding: '12px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
         <div style={{ width: 28, height: 28, borderRadius: '50%', background: `${member.color}22`, border: `2px solid ${member.color}50`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: member.color, fontWeight: 700 }}>{member.initials}</span>
@@ -286,7 +286,7 @@ export default function SettingsPage() {
         <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 14 }}>
           Google Kalender Sync
         </div>
-        <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${gcalConnected ? `color-mix(in srgb, ${A} 25%, transparent)` : BORDER}`, borderRadius: 8, marginBottom: 12 }}>
+        <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${gcalConnected ? `color-mix(in srgb, ${A} 25%, transparent)` : BORDER}`, borderRadius: 14, marginBottom: 12 }}>
           {!gcalConnected ? (
             <div>
               <div style={{ fontSize: 13, color: FG, marginBottom: 10, lineHeight: 1.6 }}>
@@ -346,7 +346,7 @@ export default function SettingsPage() {
           Google Kalender Import (iCal, read-only)
         </div>
 
-        <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, marginBottom: 12 }}>
+        <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, marginBottom: 12 }}>
           <div style={{ fontSize: 13, color: FG, marginBottom: 10, lineHeight: 1.6 }}>
             Google Calendar iCal-URL einfügen — Termine werden als Einsatz-Vorschläge importiert.
           </div>
@@ -415,7 +415,7 @@ export default function SettingsPage() {
         <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 14 }}>
           Telegram Integration
         </div>
-        <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, marginBottom: 12 }}>
+        <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, marginBottom: 12 }}>
           <div style={{ fontSize: 13, color: FG, marginBottom: 6, lineHeight: 1.6 }}>
             Bot <code style={{ fontFamily: "'Space Mono', monospace", background: A06, padding: '1px 6px', borderRadius: 3 }}>@lumaaiearth_bot</code> zu den Gruppen hinzufügen, dann Chat-IDs unten eintragen.
           </div>
@@ -529,7 +529,7 @@ export default function SettingsPage() {
         {/* Project list */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {projects.map(p => (
-            <div key={p.id} style={{ padding: '12px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8 }}>
+            <div key={p.id} style={{ padding: '12px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14 }}>
               {editProjectId === p.id ? (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 8, alignItems: 'end' }}>
                   <div>
@@ -583,7 +583,7 @@ export default function SettingsPage() {
         <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 14 }}>
           Tätigkeit Schnellauswahl
         </div>
-        <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8 }}>
+        <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14 }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
             {chips.map(chip => (
               <div key={chip} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 12, border: `1px solid ${BORDER}`, background: A06 }}>

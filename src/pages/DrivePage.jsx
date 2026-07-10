@@ -128,7 +128,7 @@ export default function DrivePage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
         {folders.map(folder => (
           <div key={folder.id}
-            style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, padding: 16, display: 'flex', flexDirection: 'column', gap: 10, position: 'relative', transition: 'border-color 0.15s', overflow: 'hidden' }}
+            style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 16, display: 'flex', flexDirection: 'column', gap: 10, position: 'relative', transition: 'border-color 0.15s', overflow: 'hidden' }}
             onMouseEnter={e => e.currentTarget.style.borderColor = `color-mix(in srgb, ${A} 33%, transparent)`}
             onMouseLeave={e => e.currentTarget.style.borderColor = BORDER}>
 

@@ -60,6 +60,23 @@ function SidebarLink({ to, icon: Icon, label, onNavigate }) {
   )
 }
 
+/** Icon-Rail-Eintrag (Desktop): quadratisches Icon mit Tooltip rechts */
+function RailLink({ to, icon: Icon, label }) {
+  return (
+    <NavLink to={to} data-tip={label} aria-label={label}
+      className={({ isActive }) => `lu-tip lu-rail-link${isActive ? ' active' : ''}`}
+      style={({ isActive }) => ({
+        width: 42, height: 42, borderRadius: 13, flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        textDecoration: 'none',
+        color: isActive ? A : MUTED,
+        background: isActive ? A14 : 'transparent',
+      })}>
+      <Icon size={19} />
+    </NavLink>
+  )
+}
+
 export default function Layout({ children, fullHeight = false }) {
   const { user, profile, displayName, logout } = useAuth()
   const initials = displayName ? displayName.slice(0, 2).toUpperCase() : '?'
@@ -72,6 +89,36 @@ export default function Layout({ children, fullHeight = false }) {
   }
 
   const closeMobile = () => setMobileOpen(false)
+
+  // Desktop: kompakte Icon-Rail im Stil moderner Dashboards
+  const rail = (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', background: SURFACE, borderRight: `1px solid ${BORDER}`, padding: '14px 0 12px', gap: 4 }}>
+      {/* Brand-Mark */}
+      <NavLink to="/dashboard" title="LUMA Ops" style={{ width: 42, height: 42, borderRadius: 14, background: A, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', marginBottom: 10, flexShrink: 0 }}>
+        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: '#001219', letterSpacing: '0.02em' }}>LU</span>
+      </NavLink>
+
+      {/* Nav-Gruppen als Icon-Stapel mit Trennlinien */}
+      <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, overflowY: 'auto', paddingBottom: 4 }}>
+        {NAV_GROUPS.map((group, gi) => (
+          <div key={group.label} style={{ display: 'contents' }}>
+            {gi > 0 && <div style={{ width: 26, height: 1, background: BORDER, margin: '5px 0', flexShrink: 0 }} />}
+            {group.items.map(item => <RailLink key={item.to} {...item} />)}
+          </div>
+        ))}
+      </nav>
+
+      <div style={{ width: 26, height: 1, background: BORDER, margin: '4px 0', flexShrink: 0 }} />
+      <RailLink to="/settings" icon={Settings} label="Einstellungen" />
+      <button onClick={handleLogout} data-tip="Abmelden" aria-label="Abmelden" className="lu-tip lu-rail-link"
+        style={{ width: 42, height: 42, borderRadius: 13, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <LogOut size={18} />
+      </button>
+      <div data-tip={`${displayName}${profile?.rolle ? ` · ${profile.rolle}` : ''}`} className="lu-tip" style={{ marginTop: 6 }}>
+        <Avatar initials={initials} size={34} />
+      </div>
+    </div>
+  )
 
   const sidebar = (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: SURFACE, borderRight: `1px solid ${BORDER}` }}>
@@ -131,9 +178,9 @@ export default function Layout({ children, fullHeight = false }) {
         }
       `}</style>
 
-      {/* Desktop sidebar */}
-      <div className="desktop-sidebar" style={{ width: 200, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
-        {sidebar}
+      {/* Desktop: Icon-Rail */}
+      <div className="desktop-sidebar" style={{ width: 68, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+        {rail}
       </div>
 
       {/* Mobile full-menu overlay */}

@@ -214,7 +214,7 @@ function TabErfassen() {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'start' }}>
       {/* Form */}
-      <div style={{ padding: '20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8 }}>
+      <div style={{ padding: '20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14 }}>
         <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 16 }}>
           Stunden eintragen
         </div>
@@ -425,7 +425,7 @@ function KontostandCard({ uid, entries }) {
   const CELLSTYLE = (i) => ({ fontFamily: "'Space Mono', monospace", fontSize: 10, textAlign: 'center', padding: '2px 5px', background: i + 1 === nowMonth ? `color-mix(in srgb, ${A} 7%, transparent)` : 'transparent', verticalAlign: 'middle' })
 
   return (
-    <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8 }}>
+    <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
         <div style={{ width: 28, height: 28, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
@@ -528,7 +528,7 @@ function TabUebersicht() {
 
       {/* GF balance — admin only */}
       {isAdmin && (
-        <div style={{ padding: '12px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ padding: '12px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.12em' }}>GF Balance {new Date().getFullYear()}</div>
           {['malte', 'lukas'].map(uid => {
             const u = TEAM.find(t => t.id === uid)
@@ -624,7 +624,7 @@ function TabAbrechnung() {
   return (
     <div>
       {/* Filters + Export */}
-      <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, marginBottom: 20 }}>
+      <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, marginBottom: 20 }}>
         <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 10 }}>Filter &amp; Export</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
           <select style={INPUT} value={filterProject} onChange={e => setFilterProject(e.target.value)}>
@@ -663,7 +663,7 @@ function TabAbrechnung() {
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 10 }}>Nicht abgerechnet</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {unbilledByProject.filter(g => !filterProject || g.project.id === filterProject).map(({ project, entries: pEntries, totalHours }) => (
-              <div key={project.id} style={{ padding: '14px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8 }}>
+              <div key={project.id} style={{ padding: '14px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 500, color: FG }}>{project.name}</div>
@@ -740,7 +740,7 @@ function TabAbrechnung() {
             const project = projects.find(p => p.id === inv.project_id)
             const paid = !!inv.date_paid
             return (
-              <div key={inv.id} style={{ padding: '14px 16px', background: SURFACE, border: `1px solid ${paid ? `color-mix(in srgb, ${OK} 20%, transparent)` : BORDER}`, borderRadius: 8, display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div key={inv.id} style={{ padding: '14px 16px', background: SURFACE, border: `1px solid ${paid ? `color-mix(in srgb, ${OK} 20%, transparent)` : BORDER}`, borderRadius: 14, display: 'flex', alignItems: 'center', gap: 14 }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 3 }}>
                     <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: FG, fontWeight: 500 }}>{inv.invoice_number}</span>
@@ -1002,7 +1002,7 @@ function TabStatistiken() {
         {personRangeH.map(p => {
           const kontostand = personKontostand(p.id, entries)
           return (
-            <div key={p.id} style={{ padding: '14px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8 }}>
+            <div key={p.id} style={{ padding: '14px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
                 <div style={{ width: 22, height: 22, borderRadius: '50%', background: p.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 7, color: '#001219', fontWeight: 700 }}>{p.initials}</span>
@@ -1021,7 +1021,7 @@ function TabStatistiken() {
       </div>
 
       {/* Bar chart */}
-      <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8 }}>
+      <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14 }}>
         <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 16 }}>
           {RANGE_CHART_LABELS[range]}
         </div>
@@ -1037,7 +1037,7 @@ function TabStatistiken() {
       </div>
 
       {/* Hours by project */}
-      <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8 }}>
+      <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 16 }}>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase' }}>Stunden nach Projekt</div>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: A, marginLeft: 'auto' }}>{totalRange}h gesamt</div>

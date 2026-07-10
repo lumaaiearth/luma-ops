@@ -39,7 +39,7 @@ export function Modal({ eyebrow, eyebrowColor = A, title, onClose, maxWidth = 58
     <div style={{ position: 'fixed', inset: 0, zIndex, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(4px)' }} />
       <div role="dialog" aria-modal="true" onClick={e => e.stopPropagation()} className="lu-fade-in"
-        style={{ position: 'relative', background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10, width: '100%', maxWidth, maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 32px 80px rgba(0,0,0,0.55)' }}>
+        style={{ position: 'relative', background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, width: '100%', maxWidth, maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 32px 80px rgba(0,0,0,0.55)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '18px 24px', borderBottom: `1px solid ${BORDER}`, position: 'sticky', top: 0, background: CARD, zIndex: 2 }}>
           <div style={{ minWidth: 0 }}>
             {eyebrow && <div style={{ fontFamily: MONO, fontSize: 10, color: eyebrowColor, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: title ? 2 : 0 }}>{eyebrow}</div>}
@@ -85,12 +85,13 @@ export function SectionLabel({ children, action, style }) {
   )
 }
 
-/** Einheitlicher Seitenkopf: Titel links, Aktionen rechts */
-export function PageHeader({ title, sub, actions, isMobile = false, style }) {
+/** Einheitlicher Seitenkopf: optionale Eyebrow-Zeile über großem Titel, Aktionen rechts */
+export function PageHeader({ title, sub, eyebrow, actions, isMobile = false, style }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 16, ...style }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 18, ...style }}>
       <div>
-        <h1 style={{ fontSize: isMobile ? 18 : 22, fontWeight: 400, color: FG, letterSpacing: '-0.02em', margin: 0 }}>{title}</h1>
+        {eyebrow && <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>{eyebrow}</div>}
+        <h1 style={{ fontSize: isMobile ? 20 : 26, fontWeight: 500, color: FG, letterSpacing: '-0.03em', margin: 0, lineHeight: 1.15 }}>{title}</h1>
         {sub && <div style={{ fontFamily: MONO, fontSize: 11, color: MUTED, marginTop: 3 }}>{sub}</div>}
       </div>
       {actions && <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>{actions}</div>}
@@ -99,7 +100,7 @@ export function PageHeader({ title, sub, actions, isMobile = false, style }) {
 }
 
 /** Basis-Karte; `accent` färbt die linke Kante, `onClick` aktiviert Hover-Feedback */
-export function Card({ children, onClick, accent, padding = '12px 16px', style }) {
+export function Card({ children, onClick, accent, padding = '14px 18px', style }) {
   return (
     <div
       onClick={onClick}
@@ -108,7 +109,7 @@ export function Card({ children, onClick, accent, padding = '12px 16px', style }
         background: SURFACE,
         border: `1px solid ${BORDER}`,
         borderLeft: accent ? `3px solid ${accent}` : `1px solid ${BORDER}`,
-        borderRadius: 8,
+        borderRadius: 14,
         padding,
         ...style,
       }}>
@@ -157,7 +158,7 @@ export function Button({ variant = 'primary', icon: Icon, children, style, ...pr
       className={`lu-btn-${variant}`}
       style={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-        padding: '8px 16px', borderRadius: 7, cursor: props.disabled ? 'not-allowed' : 'pointer',
+        padding: '8px 16px', borderRadius: 10, cursor: props.disabled ? 'not-allowed' : 'pointer',
         fontFamily: SANS, fontSize: 13, opacity: props.disabled ? 0.55 : 1,
         ...variants[variant], ...style,
       }}
@@ -171,7 +172,7 @@ export function Button({ variant = 'primary', icon: Icon, children, style, ...pr
 /** Leerer Zustand mit Icon & optionalem Hinweis statt nacktem Text */
 export function EmptyState({ icon: Icon, title, hint, action, style }) {
   return (
-    <div style={{ padding: '36px 24px', textAlign: 'center', border: `1px dashed ${BORDER}`, borderRadius: 8, ...style }}>
+    <div style={{ padding: '36px 24px', textAlign: 'center', border: `1px dashed ${BORDER}`, borderRadius: 14, ...style }}>
       {Icon && <Icon size={22} color={MUTED} style={{ marginBottom: 10, opacity: 0.7 }} />}
       <div style={{ fontFamily: MONO, fontSize: 12, color: MUTED, letterSpacing: '0.05em' }}>{title}</div>
       {hint && <div style={{ fontSize: 12, color: MUTED, marginTop: 6, opacity: 0.8 }}>{hint}</div>}
@@ -189,21 +190,24 @@ export function Avatar({ initials, color = A, size = 22, title }) {
   )
 }
 
-/** Unterstrich-Tabs */
+/** Segmentierte Pill-Tabs (aktiver Tab als gefüllte Pille) */
 export function Tabs({ tabs, active, onChange, isMobile = false, style }) {
   return (
-    <div style={{ display: 'flex', borderBottom: `1px solid ${BORDER}`, marginBottom: 16, overflowX: 'auto', ...style }}>
-      {tabs.map(([id, label]) => (
-        <button key={id} onClick={() => onChange(id)} className="lu-tab"
-          style={{
-            padding: isMobile ? '9px 14px' : '10px 20px', border: 'none', background: 'transparent',
-            color: active === id ? A : MUTED, fontFamily: SANS, fontSize: isMobile ? 12 : 13,
-            cursor: 'pointer', borderBottom: `2px solid ${active === id ? A : 'transparent'}`,
-            marginBottom: -1, whiteSpace: 'nowrap',
-          }}>
-          {label}
-        </button>
-      ))}
+    <div style={{ display: 'inline-flex', gap: 3, background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 999, padding: 4, marginBottom: 16, overflowX: 'auto', maxWidth: '100%', ...style }}>
+      {tabs.map(([id, label]) => {
+        const on = active === id
+        return (
+          <button key={id} onClick={() => onChange(id)} className={on ? undefined : 'lu-tab'}
+            style={{
+              padding: isMobile ? '7px 13px' : '7px 18px', border: 'none', borderRadius: 999,
+              background: on ? A : 'transparent',
+              color: on ? '#001219' : MUTED, fontFamily: SANS, fontSize: isMobile ? 12 : 13,
+              fontWeight: on ? 600 : 400, cursor: 'pointer', whiteSpace: 'nowrap',
+            }}>
+            {label}
+          </button>
+        )
+      })}
     </div>
   )
 }

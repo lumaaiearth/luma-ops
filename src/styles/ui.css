@@ -21,8 +21,9 @@
   --luma-info:    #6EA8C0;
 
   /* Geometrie & Motion */
-  --lu-radius:    8px;
-  --lu-radius-sm: 6px;
+  --lu-radius:    14px;
+  --lu-radius-sm: 8px;
+  --lu-shadow:    0 1px 2px rgba(0, 0, 0, 0.18);
   --lu-ease:      cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
@@ -77,8 +78,10 @@ input, textarea, select {
 
 a { transition: color 0.15s var(--lu-ease), background 0.15s var(--lu-ease); }
 
-/* ── Karten ── */
+/* ── Karten: weich gerundete „Fenster" mit sanfter Elevation ── */
 .lu-card {
+  border-radius: var(--lu-radius) !important;
+  box-shadow: var(--lu-shadow);
   transition: border-color 0.15s var(--lu-ease), background 0.15s var(--lu-ease),
               transform 0.15s var(--lu-ease), box-shadow 0.15s var(--lu-ease);
 }
@@ -98,6 +101,38 @@ a { transition: color 0.15s var(--lu-ease), background 0.15s var(--lu-ease); }
 }
 .lu-nav.active {
   box-shadow: inset 2px 0 0 var(--luma-a);
+}
+
+/* ── Icon-Rail (Desktop-Navigation) ── */
+.lu-rail-link {
+  transition: background 0.15s var(--lu-ease), color 0.15s var(--lu-ease), transform 0.1s var(--lu-ease);
+}
+.lu-rail-link:hover:not(.active) {
+  color: var(--luma-fg) !important;
+  background: color-mix(in srgb, var(--luma-fg) 7%, transparent) !important;
+}
+.lu-rail-link:active { transform: scale(0.94); }
+
+/* Tooltip rechts neben Rail-Icons (und überall via data-tip) */
+.lu-tip { position: relative; }
+.lu-tip:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--luma-card);
+  border: 1px solid var(--luma-border);
+  color: var(--luma-fg);
+  padding: 5px 12px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-family: 'Space Grotesk', sans-serif;
+  white-space: nowrap;
+  z-index: 600;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  animation: lu-fade-in 0.12s var(--lu-ease);
 }
 
 /* ── Buttons (ui.jsx) ── */

@@ -237,7 +237,7 @@ function DrawControl({ mode, onFeatureDrawn, onCancel, onLiveMeasure }) {
   return (
     <div style={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 1000 }}>
       <button onClick={onCancel}
-        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, background: SURFACE, border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 2px 12px rgba(0,0,0,0.4)' }}>
+        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 14, background: SURFACE, border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 2px 12px rgba(0,0,0,0.4)' }}>
         <X size={14} /> Abbrechen <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, opacity: 0.6 }}>Esc</span>
       </button>
     </div>
@@ -1503,7 +1503,7 @@ export default function MapPage() {
 
         {/* Bearbeiten-Modus Banner */}
         {editMode && !drawMode && (
-          <div style={{ position: 'absolute', top: isMobile ? 104 : 58, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: SURFACE, border: `1px solid color-mix(in srgb, ${A} 38%, transparent)`, borderRadius: 8, padding: '7px 14px', fontSize: 12, color: FG, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 2px 12px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ position: 'absolute', top: isMobile ? 104 : 58, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: SURFACE, border: `1px solid color-mix(in srgb, ${A} 38%, transparent)`, borderRadius: 14, padding: '7px 14px', fontSize: 12, color: FG, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 2px 12px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', gap: 10 }}>
             <Move size={13} color={A} />
             <span>Bearbeiten aktiv — Punkte verschieben, Eckpunkte ziehen. Änderungen werden automatisch gespeichert.</span>
             <button onClick={() => setEditMode(false)} className="lu-btn-primary"
@@ -1515,7 +1515,7 @@ export default function MapPage() {
 
         {/* Draw mode indicator banner */}
         {drawMode && !pendingGeometry && (
-          <div style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: SURFACE, border: `1px solid color-mix(in srgb, ${drawMode === 'measure' ? '#38bdf8' : FEATURE_MODES.find(m => m.id === drawMode)?.color || A} 38%, transparent)`, borderRadius: 8, padding: '8px 16px', fontSize: 12, color: FG, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 2px 12px rgba(0,0,0,0.5)', maxWidth: 'calc(100% - 24px)' }}>
+          <div style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: SURFACE, border: `1px solid color-mix(in srgb, ${drawMode === 'measure' ? '#38bdf8' : FEATURE_MODES.find(m => m.id === drawMode)?.color || A} 38%, transparent)`, borderRadius: 14, padding: '8px 16px', fontSize: 12, color: FG, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 2px 12px rgba(0,0,0,0.5)', maxWidth: 'calc(100% - 24px)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span>{drawMode === 'measure' ? '📏' : FEATURE_MODES.find(m => m.id === drawMode)?.icon}</span>
               <span>
@@ -1563,7 +1563,7 @@ export default function MapPage() {
         {/* Mobile toggle */}
         {isMobile && (
           <button onClick={() => setSidebarOpen(v => !v)}
-            style={{ position: 'absolute', top: 12, left: 12, zIndex: 1000, background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '8px 14px', color: FG, cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
+            style={{ position: 'absolute', top: 12, left: 12, zIndex: 1000, background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '8px 14px', color: FG, cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
             {sidebarOpen ? '✕ Schließen' : '☰ Projekte'}
           </button>
         )}

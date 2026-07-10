@@ -33,7 +33,7 @@ function MapFit({ lat, lng }) {
 
 function StatCard({ icon: Icon, label, value, color }) {
   return (
-    <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
+    <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
       <div style={{ width: 36, height: 36, borderRadius: 8, background: A06, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
         <Icon size={16} color={color || A} />
       </div>
@@ -167,7 +167,7 @@ export default function ProjectPage() {
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: 2, background: SURFACE, borderRadius: 8, padding: 4, border: `1px solid ${BORDER}`, marginBottom: 24, overflowX: 'auto' }}>
+        <div style={{ display: 'flex', gap: 2, background: SURFACE, borderRadius: 14, padding: 4, border: `1px solid ${BORDER}`, marginBottom: 24, overflowX: 'auto' }}>
           {TABS.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '1 0 auto', padding: '8px 14px', borderRadius: 6, border: 'none', background: tab === t.id ? A : 'transparent', color: tab === t.id ? '#001219' : MUTED, cursor: 'pointer', fontSize: 13, fontWeight: tab === t.id ? 500 : 400, whiteSpace: 'nowrap', fontFamily: "'Space Grotesk', sans-serif" }}>
@@ -198,7 +198,7 @@ export default function ProjectPage() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {/* Info */}
-              <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, padding: 16 }}>
+              <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 16 }}>
                 <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 12 }}>Projektinfo</div>
                 {lastVisit && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 13 }}>
@@ -222,7 +222,7 @@ export default function ProjectPage() {
 
               {/* Team */}
               {allWorkers.size > 0 && (
-                <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, padding: 16 }}>
+                <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 16 }}>
                   <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 12 }}>Team</div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {[...allWorkers].map(uid => {
@@ -244,7 +244,7 @@ export default function ProjectPage() {
 
               {/* Pflanzplan */}
               {project.plant_plan?.length > 0 && (
-                <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, padding: 16 }}>
+                <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 16 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                     <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Pflanzplan</div>
                     <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A }}>{project.plant_plan.reduce((s, p) => s + p.count, 0)} Pflanzen · {project.plant_plan.length} Arten</span>
@@ -265,7 +265,7 @@ export default function ProjectPage() {
               )}
 
               {/* Notes */}
-              <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, padding: 16 }}>
+              <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                   <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Notizen</div>
                   {isAdmin && !editingNotes && (
@@ -321,7 +321,7 @@ export default function ProjectPage() {
                     : t.due_date ? `fällig ${formatDate(t.due_date)}` : t.start_date ? `ab ${formatDate(t.start_date)}` : null
                   return (
                     <div key={t.id} onClick={() => setTaskModal({ task: t })}
-                      style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, borderRadius: 8, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }}>
+                      style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, borderRadius: 14, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 14, fontWeight: 500, color: done ? MUTED : FG, textDecoration: t.status === 'archive' ? 'line-through' : 'none', marginBottom: 3 }}>{t.title}</div>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -359,7 +359,7 @@ export default function ProjectPage() {
               const workers = (job.assigned_users || []).map(uid => TEAM.find(t => t.id === uid)).filter(Boolean)
               const isUpcoming = job.date >= today
               return (
-                <div key={job.id} style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${type?.color || A}`, borderRadius: 8, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div key={job.id} style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${type?.color || A}`, borderRadius: 14, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 16 }}>
                   <div style={{ minWidth: 64, textAlign: 'center' }}>
                     <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>{new Date(job.date + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'short' })}</div>
                     <div style={{ fontSize: 16, fontWeight: 400, color: isUpcoming ? A : FG }}>{new Date(job.date + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}</div>
@@ -419,7 +419,7 @@ export default function ProjectPage() {
                   const pct = s.threshold_high > 0 ? Math.min((s.value / s.threshold_high) * 100, 100) : 50
                   const statusColor = s.status === 'critical' ? DANGER : s.status === 'warning' ? WARN : OK
                   return (
-                    <div key={s.id} style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, padding: 16 }}>
+                    <div key={s.id} style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 16 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                         <div style={{ fontSize: 13, fontWeight: 500, color: FG }}>{s.name}</div>
                         <div style={{ width: 8, height: 8, borderRadius: '50%', background: statusColor, marginTop: 4 }} />

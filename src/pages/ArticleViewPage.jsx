@@ -205,7 +205,7 @@ export default function ArticleViewPage() {
         {/* KPI strip */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 40 }}>
           {article.kpis.map(k => (
-            <div key={k.label} style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '14px 16px', textAlign: 'center' }}>
+            <div key={k.label} style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '14px 16px', textAlign: 'center' }}>
               <div style={{ fontSize: 22, fontWeight: 700, color, letterSpacing: '-0.03em', marginBottom: 4 }}>{k.value}</div>
               <div style={{ fontSize: 10, color: MUTED, fontFamily: "'Space Mono', monospace", letterSpacing: '0.06em' }}>{k.label}</div>
             </div>

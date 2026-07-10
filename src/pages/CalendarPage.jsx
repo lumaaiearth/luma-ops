@@ -970,7 +970,7 @@ export default function CalendarPage() {
                     const color = TASK_P_CAL[t.priority]?.color || '#A78BFA'
                     return (
                       <div key={`smt-${t.id}`} onClick={openTaskInList} className="lu-card lu-clickable"
-                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, background: SURFACE, border: `1px dashed ${color}55`, marginBottom: 8, cursor: 'pointer' }}>
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14, background: SURFACE, border: `1px dashed ${color}55`, marginBottom: 8, cursor: 'pointer' }}>
                         <CheckSquare size={14} color={color} style={{ flexShrink: 0 }} />
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 500, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
@@ -985,7 +985,7 @@ export default function CalendarPage() {
                     return (
                       <div key={job.id}
                         onClick={() => openJob(job)} className="lu-card lu-clickable"
-                        style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 8, background: SURFACE, border: `1px solid ${BORDER}`, marginBottom: 8 }}>
+                        style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 14, background: SURFACE, border: `1px solid ${BORDER}`, marginBottom: 8 }}>
                         <div style={{ width: 3, alignSelf: 'stretch', borderRadius: 2, background: type?.color || A, flexShrink: 0 }} />
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 500, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.title}</div>
@@ -1268,7 +1268,7 @@ function ScheduleView({ startDate, jobs, gcalEvents, projects, clients, today, o
                 return (
                   <div key={ev.id} onClick={() => !ev.isGCal && onOpen(ev)}
                     className={ev.isGCal ? 'lu-card' : 'lu-card lu-clickable'}
-                    style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 8, background: SURFACE, border: `1px solid ${BORDER}`, cursor: ev.isGCal ? 'default' : 'pointer' }}>
+                    style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 14, background: SURFACE, border: `1px solid ${BORDER}`, cursor: ev.isGCal ? 'default' : 'pointer' }}>
                     <div style={{ width: 3, alignSelf: 'stretch', borderRadius: 2, background: accentColor, flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.title}</div>

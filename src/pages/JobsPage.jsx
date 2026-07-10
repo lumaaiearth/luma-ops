@@ -113,7 +113,7 @@ export default function JobsPage() {
             const assignees = TEAM.filter(t => (r.assigned_users || []).includes(t.id))
             const daysUntil = Math.ceil((new Date(r.next_date + 'T00:00:00') - new Date(today + 'T00:00:00')) / 86400000)
             return (
-              <div key={r.id} style={{ padding: '14px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, borderLeft: `3px solid ${type?.color || A}` }}>
+              <div key={r.id} style={{ padding: '14px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, borderLeft: `3px solid ${type?.color || A}` }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
@@ -173,7 +173,7 @@ function JobRow({ job, projects, today, isMobile, onToggleStatus, onEdit, onDele
     // ── MOBILE LAYOUT: 2-row card ──────────────────────────────────────────
     return (
       <div className="lu-card" style={{
-        background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8,
+        background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14,
         borderLeft: `3px solid ${type?.color || A}`,
         overflow: 'hidden',
       }}>
