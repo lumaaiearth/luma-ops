@@ -90,8 +90,8 @@ function TeamIcalRow({ member }) {
 }
 
 export default function SettingsPage() {
-  const { user } = useAuth()
-  if (user?.role !== 'admin') return <Navigate to="/dashboard" replace />
+  // Rolle kommt aus user_profile.rolle (Supabase) — user.role wäre immer nur 'authenticated'
+  const { isAdmin } = useAuth()
   const { themeId, setTheme } = useTheme()
 
   const { connected: gcalConnected, ready: gcalReady, syncing: gcalSyncing, calendars, calendarId, connect: gcalConnect, disconnect: gcalDisconnect, setCalendarId, reload: gcalReload } = useGCal()
@@ -187,6 +187,9 @@ export default function SettingsPage() {
       setGcalStatus('error')
     }
   }
+
+  // Guard erst nach allen Hooks (Rules of Hooks)
+  if (!isAdmin) return <Navigate to="/dashboard" replace />
 
   const owned = (vehicles || []).filter(v => v.ownership === 'owned')
   const rental = (vehicles || []).filter(v => v.ownership === 'rental')
