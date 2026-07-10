@@ -15,6 +15,9 @@ const TASK_P = Object.fromEntries(TASK_PRIORITIES.map(p => [p.id, p]))
 const TASK_S = Object.fromEntries(TASK_STATUSES.map(s => [s.id, s]))
 import { isoToday, addDays, genId } from '../lib/storage.js'
 import { useIsMobile } from '../lib/useIsMobile.js'
+import TreeQuickForm from '../components/TreeQuickForm.jsx'
+import FeaturePanel from '../components/FeaturePanel.jsx'
+import { TREE_SPECIES, matchSpecies, rememberSpecies } from '../data/treeSpecies.js'
 import { Layers, Satellite, Map as MapIcon, Pencil, Save, X, ExternalLink, ChevronRight, ChevronDown, FolderOpen, Folder, Eye, EyeOff, Search, MapPin, Plus, Trash2, Upload, Image, SlidersHorizontal, Ruler, Move, LocateFixed } from 'lucide-react'
 
 /* ─── GEO HELPERS ───────────────────────────────────────────────────────── */
@@ -66,6 +69,20 @@ function geomLineLength(geometry) {
 
 function fmtArea(m2) { return m2 >= 10000 ? `${(m2 / 10000).toFixed(2)} ha` : `${Math.round(m2)} m²` }
 function fmtLen(m) { return m >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${Math.round(m)} m` }
+
+// Nächste freie Baumnummer im Projekt: höchste Nummer + 1, Präfix/Null-Padding bleibt
+function nextTreeNumber(features, projectId) {
+  let best = null
+  features.forEach(f => {
+    if (f.project_id !== projectId || f.feature_type !== 'tree') return
+    const m = String(f.properties?.baumnummer || '').match(/^(.*?)(\d+)\s*$/)
+    if (!m) return
+    const num = parseInt(m[2], 10)
+    if (!best || num >= best.num) best = { prefix: m[1], num, width: m[2].length }
+  })
+  if (!best) return 'B-0001'
+  return best.prefix + String(best.num + 1).padStart(best.width, '0')
+}
 
 const TILES = {
   satellite: {
@@ -242,14 +259,24 @@ function UserLocation({ userPos }) {
 }
 
 /* ─── FEATURE FORM MODAL ────────────────────────────────────────────────── */
-function FeatureForm({ mode, project, color, existingFeature, onSave, onCancel, areaM2 }) {
+function FeatureForm({ mode, project, color, existingFeature, draft, onSave, onCancel, areaM2 }) {
   const isTree = mode === 'tree'
   const modeInfo = FEATURE_MODES.find(m => m.id === mode) || {}
 
-  const [form, setForm] = useState(existingFeature?.properties || {})
-  const [label, setLabel] = useState(existingFeature?.label || '')
+  const [form, setForm] = useState(existingFeature?.properties || draft?.properties || {})
+  const [label, setLabel] = useState(existingFeature?.label || draft?.label || '')
 
   function set(key, val) { setForm(prev => ({ ...prev, [key]: val })) }
+
+  // Arten-Autocomplete: deutscher/lateinischer Name vervollständigen sich gegenseitig
+  function applySpecies(value, field) {
+    set(field, value)
+    const m = matchSpecies(value)
+    if (m) {
+      setForm(prev => ({ ...prev, baumart_deutsch: m.name, baumart_latein: m.latin }))
+      rememberSpecies(m.name, m.latin)
+    }
+  }
 
   function handleSave() {
     const props = isTree ? form : { ...form }
@@ -304,11 +331,17 @@ function FeatureForm({ mode, project, color, existingFeature, onSave, onCancel, 
             </div>
             <div>
               <label style={labelStyle}>Baumart (deutsch)</label>
-              <input style={inputStyle} value={form.baumart_deutsch || ''} onChange={e => set('baumart_deutsch', e.target.value)} placeholder="Stieleiche" />
+              <input style={inputStyle} value={form.baumart_deutsch || ''} onChange={e => applySpecies(e.target.value, 'baumart_deutsch')} placeholder="Stieleiche" list="luma-species-de" autoComplete="off" />
+              <datalist id="luma-species-de">
+                {TREE_SPECIES.map(s => <option key={s.latin} value={s.name}>{s.latin}</option>)}
+              </datalist>
             </div>
             <div>
               <label style={labelStyle}>Baumart (latein)</label>
-              <input style={inputStyle} value={form.baumart_latein || ''} onChange={e => set('baumart_latein', e.target.value)} placeholder="Quercus robur" />
+              <input style={inputStyle} value={form.baumart_latein || ''} onChange={e => applySpecies(e.target.value, 'baumart_latein')} placeholder="Quercus robur" list="luma-species-la" autoComplete="off" />
+              <datalist id="luma-species-la">
+                {TREE_SPECIES.map(s => <option key={s.latin} value={s.latin}>{s.name}</option>)}
+              </datalist>
             </div>
             <div>
               <label style={labelStyle}>Stammumfang (cm, 1m Höhe)</label>
@@ -653,6 +686,12 @@ export default function MapPage() {
   const [droneModal, setDroneModal] = useState(null) // project | null
   const [droneOpacity, setDroneOpacity] = useState({}) // { featureId: opacity }
 
+  // Serien-Kartierung & Detailpanel
+  const [showFullForm, setShowFullForm] = useState(false)    // Kurzform → Vollformular
+  const [quickDraft, setQuickDraft] = useState(null)         // Vorbelegung fürs Vollformular
+  const [serialCount, setSerialCount] = useState(0)          // Bäume in dieser Serie
+  const [panelFeatureId, setPanelFeatureId] = useState(null) // geöffnetes Baum-Detailpanel
+
   // Toolbar / Bearbeiten / GPS / Messen
   const [drawProjectId, setDrawProjectId] = useState(null)   // Zielprojekt der Toolbar
   const [projectHint, setProjectHint] = useState(false)      // "erst Projekt wählen"-Hinweis
@@ -848,6 +887,24 @@ export default function MapPage() {
     setPendingGeometry(null)
     setEditingFeature(null)
     setLiveMeasure(null)
+    setShowFullForm(false)
+    setQuickDraft(null)
+    setSerialCount(0)
+  }
+
+  // Serien-Speichern: Feature anlegen, Zeichenmodus bleibt aktiv → nächster Tap
+  function onQuickTreeSave({ label, properties }) {
+    if (!drawingProject || !pendingGeometry) return
+    createMapFeature({
+      id: genId(),
+      project_id: drawingProject.id,
+      feature_type: 'tree',
+      geometry: pendingGeometry,
+      label,
+      properties,
+    })
+    setSerialCount(c => c + 1)
+    setPendingGeometry(null)  // DrawControl remountet → Zeichnen sofort wieder aktiv
   }
 
   function onFeatureDrawn(geometry) {
@@ -1075,7 +1132,16 @@ export default function MapPage() {
                           return (
                             <div key={feat.id} style={{ marginBottom: isDrone ? 6 : 1 }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 5, padding: '3px 4px', borderRadius: 4, fontSize: 11, color: featHidden ? MUTED : FG, opacity: featHidden ? 0.45 : 1 }}>
+                                <div className={feat.geometry?.type === 'Point' ? 'lu-option' : undefined}
+                                  onClick={() => {
+                                    if (feat.geometry?.type === 'Point') {
+                                      const [lng, lat] = feat.geometry.coordinates
+                                      setFlyTarget([lat, lng])
+                                      if (feat.feature_type === 'tree') setPanelFeatureId(feat.id)
+                                      if (isMobile) setSidebarOpen(false)
+                                    }
+                                  }}
+                                  style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 5, padding: '3px 4px', borderRadius: 4, fontSize: 11, color: featHidden ? MUTED : FG, opacity: featHidden ? 0.45 : 1, cursor: feat.geometry?.type === 'Point' ? 'pointer' : 'default' }}>
                                   <span style={{ fontSize: 10, flexShrink: 0 }}>{isDrone ? '🚁' : (modeInfo.icon || '●')}</span>
                                   <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {feat.label || modeInfo.label || feat.feature_type}
@@ -1200,6 +1266,12 @@ export default function MapPage() {
           {/* Eigener Standort (GPS) */}
           <UserLocation userPos={userPos} />
 
+          {/* Vorschau: gerade gesetzter, noch ungespeicherter Punkt */}
+          {drawMode && pendingGeometry?.type === 'Point' && (
+            <Marker position={[pendingGeometry.coordinates[1], pendingGeometry.coordinates[0]]}
+              icon={makeTreeIcon('#22c55e', 24)} zIndexOffset={900} />
+          )}
+
           {/* Drone image overlays */}
           {mapFeatures.filter(f => f.feature_type === 'drone_image' && !hiddenProjects.has(f.project_id) && !hiddenFeatures.has(f.id) && f.properties?.image_url && f.geometry).map(feat => {
             const coords = feat.geometry.coordinates[0]
@@ -1227,7 +1299,8 @@ export default function MapPage() {
 
             if (geom.type === 'Point') {
               const [lng, lat] = geom.coordinates
-              const icon = feat.feature_type === 'tree' ? makeTreeIcon(color) : makePin(color, 14)
+              const isTree = feat.feature_type === 'tree'
+              const icon = isTree ? makeTreeIcon(color) : makePin(color, 14)
               const canDrag = isAdmin && editMode
               return (
                 <Marker key={feat.id} position={[lat, lng]} icon={icon} draggable={canDrag}
@@ -1236,10 +1309,14 @@ export default function MapPage() {
                       const ll = e.target.getLatLng()
                       updateMapFeature(feat.id, { geometry: { type: 'Point', coordinates: [ll.lng, ll.lat] } })
                     },
+                    // Bäume öffnen das Detailpanel statt eines Mini-Popups
+                    ...(isTree ? { click: () => { if (!editModeRef.current) setPanelFeatureId(feat.id) } } : {}),
                   }}>
-                  <Popup>
-                    <div dangerouslySetInnerHTML={{ __html: buildPopupHtml(feat, color) }} />
-                  </Popup>
+                  {!isTree && (
+                    <Popup>
+                      <div dangerouslySetInnerHTML={{ __html: buildPopupHtml(feat, color) }} />
+                    </Popup>
+                  )}
                 </Marker>
               )
             }
@@ -1502,18 +1579,53 @@ export default function MapPage() {
         </div>
       )}
 
-      {/* Feature form modal — opens after geometry is drawn or when editing */}
-      {(pendingGeometry || editingFeature) && drawMode && (
+      {/* Serien-Kurzformular: Baum gesetzt → schnell erfassen, Modus bleibt aktiv */}
+      {drawMode === 'tree' && pendingGeometry && !editingFeature && !showFullForm && (
+        <TreeQuickForm
+          project={drawingProject}
+          suggestedNumber={nextTreeNumber(mapFeatures, drawingProject?.id)}
+          savedCount={serialCount}
+          isMobile={isMobile}
+          onSave={onQuickTreeSave}
+          onFullForm={draft => { setQuickDraft(draft); setShowFullForm(true) }}
+          onDiscard={() => setPendingGeometry(null)}
+          onExit={cancelDraw}
+        />
+      )}
+
+      {/* Feature form modal — Vollformular (alle Typen außer Baum-Kurzerfassung) */}
+      {(pendingGeometry || editingFeature) && drawMode && (drawMode !== 'tree' || editingFeature || showFullForm) && (
         <FeatureForm
           mode={drawMode}
           project={drawingProject}
           color={drawingProject ? projectColorById[drawingProject.id] : A}
           existingFeature={editingFeature}
+          draft={quickDraft}
           areaM2={calcPendingArea()}
           onSave={onFormSave}
           onCancel={cancelDraw}
         />
       )}
+
+      {/* Baum-Detailpanel */}
+      {panelFeatureId && (() => {
+        const feat = mapFeatures.find(f => f.id === panelFeatureId)
+        if (!feat) return null
+        const proj = projects.find(p => p.id === feat.project_id)
+        return (
+          <FeaturePanel
+            feature={feat}
+            project={proj}
+            isMobile={isMobile}
+            isAdmin={isAdmin}
+            onClose={() => setPanelFeatureId(null)}
+            onEdit={() => { setPanelFeatureId(null); openEditForm(feat) }}
+            onDelete={() => { if (confirm(`Baum „${feat.label || feat.properties?.baumnummer || ''}“ löschen?`)) { deleteMapFeature(feat.id); setPanelFeatureId(null) } }}
+            onUpdateProperties={props => updateMapFeature(feat.id, { properties: props })}
+            onGoProject={() => proj && navigate(`/projects/${proj.id}`)}
+          />
+        )
+      })()}
 
       {/* Drone image upload modal */}
       {droneModal && (
