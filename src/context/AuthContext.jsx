@@ -9,12 +9,16 @@ const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)       // Supabase auth user
   const [profile, setProfile] = useState(null) // user_profile row
+  const [allProfiles, setAllProfiles] = useState([]) // alle Team-Profile (Brücke TEAM ↔ Accounts)
   const [loading, setLoading] = useState(true)
 
   async function fetchProfile(supaUser) {
-    if (!supaUser) { setProfile(null); return }
+    if (!supaUser) { setProfile(null); setAllProfiles([]); return }
     const { data } = await sb.from('user_profile').select('*').eq('id', supaUser.id).maybeSingle()
     setProfile(data || null)
+    // Alle Profile laden (für Avatare/Kontaktdaten app-weit); Fehler unkritisch
+    const { data: all } = await sb.from('user_profile').select('id, name, rolle, avatar_url, phone, contact_email, bio, team_id')
+    setAllProfiles(all || [])
   }
 
   useEffect(() => {
@@ -46,6 +50,37 @@ export function AuthProvider({ children }) {
     setProfile(null)
   }
 
+  // ── Mein Profil bearbeiten ────────────────────────────────────────────────
+  async function updateProfile(changes) {
+    if (!user) return { ok: false, error: 'Nicht angemeldet' }
+    const { error } = await sb.from('user_profile').upsert({ id: user.id, ...changes })
+    if (error) return { ok: false, error: error.message }
+    setProfile(p => ({ ...(p || { id: user.id }), ...changes }))
+    setAllProfiles(list => {
+      const exists = list.some(x => x.id === user.id)
+      return exists
+        ? list.map(x => x.id === user.id ? { ...x, ...changes } : x)
+        : [...list, { id: user.id, ...changes }]
+    })
+    return { ok: true }
+  }
+
+  async function changePassword(newPassword) {
+    const { error } = await sb.auth.updateUser({ password: newPassword })
+    return error ? { ok: false, error: error.message } : { ok: true }
+  }
+
+  // Löst eine Bestätigungsmail an die neue Adresse aus
+  async function changeEmail(newEmail) {
+    const { error } = await sb.auth.updateUser({ email: newEmail })
+    return error ? { ok: false, error: error.message } : { ok: true }
+  }
+
+  /** Profil eines Team-Mitglieds (Seed-TEAM-id wie 'malte') — Brücke für Avatare/Kontakt */
+  function profileForTeamId(teamId) {
+    return allProfiles.find(p => p.team_id === teamId) || null
+  }
+
   // Derived role helpers
   const isAdmin      = profile?.rolle === 'admin'
   const isMitarbeiter = profile?.rolle === 'mitarbeiter' || isAdmin
@@ -55,7 +90,7 @@ export function AuthProvider({ children }) {
   const displayName = profile?.name || user?.email?.split('@')[0] || '?'
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, login, logout, isAdmin, isMitarbeiter, isKunde, displayName }}>
+    <AuthContext.Provider value={{ user, profile, allProfiles, loading, login, logout, isAdmin, isMitarbeiter, isKunde, displayName, updateProfile, changePassword, changeEmail, profileForTeamId }}>
       {children}
     </AuthContext.Provider>
   )

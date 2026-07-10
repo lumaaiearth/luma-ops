@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { LayoutDashboard, CalendarDays, ListChecks, Radio, Users, Settings, LogOut, Clock, Map, Database, FolderOpen, MoreHorizontal, BarChart2, Flower2, ListTodo } from 'lucide-react'
+import { LayoutDashboard, CalendarDays, ListChecks, Radio, Users, Settings, LogOut, Clock, Map, Database, FolderOpen, MoreHorizontal, BarChart2, Flower2, ListTodo, UserCircle } from 'lucide-react'
 import { A, BG, SURFACE, BORDER, FG, MUTED, A14 } from '../lib/theme.js'
 import { Avatar, MONO, SANS } from './ui.jsx'
 
@@ -82,6 +82,16 @@ export default function Layout({ children, fullHeight = false }) {
   const initials = displayName ? displayName.slice(0, 2).toUpperCase() : '?'
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const userMenuRef = useRef(null)
+
+  // Avatar-Menü schließt bei Klick außerhalb
+  useEffect(() => {
+    if (!userMenuOpen) return
+    const h = e => { if (!userMenuRef.current?.contains(e.target)) setUserMenuOpen(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [userMenuOpen])
 
   function handleLogout() {
     logout()
@@ -110,12 +120,32 @@ export default function Layout({ children, fullHeight = false }) {
 
       <div style={{ width: 26, height: 1, background: BORDER, margin: '4px 0', flexShrink: 0 }} />
       <RailLink to="/settings" icon={Settings} label="Einstellungen" />
-      <button onClick={handleLogout} data-tip="Abmelden" aria-label="Abmelden" className="lu-tip lu-rail-link"
-        style={{ width: 42, height: 42, borderRadius: 13, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <LogOut size={18} />
-      </button>
-      <div data-tip={`${displayName}${profile?.rolle ? ` · ${profile.rolle}` : ''}`} className="lu-tip" style={{ marginTop: 6 }}>
-        <Avatar initials={initials} size={34} />
+
+      {/* Avatar → Konto-Menü (überall erreichbar) */}
+      <div ref={userMenuRef} style={{ position: 'relative', marginTop: 6 }}>
+        <button onClick={() => setUserMenuOpen(v => !v)} aria-label="Konto-Menü" data-tip={userMenuOpen ? undefined : `${displayName}${profile?.rolle ? ` · ${profile.rolle}` : ''}`}
+          className={userMenuOpen ? '' : 'lu-tip'}
+          style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer', borderRadius: '50%', display: 'flex' }}>
+          <Avatar initials={initials} size={36} src={profile?.avatar_url || null} />
+        </button>
+        {userMenuOpen && (
+          <div className="lu-fade-in" style={{ position: 'absolute', left: 52, bottom: 0, width: 210, background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, boxShadow: '0 8px 30px rgba(0,0,0,0.35)', padding: 6, zIndex: 700 }}>
+            <div style={{ padding: '8px 12px', borderBottom: `1px solid ${BORDER}`, marginBottom: 4 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</div>
+              <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED }}>{profile?.rolle || ''}</div>
+            </div>
+            {[
+              { icon: UserCircle, label: 'Mein Profil', onClick: () => { setUserMenuOpen(false); navigate('/profile') } },
+              { icon: Settings, label: 'Einstellungen', onClick: () => { setUserMenuOpen(false); navigate('/settings') } },
+              { icon: LogOut, label: 'Abmelden', onClick: handleLogout },
+            ].map(item => (
+              <button key={item.label} onClick={item.onClick} className="lu-nav"
+                style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 12px', borderRadius: 8, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 13, fontFamily: SANS, textAlign: 'left' }}>
+                <item.icon size={15} /> {item.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -148,10 +178,12 @@ export default function Layout({ children, fullHeight = false }) {
       <div style={{ padding: '10px 8px', borderTop: `1px solid ${BORDER}` }}>
         <SidebarLink to="/settings" icon={Settings} label="Einstellungen" onNavigate={closeMobile} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', marginTop: 4 }}>
-          <Avatar initials={initials} size={28} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, color: FG, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</div>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>{profile?.rolle}</div>
+          <div onClick={() => { closeMobile(); navigate('/profile') }} style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, cursor: 'pointer' }} title="Mein Profil">
+            <Avatar initials={initials} size={28} src={profile?.avatar_url || null} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, color: FG, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</div>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>{profile?.rolle}</div>
+            </div>
           </div>
           <button onClick={handleLogout} title="Abmelden" className="lu-nav"
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer', color: MUTED, flexShrink: 0 }}>
@@ -199,7 +231,9 @@ export default function Layout({ children, fullHeight = false }) {
         {!fullHeight && (
           <div className="mobile-topbar" style={{ display: 'none', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: `1px solid ${BORDER}`, background: SURFACE, flexShrink: 0 }}>
             <div style={{ fontFamily: MONO, fontSize: 12, color: A, letterSpacing: '0.18em' }}>LUMA OPS</div>
-            <Avatar initials={initials} size={28} />
+            <button onClick={() => navigate('/profile')} aria-label="Mein Profil" style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer', borderRadius: '50%', display: 'flex' }}>
+              <Avatar initials={initials} size={28} src={profile?.avatar_url || null} />
+            </button>
           </div>
         )}
 

@@ -1,7 +1,10 @@
 import { useOps } from '../context/OpsContext.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 import { A, SURFACE, BORDER, FG, MUTED, A08, A20 } from '../lib/theme.js'
+import { Avatar } from '../components/ui.jsx'
 import { TEAM, JOB_TYPES } from '../data/seed.js'
 import { isoToday, addDays, formatDate } from '../lib/storage.js'
+import { Phone, Mail } from 'lucide-react'
 
 const TG_GROUPS = [
   { name: 'LUMA Pflege', members: ['jona', 'anselm', 'malte'], color: '#08AA56', desc: 'Laufende Pflegeeinsätze' },
@@ -11,6 +14,7 @@ const TG_GROUPS = [
 
 export default function TeamPage() {
   const { jobs, projects } = useOps()
+  const { profileForTeamId } = useAuth()
   const today = isoToday()
   const next7 = addDays(today, 7)
 
@@ -23,17 +27,33 @@ export default function TeamPage() {
         {TEAM.map(u => {
           const myJobs = jobs.filter(j => j.assigned_users.includes(u.id) && j.date >= today && j.date <= next7 && j.status !== 'cancelled')
           const todayJob = myJobs.find(j => j.date === today)
+          const prof = profileForTeamId(u.id)  // verknüpftes Login-Profil (Foto, Kontakt)
           return (
             <div key={u.id} style={{ padding: '18px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, borderTop: `3px solid ${u.color}` }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                <div style={{ width: 40, height: 40, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
-                </div>
-                <div>
-                  <div style={{ fontSize: 15, fontWeight: 500, color: FG }}>{u.name}</div>
+                <Avatar initials={u.initials} color={u.color} size={40} src={prof?.avatar_url || null} title={u.name} />
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 15, fontWeight: 500, color: FG }}>{prof?.name || u.name}</div>
                   <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{u.role}</div>
                 </div>
               </div>
+
+              {/* Kontakt aus dem verknüpften Profil */}
+              {(prof?.phone || prof?.contact_email || prof?.bio) && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 10 }}>
+                  {prof.phone && (
+                    <a href={`tel:${prof.phone}`} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: FG, textDecoration: 'none' }}>
+                      <Phone size={11} color={u.color} /> {prof.phone}
+                    </a>
+                  )}
+                  {prof.contact_email && (
+                    <a href={`mailto:${prof.contact_email}`} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: FG, textDecoration: 'none' }}>
+                      <Mail size={11} color={u.color} /> {prof.contact_email}
+                    </a>
+                  )}
+                  {prof.bio && <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.5 }}>{prof.bio}</div>}
+                </div>
+              )}
 
               {todayJob ? (
                 <div style={{ padding: '8px 10px', background: `${u.color}14`, border: `1px solid ${u.color}30`, borderRadius: 6, marginBottom: 8 }}>

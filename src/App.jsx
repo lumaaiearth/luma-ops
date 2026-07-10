@@ -31,6 +31,7 @@ const PlanningPage     = lazy(() => import('./pages/PlanningPage.jsx'))
 const EpsAnalysePage   = lazy(() => import('./pages/EpsAnalysePage.jsx'))
 const ArticleViewPage  = lazy(() => import('./pages/ArticleViewPage.jsx'))
 const KundenPortalPage = lazy(() => import('./pages/KundenPortalPage.jsx'))
+const ProfilePage      = lazy(() => import('./pages/ProfilePage.jsx'))
 
 function RequireAuth({ children, kundeOk = false }) {
   const { user, loading, isKunde } = useAuth()
@@ -77,6 +78,7 @@ function AppRoutes() {
       <Route path="/time" element={<Protected><TimePage /></Protected>} />
       <Route path="/map" element={<Protected fullHeight><MapPage /></Protected>} />
       <Route path="/settings" element={<Protected><SettingsPage /></Protected>} />
+      <Route path="/profile" element={<Protected><ProfilePage /></Protected>} />
       <Route path="/data" element={<Protected><StammdatenPage /></Protected>} />
       <Route path="/drive" element={<Protected><DrivePage /></Protected>} />
       <Route path="/projects/:id" element={<Protected><ProjectPage /></Protected>} />
