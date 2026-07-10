@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { LayoutDashboard, CalendarDays, ListChecks, Radio, Users, Settings, LogOut, Clock, Map, Database, FolderOpen, MoreHorizontal, BarChart2, Flower2, ListTodo, UserCircle } from 'lucide-react'
+import { LayoutDashboard, CalendarDays, ListChecks, Radio, Users, Settings, LogOut, Clock, Map, Database, FolderOpen, MoreHorizontal, BarChart2, Flower2, ListTodo, UserCircle, Search } from 'lucide-react'
 import { A, BG, SURFACE, BORDER, FG, MUTED, A14 } from '../lib/theme.js'
 import { Avatar, MONO, SANS } from './ui.jsx'
+import GlobalSearch from './GlobalSearch.jsx'
 
 // Navigation nach Arbeitskontext gruppiert — 13 flache Einträge sind schwer scannbar
 const NAV_GROUPS = [
@@ -104,9 +105,15 @@ export default function Layout({ children, fullHeight = false }) {
   const rail = (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', background: SURFACE, borderRight: `1px solid ${BORDER}`, padding: '14px 0 12px', gap: 4 }}>
       {/* Brand-Mark */}
-      <NavLink to="/dashboard" title="LUMA Ops" style={{ width: 42, height: 42, borderRadius: 14, background: A, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', marginBottom: 10, flexShrink: 0 }}>
+      <NavLink to="/dashboard" title="LUMA Ops" style={{ width: 42, height: 42, borderRadius: 14, background: A, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', marginBottom: 8, flexShrink: 0 }}>
         <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: 'var(--luma-on-a)', letterSpacing: '0.02em' }}>LU</span>
       </NavLink>
+
+      {/* Globale Suche (Cmd+K) */}
+      <button onClick={() => window.__lumaSearch?.()} data-tip="Suchen  ⌘K" aria-label="Suchen" className="lu-tip lu-rail-link"
+        style={{ width: 42, height: 42, borderRadius: 13, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginBottom: 6 }}>
+        <Search size={18} />
+      </button>
 
       {/* Nav-Gruppen als Icon-Stapel mit Trennlinien */}
       <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, overflowY: 'auto', paddingBottom: 4 }}>
@@ -231,9 +238,14 @@ export default function Layout({ children, fullHeight = false }) {
         {!fullHeight && (
           <div className="mobile-topbar" style={{ display: 'none', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: `1px solid ${BORDER}`, background: SURFACE, flexShrink: 0 }}>
             <div style={{ fontFamily: MONO, fontSize: 12, color: A, letterSpacing: '0.18em' }}>LUMA OPS</div>
-            <button onClick={() => navigate('/profile')} aria-label="Mein Profil" style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer', borderRadius: '50%', display: 'flex' }}>
-              <Avatar initials={initials} size={28} src={profile?.avatar_url || null} />
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button onClick={() => window.__lumaSearch?.()} aria-label="Suchen" style={{ width: 32, height: 32, borderRadius: 9, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Search size={16} />
+              </button>
+              <button onClick={() => navigate('/profile')} aria-label="Mein Profil" style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer', borderRadius: '50%', display: 'flex' }}>
+                <Avatar initials={initials} size={28} src={profile?.avatar_url || null} />
+              </button>
+            </div>
           </div>
         )}
 
@@ -273,6 +285,9 @@ export default function Layout({ children, fullHeight = false }) {
           </button>
         </div>
       </div>
+
+      {/* Globale Suche — auf jeder Seite per Cmd+K / „/" erreichbar */}
+      <GlobalSearch />
     </div>
   )
 }
