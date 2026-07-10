@@ -81,7 +81,7 @@ function TeamIcalRow({ member }) {
           placeholder="https://calendar.google.com/calendar/ical/.../.../basic.ics"
         />
         <button onClick={save}
-          style={{ padding: '8px 14px', borderRadius: 6, background: saved ? '#22EAA722' : A, border: 'none', color: saved ? '#22EAA7' : '#001219', cursor: 'pointer', fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', transition: 'all 0.2s' }}>
+          style={{ padding: '8px 14px', borderRadius: 6, background: saved ? '#22EAA722' : A, border: 'none', color: saved ? '#22EAA7' : 'var(--luma-on-a)', cursor: 'pointer', fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', transition: 'all 0.2s' }}>
           {saved ? '✓' : 'Speichern'}
         </button>
       </div>
@@ -264,7 +264,7 @@ export default function SettingsPage() {
             </div>
             <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button type="button" onClick={() => setShowAddVehicle(false)} style={{ padding: '8px 16px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 13 }}>Abbrechen</button>
-              <button type="submit" className="lu-btn-primary" style={{ padding: '8px 16px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>Hinzufügen</button>
+              <button type="submit" className="lu-btn-primary" style={{ padding: '8px 16px', borderRadius: 6, background: A, border: 'none', color: 'var(--luma-on-a)', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>Hinzufügen</button>
             </div>
           </form>
         )}
@@ -295,7 +295,7 @@ export default function SettingsPage() {
               <button
                 onClick={gcalConnect}
                 disabled={!gcalReady}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', borderRadius: 6, background: gcalReady ? A : A06, border: 'none', color: gcalReady ? '#001219' : MUTED, cursor: gcalReady ? 'pointer' : 'default', fontSize: 13, fontWeight: 500 }}>
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', borderRadius: 6, background: gcalReady ? A : A06, border: 'none', color: gcalReady ? 'var(--luma-on-a)' : MUTED, cursor: gcalReady ? 'pointer' : 'default', fontSize: 13, fontWeight: 500 }}>
                 <Calendar size={14} />
                 {gcalReady ? 'Mit Google Kalender verbinden' : 'Lädt…'}
               </button>
@@ -363,7 +363,7 @@ export default function SettingsPage() {
             <button
               onClick={importGcal}
               disabled={!gcalUrl || gcalStatus === 'loading'}
-              style={{ padding: '9px 16px', borderRadius: 6, background: gcalUrl ? A : A06, border: 'none', color: gcalUrl ? '#001219' : MUTED, cursor: gcalUrl ? 'pointer' : 'default', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap' }}>
+              style={{ padding: '9px 16px', borderRadius: 6, background: gcalUrl ? A : A06, border: 'none', color: gcalUrl ? 'var(--luma-on-a)' : MUTED, cursor: gcalUrl ? 'pointer' : 'default', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap' }}>
               {gcalStatus === 'loading' ? 'Lädt...' : 'Importieren'}
             </button>
           </div>
@@ -467,7 +467,7 @@ export default function SettingsPage() {
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <button
               onClick={saveTgSettings}
-              className="lu-btn-primary" style={{ padding: '8px 18px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
+              className="lu-btn-primary" style={{ padding: '8px 18px', borderRadius: 6, background: A, border: 'none', color: 'var(--luma-on-a)', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
               Speichern
             </button>
           </div>
@@ -519,7 +519,7 @@ export default function SettingsPage() {
                   createProject({ id: newP.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''), ...newP })
                   setShowAddProject(false)
                 }}
-                className="lu-btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
+                className="lu-btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 6, background: A, border: 'none', color: 'var(--luma-on-a)', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
                 <Check size={13} /> Hinzufügen
               </button>
             </div>
@@ -545,7 +545,7 @@ export default function SettingsPage() {
                     <input style={INPUT_STYLE} value={editP.client} onChange={e => setEditP(v => ({ ...v, client: e.target.value }))} />
                   </div>
                   <div style={{ display: 'flex', gap: 6 }}>
-                    <button onClick={() => { updateProject(p.id, editP); setEditProjectId(null) }} className="lu-btn-primary" style={{ padding: '8px 12px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 12 }}><Check size={13} /></button>
+                    <button onClick={() => { updateProject(p.id, editP); setEditProjectId(null) }} className="lu-btn-primary" style={{ padding: '8px 12px', borderRadius: 6, background: A, border: 'none', color: 'var(--luma-on-a)', cursor: 'pointer', fontSize: 12 }}><Check size={13} /></button>
                     <button onClick={() => setEditProjectId(null)} style={{ padding: '8px 12px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 12 }}>✕</button>
                   </div>
                 </div>
@@ -603,7 +603,7 @@ export default function SettingsPage() {
               placeholder="Neue Tätigkeit hinzufügen…"
             />
             <button type="submit" disabled={!newChip.trim()}
-              style={{ padding: '8px 14px', borderRadius: 6, background: newChip.trim() ? A : A06, border: 'none', color: newChip.trim() ? '#001219' : MUTED, cursor: newChip.trim() ? 'pointer' : 'default', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap' }}>
+              style={{ padding: '8px 14px', borderRadius: 6, background: newChip.trim() ? A : A06, border: 'none', color: newChip.trim() ? 'var(--luma-on-a)' : MUTED, cursor: newChip.trim() ? 'pointer' : 'default', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap' }}>
               + Hinzufügen
             </button>
           </form>

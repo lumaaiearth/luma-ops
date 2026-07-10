@@ -7,12 +7,14 @@ const SEMANTIC_DARK = {
   '--luma-warn':   '#F5A623',
   '--luma-danger': '#F87171',
   '--luma-info':   '#6EA8C0',
+  '--luma-on-a':   '#001219',   // Textfarbe auf Akzentflächen (helles Grün → dunkler Text)
 }
 const SEMANTIC_LIGHT = {
   '--luma-ok':     '#0C8A50',
   '--luma-warn':   '#B45309',
   '--luma-danger': '#DC2626',
   '--luma-info':   '#33678A',
+  '--luma-on-a':   '#ffffff',   // dunkles Grün → weißer Text
 }
 
 export const THEMES = [
@@ -86,7 +88,7 @@ export const THEMES = [
 const ThemeContext = createContext(null)
 
 export function ThemeProvider({ children }) {
-  const [themeId, setThemeId] = useState(() => localStorage.getItem('luma-theme') || 'forest')
+  const [themeId, setThemeId] = useState(() => localStorage.getItem('luma-theme') || 'light')
 
   const theme = THEMES.find(t => t.id === themeId) || THEMES[0]
 

@@ -12,10 +12,28 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+    <script>
+      // Boot-Farben passend zum gespeicherten Theme (Standard: hell),
+      // damit der Ladebildschirm nicht in der falschen Farbe aufblitzt.
+      (function () {
+        var t = 'light'
+        try { t = localStorage.getItem('luma-theme') || 'light' } catch (e) {}
+        var dark = t !== 'light'
+        var r = document.documentElement
+        r.style.setProperty('--boot-bg', dark ? '#080f14' : '#eef0ec')
+        r.style.setProperty('--boot-fg', dark ? '#e8f0f5' : '#0a1409')
+        r.style.setProperty('--boot-a', dark ? '#09BE60' : '#047A3C')
+        r.style.setProperty('--boot-track', dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)')
+        document.addEventListener('DOMContentLoaded', function () {
+          var m = document.querySelector('meta[name="theme-color"]')
+          if (m) m.setAttribute('content', dark ? '#080f14' : '#eef0ec')
+        })
+      })()
+    </script>
     <style>
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
       html, body, #root { height: 100%; }
-      body { font-family: 'Space Grotesk', sans-serif; background: #080f14; color: #e8f0f5; -webkit-font-smoothing: antialiased; }
+      body { font-family: 'Space Grotesk', sans-serif; background: var(--boot-bg, #eef0ec); color: var(--boot-fg, #0a1409); -webkit-font-smoothing: antialiased; }
       /* Scrollbars, Selects & Statusfarben sind theme-abhängig → src/styles/ui.css */
       button { font-family: inherit; }
       input, textarea, select { font-family: inherit; }
@@ -23,32 +41,32 @@
       /* ── LUMA Loading Screen ── */
       #luma-loader {
         position: fixed; inset: 0; z-index: 99999;
-        background: #080f14;
+        background: var(--boot-bg, #eef0ec);
         display: flex; flex-direction: column; align-items: center; justify-content: center;
         gap: 0;
         transition: opacity 0.45s ease;
       }
       #luma-loader .ll-brand {
         font-family: 'Space Mono', monospace;
-        font-size: 11px; color: #09BE60;
+        font-size: 11px; color: var(--boot-a, #047A3C);
         letter-spacing: 0.22em; text-transform: uppercase;
         margin-bottom: 4px;
       }
       #luma-loader .ll-ops {
         font-family: 'Space Grotesk', sans-serif;
-        font-size: 32px; font-weight: 300; color: #e8f0f5;
+        font-size: 32px; font-weight: 300; color: var(--boot-fg, #0a1409);
         letter-spacing: -0.03em; margin-bottom: 44px;
       }
       #luma-loader .ll-track {
         width: 180px; height: 3px;
-        background: rgba(255,255,255,0.07);
+        background: var(--boot-track, rgba(0,0,0,0.08));
         border-radius: 2px; overflow: hidden;
       }
       #luma-loader .ll-fill {
         height: 100%; width: 0%;
-        background: #09BE60;
+        background: var(--boot-a, #047A3C);
         border-radius: 2px;
-        box-shadow: 0 0 10px #09BE6077;
+        box-shadow: 0 0 10px color-mix(in srgb, var(--boot-a, #047A3C) 45%, transparent);
         animation: ll-progress 1.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
         transition: width 0.3s ease;
       }

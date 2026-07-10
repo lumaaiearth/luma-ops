@@ -218,7 +218,7 @@ export default function TasksPage() {
           <div style={{ display: 'flex', gap: 2, background: SURFACE, borderRadius: 14, padding: 4, border: `1px solid ${BORDER}` }}>
             {[['board', 'Board', LayoutGrid], ['list', 'Liste', ListIcon]].map(([id, label, Icon]) => (
               <button key={id} onClick={() => setView(id)}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 6, border: 'none', background: view === id ? A : 'transparent', color: view === id ? '#001219' : MUTED, cursor: 'pointer', fontSize: 13, fontWeight: view === id ? 500 : 400, fontFamily: "'Space Grotesk', sans-serif" }}>
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 6, border: 'none', background: view === id ? A : 'transparent', color: view === id ? 'var(--luma-on-a)' : MUTED, cursor: 'pointer', fontSize: 13, fontWeight: view === id ? 500 : 400, fontFamily: "'Space Grotesk', sans-serif" }}>
                 <Icon size={14} /> {label}
               </button>
             ))}

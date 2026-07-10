@@ -155,7 +155,7 @@ export default function ClientPage() {
           </div>
           <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
             <button onClick={exportClientReport}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 6, border: 'none', background: A, color: '#001219', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: "'Space Grotesk', sans-serif" }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 6, border: 'none', background: A, color: 'var(--luma-on-a)', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: "'Space Grotesk', sans-serif" }}>
               <Printer size={13} /> Report
             </button>
             <button onClick={() => navigate('/data', { state: { tab: 'clients' } })}
@@ -180,7 +180,7 @@ export default function ClientPage() {
         <div style={{ display: 'flex', gap: 2, background: SURFACE, borderRadius: 14, padding: 4, border: `1px solid ${BORDER}`, marginBottom: 24, overflowX: 'auto' }}>
           {TABS.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '1 0 auto', padding: '8px 14px', borderRadius: 6, border: 'none', background: tab === t.id ? A : 'transparent', color: tab === t.id ? '#001219' : MUTED, cursor: 'pointer', fontSize: 13, fontWeight: tab === t.id ? 500 : 400, whiteSpace: 'nowrap', fontFamily: "'Space Grotesk', sans-serif" }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '1 0 auto', padding: '8px 14px', borderRadius: 6, border: 'none', background: tab === t.id ? A : 'transparent', color: tab === t.id ? 'var(--luma-on-a)' : MUTED, cursor: 'pointer', fontSize: 13, fontWeight: tab === t.id ? 500 : 400, whiteSpace: 'nowrap', fontFamily: "'Space Grotesk', sans-serif" }}>
               <t.icon size={14} /> {t.label}
             </button>
           ))}
@@ -313,7 +313,7 @@ export default function ClientPage() {
                       <button onClick={() => { setEditingNotes(false); setNotesVal(client.notes || '') }}
                         style={{ padding: '5px 12px', borderRadius: 5, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12 }}><X size={12} /></button>
                       <button onClick={saveNotes}
-                        style={{ padding: '5px 12px', borderRadius: 5, border: 'none', background: A, color: '#001219', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}><Save size={12} /> Speichern</button>
+                        style={{ padding: '5px 12px', borderRadius: 5, border: 'none', background: A, color: 'var(--luma-on-a)', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}><Save size={12} /> Speichern</button>
                     </div>
                   </div>
                 ) : (

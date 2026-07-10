@@ -95,7 +95,7 @@ export default function Layout({ children, fullHeight = false }) {
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', background: SURFACE, borderRight: `1px solid ${BORDER}`, padding: '14px 0 12px', gap: 4 }}>
       {/* Brand-Mark */}
       <NavLink to="/dashboard" title="LUMA Ops" style={{ width: 42, height: 42, borderRadius: 14, background: A, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', marginBottom: 10, flexShrink: 0 }}>
-        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: '#001219', letterSpacing: '0.02em' }}>LU</span>
+        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: 'var(--luma-on-a)', letterSpacing: '0.02em' }}>LU</span>
       </NavLink>
 
       {/* Nav-Gruppen als Icon-Stapel mit Trennlinien */}

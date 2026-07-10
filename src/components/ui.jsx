@@ -149,7 +149,7 @@ export function Badge({ color = A, children, icon: Icon, style }) {
 /** Button-Varianten: primary (Akzent), ghost (Rahmen), danger (rot) */
 export function Button({ variant = 'primary', icon: Icon, children, style, ...props }) {
   const variants = {
-    primary: { background: A, color: '#001219', border: '1px solid transparent', fontWeight: 600 },
+    primary: { background: A, color: 'var(--luma-on-a)', border: '1px solid transparent', fontWeight: 600 },
     ghost:   { background: 'transparent', color: MUTED, border: `1px solid ${BORDER}` },
     danger:  { background: `color-mix(in srgb, ${DANGER} 12%, transparent)`, color: DANGER, border: `1px solid color-mix(in srgb, ${DANGER} 35%, transparent)` },
   }
@@ -181,11 +181,12 @@ export function EmptyState({ icon: Icon, title, hint, action, style }) {
   )
 }
 
-/** Initialen-Avatar (Team-Mitglieder) */
+/** Initialen-Avatar; auf Akzentfarbe theme-abhängige Textfarbe, auf Team-Farben dunkel */
 export function Avatar({ initials, color = A, size = 22, title }) {
+  const textColor = color === A ? 'var(--luma-on-a)' : '#001219'
   return (
     <div title={title} style={{ width: size, height: size, borderRadius: '50%', background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-      <span style={{ fontFamily: MONO, fontSize: Math.max(7, Math.round(size * 0.36)), color: '#001219', fontWeight: 700 }}>{initials}</span>
+      <span style={{ fontFamily: MONO, fontSize: Math.max(7, Math.round(size * 0.36)), color: textColor, fontWeight: 700 }}>{initials}</span>
     </div>
   )
 }
@@ -201,7 +202,7 @@ export function Tabs({ tabs, active, onChange, isMobile = false, style }) {
             style={{
               padding: isMobile ? '7px 13px' : '7px 18px', border: 'none', borderRadius: 999,
               background: on ? A : 'transparent',
-              color: on ? '#001219' : MUTED, fontFamily: SANS, fontSize: isMobile ? 12 : 13,
+              color: on ? 'var(--luma-on-a)' : MUTED, fontFamily: SANS, fontSize: isMobile ? 12 : 13,
               fontWeight: on ? 600 : 400, cursor: 'pointer', whiteSpace: 'nowrap',
             }}>
             {label}

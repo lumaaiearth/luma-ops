@@ -586,7 +586,7 @@ export default function CalendarPage() {
           </button>
           {!isMobile && (
             <button onClick={() => setModal({ date: today })}
-              className="lu-btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 14px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+              className="lu-btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 14px', borderRadius: 6, background: A, border: 'none', color: 'var(--luma-on-a)', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
               <Plus size={14} /> Einsatz
             </button>
           )}
@@ -596,7 +596,7 @@ export default function CalendarPage() {
       {/* Mobile FAB — floating + button above bottom nav */}
       {isMobile && (
         <button onClick={() => setModal({ date: today })}
-          className="lu-btn-primary" style={{ position: 'fixed', bottom: 'calc(60px + env(safe-area-inset-bottom) + 16px)', right: 16, width: 52, height: 52, borderRadius: '50%', background: A, border: 'none', color: '#001219', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.45)', zIndex: 90 }}>
+          className="lu-btn-primary" style={{ position: 'fixed', bottom: 'calc(60px + env(safe-area-inset-bottom) + 16px)', right: 16, width: 52, height: 52, borderRadius: '50%', background: A, border: 'none', color: 'var(--luma-on-a)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.45)', zIndex: 90 }}>
           <Plus size={22} />
         </button>
       )}
@@ -643,7 +643,7 @@ export default function CalendarPage() {
                       onMouseEnter={e => { if (!isToday) e.currentTarget.style.background = A06 }}
                       onMouseLeave={e => { if (!isToday) e.currentTarget.style.background = 'transparent' }}>
                       <div style={{ fontFamily: "'Space Mono', monospace", fontSize: isMobile ? 10 : 11, color: isToday ? A : MUTED, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{dayName}</div>
-                      <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: isMobile ? 28 : 30, height: isMobile ? 28 : 30, borderRadius: '50%', background: isToday ? A : 'transparent', fontSize: isMobile ? 16 : 18, fontWeight: isToday ? 700 : 400, color: isToday ? '#001219' : FG, marginTop: 2 }}>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: isMobile ? 28 : 30, height: isMobile ? 28 : 30, borderRadius: '50%', background: isToday ? A : 'transparent', fontSize: isMobile ? 16 : 18, fontWeight: isToday ? 700 : 400, color: isToday ? 'var(--luma-on-a)' : FG, marginTop: 2 }}>
                         {d.getDate()}
                       </div>
                       {/* Weather strip */}
@@ -843,7 +843,7 @@ export default function CalendarPage() {
                   onMouseEnter={e => { if (!isDragOver) e.currentTarget.style.background = isToday ? A14 : A06 }}
                   onMouseLeave={e => { if (!isDragOver) e.currentTarget.style.background = isToday ? A0a : 'transparent' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: isToday ? 24 : 'auto', height: isToday ? 24 : 'auto', borderRadius: isToday ? '50%' : 0, background: isToday ? A : 'transparent', fontSize: 13, fontWeight: isToday ? 600 : 400, color: isToday ? '#001219' : FG }}>{d.getDate()}</div>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: isToday ? 24 : 'auto', height: isToday ? 24 : 'auto', borderRadius: isToday ? '50%' : 0, background: isToday ? A : 'transparent', fontSize: 13, fontWeight: isToday ? 600 : 400, color: isToday ? 'var(--luma-on-a)' : FG }}>{d.getDate()}</div>
                     {wfc && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 3 }} title={`${wfc.label} ${wfc.tempMax}°/${wfc.tempMin}°${wfc.warnings.length ? ' · ' + wfc.warnings.join(', ') : ''}`}>
                         {wWarn && <AlertTriangle size={9} color={wsc} />}
@@ -912,7 +912,7 @@ export default function CalendarPage() {
                   <div key={date}
                     onClick={() => setSelectedMonthDate(date)}
                     style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '3px 0', cursor: 'pointer', borderRadius: 6, background: isSelected && !isToday ? A14 : 'transparent' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: '50%', background: isToday ? A : 'transparent', fontSize: 13, fontWeight: isToday || isSelected ? 600 : 400, color: isToday ? '#001219' : isSelected ? A : FG, position: 'relative' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: '50%', background: isToday ? A : 'transparent', fontSize: 13, fontWeight: isToday || isSelected ? 600 : 400, color: isToday ? 'var(--luma-on-a)' : isSelected ? A : FG, position: 'relative' }}>
                       {d.getDate()}
                       {/* Small weather warning dot top-right of date circle */}
                       {wWarn && <div style={{ position: 'absolute', top: 1, right: 1, width: 6, height: 6, borderRadius: '50%', background: wsc, border: '1px solid rgba(0,0,0,0.3)' }} />}
@@ -959,7 +959,7 @@ export default function CalendarPage() {
                       })()}
                     </div>
                     <button onClick={() => setModal({ date: selectedMonthDate })}
-                      className="lu-btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                      className="lu-btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, background: A, border: 'none', color: 'var(--luma-on-a)', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
                       <Plus size={12} /> Einsatz
                     </button>
                   </div>
@@ -1095,7 +1095,7 @@ function MiniMonth({ displayMonth, today, onMonthChange, onSelectDate, BORDER, F
             <button key={date} onClick={() => onSelectDate(date)} className="lu-option" style={{
               width: '100%', aspectRatio: '1', borderRadius: '50%', border: 'none',
               background: isToday ? A : 'transparent',
-              color: isToday ? '#001219' : FG,
+              color: isToday ? 'var(--luma-on-a)' : FG,
               fontSize: 12, fontWeight: isToday ? 700 : 400,
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>{d.getDate()}</button>
@@ -1256,7 +1256,7 @@ function ScheduleView({ startDate, jobs, gcalEvents, projects, clients, today, o
               <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: isToday ? A : MUTED, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 {d.toLocaleDateString('de-DE', { weekday: 'short' })}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: '50%', background: isToday ? A : 'transparent', fontSize: 18, fontWeight: isToday ? 700 : 400, color: isToday ? '#001219' : FG }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: '50%', background: isToday ? A : 'transparent', fontSize: 18, fontWeight: isToday ? 700 : 400, color: isToday ? 'var(--luma-on-a)' : FG }}>
                 {dayNum}
               </div>
             </div>

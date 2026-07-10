@@ -461,7 +461,7 @@ export default function PlanningPage() {
                   </div>
                   {/* Add button */}
                   <button onClick={() => { addToPlan(sheetPlant); setSheetPlant(null) }}
-                    className="lu-btn-primary" style={{ width: '100%', padding: '14px', borderRadius: 12, background: A, border: 'none', color: '#001219', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
+                    className="lu-btn-primary" style={{ width: '100%', padding: '14px', borderRadius: 12, background: A, border: 'none', color: 'var(--luma-on-a)', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
                     + Zum Plan hinzufügen
                   </button>
                 </div>
@@ -1330,7 +1330,7 @@ function BioToggle({ label, active, onClick, L, isMobile }) {
         background: active ? A14 : 'transparent', color: active ? A : FG,
       }}>
         <div style={{ width: 24, height: 24, borderRadius: 6, border: `2px solid ${active ? A : BORDER}`, background: active ? A : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          {active && <span style={{ color: '#001219', fontSize: 14, fontWeight: 900, lineHeight: 1 }}>✓</span>}
+          {active && <span style={{ color: 'var(--luma-on-a)', fontSize: 14, fontWeight: 900, lineHeight: 1 }}>✓</span>}
         </div>
         {label}
       </button>

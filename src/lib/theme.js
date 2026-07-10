@@ -9,6 +9,7 @@ export const CARD    = 'var(--luma-card)'    // modal / overlay backgrounds
 
 // Semantische Statusfarben — pro Theme definiert (helles Theme = dunklere Töne).
 // Statt verstreuter Hex-Werte (#ef4444 …) überall diese Tokens verwenden.
+export const ON_A    = 'var(--luma-on-a)'   // Textfarbe auf Akzent-Hintergrund
 export const OK      = 'var(--luma-ok)'
 export const WARN    = 'var(--luma-warn)'
 export const DANGER  = 'var(--luma-danger)'

@@ -105,7 +105,7 @@ export default function TreeQuickForm({ project, suggestedNumber, savedCount = 0
 
         <div style={{ display: 'flex', gap: 6 }}>
           <button type="submit" className="lu-btn-primary"
-            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px 12px', borderRadius: 8, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: SANS }}>
+            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px 12px', borderRadius: 8, background: A, border: 'none', color: 'var(--luma-on-a)', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: SANS }}>
             <Check size={14} /> Speichern <ChevronsRight size={13} style={{ opacity: 0.6 }} />
           </button>
           <button type="button" onClick={() => onFullForm(collect())} title="Alle FLL-Felder ausfüllen" className="lu-btn-ghost"

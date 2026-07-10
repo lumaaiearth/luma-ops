@@ -437,7 +437,7 @@ function FeatureForm({ mode, project, color, existingFeature, draft, onSave, onC
 
         <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
           <button onClick={handleSave}
-            className="lu-btn-primary" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px 18px', borderRadius: 8, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: "'Space Grotesk', sans-serif" }}>
+            className="lu-btn-primary" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px 18px', borderRadius: 8, background: A, border: 'none', color: 'var(--luma-on-a)', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: "'Space Grotesk', sans-serif" }}>
             <Save size={13} /> Speichern
           </button>
           {(mode === 'bed' || mode === 'area') && areaM2 > 0 && (
@@ -1507,7 +1507,7 @@ export default function MapPage() {
             <Move size={13} color={A} />
             <span>Bearbeiten aktiv — Punkte verschieben, Eckpunkte ziehen. Änderungen werden automatisch gespeichert.</span>
             <button onClick={() => setEditMode(false)} className="lu-btn-primary"
-              style={{ padding: '3px 10px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+              style={{ padding: '3px 10px', borderRadius: 6, background: A, border: 'none', color: 'var(--luma-on-a)', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
               Fertig
             </button>
           </div>

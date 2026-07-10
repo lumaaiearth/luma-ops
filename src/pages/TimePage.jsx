@@ -197,7 +197,7 @@ function LogForm({ onSave, prefill, onClose }) {
       </div>
       <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
         {onClose && <button type="button" onClick={onClose} className="lu-btn-ghost" style={{ padding: '8px 16px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 13 }}>Abbrechen</button>}
-        <button type="submit" className="lu-btn-primary" style={{ padding: '8px 20px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
+        <button type="submit" className="lu-btn-primary" style={{ padding: '8px 20px', borderRadius: 6, background: A, border: 'none', color: 'var(--luma-on-a)', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
           Eintragen
         </button>
       </div>
@@ -519,7 +519,7 @@ function TabUebersicht() {
         <div style={{ display: 'flex', gap: 4 }}>
           {RANGE_OPTS.map(opt => (
             <button key={opt.id} onClick={() => setRange(opt.id)} className={range === opt.id ? undefined : 'lu-chip'}
-              style={{ padding: '5px 13px', borderRadius: 20, border: `1px solid ${range === opt.id ? A : BORDER}`, background: range === opt.id ? A : 'transparent', color: range === opt.id ? '#001219' : MUTED, cursor: 'pointer', fontSize: 12, fontWeight: range === opt.id ? 500 : 400, fontFamily: "'Space Grotesk', sans-serif" }}>
+              style={{ padding: '5px 13px', borderRadius: 20, border: `1px solid ${range === opt.id ? A : BORDER}`, background: range === opt.id ? A : 'transparent', color: range === opt.id ? 'var(--luma-on-a)' : MUTED, cursor: 'pointer', fontSize: 12, fontWeight: range === opt.id ? 500 : 400, fontFamily: "'Space Grotesk', sans-serif" }}>
               {opt.label}
             </button>
           ))}
@@ -673,7 +673,7 @@ function TabAbrechnung() {
                     <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 16, fontWeight: 700, color: WARN }}>{totalHours}h</span>
                     <button
                       onClick={() => openInvoiceForm(project.id, pEntries.map(e => e.id))}
-                      className="lu-btn-primary" style={{ padding: '6px 12px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
+                      className="lu-btn-primary" style={{ padding: '6px 12px', borderRadius: 6, background: A, border: 'none', color: 'var(--luma-on-a)', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
                       Rechnung erstellen
                     </button>
                   </div>
@@ -990,7 +990,7 @@ function TabStatistiken() {
         <div style={{ display: 'flex', gap: 4 }}>
           {RANGE_OPTS.map(opt => (
             <button key={opt.id} onClick={() => setRange(opt.id)} className={range === opt.id ? undefined : 'lu-chip'}
-              style={{ padding: '5px 13px', borderRadius: 20, border: `1px solid ${range === opt.id ? A : BORDER}`, background: range === opt.id ? A : 'transparent', color: range === opt.id ? '#001219' : MUTED, cursor: 'pointer', fontSize: 12, fontWeight: range === opt.id ? 500 : 400, fontFamily: "'Space Grotesk', sans-serif" }}>
+              style={{ padding: '5px 13px', borderRadius: 20, border: `1px solid ${range === opt.id ? A : BORDER}`, background: range === opt.id ? A : 'transparent', color: range === opt.id ? 'var(--luma-on-a)' : MUTED, cursor: 'pointer', fontSize: 12, fontWeight: range === opt.id ? 500 : 400, fontFamily: "'Space Grotesk', sans-serif" }}>
               {opt.label}
             </button>
           ))}
@@ -1112,7 +1112,7 @@ export default function TimePage() {
             style={{
               display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', borderRadius: 6, border: 'none',
               background: activeTab === id ? A : 'transparent',
-              color: activeTab === id ? '#001219' : MUTED,
+              color: activeTab === id ? 'var(--luma-on-a)' : MUTED,
               cursor: 'pointer', fontSize: 13, fontWeight: activeTab === id ? 500 : 400,
               fontFamily: "'Space Grotesk', sans-serif",
               position: 'relative',
@@ -1120,7 +1120,7 @@ export default function TimePage() {
             <Icon size={13} />
             {label}
             {id === 'abrechnung' && unbilledCount > 0 && activeTab !== 'abrechnung' && (
-              <span style={{ position: 'absolute', top: 4, right: 6, width: 16, height: 16, borderRadius: '50%', background: WARN, color: '#001219', fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ position: 'absolute', top: 4, right: 6, width: 16, height: 16, borderRadius: '50%', background: WARN, color: 'var(--luma-on-a)', fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {unbilledCount > 9 ? '9+' : unbilledCount}
               </span>
             )}

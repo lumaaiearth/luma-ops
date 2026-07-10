@@ -98,7 +98,7 @@ function ProjectModal({ project, clients, onSave, onClose }) {
           </div>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 }}>
             <button type="button" onClick={onClose} style={{ padding: '9px 18px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif" }}>Abbrechen</button>
-            <button type="submit" className="lu-btn-primary" style={{ padding: '9px 22px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif" }}>
+            <button type="submit" className="lu-btn-primary" style={{ padding: '9px 22px', borderRadius: 6, background: A, border: 'none', color: 'var(--luma-on-a)', cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif" }}>
               {project ? 'Speichern' : 'Anlegen'}
             </button>
           </div>
@@ -162,7 +162,7 @@ function ClientModal({ client, onSave, onClose }) {
           </div>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 }}>
             <button type="button" onClick={onClose} style={{ padding: '9px 18px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif" }}>Abbrechen</button>
-            <button type="submit" className="lu-btn-primary" style={{ padding: '9px 22px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif" }}>
+            <button type="submit" className="lu-btn-primary" style={{ padding: '9px 22px', borderRadius: 6, background: A, border: 'none', color: 'var(--luma-on-a)', cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif" }}>
               {client ? 'Speichern' : 'Anlegen'}
             </button>
           </div>
@@ -219,7 +219,7 @@ export default function StammdatenPage() {
         <h1 style={{ fontSize: 22, fontWeight: 400, color: FG, letterSpacing: '-0.02em' }}>Stammdaten</h1>
         <button
           onClick={() => tab === 'projects' ? setProjectModal('new') : setClientModal('new')}
-          className="lu-btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 6, background: A, border: 'none', color: '#001219', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
+          className="lu-btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 6, background: A, border: 'none', color: 'var(--luma-on-a)', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
           <Plus size={14} /> {tab === 'projects' ? 'Neues Projekt' : 'Neuer Kunde'}
         </button>
       </div>
