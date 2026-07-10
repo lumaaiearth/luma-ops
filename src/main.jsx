@@ -3,6 +3,16 @@ import { createRoot } from 'react-dom/client'
 import './styles/ui.css'
 import App from './App.jsx'
 
+// Übernimmt ein neuer Service Worker die Seite (Deploy, während die App offen ist),
+// einmal neu laden — sonst fordert die alte App-Shell Chunks an, die es nicht mehr gibt.
+if ('serviceWorker' in navigator) {
+  let hadController = Boolean(navigator.serviceWorker.controller)
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController) { hadController = true; return } // Erstinstallation: kein Reload nötig
+    window.location.reload()
+  })
+}
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <App />
