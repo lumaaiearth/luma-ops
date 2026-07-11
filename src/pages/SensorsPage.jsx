@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useOps } from '../context/OpsContext.jsx'
 import { A, SURFACE, BORDER, FG, MUTED, A08, A14, A20, WARN, DANGER } from '../lib/theme.js'
-import { AlertTriangle, CheckCircle2, RefreshCw, Wifi } from 'lucide-react'
-
-const TYPE_LABELS = { soil_moisture: 'Bodenfeuchte', soil_temp: 'Bodentemperatur', air_temp: 'Lufttemperatur', rainfall: 'Niederschlag' }
-const TYPE_ICONS = { soil_moisture: '💧', soil_temp: '🌡', air_temp: '🌤', rainfall: '🌧' }
+import { AlertTriangle, CheckCircle2, RefreshCw, Wifi, ChevronRight } from 'lucide-react'
+import { SENSOR_TYPE_LABELS as TYPE_LABELS, SENSOR_TYPE_ICONS as TYPE_ICONS } from '../data/sensorTypes.js'
 
 function GaugeBar({ value, low, high, color }) {
   const pct = Math.max(0, Math.min(100, (value / 100) * 100))
@@ -21,6 +20,7 @@ function GaugeBar({ value, low, high, color }) {
 
 export default function SensorsPage() {
   const { sensors, projects, updateSensorValue } = useOps()
+  const navigate = useNavigate()
   const [lastRefresh, setLastRefresh] = useState(new Date())
   const [simulating, setSimulating] = useState(false)
 
@@ -96,12 +96,12 @@ export default function SensorsPage() {
               const bgColor = s.status === 'ok' ? A08 : `color-mix(in srgb, ${statusColor} 8%, transparent)`
               const borderColor2 = s.status === 'ok' ? BORDER : `color-mix(in srgb, ${statusColor} 30%, transparent)`
               return (
-                <div key={s.id} style={{ padding: '16px 18px', background: bgColor, border: `1px solid ${borderColor2}`, borderRadius: 8 }}>
+                <div key={s.id} onClick={() => navigate(`/sensors/${s.id}`)} className="lu-card lu-clickable" style={{ padding: '16px 18px', background: bgColor, border: `1px solid ${borderColor2}`, borderRadius: 14 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ fontSize: 16 }}>{TYPE_ICONS[s.type]}</span>
                       <div>
-                        <div style={{ fontSize: 12, fontWeight: 500, color: FG }}>{s.name}</div>
+                        <div style={{ fontSize: 12, fontWeight: 500, color: FG, display: 'flex', alignItems: 'center', gap: 3 }}>{s.name} <ChevronRight size={12} color={MUTED} /></div>
                         <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>{TYPE_LABELS[s.type]}</div>
                       </div>
                     </div>

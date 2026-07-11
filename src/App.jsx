@@ -32,6 +32,7 @@ const EpsAnalysePage   = lazy(() => import('./pages/EpsAnalysePage.jsx'))
 const ArticleViewPage  = lazy(() => import('./pages/ArticleViewPage.jsx'))
 const KundenPortalPage = lazy(() => import('./pages/KundenPortalPage.jsx'))
 const ProfilePage      = lazy(() => import('./pages/ProfilePage.jsx'))
+const SensorPage       = lazy(() => import('./pages/SensorPage.jsx'))
 
 function RequireAuth({ children, kundeOk = false }) {
   const { user, loading, isKunde } = useAuth()
@@ -74,6 +75,7 @@ function AppRoutes() {
       <Route path="/jobs" element={<Protected><JobsPage /></Protected>} />
       <Route path="/tasks" element={<Protected><TasksPage /></Protected>} />
       <Route path="/sensors" element={<Protected><SensorsPage /></Protected>} />
+      <Route path="/sensors/:id" element={<Protected><SensorPage /></Protected>} />
       <Route path="/team" element={<Protected><TeamPage /></Protected>} />
       <Route path="/time" element={<Protected><TimePage /></Protected>} />
       <Route path="/map" element={<Protected fullHeight><MapPage /></Protected>} />

@@ -134,7 +134,7 @@ export default function GlobalSearch() {
     sensors.forEach(se => {
       const proj = projects.find(p => p.id === se.project_id)
       const s = Math.max(score(se.name, q), score(se.type, q) * 0.5, score(proj?.name, q) * 0.5)
-      push({ type: 'Sensor', id: se.id, label: se.name, sub: [proj?.name, `${se.value}${se.unit}`].filter(Boolean).join(' · '), emoji: '📡', color: SENSOR_STATUS_COLOR[se.status] || MUTED, to: '/sensors' }, s)
+      push({ type: 'Sensor', id: se.id, label: se.name, sub: [proj?.name, `${se.value}${se.unit}`].filter(Boolean).join(' · '), emoji: '📡', color: SENSOR_STATUS_COLOR[se.status] || MUTED, to: `/sensors/${se.id}` }, s)
     })
 
     TEAM.forEach(u => {

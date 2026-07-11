@@ -297,7 +297,7 @@ export default function DashboardPage() {
             const project = projects.find(p => p.id === s.project_id)
             const c = level === 'crit' ? DANGER : WARN
             return (
-              <div key={s.id} onClick={() => navigate('/sensors')} className="lu-card lu-clickable" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: `color-mix(in srgb, ${c} 10%, transparent)`, border: `1px solid color-mix(in srgb, ${c} 30%, transparent)`, borderRadius: 14, marginBottom: 8 }}>
+              <div key={s.id} onClick={() => navigate(`/sensors/${s.id}`)} className="lu-card lu-clickable" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: `color-mix(in srgb, ${c} 10%, transparent)`, border: `1px solid color-mix(in srgb, ${c} 30%, transparent)`, borderRadius: 14, marginBottom: 8 }}>
                 <AlertTriangle size={16} color={c} />
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 500, color: c }}>{level === 'crit' ? 'Kritisch' : 'Warnung'}: {s.name}</div>

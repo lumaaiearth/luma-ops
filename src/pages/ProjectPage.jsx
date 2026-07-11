@@ -418,7 +418,7 @@ export default function ProjectPage() {
                   const pct = s.threshold_high > 0 ? Math.min((s.value / s.threshold_high) * 100, 100) : 50
                   const statusColor = s.status === 'critical' ? DANGER : s.status === 'warning' ? WARN : OK
                   return (
-                    <div key={s.id} style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 16 }}>
+                    <div key={s.id} onClick={() => navigate(`/sensors/${s.id}`)} className="lu-card lu-clickable" style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 16 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                         <div style={{ fontSize: 13, fontWeight: 500, color: FG }}>{s.name}</div>
                         <div style={{ width: 8, height: 8, borderRadius: '50%', background: statusColor, marginTop: 4 }} />
