@@ -79,8 +79,12 @@ function EventBlock({ job, projects, clients, onOpen, onPointerDown, isGhost }) 
   const typeColor = job.isGCal ? (job.calendarColor || bgColor) : (type?.color || bgColor)
   const assignees = TEAM.filter(u => (job.assigned_users || []).includes(u.id))
 
-  const top = (job.sm / 60 - HOUR_START) * PX_PER_HOUR
-  const height = Math.max(26, ((job.em - job.sm) / 60) * PX_PER_HOUR - 2)
+  // Auf das sichtbare Raster begrenzen — verhindert, dass früh/spät/ganztägige
+  // Termine über die Kopfzeile (Datumsanzeige) hinausragen.
+  const rawTop = (job.sm / 60 - HOUR_START) * PX_PER_HOUR
+  const rawEnd = (job.em / 60 - HOUR_START) * PX_PER_HOUR
+  const top = Math.min(Math.max(0, rawTop), TOTAL_H - 20)
+  const height = Math.max(20, Math.min(TOTAL_H, rawEnd) - top - 2)
   const colW = 100 / job.numCols
   const compact = height < 56
   const tiny = height < 38
@@ -633,7 +637,7 @@ export default function CalendarPage() {
             <div style={{ minWidth: activeDays.length === 1 ? '100%' : 600, display: 'flex', flexDirection: 'column' }}>
 
             {/* Sticky header block: day names + all-day strip */}
-            <div style={{ position: 'sticky', top: 0, zIndex: 20, background: SURFACE }}>
+            <div style={{ position: 'sticky', top: 0, zIndex: 40, background: SURFACE }}>
               {/* Day-header row */}
               <div style={{ display: 'flex', borderBottom: `1px solid ${BORDER}` }}>
                 {/* Corner — timezone label, sticky-left */}
@@ -784,8 +788,10 @@ export default function CalendarPage() {
                       return slots.map((slot, si) => {
                         const sm = timeToMin(slot.start_time)
                         const em = slot.end_time ? timeToMin(slot.end_time) : sm + 60
-                        const top = (sm / 60 - HOUR_START) * PX_PER_HOUR
-                        const height = Math.max(22, ((em - sm) / 60) * PX_PER_HOUR - 1)
+                        const rawTop = (sm / 60 - HOUR_START) * PX_PER_HOUR
+                        const rawEnd = (em / 60 - HOUR_START) * PX_PER_HOUR
+                        const top = Math.min(Math.max(0, rawTop), TOTAL_H - 18)
+                        const height = Math.max(18, Math.min(TOTAL_H, rawEnd) - top - 1)
                         return (
                           <div key={`busy-${member.id}-${si}`} title={`${member.name} — Belegt`} style={{
                             position: 'absolute', top, height, left: 0, right: 0,
