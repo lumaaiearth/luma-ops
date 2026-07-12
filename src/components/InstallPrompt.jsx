@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react'
-import { Download, Share, Plus, X } from 'lucide-react'
+import { Download, Share, Plus, X, Copy, Check } from 'lucide-react'
 import { isNativeApp } from '../lib/platform.js'
 
 // Dezenter „App installieren"-Hinweis für die PWA.
-// - Android/Chrome: fängt das beforeinstallprompt-Event ab → echter Install-Button
-// - iPhone/Safari: zeigt die Anleitung (Teilen → Zum Home-Bildschirm), da iOS
-//   keinen Install-Prompt anbietet
-// Wird nicht angezeigt in der nativen App, wenn bereits installiert,
-// oder wenn kürzlich weggetippt.
+// - Android/Chrome: nutzt das beforeinstallprompt-Event → echter Install-Button
+// - iPhone/Safari: zeigt die Anleitung (Teilen → Zum Home-Bildschirm)
+// - iPhone/Firefox/Chrome/Edge: dort ist Installieren technisch nicht möglich
+//   (Apple erlaubt es nur in Safari) → Hinweis „in Safari öffnen" + Link kopieren
+// Ausgeblendet in der nativen App, wenn bereits installiert, oder nach dem Wegtippen.
 
 const DISMISS_KEY = 'luma-install-dismissed'
 const DISMISS_DAYS = 14
@@ -24,38 +24,48 @@ function recentlyDismissed() {
   return ts && Date.now() - ts < DISMISS_DAYS * 24 * 3600 * 1000
 }
 
+const UA = typeof navigator !== 'undefined' ? navigator.userAgent : ''
+// iPhone/iPad (iPadOS meldet sich teils als „Macintosh" mit Touch)
+const IS_IOS =
+  /iphone|ipad|ipod/i.test(UA) ||
+  (/Macintosh/.test(UA) && typeof navigator !== 'undefined' && navigator.maxTouchPoints > 1)
+// Auf iOS nutzen alle Browser WebKit, aber nur Safari kann zum Home-Bildschirm hinzufügen.
+const IS_IOS_SAFARI = IS_IOS && !/crios|fxios|edgios|opios/i.test(UA)
+
 export default function InstallPrompt() {
   const [deferred, setDeferred] = useState(null)
   const [visible, setVisible] = useState(false)
-
-  const isIOS =
-    typeof navigator !== 'undefined' &&
-    /iphone|ipad|ipod/i.test(navigator.userAgent) &&
-    !/crios|fxios|edgios/i.test(navigator.userAgent) // nur echtes Safari kann installieren
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     if (isNativeApp() || isStandalone() || recentlyDismissed()) return
 
-    // Android/Desktop-Chrome: Install-Event einfangen
+    // Android/Desktop-Chrome: evtl. schon früh (in index.html) abgefangenes Event nutzen …
+    if (window.__lumaInstallEvent) {
+      setDeferred(window.__lumaInstallEvent)
+      setVisible(true)
+    }
+    // … oder wenn es erst jetzt kommt.
     const onPrompt = (e) => {
-      e.preventDefault()
-      setDeferred(e)
+      e.preventDefault?.()
+      setDeferred(window.__lumaInstallEvent || e)
       setVisible(true)
     }
     window.addEventListener('beforeinstallprompt', onPrompt)
+    window.addEventListener('luma-installable', onPrompt)
 
-    // Nach erfolgreicher Installation ausblenden
     const onInstalled = () => setVisible(false)
     window.addEventListener('appinstalled', onInstalled)
 
-    // iOS bietet kein Event → direkt anzeigen
-    if (isIOS) setVisible(true)
+    // iOS zeigt (mangels Event) direkt den passenden Hinweis.
+    if (IS_IOS) setVisible(true)
 
     return () => {
       window.removeEventListener('beforeinstallprompt', onPrompt)
+      window.removeEventListener('luma-installable', onPrompt)
       window.removeEventListener('appinstalled', onInstalled)
     }
-  }, [isIOS])
+  }, [])
 
   function dismiss() {
     localStorage.setItem(DISMISS_KEY, String(Date.now()))
@@ -71,7 +81,19 @@ export default function InstallPrompt() {
     else dismiss()
   }
 
+  async function copyUrl() {
+    try {
+      await navigator.clipboard.writeText(window.location.origin)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {}
+  }
+
   if (!visible) return null
+
+  // Welche Variante? Android-Button nur wenn wir ein echtes Event haben.
+  const mode = IS_IOS_SAFARI ? 'ios-safari' : IS_IOS ? 'ios-other' : deferred ? 'android' : null
+  if (!mode) return null
 
   return (
     <div
@@ -82,7 +104,7 @@ export default function InstallPrompt() {
         left: '50%',
         transform: 'translateX(-50%)',
         width: 'calc(100% - 24px)',
-        maxWidth: 440,
+        maxWidth: 460,
         zIndex: 9997,
         display: 'flex',
         alignItems: 'center',
@@ -100,13 +122,14 @@ export default function InstallPrompt() {
         alt="LUMA Ops"
         width={40}
         height={40}
-        style={{ borderRadius: 11, flexShrink: 0 }}
+        style={{ borderRadius: 11, flexShrink: 0, alignSelf: 'flex-start' }}
       />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--luma-fg)' }}>
           LUMA Ops installieren
         </div>
-        {isIOS ? (
+
+        {mode === 'ios-safari' && (
           <div style={{ fontSize: 12, color: 'var(--luma-muted)', lineHeight: 1.5, marginTop: 2, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
               In Safari <Share size={13} style={{ verticalAlign: '-2px' }} /> antippen, dann
@@ -115,27 +138,45 @@ export default function InstallPrompt() {
               <Plus size={13} /> „Zum Home-Bildschirm"
             </span>
           </div>
-        ) : (
+        )}
+
+        {mode === 'ios-other' && (
+          <div style={{ fontSize: 12, color: 'var(--luma-muted)', lineHeight: 1.5, marginTop: 3 }}>
+            Auf dem iPhone geht das nur über <strong style={{ color: 'var(--luma-fg)' }}>Safari</strong>.
+            Öffne <strong style={{ color: 'var(--luma-fg)' }}>luma-biome.de</strong> dort → Teilen{' '}
+            <Share size={12} style={{ verticalAlign: '-2px' }} /> → „Zum Home-Bildschirm".
+          </div>
+        )}
+
+        {mode === 'android' && (
           <div style={{ fontSize: 12, color: 'var(--luma-muted)', lineHeight: 1.5, marginTop: 2 }}>
             Als App aufs Handy — schneller Start, offline nutzbar.
           </div>
         )}
       </div>
 
-      {!isIOS && (
+      {mode === 'android' && (
         <button
           onClick={install}
-          className="lu-btn-primary"
           style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 8, background: 'var(--luma-a)', border: 'none', color: 'var(--luma-on-a)', cursor: 'pointer', fontSize: 13, fontWeight: 600, flexShrink: 0 }}
         >
           <Download size={15} /> Installieren
         </button>
       )}
 
+      {mode === 'ios-other' && (
+        <button
+          onClick={copyUrl}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 8, background: copied ? 'transparent' : 'var(--luma-a)', border: copied ? '1px solid var(--luma-a)' : 'none', color: copied ? 'var(--luma-a)' : 'var(--luma-on-a)', cursor: 'pointer', fontSize: 12, fontWeight: 600, flexShrink: 0, whiteSpace: 'nowrap', alignSelf: 'flex-start' }}
+        >
+          {copied ? <><Check size={14} /> Kopiert</> : <><Copy size={14} /> Link</>}
+        </button>
+      )}
+
       <button
         onClick={dismiss}
         aria-label="Schließen"
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, background: 'transparent', border: 'none', color: 'var(--luma-muted)', cursor: 'pointer', flexShrink: 0 }}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, background: 'transparent', border: 'none', color: 'var(--luma-muted)', cursor: 'pointer', flexShrink: 0, alignSelf: 'flex-start' }}
       >
         <X size={16} />
       </button>

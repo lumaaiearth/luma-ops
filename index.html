@@ -11,6 +11,15 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="LUMA Ops" />
+    <script>
+      // Chrome/Android feuert 'beforeinstallprompt' teils, bevor React lädt.
+      // Hier früh abfangen und merken, damit der Install-Hinweis es nicht verpasst.
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault()
+        window.__lumaInstallEvent = e
+        window.dispatchEvent(new Event('luma-installable'))
+      })
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
