@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, MapPin, CalendarPlus, ExternalLink, CheckSquare, Square, Plus } from 'lucide-react'
+import { X, MapPin, CalendarPlus, ExternalLink, CheckSquare, Square, Plus, Archive, ArchiveRestore, Trash2 } from 'lucide-react'
 import { TEAM, TASK_STATUSES, TASK_PRIORITIES, TASK_EFFORTS, TASK_TYPES } from '../data/seed.js'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -101,7 +101,7 @@ function TagInput({ id, tags, onChange, placeholder, historyKey }) {
 }
 
 export default function TaskModal({ initialTask, defaults, onSave, onClose }) {
-  const { projects, clients, jobs, boards, createJob, updateTask } = useOps()
+  const { projects, clients, jobs, boards, createJob, updateTask, setTaskStatus, deleteTask, purgeTask } = useOps()
   const { user } = useAuth()
   const { entries, logTime } = useTime()
   const navigate = useNavigate()
@@ -248,6 +248,30 @@ export default function TaskModal({ initialTask, defaults, onSave, onClose }) {
     if (editing) updateTask(initialTask.id, { job_id: job.id })
     onClose()
     navigate('/jobs')
+  }
+
+  // Archivieren / Löschen — wirken direkt auf die gespeicherte Aufgabe
+  const isArchived = initialTask?.status === 'archive'
+  function handleArchiveToggle() {
+    if (!editing) return
+    setTaskStatus(initialTask.id, isArchived ? 'not_started' : 'archive')
+    onClose()
+  }
+  function handleDelete() {
+    if (!editing) return
+    if (isArchived) {
+      // Aus dem Archiv endgültig entfernen
+      if (confirm(`„${initialTask.title || 'Aufgabe'}“ endgültig löschen? Das lässt sich nicht rückgängig machen.`)) {
+        purgeTask(initialTask.id)
+        onClose()
+      }
+    } else {
+      // Sonst in den Papierkorb verschieben (wiederherstellbar)
+      if (confirm(`„${initialTask.title || 'Aufgabe'}“ in den Papierkorb verschieben?`)) {
+        deleteTask(initialTask.id)
+        onClose()
+      }
+    }
   }
 
   const linkableJobs = jobs.filter(j => !form.project_id || j.project_id === form.project_id)
@@ -497,10 +521,24 @@ export default function TaskModal({ initialTask, defaults, onSave, onClose }) {
             onCancel={onClose}
             submitLabel={editing ? 'Speichern' : 'Aufgabe anlegen'}
             left={
-              <button type="button" onClick={convertToJob} title="Aus dieser Aufgabe einen terminierten Einsatz erstellen" className="lu-btn-ghost"
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 6, background: 'transparent', border: `1px solid color-mix(in srgb, ${A} 33%, transparent)`, color: A, cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif" }}>
-                <CalendarPlus size={14} /> In Einsatz umwandeln
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <button type="button" onClick={convertToJob} title="Aus dieser Aufgabe einen terminierten Einsatz erstellen" className="lu-btn-ghost"
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 6, background: 'transparent', border: `1px solid color-mix(in srgb, ${A} 33%, transparent)`, color: A, cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif" }}>
+                  <CalendarPlus size={14} /> In Einsatz umwandeln
+                </button>
+                {editing && (
+                  <button type="button" onClick={handleArchiveToggle} title={isArchived ? 'Aufgabe wieder aktiv setzen' : 'Aufgabe ins Archiv verschieben'} className="lu-btn-ghost"
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif" }}>
+                    {isArchived ? <><ArchiveRestore size={14} /> Aus Archiv holen</> : <><Archive size={14} /> Archivieren</>}
+                  </button>
+                )}
+                {editing && (
+                  <button type="button" onClick={handleDelete} title={isArchived ? 'Aufgabe endgültig löschen' : 'Aufgabe in den Papierkorb verschieben'} className="lu-btn-danger"
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 6, background: 'transparent', border: `1px solid color-mix(in srgb, var(--luma-danger) 35%, transparent)`, color: 'var(--luma-danger)', cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif" }}>
+                    <Trash2 size={14} /> {isArchived ? 'Endgültig löschen' : 'Löschen'}
+                  </button>
+                )}
+              </div>
             }
           />
         </form>

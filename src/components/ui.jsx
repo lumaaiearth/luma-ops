@@ -28,7 +28,7 @@ export const LABEL_STYLE = {
  * Geteilte Modal-Shell: Overlay mit Blur, Panel mit sticky Header,
  * Schließen per X, Klick aufs Overlay oder Escape.
  */
-export function Modal({ eyebrow, eyebrowColor = A, title, onClose, maxWidth = 580, zIndex = 1000, children }) {
+export function Modal({ eyebrow, eyebrowColor = A, title, onClose, maxWidth = 580, zIndex = 1100, children }) {
   useEffect(() => {
     const h = e => { if (e.key === 'Escape') onClose?.() }
     document.addEventListener('keydown', h)
@@ -36,7 +36,10 @@ export function Modal({ eyebrow, eyebrowColor = A, title, onClose, maxWidth = 58
   }, [onClose])
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
+    // zIndex 1100 liegt über der mobilen Bottom-Nav (1000), sonst verschwinden
+    // die Aktions-Buttons dahinter. Safe-Area-Padding hält das Panel frei von
+    // Notch und Home-Indicator.
+    <div style={{ position: 'fixed', inset: 0, zIndex, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, paddingTop: 'max(16px, env(safe-area-inset-top))', paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }} onClick={onClose}>
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(4px)' }} />
       <div role="dialog" aria-modal="true" onClick={e => e.stopPropagation()} className="lu-fade-in"
         style={{ position: 'relative', background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, width: '100%', maxWidth, maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 32px 80px rgba(0,0,0,0.55)' }}>

@@ -33,6 +33,14 @@ body {
   color: var(--luma-fg);
 }
 
+/* Nur die Karte zoomt, nicht die Seite: Doppeltipp-Zoom aus (touch-action),
+   kein Pull-to-Refresh / Rubber-Band-Overscroll. Leaflet setzt auf seinem
+   Container eine eigene touch-action und behält Pinch-/Zoom-Gesten. */
+html, body {
+  touch-action: manipulation;
+  overscroll-behavior: none;
+}
+
 ::selection {
   background: color-mix(in srgb, var(--luma-a) 30%, transparent);
 }

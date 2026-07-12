@@ -2,7 +2,7 @@
 <html lang="de">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>LUMA Ops</title>
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -18,6 +18,15 @@
         e.preventDefault()
         window.__lumaInstallEvent = e
         window.dispatchEvent(new Event('luma-installable'))
+      })
+
+      // Nur die Karte (Leaflet) soll zoomen – nicht die ganze Seite.
+      // iOS Safari ignoriert user-scalable=no, daher den Pinch-Zoom der Seite
+      // (gesture*) global abfangen. Leaflet nutzt eigene Touch-Events und zoomt
+      // weiterhin; Doppeltipp-Zoom unterbindet CSS via touch-action: manipulation.
+      // So bleibt das UI (Buttons/Leisten) fix auf dem Schirm.
+      ;['gesturestart', 'gesturechange', 'gestureend'].forEach(function (ev) {
+        document.addEventListener(ev, function (e) { e.preventDefault() }, { passive: false })
       })
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
