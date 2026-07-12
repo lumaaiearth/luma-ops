@@ -94,7 +94,7 @@ function QuickProjectModal({ clients, onSave, onClose }) {
   }
 
   return (
-    <Modal eyebrow="Neues Projekt" onClose={onClose} maxWidth={380} zIndex={1100}>
+    <Modal eyebrow="Neues Projekt" onClose={onClose} maxWidth={380} zIndex={1200}>
       <form onSubmit={handleSubmit} style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
         <input style={INPUT_STYLE} value={name} onChange={e => setName(e.target.value)} placeholder="Projektname *" required autoFocus />
         <select style={INPUT_STYLE} value={clientId} onChange={e => setClientId(e.target.value)}>
