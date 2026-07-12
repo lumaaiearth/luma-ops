@@ -207,9 +207,12 @@ export default function Layout({ children, fullHeight = false }) {
         .luma-root { height: 100vh; height: 100dvh; }
         @media (max-width: 768px) {
           .desktop-sidebar { display: none !important; }
-          .mobile-topbar { display: flex !important; }
+          /* Obere Leiste unter die iOS-Statusleiste/Notch schieben (Safe Area) */
+          .mobile-topbar { display: flex !important; padding-top: calc(10px + env(safe-area-inset-top)) !important; }
           .mobile-bottom-nav { display: flex !important; }
           .main-content { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
+          /* Vollbild-Seiten (Karte/Kalender) haben keine Topbar → Safe Area hier */
+          .main-content.mc-full { padding-top: env(safe-area-inset-top); }
         }
         @media (min-width: 769px) {
           .mobile-topbar { display: none !important; }
@@ -249,7 +252,7 @@ export default function Layout({ children, fullHeight = false }) {
           </div>
         )}
 
-        <div className="main-content lu-fade-in" style={{ flex: 1, overflowY: fullHeight ? 'hidden' : 'auto', display: fullHeight ? 'flex' : 'block', flexDirection: 'column' }}>
+        <div className={`main-content lu-fade-in${fullHeight ? ' mc-full' : ''}`} style={{ flex: 1, overflowY: fullHeight ? 'hidden' : 'auto', display: fullHeight ? 'flex' : 'block', flexDirection: 'column' }}>
           {children}
         </div>
 
