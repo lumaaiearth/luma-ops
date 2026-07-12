@@ -6,6 +6,7 @@ import { VEHICLES, TEAM } from '../data/seed.js'
 import { useOps } from '../context/OpsContext.jsx'
 import { useGCal } from '../context/GCalContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
+import { isNativeApp } from '../lib/platform.js'
 import { genId } from '../lib/storage.js'
 import { tgSend } from '../lib/telegram.js'
 import { Car, Truck, Plus, Trash2, Calendar, ExternalLink, AlertTriangle, Send, Check, RefreshCw, Unlink, FolderOpen, Pencil, X } from 'lucide-react'
@@ -290,7 +291,14 @@ export default function SettingsPage() {
           Google Kalender Sync
         </div>
         <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${gcalConnected ? `color-mix(in srgb, ${A} 25%, transparent)` : BORDER}`, borderRadius: 14, marginBottom: 12 }}>
-          {!gcalConnected ? (
+          {isNativeApp() ? (
+            <div style={{ fontSize: 13, color: FG, lineHeight: 1.6 }}>
+              Die direkte Google-Anmeldung ist in der App nicht verfügbar (Google erlaubt
+              den Login nicht in App-internen Browsern). Nutze in der App den{' '}
+              <strong>iCal-Import</strong> weiter unten — oder verbinde den Kalender einmalig
+              über die Web-Version auf luma-biome.de.
+            </div>
+          ) : !gcalConnected ? (
             <div>
               <div style={{ fontSize: 13, color: FG, marginBottom: 10, lineHeight: 1.6 }}>
                 Mit Google Kalender verbinden — Einsätze werden bidirektional synchronisiert.

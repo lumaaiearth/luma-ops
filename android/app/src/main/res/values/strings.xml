@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">LUMA Ops</string>
+    <string name="title_activity_main">LUMA Ops</string>
+    <string name="package_name">de.luma.ops</string>
+    <string name="custom_url_scheme">de.luma.ops</string>
+</resources>

@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles/ui.css'
 import App from './App.jsx'
+import { initNative } from './lib/native.js'
 
 // Übernimmt ein neuer Service Worker die Seite (Deploy, während die App offen ist),
 // einmal neu laden — sonst fordert die alte App-Shell Chunks an, die es nicht mehr gibt.
@@ -32,3 +33,6 @@ requestAnimationFrame(() => {
     }, 280)
   })
 })
+
+// Native App-Feinschliff (Statusleiste, Splash) — im Web ein No-op.
+initNative()

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import * as gcal from '../lib/gcal.js'
+import { isNativeApp } from '../lib/platform.js'
 
 const GCalContext = createContext(null)
 
@@ -21,6 +22,10 @@ export function GCalProvider({ children }) {
   useEffect(() => { calendarsRef.current = calendars }, [calendars])
 
   useEffect(() => {
+    // Googles OAuth-Popup (GSI) funktioniert nicht in nativen WebViews
+    // ("disallowed_useragent"). In der App daher gar nicht erst initialisieren –
+    // die Einstellungen bieten dort den iCal-Import als Alternative an.
+    if (isNativeApp()) return
     const check = setInterval(() => {
       if (window.google?.accounts?.oauth2) {
         clearInterval(check)
