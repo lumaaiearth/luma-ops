@@ -7,7 +7,7 @@ import '@geoman-io/leaflet-geoman-free'
 import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
-import { sb } from '../lib/supabase.js'
+import { sb, SUPABASE_URL } from '../lib/supabase.js'
 import { A, BG, SURFACE, BORDER, FG, MUTED, CARD, A06, A10, A14, A18 } from '../lib/theme.js'
 import { TEAM, JOB_TYPES, TASK_PRIORITIES, TASK_STATUSES } from '../data/seed.js'
 
@@ -632,6 +632,145 @@ function DroneImageModal({ project, color, onSave, onCancel }) {
   )
 }
 
+/* ─── ORTHOMOSAIK (KACHELN) ─────────────────────────────────────────────────
+   Registriert eine hochauflösende Kachel-Ebene (XYZ) pro Projekt.
+   Die Kacheln selbst werden per scripts/upload-tiles.mjs nach Supabase Storage
+   (Bucket drone-tiles) geladen; hier wird nur die URL + Bounds + Zoom gespeichert. */
+function slugify(s) {
+  return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60)
+}
+
+function OrthoTilesModal({ project, onSave, onCancel }) {
+  const [label, setLabel] = useState('')
+  const [slug, setSlug] = useState('')
+  const [bounds, setBounds] = useState({ south: '', west: '', north: '', east: '' })
+  const [autoDetected, setAutoDetected] = useState(false)
+  const [minZoom, setMinZoom] = useState('14')
+  const [maxZoom, setMaxZoom] = useState('22')
+  const [opacity, setOpacity] = useState(0.9)
+  const [tms, setTms] = useState(false)
+  const [error, setError] = useState(null)
+
+  const effSlug = slug ? slugify(slug) : slugify(label)
+  const uploadPath = `drone-tiles/${project.id}/${effSlug || '<kürzel>'}/`
+  const tilesUrl = `${SUPABASE_URL}/storage/v1/object/public/drone-tiles/${project.id}/${effSlug}/{z}/{x}/{y}.png`
+
+  async function pickGeoTiff(f) {
+    if (!f || !f.name.match(/\.(tif|tiff)$/i)) return
+    const detected = await extractGeoTiffBounds(f)
+    if (detected) {
+      setBounds({ south: detected.south.toFixed(7), west: detected.west.toFixed(7), north: detected.north.toFixed(7), east: detected.east.toFixed(7) })
+      setAutoDetected(true)
+      if (!label) setLabel(f.name.replace(/\.[^.]+$/, ''))
+    } else {
+      setError('Konnte Koordinaten nicht lesen (evtl. UTM statt Lat/Lon) — bitte manuell eintragen.')
+    }
+  }
+
+  function handleSave() {
+    const { south, west, north, east } = bounds
+    if (!effSlug) return setError('Bitte ein Kürzel (Ordnername) angeben')
+    if (!south || !west || !north || !east) return setError('Koordinaten (Bounds) unvollständig')
+    const bbox = {
+      type: 'Polygon',
+      coordinates: [[[+west, +south], [+east, +south], [+east, +north], [+west, +north], [+west, +south]]],
+    }
+    onSave({
+      feature_type: 'ortho_tiles',
+      geometry: bbox,
+      label: label || effSlug,
+      properties: { tiles_url: tilesUrl, slug: effSlug, minZoom: +minZoom, maxZoom: +maxZoom, opacity: +opacity, tms },
+    })
+  }
+
+  const inputStyle = { width: '100%', padding: '6px 10px', borderRadius: 6, border: `1px solid ${BORDER}`, background: 'rgba(255,255,255,0.04)', color: FG, fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", outline: 'none', boxSizing: 'border-box' }
+  const labelStyle = { fontSize: 10, color: MUTED, fontFamily: "'Space Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3, display: 'block' }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.65)' }}
+      onClick={e => e.target === e.currentTarget && onCancel()}>
+      <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 20, width: 440, maxWidth: '95vw', maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }}>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: '#0ea5e920', border: '1px solid #0ea5e940', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Layers size={16} color="#0ea5e9" /></div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: FG }}>Orthomosaik (Kacheln)</div>
+            <div style={{ fontSize: 11, color: MUTED }}>{project?.name} · hochauflösend</div>
+          </div>
+          <button onClick={onCancel} style={{ marginLeft: 'auto', width: 28, height: 28, borderRadius: 6, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={14} /></button>
+        </div>
+
+        <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.6, marginBottom: 14, padding: '9px 12px', background: '#0ea5e910', border: '1px solid #0ea5e930', borderRadius: 8 }}>
+          Kacheln zuerst mit <code style={{ color: FG }}>npm run tiles</code> hochladen (siehe DRONE_ORTHO.md),
+          dann hier registrieren. Kürzel muss mit dem Upload-Ordner übereinstimmen.
+        </div>
+
+        <div style={{ marginBottom: 10 }}>
+          <label style={labelStyle}>Bezeichnung</label>
+          <input style={inputStyle} value={label} onChange={e => setLabel(e.target.value)} placeholder="z.B. Nordfläche Befliegung Juli 2026" />
+        </div>
+
+        <div style={{ marginBottom: 10 }}>
+          <label style={labelStyle}>Kürzel / Ordner</label>
+          <input style={inputStyle} value={slug} onChange={e => setSlug(e.target.value)} placeholder={slugify(label) || 'nordflaeche-2026-07'} />
+          <div style={{ fontSize: 10, color: MUTED, marginTop: 4, fontFamily: "'Space Mono', monospace", wordBreak: 'break-all' }}>Upload-Pfad: {uploadPath}</div>
+        </div>
+
+        {/* Bounds mit optionalem GeoTIFF-Assist */}
+        <div style={{ marginBottom: 10 }}>
+          <label style={labelStyle}>Koordinaten (Bounds){autoDetected && <span style={{ color: '#22c55e', marginLeft: 6, textTransform: 'none', letterSpacing: 0 }}>✓ erkannt</span>}</label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+            <input style={inputStyle} value={bounds.north} onChange={e => setBounds(b => ({ ...b, north: e.target.value }))} placeholder="Nord (lat)" />
+            <input style={inputStyle} value={bounds.south} onChange={e => setBounds(b => ({ ...b, south: e.target.value }))} placeholder="Süd (lat)" />
+            <input style={inputStyle} value={bounds.west} onChange={e => setBounds(b => ({ ...b, west: e.target.value }))} placeholder="West (lng)" />
+            <input style={inputStyle} value={bounds.east} onChange={e => setBounds(b => ({ ...b, east: e.target.value }))} placeholder="Ost (lng)" />
+          </div>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 11, color: '#0ea5e9', cursor: 'pointer' }}>
+            <Upload size={12} /> Koordinaten aus GeoTIFF übernehmen
+            <input type="file" accept=".tif,.tiff" style={{ display: 'none' }} onChange={e => pickGeoTiff(e.target.files[0])} />
+          </label>
+        </div>
+
+        {/* Zoom + Opacity + TMS */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 10 }}>
+          <div>
+            <label style={labelStyle}>Min Zoom</label>
+            <input style={inputStyle} type="number" value={minZoom} onChange={e => setMinZoom(e.target.value)} />
+          </div>
+          <div>
+            <label style={labelStyle}>Max Zoom (nativ)</label>
+            <input style={inputStyle} type="number" value={maxZoom} onChange={e => setMaxZoom(e.target.value)} />
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 10 }}>
+          <label style={labelStyle}>Transparenz — {Math.round(opacity * 100)}%</label>
+          <input type="range" min="0.1" max="1" step="0.05" value={opacity} onChange={e => setOpacity(+e.target.value)} style={{ width: '100%', accentColor: '#0ea5e9' }} />
+        </div>
+
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, fontSize: 12, color: MUTED, cursor: 'pointer' }}>
+          <input type="checkbox" checked={tms} onChange={e => setTms(e.target.checked)} style={{ accentColor: '#0ea5e9' }} />
+          Kacheln im TMS-Schema (y invertiert) — nur falls ohne <code style={{ color: FG }}>--xyz</code> erzeugt
+        </label>
+
+        {error && <div style={{ fontSize: 11, color: '#f87171', marginBottom: 12 }}>{error}</div>}
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={handleSave}
+            style={{ flex: 1, padding: '9px 14px', borderRadius: 8, background: '#0ea5e9', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: "'Space Grotesk', sans-serif" }}>
+            Kachel-Ebene speichern
+          </button>
+          <button onClick={onCancel}
+            style={{ padding: '9px 14px', borderRadius: 8, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif" }}>
+            Abbrechen
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ─── OPEN DATA LAYERS ──────────────────────────────────────────────────── */
 const LAYER_CATS = [
   { id: 'klima', label: '🌡️ Klima & Versiegelung', color: '#f97316' },
@@ -684,6 +823,7 @@ export default function MapPage() {
   const [pendingGeometry, setPendingGeometry] = useState(null)
   const [editingFeature, setEditingFeature] = useState(null)
   const [droneModal, setDroneModal] = useState(null) // project | null
+  const [orthoModal, setOrthoModal] = useState(null) // project | null (hochauflösende Kachel-Ebene)
   const [droneOpacity, setDroneOpacity] = useState({}) // { featureId: opacity }
 
   // Serien-Kartierung & Detailpanel
@@ -800,7 +940,7 @@ export default function MapPage() {
       const q = searchQuery.toLowerCase()
       const matchesSearch = !q || (f.label || '').toLowerCase().includes(q) ||
         JSON.stringify(f.properties || {}).toLowerCase().includes(q)
-      const matchesType = !typeFilter || f.feature_type === typeFilter || f.feature_type === 'drone_image'
+      const matchesType = !typeFilter || f.feature_type === typeFilter || f.feature_type === 'drone_image' || f.feature_type === 'ortho_tiles'
       if (!matchesSearch || !matchesType) return
       if (!map[f.project_id]) map[f.project_id] = []
       map[f.project_id].push(f)
@@ -984,6 +1124,11 @@ export default function MapPage() {
     setDroneModal(null)
   }
 
+  function onOrthoSave(data) {
+    createMapFeature({ id: genId(), project_id: orthoModal.id, ...data })
+    setOrthoModal(null)
+  }
+
   function openEditForm(feat) {
     setEditingFeature(feat)
     setDrawMode(feat.feature_type)
@@ -1144,11 +1289,13 @@ export default function MapPage() {
                       <div style={{ paddingLeft: 16 }}>
                         {pFeatures.map(feat => {
                           const isDrone = feat.feature_type === 'drone_image'
+                          const isOrtho = feat.feature_type === 'ortho_tiles'
+                          const isOverlay = isDrone || isOrtho
                           const modeInfo = FEATURE_MODES.find(m => m.id === feat.feature_type) || {}
                           const featHidden = hiddenFeatures.has(feat.id)
                           const currentOpacity = droneOpacity[feat.id] ?? feat.properties?.opacity ?? 0.8
                           return (
-                            <div key={feat.id} style={{ marginBottom: isDrone ? 6 : 1 }}>
+                            <div key={feat.id} style={{ marginBottom: isOverlay ? 6 : 1 }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                 <div className={feat.geometry?.type === 'Point' ? 'lu-option' : undefined}
                                   onClick={() => {
@@ -1160,7 +1307,7 @@ export default function MapPage() {
                                     }
                                   }}
                                   style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 5, padding: '3px 4px', borderRadius: 4, fontSize: 11, color: featHidden ? MUTED : FG, opacity: featHidden ? 0.45 : 1, cursor: feat.geometry?.type === 'Point' ? 'pointer' : 'default' }}>
-                                  <span style={{ fontSize: 10, flexShrink: 0 }}>{isDrone ? '🚁' : (modeInfo.icon || '●')}</span>
+                                  <span style={{ fontSize: 10, flexShrink: 0 }}>{isDrone ? '🚁' : isOrtho ? '🗺️' : (modeInfo.icon || '●')}</span>
                                   <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {feat.label || modeInfo.label || feat.feature_type}
                                     {feat.properties?.baumnummer ? <span style={{ color: MUTED, marginLeft: 4, fontFamily: "'Space Mono', monospace", fontSize: 9 }}>#{feat.properties.baumnummer}</span> : null}
@@ -1170,27 +1317,27 @@ export default function MapPage() {
                                   style={{ width: 20, height: 20, borderRadius: 4, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                   {featHidden ? <EyeOff size={10} /> : <Eye size={10} />}
                                 </button>
-                                {isAdmin && !isDrone && (
+                                {isAdmin && !isOverlay && (
                                   <button onClick={() => openEditForm(feat)} title="Bearbeiten"
                                     style={{ width: 20, height: 20, borderRadius: 4, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <Pencil size={9} />
                                   </button>
                                 )}
-                                {isAdmin && isDrone && (
+                                {isAdmin && isOverlay && (
                                   <button onClick={() => deleteFeature(feat.id)} title="Löschen"
                                     style={{ width: 20, height: 20, borderRadius: 4, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <Trash2 size={9} />
                                   </button>
                                 )}
                               </div>
-                              {/* Opacity slider for drone images */}
-                              {isDrone && !featHidden && (
+                              {/* Opacity slider for overlays (Drohnenbild + Orthomosaik) */}
+                              {isOverlay && !featHidden && (
                                 <div style={{ paddingLeft: 20, paddingRight: 4, display: 'flex', alignItems: 'center', gap: 5 }}>
                                   <SlidersHorizontal size={9} color={MUTED} />
                                   <input type="range" min="0.05" max="1" step="0.05"
                                     value={currentOpacity}
                                     onChange={e => setDroneOpacity(prev => ({ ...prev, [feat.id]: +e.target.value }))}
-                                    style={{ flex: 1, accentColor: '#8b5cf6', height: 3 }} />
+                                    style={{ flex: 1, accentColor: isOrtho ? '#0ea5e9' : '#8b5cf6', height: 3 }} />
                                   <span style={{ fontSize: 9, color: MUTED, fontFamily: "'Space Mono', monospace", minWidth: 24 }}>{Math.round(currentOpacity * 100)}%</span>
                                 </div>
                               )}
@@ -1212,6 +1359,10 @@ export default function MapPage() {
                               <button onClick={() => setDroneModal(p)}
                                 style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 7px', borderRadius: 5, border: '1px solid #8b5cf640', background: '#8b5cf612', color: '#8b5cf6', cursor: 'pointer', fontSize: 10, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap' }}>
                                 🚁 Drohnenbild
+                              </button>
+                              <button onClick={() => setOrthoModal(p)}
+                                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 7px', borderRadius: 5, border: '1px solid #0ea5e940', background: '#0ea5e912', color: '#0ea5e9', cursor: 'pointer', fontSize: 10, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap' }}>
+                                🗺️ Orthomosaik
                               </button>
                             </div>
                           </div>
@@ -1303,9 +1454,33 @@ export default function MapPage() {
             )
           })}
 
+          {/* Hochauflösende Orthomosaik-Kachelebenen (XYZ), auf die Fläche geclippt */}
+          {mapFeatures.filter(f => f.feature_type === 'ortho_tiles' && !hiddenProjects.has(f.project_id) && !hiddenFeatures.has(f.id) && f.properties?.tiles_url && f.geometry).map(feat => {
+            const coords = feat.geometry.coordinates[0]
+            const lngs = coords.map(c => c[0])
+            const lats = coords.map(c => c[1])
+            const south = Math.min(...lats), north = Math.max(...lats)
+            const west = Math.min(...lngs), east = Math.max(...lngs)
+            const opacity = droneOpacity[feat.id] ?? feat.properties?.opacity ?? 0.9
+            const p = feat.properties
+            return (
+              <TileLayer
+                key={feat.id}
+                url={p.tiles_url}
+                bounds={[[south, west], [north, east]]}
+                opacity={opacity}
+                minZoom={p.minZoom || 0}
+                maxNativeZoom={p.maxZoom || 22}
+                maxZoom={22}
+                tms={!!p.tms}
+                zIndex={350}
+              />
+            )
+          })}
+
           {/* map_features rendering */}
           {mapFeatures.map(feat => {
-            if (feat.feature_type === 'drone_image') return null
+            if (feat.feature_type === 'drone_image' || feat.feature_type === 'ortho_tiles') return null
             if (hiddenProjects.has(feat.project_id) || hiddenFeatures.has(feat.id)) return null
             if (typeFilter && feat.feature_type !== typeFilter) return null
             const q = searchQuery.toLowerCase()
@@ -1652,6 +1827,15 @@ export default function MapPage() {
           color={projectColorById[droneModal.id] || A}
           onSave={onDroneSave}
           onCancel={() => setDroneModal(null)}
+        />
+      )}
+
+      {/* Orthomosaik (Kachel-Ebene) registrieren */}
+      {orthoModal && (
+        <OrthoTilesModal
+          project={orthoModal}
+          onSave={onOrthoSave}
+          onCancel={() => setOrthoModal(null)}
         />
       )}
     </div>

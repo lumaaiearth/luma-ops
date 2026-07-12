@@ -4,6 +4,9 @@ import { enqueue, isNetworkError, flushOutbox } from './outbox.js'
 const URL  = 'https://eqwoyfsfyohtcibithak.supabase.co'
 const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxd295ZnNmeW9odGNpYml0aGFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwNzU1NzUsImV4cCI6MjA5NTY1MTU3NX0.lygoUkOrF627c_FZrgigugmxp-H0Cq_Nv9Au8vFdcSU'
 
+// Basis-URL — u.a. zum Bauen öffentlicher Storage-URLs (z.B. Orthomosaik-Kacheln)
+export const SUPABASE_URL = URL
+
 export const sb = createClient(URL, ANON)
 
 // ── Generic helpers ────────────────────────────────────────────────────────────

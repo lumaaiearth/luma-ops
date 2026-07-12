@@ -10,7 +10,8 @@
     "sync": "npm run build && npx cap sync",
     "open:android": "npx cap open android",
     "open:ios": "npx cap open ios",
-    "icons": "npm i --no-save sharp && node scripts/gen-icons.mjs && npx cap sync"
+    "icons": "npm i --no-save sharp && node scripts/gen-icons.mjs && npx cap sync",
+    "tiles": "node scripts/upload-tiles.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.1",
