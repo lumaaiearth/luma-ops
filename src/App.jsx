@@ -8,6 +8,7 @@ import { TimeProvider } from './context/TimeContext.jsx'
 import { ThemeProvider } from './context/ThemeContext.jsx'
 import { WeatherProvider } from './context/WeatherContext.jsx'
 import Layout from './components/Layout.jsx'
+import InstallPrompt from './components/InstallPrompt.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import DashboardPage from './pages/DashboardPage.jsx'
 import { outboxCount } from './lib/outbox.js'
@@ -159,6 +160,7 @@ export default function App() {
               <AppRoutes />
               <DbToast />
               <OfflineBadge />
+              <InstallPrompt />
             </TimeProvider>
             </WeatherProvider>
           </OpsProvider>
