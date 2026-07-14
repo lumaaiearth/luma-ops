@@ -382,6 +382,7 @@ export default function PlanningPage() {
                     onAdd={() => addToPlan(plant)}
                     onRemove={() => setCount(plant.id, (plan.find(p => p.id === plant.id)?.count || 1) - 1)}
                     inPlan={plan.find(p => p.id === plant.id)}
+                    isMobile={isMobile}
                     L={L} shadow={shadow} cardBg={cardBg}
                   />
                 ))}
@@ -1069,7 +1070,7 @@ function CardThumb({ plant: p, compact }) {
   )
 }
 
-function PlantCard({ plant: p, onTap, onAdd, onRemove, inPlan, L, shadow, cardBg }) {
+function PlantCard({ plant: p, onTap, onAdd, onRemove, inPlan, isMobile, L, shadow, cardBg }) {
   return (
     <div onClick={onTap} style={{ background: cardBg, borderRadius: 10, boxShadow: shadow, overflow: 'hidden', cursor: 'pointer' }}>
       <div style={{ position: 'relative' }}>
