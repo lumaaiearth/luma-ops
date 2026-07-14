@@ -5,6 +5,7 @@ import { useTheme } from '../context/ThemeContext.jsx'
 import { useBreakpoint } from '../lib/useBreakpoint.js'
 import { useOps } from '../context/OpsContext.jsx'
 import { PLANTS, filterPlants, LICHT_LABELS, WASSER_LABELS, BODEN_LABELS, TYPE_LABELS, MONTHS, DRAINAGE_LABELS, WUCHSFORM_LABELS } from '../data/plants.js'
+import { HABITATS, filterHabitats, HABITAT_KATEGORIE_LABELS, HABITAT_KATEGORIE_EMOJI, HABITAT_ZIEL_LABELS } from '../data/habitats.js'
 import {
   Leaf, Search, Plus, Minus, ExternalLink, X, ChevronDown, ChevronUp,
   Filter, Download, SlidersHorizontal, Ruler, Grid3x3, Info,
@@ -105,6 +106,13 @@ export default function PlanningPage() {
   const [beetForm, setBeetForm] = useState('rechteck') // 'rechteck'|'oval'
   const [fromMapFeature, setFromMapFeature] = useState(null)
 
+  // ── Habitate (Habitatelemente)
+  const [habitatPlan, setHabitatPlan] = useState([])
+  const [catalogMode, setCatalogMode] = useState('pflanzen') // 'pflanzen'|'habitate'
+  const [habCat, setHabCat] = useState(null)      // Kategorie-Filter
+  const [habSearch, setHabSearch] = useState('')
+  const [sheetHabitat, setSheetHabitat] = useState(null)
+
   // Pre-fill from map navigation state
   useEffect(() => {
     const state = location.state
@@ -151,7 +159,20 @@ export default function PlanningPage() {
     else setPlan(prev => prev.map(p => p.id === id ? { ...p, count } : p))
   }
 
+  function addHabitat(h) {
+    setHabitatPlan(prev => {
+      const ex = prev.find(x => x.id === h.id)
+      if (ex) return prev.map(x => x.id === h.id ? { ...x, count: x.count + 1 } : x)
+      return [...prev, { ...h, count: 1 }]
+    })
+  }
+  function setHabitatCount(id, count) {
+    if (count <= 0) setHabitatPlan(prev => prev.filter(x => x.id !== id))
+    else setHabitatPlan(prev => prev.map(x => x.id === id ? { ...x, count } : x))
+  }
+
   const totalPlants = plan.reduce((s, p) => s + p.count, 0)
+  const totalHabitats = habitatPlan.reduce((s, h) => s + h.count, 0)
 
   async function savePlanToProject() {
     if (!saveProjectId || !updateProject) return
@@ -162,7 +183,7 @@ export default function PlanningPage() {
   }
 
   async function savePflanzplan() {
-    if (!plan.length) return
+    if (!plan.length && !habitatPlan.length) return
     setSavingPlan(true)
     try {
       const positionen = plan.map(p => ({
@@ -171,17 +192,27 @@ export default function PlanningPage() {
         bluete_monate: p.bluete_monate, heimisch: p.heimisch,
         nektar: p.nektar, raupenfutter: p.raupenfutter,
       }))
+      const habitate = habitatPlan.map(h => ({
+        id: h.id, name: h.name, kategorie: h.kategorie, count: h.count, bild_emoji: h.bild_emoji,
+        flaeche_m2: h.flaeche_m2, aufwand_h: h.aufwand_h, jahreszeit: h.jahreszeit,
+        material: h.material, pflege_intervall_monate: h.pflege_intervall_monate, pflege_hinweis: h.pflege_hinweis,
+      }))
       const data = {
         titel: planTitel || `Plan ${new Date().toLocaleDateString('de-DE')}`,
         status: 'planung',
         positionen,
+        habitate,
         flaeche_m2: beetArea || null,
         beet_w: beetW, beet_h: beetH, beet_form: beetForm,
         projekt_id: saveProjectId || null,
         standort_id: fromMapFeature?.feature_id || null,
       }
       if (savedPlanId) {
-        updatePflanzplan(savedPlanId, { positionen, titel: data.titel, updated_at: new Date().toISOString() })
+        updatePflanzplan(savedPlanId, {
+          positionen, habitate, titel: data.titel,
+          flaeche_m2: data.flaeche_m2, beet_w: beetW, beet_h: beetH, beet_form: beetForm,
+          updated_at: new Date().toISOString(),
+        })
       } else {
         const saved = await createPflanzplan(data)
         setSavedPlanId(saved.id)
@@ -194,12 +225,17 @@ export default function PlanningPage() {
   }
 
   function loadPflanzplan(pp) {
-    if (!pp?.positionen?.length) return
-    const restored = pp.positionen.map(pos => {
+    if (!pp?.positionen?.length && !pp?.habitate?.length) return
+    const restored = (pp.positionen || []).map(pos => {
       const base = PLANTS.find(p => p.id === pos.id) || {}
       return { ...base, ...pos }
     })
     setPlan(restored)
+    const restoredHab = (pp.habitate || []).map(pos => {
+      const base = HABITATS.find(h => h.id === pos.id) || {}
+      return { ...base, ...pos }
+    })
+    setHabitatPlan(restoredHab)
     setPlanTitel(pp.titel || '')
     setSavedPlanId(pp.id)
     if (pp.beet_w) setBeetW(pp.beet_w)

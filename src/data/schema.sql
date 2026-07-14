@@ -114,6 +114,7 @@ CREATE TABLE IF NOT EXISTS pflanzplaene (
   beet_h       REAL,
   beet_form    TEXT DEFAULT 'rechteck',
   positionen   JSONB NOT NULL DEFAULT '[]',
+  habitate     JSONB NOT NULL DEFAULT '[]',
   notizen      TEXT,
   created_at   TIMESTAMPTZ DEFAULT now(),
   updated_at   TIMESTAMPTZ DEFAULT now()
