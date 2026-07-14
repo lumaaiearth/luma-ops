@@ -44,6 +44,29 @@ export function AuthProvider({ children }) {
     return { ok: true }
   }
 
+  // OAuth-Login via Google. Leitet den Browser zu Google und wieder zurück;
+  // die Session wird beim Rücksprung von onAuthStateChange aufgefangen.
+  async function loginWithGoogle() {
+    const { error } = await sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/dashboard`,
+        queryParams: { prompt: 'select_account' },
+      },
+    })
+    // Bei Erfolg verlässt der Browser die Seite (Redirect) — kein return nötig.
+    if (error) return { ok: false, error: error.message }
+    return { ok: true }
+  }
+
+  // Sendet eine Passwort-Zurücksetzen-Mail (Link führt zurück auf /login).
+  async function resetPassword(email) {
+    const { error } = await sb.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/login`,
+    })
+    return error ? { ok: false, error: error.message } : { ok: true }
+  }
+
   async function logout() {
     await sb.auth.signOut()
     setUser(null)
@@ -90,7 +113,7 @@ export function AuthProvider({ children }) {
   const displayName = profile?.name || user?.email?.split('@')[0] || '?'
 
   return (
-    <AuthContext.Provider value={{ user, profile, allProfiles, loading, login, logout, isAdmin, isMitarbeiter, isKunde, displayName, updateProfile, changePassword, changeEmail, profileForTeamId }}>
+    <AuthContext.Provider value={{ user, profile, allProfiles, loading, login, loginWithGoogle, resetPassword, logout, isAdmin, isMitarbeiter, isKunde, displayName, updateProfile, changePassword, changeEmail, profileForTeamId }}>
       {children}
     </AuthContext.Provider>
   )
