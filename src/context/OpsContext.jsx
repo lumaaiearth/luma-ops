@@ -197,6 +197,13 @@ export function OpsProvider({ children }) {
           return prev.map(b => b.id === payload.new.id ? payload.new : b)
         })
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pflanzplaene' }, payload => {
+        setPflanzplaeneState(prev => {
+          if (payload.eventType === 'DELETE') return prev.filter(p => p.id !== payload.old.id)
+          if (payload.eventType === 'INSERT') return [payload.new, ...prev.filter(p => p.id !== payload.new.id)]
+          return prev.map(p => p.id === payload.new.id ? payload.new : p)
+        })
+      })
       .subscribe()
     return () => sb.removeChannel(channel)
   }, [])
@@ -441,25 +448,27 @@ export function OpsProvider({ children }) {
       titel: 'Unbenannter Plan',
       status: 'planung',
       positionen: [],
+      habitate: [],
       ...data,
       id: data.id || crypto.randomUUID(),
       created_at: now,
       updated_at: now,
     }
     setPflanzplaeneState(prev => [plan, ...prev])
-    await sb.from('pflanzplaene').upsert(plan).catch(dbErr('pflanzplaene', 'write'))
+    // Über die Outbox: puffert bei Offline/Netzwerkfehler und sendet bei Reconnect
+    await sbUpsert('pflanzplaene', [plan]).catch(dbErr('pflanzplaene', 'write'))
     return plan
   }
 
   function updatePflanzplan(id, changes) {
     const updated = { ...changes, updated_at: new Date().toISOString() }
     setPflanzplaeneState(prev => prev.map(p => p.id === id ? { ...p, ...updated } : p))
-    sb.from('pflanzplaene').update(updated).eq('id', id).catch(dbErr('pflanzplaene', 'write'))
+    sbUpdate('pflanzplaene', id, updated).catch(dbErr('pflanzplaene', 'write'))
   }
 
   function deletePflanzplan(id) {
     setPflanzplaeneState(prev => prev.filter(p => p.id !== id))
-    sb.from('pflanzplaene').delete().eq('id', id).catch(dbErr('pflanzplaene', 'write'))
+    sbDelete('pflanzplaene', id).catch(dbErr('pflanzplaene', 'write'))
   }
 
   // ── Tasks / Aufgaben ─────────────────────────────────────────────────────────

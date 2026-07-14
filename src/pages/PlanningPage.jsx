@@ -196,6 +196,7 @@ export default function PlanningPage() {
         id: h.id, name: h.name, kategorie: h.kategorie, count: h.count, bild_emoji: h.bild_emoji,
         flaeche_m2: h.flaeche_m2, aufwand_h: h.aufwand_h, jahreszeit: h.jahreszeit,
         material: h.material, pflege_intervall_monate: h.pflege_intervall_monate, pflege_hinweis: h.pflege_hinweis,
+        position: h.position ?? null, // {x,y} bzw. Karten-Referenz — für spätere Verortung
       }))
       const data = {
         titel: planTitel || `Plan ${new Date().toLocaleDateString('de-DE')}`,
@@ -278,13 +279,13 @@ export default function PlanningPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: A14, border: `1px solid ${A20}`, borderRadius: 8, padding: '5px 12px' }}>
               <Leaf size={12} color={A} />
               <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: L ? 700 : 400 }}>
-                Florales™ · {PLANTS.length} Arten
+                Florales™ · {PLANTS.length} Arten · {HABITATS.length} Habitate
               </span>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
             <TabBtn label="🔍 Suchen" active={activeTab === 'suche'} onClick={() => setActiveTab('suche')} L={L} />
-            <TabBtn label={`📋 Plan${totalPlants > 0 ? ` (${totalPlants})` : ''}`} active={activeTab === 'plan'} onClick={() => setActiveTab('plan')} L={L} dot={totalPlants > 0 && activeTab !== 'plan'} />
+            <TabBtn label={`📋 Plan${(totalPlants + totalHabitats) > 0 ? ` (${totalPlants + totalHabitats})` : ''}`} active={activeTab === 'plan'} onClick={() => setActiveTab('plan')} L={L} dot={(totalPlants + totalHabitats) > 0 && activeTab !== 'plan'} />
             <TabBtn label="🌿 Beet" active={activeTab === 'beet'} onClick={() => setActiveTab('beet')} L={L} />
           </div>
         </div>
@@ -294,6 +295,19 @@ export default function PlanningPage() {
       {activeTab === 'suche' && (
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
+          {/* Katalog-Umschalter: Pflanzen | Habitate */}
+          <div style={{ padding: isMobile ? '10px 12px 0' : '12px 24px 0', flexShrink: 0 }}>
+            <div style={{ display: 'inline-flex', gap: 4, background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, padding: 4 }}>
+              {[['pflanzen', '🌱 Pflanzen'], ['habitate', '🪵 Habitate']].map(([k, l]) => (
+                <button key={k} onClick={() => setCatalogMode(k)} style={{
+                  padding: '6px 14px', borderRadius: 7, fontSize: 12, fontWeight: catalogMode === k ? 700 : (L ? 500 : 400),
+                  border: 'none', background: catalogMode === k ? A14 : 'transparent', color: catalogMode === k ? A : MUTED, cursor: 'pointer',
+                }}>{l}</button>
+              ))}
+            </div>
+          </div>
+
+          {catalogMode === 'pflanzen' && (<>
           {/* Filter Panel */}
           <div style={{ padding: isMobile ? '0 12px' : '0 24px', flexShrink: 0 }}>
             <div style={{ background: SURFACE, border: `1.5px solid ${BORDER}`, borderRadius: 12, marginBottom: 12, overflow: 'hidden', boxShadow: L ? '0 1px 4px rgba(0,0,0,0.06)' : 'none' }}>
@@ -425,6 +439,19 @@ export default function PlanningPage() {
               </div>
             )}
           </div>
+          </>)}
+
+          {catalogMode === 'habitate' && (
+            <HabitatCatalog
+              habCat={habCat} setHabCat={setHabCat}
+              habSearch={habSearch} setHabSearch={setHabSearch}
+              habitatPlan={habitatPlan}
+              onTap={setSheetHabitat}
+              onAdd={addHabitat}
+              onRemove={h => setHabitatCount(h.id, (habitatPlan.find(x => x.id === h.id)?.count || 1) - 1)}
+              isMobile={isMobile} L={L} shadow={shadow} cardBg={cardBg}
+            />
+          )}
 
           {/* Mobile Steckbrief Sheet */}
           {sheetPlant && (
@@ -505,17 +532,23 @@ export default function PlanningPage() {
               </div>
             </div>
           )}
+
+          {/* Habitat Steckbrief Sheet */}
+          {sheetHabitat && (
+            <HabitatSheet habitat={sheetHabitat} onClose={() => setSheetHabitat(null)} onAdd={h => { addHabitat(h); setSheetHabitat(null) }} L={L} />
+          )}
         </div>
       )}
 
       {/* ── TAB: PLAN ──────────────────────────────────────────────────── */}
       {activeTab === 'plan' && (
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: '0 24px 24px' }}>
-          {plan.length === 0 ? (
-            <EmptyState msg="Plan ist noch leer 🌱" sub="Pflanzen suchen und hinzufügen" action={() => setActiveTab('suche')} actionLabel="Zur Suche →" />
+          {plan.length === 0 && habitatPlan.length === 0 ? (
+            <EmptyState msg="Plan ist noch leer 🌱" sub="Pflanzen oder Habitate suchen und hinzufügen" action={() => setActiveTab('suche')} actionLabel="Zur Suche →" />
           ) : (
             <div style={{ flex: 1, overflowY: 'auto', paddingTop: 4 }}>
 
+              {plan.length > 0 && (<>
               {/* Stats */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px,1fr))', gap: 10, marginBottom: 16 }}>
                 <StatCard label="Pflanzen gesamt" value={totalPlants} emoji="🌱" color={A} L={L} shadow={shadow} />
@@ -535,6 +568,23 @@ export default function PlanningPage() {
                   <PlanRow key={p.id} plant={p} onAdd={() => addToPlan(p)} onRemove={() => setCount(p.id, p.count - 1)} L={L} shadow={shadow} cardBg={cardBg} />
                 ))}
               </div>
+              </>)}
+
+              {/* Habitatelemente */}
+              {habitatPlan.length > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px,1fr))', gap: 10, marginBottom: 12 }}>
+                    <StatCard label="Habitat-Elemente" value={totalHabitats} emoji="🪵" color="#92400e" L={L} shadow={shadow} />
+                    <StatCard label="Aufwand ca." value={`${habitatPlan.reduce((s, h) => s + (h.aufwand_h || 0) * h.count, 0)} h`} emoji="⏱️" color="#0369a1" L={L} shadow={shadow} />
+                  </div>
+                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', margin: '4px 0 8px', fontWeight: L ? 700 : 400 }}>Habitatelemente</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {habitatPlan.map(h => (
+                      <HabitatPlanRow key={h.id} habitat={h} onAdd={() => addHabitat(h)} onRemove={() => setHabitatCount(h.id, h.count - 1)} L={L} shadow={shadow} cardBg={cardBg} />
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Export */}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -547,7 +597,7 @@ export default function PlanningPage() {
                 <button onClick={() => exportPlan(plan)} style={{ display: 'flex', alignItems: 'center', gap: 8, background: A14, border: `1px solid ${A20}`, color: A, borderRadius: 8, padding: '9px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
                   <Download size={13} /> .txt
                 </button>
-                <button onClick={() => setPlan([])} style={{ background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, padding: '9px 16px', cursor: 'pointer', fontSize: 13 }}>
+                <button onClick={() => { setPlan([]); setHabitatPlan([]) }} style={{ background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, padding: '9px 16px', cursor: 'pointer', fontSize: 13 }}>
                   Plan leeren
                 </button>
                 <button onClick={() => setActiveTab('beet')} style={{ background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, padding: '9px 16px', cursor: 'pointer', fontSize: 13 }}>
@@ -566,8 +616,8 @@ export default function PlanningPage() {
                   />
                   <button
                     onClick={savePflanzplan}
-                    disabled={plan.length === 0 || savingPlan}
-                    style={{ display: 'flex', alignItems: 'center', gap: 7, background: plan.length ? '#052e16' : (L ? '#e5e7eb' : '#1e2a32'), border: 'none', color: plan.length ? '#fff' : MUTED, borderRadius: 8, padding: '9px 18px', cursor: plan.length ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap' }}
+                    disabled={(plan.length === 0 && habitatPlan.length === 0) || savingPlan}
+                    style={{ display: 'flex', alignItems: 'center', gap: 7, background: (plan.length || habitatPlan.length) ? '#052e16' : (L ? '#e5e7eb' : '#1e2a32'), border: 'none', color: (plan.length || habitatPlan.length) ? '#fff' : MUTED, borderRadius: 8, padding: '9px 18px', cursor: (plan.length || habitatPlan.length) ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap' }}
                   >
                     {savedToProject ? '✓ Gespeichert' : savingPlan ? '...' : savedPlanId ? '💾 Aktualisieren' : '💾 Plan speichern'}
                   </button>
@@ -1569,4 +1619,197 @@ function exportPdf(plan, { label, beetArea, beetW, beetH } = {}) {
   const w = window.open('', '_blank')
   w.document.write(html)
   w.document.close()
+}
+
+/* ─── HABITAT-KOMPONENTEN ────────────────────────────────────────────────── */
+const ZIEL_EMOJI = { wildbienen: '🐝', bienen: '🐝', voegel: '🐦', reptilien: '🦎', amphibien: '🐸', kaefer: '🪲', igel: '🦔', fledermaus: '🦇' }
+function habitatZielEmojis(h) {
+  const seen = new Set(), out = []
+  for (const key of Object.keys(ZIEL_EMOJI)) {
+    const e = ZIEL_EMOJI[key]
+    if (h[key] && !seen.has(e)) { seen.add(e); out.push({ e, t: HABITAT_ZIEL_LABELS[key] }) }
+  }
+  return out
+}
+const roundBtn = (L, primary) => ({
+  display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 7,
+  border: primary ? 'none' : `1px solid ${BORDER}`, background: primary ? A : (L ? '#fff' : SURFACE),
+  color: primary ? 'var(--luma-on-a)' : MUTED, cursor: 'pointer', flexShrink: 0,
+})
+
+function CatChip({ label, active, onClick, L }) {
+  return (
+    <button onClick={onClick} style={{
+      padding: '5px 12px', borderRadius: 6, fontSize: 11, fontWeight: active ? 700 : (L ? 500 : 400),
+      border: active ? `1.5px solid ${A}` : `1px solid ${BORDER}`, background: active ? A14 : 'transparent',
+      color: active ? A : MUTED, cursor: 'pointer',
+    }}>{label}</button>
+  )
+}
+
+function SheetH({ label }) {
+  return <div style={{ fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{label}</div>
+}
+function InfoLine({ label, value }) {
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: MUTED }}>{label}: </span>
+      <span style={{ fontSize: 13, color: FG }}>{value}</span>
+    </div>
+  )
+}
+
+function HabitatCatalog({ habCat, setHabCat, habSearch, setHabSearch, habitatPlan, onTap, onAdd, onRemove, isMobile, L, shadow, cardBg }) {
+  const list = filterHabitats({ kategorie: habCat, searchTerm: habSearch })
+  const cats = Object.keys(HABITAT_KATEGORIE_LABELS)
+  return (
+    <>
+      <div style={{ padding: isMobile ? '10px 12px 0' : '12px 24px 0', flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+          <CatChip label="Alle" active={!habCat} onClick={() => setHabCat(null)} L={L} />
+          {cats.map(c => (
+            <CatChip key={c} label={`${HABITAT_KATEGORIE_EMOJI[c]} ${HABITAT_KATEGORIE_LABELS[c]}`} active={habCat === c} onClick={() => setHabCat(habCat === c ? null : c)} L={L} />
+          ))}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: L ? 'rgba(0,0,0,0.05)' : BG, borderRadius: 8, padding: '8px 12px', border: `1px solid ${BORDER}`, marginBottom: 12 }}>
+          <Search size={13} color={MUTED} />
+          <input value={habSearch} onChange={e => setHabSearch(e.target.value)} placeholder="Habitatelement suchen..."
+            style={{ background: 'none', border: 'none', outline: 'none', color: FG, fontSize: 13, width: '100%' }} />
+          {habSearch && <button onClick={() => setHabSearch('')} style={{ background: 'none', border: 'none', color: MUTED, cursor: 'pointer', padding: 0 }}><X size={12} /></button>}
+        </div>
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '0 12px 24px' : '0 24px 24px' }}>
+        {list.length === 0 ? (
+          <EmptyState msg="Kein Habitatelement gefunden 🪵" sub="Andere Kategorie oder Suche probieren" />
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(290px, 1fr))', gap: 10 }}>
+            {list.map(h => (
+              <HabitatCard key={h.id} habitat={h} inPlan={habitatPlan.find(x => x.id === h.id)}
+                onTap={() => onTap(h)} onAdd={() => onAdd(h)} onRemove={() => onRemove(h)} L={L} shadow={shadow} cardBg={cardBg} />
+            ))}
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
+function HabitatCard({ habitat, inPlan, onTap, onAdd, onRemove, L, shadow, cardBg }) {
+  const ziele = habitatZielEmojis(habitat)
+  return (
+    <div onClick={onTap} style={{ background: cardBg, borderRadius: 12, padding: 14, cursor: 'pointer', boxShadow: shadow, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+        <div style={{ fontSize: 26, lineHeight: 1 }}>{habitat.bild_emoji}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: FG }}>{habitat.name}</div>
+          <div style={{ fontSize: 11, color: MUTED }}>
+            {HABITAT_KATEGORIE_LABELS[habitat.kategorie]}{habitat.flaeche_m2 ? ` · ${habitat.flaeche_m2} m²` : ''} · ⏱ {habitat.aufwand_h} h
+          </div>
+        </div>
+      </div>
+      <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{habitat.beschreibung}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 'auto' }}>
+        <div style={{ display: 'flex', gap: 4, flex: 1, flexWrap: 'wrap' }}>
+          {ziele.map(z => <span key={z.t} title={z.t} style={{ fontSize: 14 }}>{z.e}</span>)}
+        </div>
+        {inPlan ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} onClick={e => e.stopPropagation()}>
+            <button onClick={onRemove} style={roundBtn(L)}><Minus size={14} /></button>
+            <span style={{ fontSize: 13, fontWeight: 700, color: FG, minWidth: 16, textAlign: 'center' }}>{inPlan.count}</span>
+            <button onClick={onAdd} style={roundBtn(L, true)}><Plus size={14} /></button>
+          </div>
+        ) : (
+          <button onClick={e => { e.stopPropagation(); onAdd() }} style={{ display: 'flex', alignItems: 'center', gap: 5, background: A14, border: `1px solid ${A20}`, color: A, borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
+            <Plus size={13} /> Plan
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function HabitatPlanRow({ habitat, onAdd, onRemove, L, shadow, cardBg }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: cardBg, borderRadius: 10, padding: '8px 12px', boxShadow: shadow }}>
+      <div style={{ fontSize: 20 }}>{habitat.bild_emoji}</div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: FG }}>{habitat.name}</div>
+        <div style={{ fontSize: 11, color: MUTED }}>
+          {HABITAT_KATEGORIE_LABELS[habitat.kategorie]} · ⏱ {(habitat.aufwand_h || 0) * habitat.count} h{habitat.jahreszeit ? ` · ${habitat.jahreszeit}` : ''}
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <button onClick={onRemove} style={roundBtn(L)}><Minus size={14} /></button>
+        <span style={{ fontSize: 14, fontWeight: 700, color: FG, minWidth: 18, textAlign: 'center' }}>{habitat.count}</span>
+        <button onClick={onAdd} style={roundBtn(L, true)}><Plus size={14} /></button>
+      </div>
+    </div>
+  )
+}
+
+function HabitatSheet({ habitat, onClose, onAdd, L }) {
+  const ziele = habitatZielEmojis(habitat)
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 300 }} onClick={onClose}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)' }} />
+      <div onClick={e => e.stopPropagation()} style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0, background: SURFACE, borderRadius: '20px 20px 0 0',
+        maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 -8px 40px rgba(0,0,0,0.35)',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 4px' }}>
+          <div style={{ width: 36, height: 4, borderRadius: 2, background: BORDER }} />
+        </div>
+        <div style={{ overflowY: 'auto', padding: '0 20px 40px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '8px 0 12px' }}>
+            <div style={{ fontSize: 34, lineHeight: 1 }}>{habitat.bild_emoji}</div>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: FG }}>{habitat.name}</div>
+              <div style={{ fontSize: 12, color: MUTED }}>{HABITAT_KATEGORIE_LABELS[habitat.kategorie]}</div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 12 }}>
+            {habitat.flaeche_m2 && <MBadge emoji="📐" label={`${habitat.flaeche_m2} m²`} L={L} />}
+            {habitat.dimension && <MBadge emoji="📏" label={habitat.dimension} L={L} />}
+            <MBadge emoji="⏱️" label={`${habitat.aufwand_h} h`} L={L} />
+            {habitat.jahreszeit && <MBadge emoji="📅" label={habitat.jahreszeit} L={L} />}
+            {habitat.maschine && <MBadge emoji="🚜" label={habitat.maschine} L={L} />}
+          </div>
+          {ziele.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderTop: `1px solid ${BORDER}`, borderBottom: `1px solid ${BORDER}`, marginBottom: 12, flexWrap: 'wrap' }}>
+              {ziele.map(z => (
+                <span key={z.t} style={{ fontSize: 12, color: FG, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ fontSize: 16 }}>{z.e}</span>{z.t}
+                </span>
+              ))}
+            </div>
+          )}
+          <p style={{ fontSize: 14, color: FG, lineHeight: 1.7, marginBottom: 12 }}>{habitat.beschreibung}</p>
+          {habitat.standort_hinweis && <InfoLine label="Standort" value={habitat.standort_hinweis} />}
+          {habitat.material?.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <SheetH label="🧱 Material" />
+              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: FG, lineHeight: 1.7 }}>
+                {habitat.material.map((m, i) => <li key={i}>{m.material}: {m.menge} {m.einheit}</li>)}
+              </ul>
+            </div>
+          )}
+          {habitat.einbau_schritte?.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <SheetH label="🔧 Einbau (fachgerecht)" />
+              <ol style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: FG, lineHeight: 1.7 }}>
+                {habitat.einbau_schritte.map((s, i) => <li key={i}>{s}</li>)}
+              </ol>
+            </div>
+          )}
+          {habitat.pflege_hinweis && (
+            <InfoLine label="Pflege" value={`${habitat.pflege_hinweis}${habitat.pflege_intervall_monate ? ` (alle ${habitat.pflege_intervall_monate} Monate)` : ''}`} />
+          )}
+          <button onClick={() => onAdd(habitat)} className="lu-btn-primary"
+            style={{ width: '100%', padding: '14px', borderRadius: 12, background: A, border: 'none', color: 'var(--luma-on-a)', fontSize: 15, fontWeight: 700, cursor: 'pointer', marginTop: 8 }}>
+            + Zum Plan hinzufügen
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
