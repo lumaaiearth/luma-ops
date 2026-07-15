@@ -87,6 +87,7 @@ export default function PlanningPage() {
   const [onlyRaupen, setOnlyRaupen] = useState(false)
   const [onlyTagfalter, setOnlyTagfalter] = useState(false)
   const [onlyBienen, setOnlyBienen] = useState(false)
+  const [onlyZier, setOnlyZier] = useState(false)
   const [search, setSearch] = useState('')
   const [filterPanelOpen, setFilterPanelOpen] = useState(() => window.innerWidth >= 768)
   const [activeFilters, setActiveFilters] = useState('standort') // 'standort'|'biologie'|'boden'
@@ -150,9 +151,10 @@ export default function PlanningPage() {
       if (onlyRaupen && !p.raupenfutter) return false
       if (onlyTagfalter && !p.tagfalter) return false
       if (onlyBienen && !p.bienen) return false
+      if (onlyZier && !p.zierpflanze) return false
       return true
     })
-  }, [licht, wasser, boden, types, wuchsformen, drainage, ph, search, onlyHeimisch, onlyRaupen, onlyTagfalter, onlyBienen])
+  }, [licht, wasser, boden, types, wuchsformen, drainage, ph, search, onlyHeimisch, onlyRaupen, onlyTagfalter, onlyBienen, onlyZier])
 
   function addToPlan(plant) {
     setPlan(prev => {
@@ -312,7 +314,7 @@ export default function PlanningPage() {
   const shadow = L ? '0 1px 4px rgba(0,0,0,0.08), 0 0 0 1.5px rgba(0,0,0,0.07)' : `0 0 0 1px ${BORDER}`
 
   const activeFilterCount = [licht, wasser, boden, drainage, ph, ...types, ...wuchsformen,
-    onlyHeimisch && 'h', onlyRaupen && 'r', onlyTagfalter && 't', onlyBienen && 'b'
+    onlyHeimisch && 'h', onlyRaupen && 'r', onlyTagfalter && 't', onlyBienen && 'b', onlyZier && 'z'
   ].filter(Boolean).length
 
   return (
@@ -346,6 +348,7 @@ export default function PlanningPage() {
             <TabBtn label="🔍 Suchen" active={activeTab === 'suche'} onClick={() => setActiveTab('suche')} L={L} />
             <TabBtn label={`📋 Plan${(totalPlants + totalHabitats) > 0 ? ` (${totalPlants + totalHabitats})` : ''}`} active={activeTab === 'plan'} onClick={() => setActiveTab('plan')} L={L} dot={(totalPlants + totalHabitats) > 0 && activeTab !== 'plan'} />
             <TabBtn label="🌿 Beet" active={activeTab === 'beet'} onClick={() => setActiveTab('beet')} L={L} />
+            <TabBtn label="✨ Generator" active={activeTab === 'generator'} onClick={() => setActiveTab('generator')} L={L} />
           </div>
         </div>
       </div>
@@ -416,6 +419,7 @@ export default function PlanningPage() {
                       <BioToggle label="🦋 Tagfalter" active={onlyTagfalter} onClick={() => setOnlyTagfalter(v => !v)} L={L} isMobile={isMobile} />
                       <BioToggle label="🐛 Raupenfutter" active={onlyRaupen} onClick={() => setOnlyRaupen(v => !v)} L={L} isMobile={isMobile} />
                       <BioToggle label="🏡 Heimisch" active={onlyHeimisch} onClick={() => setOnlyHeimisch(v => !v)} L={L} isMobile={isMobile} />
+                      <BioToggle label="🌸 Zierstauden" active={onlyZier} onClick={() => setOnlyZier(v => !v)} L={L} isMobile={isMobile} />
                     </div>
                   )}
 
@@ -779,6 +783,18 @@ export default function PlanningPage() {
         </div>
       )}
 
+      {/* ── TAB: GENERATOR (Säule 2) ────────────────────────────────────── */}
+      {activeTab === 'generator' && (
+        <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '0 12px 24px' : '0 24px 24px' }}>
+          <Generator L={L} shadow={shadow} cardBg={cardBg}
+            onApply={(plants, habitats) => {
+              setPlan(plants)
+              if (habitats?.length) setHabitatPlan(prev => { const ex = new Set(prev.map(h => h.id)); return [...prev, ...habitats.filter(h => !ex.has(h.id))] })
+              setActiveTab('plan')
+            }} />
+        </div>
+      )}
+
       {/* ── LUMA-Ops-Dialog ─────────────────────────────────────────────── */}
       {showOpsDialog && (
         <OpsDialog opts={opsOpts} setOpts={setOpsOpts}
@@ -821,6 +837,137 @@ function OpsDialog({ opts, setOpts, hasPlants, hasHabitats, onConfirm, onClose, 
   )
 }
 
+/* ─── GENERATOR-KOMPONENTE (Säule 2) ─────────────────────────────────────── */
+function GenBtn3({ v, cur, set, label, L }) {
+  const on = cur === v
+  return (
+    <button onClick={() => set(on ? null : v)} style={{ padding: '6px 10px', borderRadius: 7, fontSize: 12, cursor: 'pointer', fontWeight: on ? 700 : (L ? 500 : 400), border: on ? `1.5px solid ${A}` : `1px solid ${BORDER}`, background: on ? A14 : 'transparent', color: on ? A : MUTED }}>{label}</button>
+  )
+}
+function GenSlider({ label, value, set, min, max, step = 1, suffix = '' }) {
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: MUTED, marginBottom: 4 }}><span>{label}</span><span style={{ color: A, fontWeight: 700 }}>{value}{suffix}</span></div>
+      <input type="range" min={min} max={max} step={step} value={value} onChange={e => set(+e.target.value)} style={{ width: '100%', accentColor: A, cursor: 'pointer' }} />
+    </div>
+  )
+}
+function ScoreTile({ label, value, color }) {
+  return (
+    <div style={{ textAlign: 'center', padding: '8px 4px', borderRadius: 8, border: `1px solid ${BORDER}` }}>
+      <div style={{ fontSize: 18, fontWeight: 800, color }}>{value}</div>
+      <div style={{ fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
+    </div>
+  )
+}
+function Generator({ L, shadow, cardBg, onApply }) {
+  const [licht, setLicht] = useState(1)
+  const [wasser, setWasser] = useState(2)
+  const [boden, setBoden] = useState(null)
+  const [area, setArea] = useState(10)
+  const [targetCount, setTargetCount] = useState(12)
+  const [wBloom, setWBloom] = useState(2)
+  const [wBee, setWBee] = useState(2)
+  const [wHeimisch, setWHeimisch] = useState(1)
+  const [wZier, setWZier] = useState(1)
+  const [groups, setGroups] = useState(['bienen'])
+  const [addHab, setAddHab] = useState(true)
+
+  const result = useMemo(
+    () => generatePlan({ licht, wasser, boden, area, targetCount, wBloom, wBee, wHeimisch, wZier, targetGroups: groups }),
+    [licht, wasser, boden, area, targetCount, wBloom, wBee, wHeimisch, wZier, groups]
+  )
+  const covered = new Set(); result.forEach(p => (p.bluete_monate || []).forEach(m => covered.add(m)))
+  const totalPl = result.reduce((s, p) => s + p.count, 0)
+  const heimP = result.length ? Math.round(result.filter(p => p.heimisch).length / result.length * 100) : 0
+  const toggleGroup = g => setGroups(gs => gs.includes(g) ? gs.filter(x => x !== g) : [...gs, g])
+  const card = { background: cardBg, borderRadius: 12, padding: 16, boxShadow: shadow }
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: 16, alignItems: 'start' }}>
+      {/* Regler */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={card}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>📍 Standort</div>
+          <div style={{ fontSize: 10, color: MUTED, marginBottom: 4 }}>Licht</div>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+            {[[1, '☀️ Sonne'], [2, '⛅ Halbsch.'], [3, '🌥️ Schatten']].map(([v, l]) => <GenBtn3 key={v} v={v} cur={licht} set={setLicht} label={l} L={L} />)}
+          </div>
+          <div style={{ fontSize: 10, color: MUTED, marginBottom: 4 }}>Feuchte</div>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+            {[[1, '🏜️ Trocken'], [2, '💧 Mäßig'], [3, '🌊 Feucht']].map(([v, l]) => <GenBtn3 key={v} v={v} cur={wasser} set={setWasser} label={l} L={L} />)}
+          </div>
+          <div style={{ fontSize: 10, color: MUTED, marginBottom: 4 }}>Boden (optional)</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {[['sandy', '🏖️ Sand'], ['loamy', '🧱 Lehm'], ['humus', '🌿 Humus']].map(([v, l]) => <GenBtn3 key={v} v={v} cur={boden} set={setBoden} label={l} L={L} />)}
+          </div>
+        </div>
+        <div style={card}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 12 }}>🎛️ Regler</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <GenSlider label="Fläche" value={area} set={setArea} min={1} max={100} suffix=" m²" />
+            <GenSlider label="Artenvielfalt" value={targetCount} set={setTargetCount} min={4} max={30} />
+            <GenSlider label="Blühfolge-Gewicht" value={wBloom} set={setWBloom} min={0} max={4} />
+            <GenSlider label="Bienenwert-Gewicht" value={wBee} set={setWBee} min={0} max={4} />
+            <GenSlider label="Heimisch-Gewicht" value={wHeimisch} set={setWHeimisch} min={0} max={4} />
+            <GenSlider label="Ästhetik-Gewicht" value={wZier} set={setWZier} min={0} max={4} />
+          </div>
+        </div>
+        <div style={card}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>🐝 Ziel-Bestäuber</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {[['bienen', '🐝 Bienen'], ['tagfalter', '🦋 Tagfalter'], ['nachtfalter', '🌙 Nachtfalter'], ['kaefer', '🪲 Käfer'], ['voegel', '🐦 Vögel']].map(([g, l]) => (
+              <button key={g} onClick={() => toggleGroup(g)} style={{ padding: '6px 10px', borderRadius: 7, fontSize: 12, cursor: 'pointer', fontWeight: groups.includes(g) ? 700 : (L ? 500 : 400), border: groups.includes(g) ? `1.5px solid ${A}` : `1px solid ${BORDER}`, background: groups.includes(g) ? A14 : 'transparent', color: groups.includes(g) ? A : MUTED }}>{l}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+      {/* Ergebnis */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={card}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: FG }}>✨ Vorschlag</div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: MUTED, cursor: 'pointer' }}>
+              <input type="checkbox" checked={addHab} onChange={e => setAddHab(e.target.checked)} /> Habitate vorschlagen
+            </label>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px,1fr))', gap: 8, marginBottom: 12 }}>
+            <ScoreTile label="Arten" value={result.length} color={A} />
+            <ScoreTile label="Pflanzen" value={totalPl} color="#0369a1" />
+            <ScoreTile label="Blühmonate" value={`${covered.size}/12`} color={covered.size >= 8 ? '#16a34a' : '#d97706'} />
+            <ScoreTile label="Heimisch" value={`${heimP}%`} color="#047A3C" />
+          </div>
+          <div style={{ display: 'flex', gap: 3, marginBottom: 4 }}>
+            {MONTHS.map((mn, i) => (
+              <div key={i} title={mn} style={{ flex: 1, height: 22, borderRadius: 3, background: covered.has(i + 1) ? A : (L ? '#e5e7eb' : '#1e2a32'), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: covered.has(i + 1) ? 'var(--luma-on-a)' : MUTED }}>{mn[0]}</div>
+            ))}
+          </div>
+          <div style={{ fontSize: 10, color: MUTED, marginBottom: 12 }}>Blühfolge über das Jahr (grün = abgedeckt)</div>
+          <button onClick={() => onApply(result, addHab ? suggestHabitats({ licht, wasser }) : null)} disabled={!result.length}
+            style={{ width: '100%', padding: 12, borderRadius: 10, background: result.length ? A : BORDER, border: 'none', color: 'var(--luma-on-a)', fontSize: 14, fontWeight: 700, cursor: result.length ? 'pointer' : 'not-allowed' }}>
+            In Plan übernehmen →
+          </button>
+        </div>
+        <div style={card}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Artenauswahl</div>
+          {result.length === 0 ? <div style={{ fontSize: 13, color: MUTED }}>Keine passenden Arten — Standort/Filter lockern.</div> : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {result.map(p => (
+                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: p.bluete_farbe || A, flexShrink: 0 }} />
+                  <span style={{ color: FG, fontWeight: 600 }}>{p.name}</span>
+                  <span style={{ color: MUTED, fontStyle: 'italic' }}>{p.latin}</span>
+                  <span style={{ marginLeft: 'auto', color: A, fontWeight: 700 }}>{p.count}×</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ─── BLÜHKALENDER ──────────────────────────────────────────────────────── */
 function BloomCalendar({ plan, L, shadow }) {
   return (
@@ -855,6 +1002,7 @@ function BloomCalendar({ plan, L, shadow }) {
 /* ─── BEETPLANER ─────────────────────────────────────────────────────────── */
 function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetForm, beetArea, L, shadow, cardBg, onAddMore, label }) {
   const canvasRef = useRef(null)
+  const [bloomMonth, setBloomMonth] = useState(0) // 0 = ganzjährig, 1-12 = Monat (Blühfolge)
 
   // Calculate plant distribution
   const plantsWithPlacement = useMemo(() => {
@@ -917,15 +1065,25 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
       const cx = p.px * scaleX + (p.pflanzabstand || 40) / 100 * scaleX / 2
       const cy = p.py * scaleY + (p.pflanzabstand || 40) / 100 * scaleY / 2
       const r = Math.max(4, ((p.ausbreitung || p.pflanzabstand || 40) / 100 * scaleX) / 2 - 2)
+      const blooming = bloomMonth === 0 || (p.bluete_monate || []).includes(bloomMonth)
       ctx.beginPath()
       ctx.arc(cx, cy, r, 0, Math.PI * 2)
-      ctx.fillStyle = (p.bluete_farbe || '#10b981') + 'cc'
-      ctx.fill()
-      ctx.strokeStyle = (p.bluete_farbe || '#10b981')
-      ctx.lineWidth = 1.5
-      ctx.stroke()
+      if (blooming) {
+        ctx.fillStyle = (p.bluete_farbe || '#10b981') + 'cc'
+        ctx.fill()
+        ctx.strokeStyle = (p.bluete_farbe || '#10b981')
+        ctx.lineWidth = 1.5
+        ctx.stroke()
+      } else {
+        // außerhalb der Blüte: gedämpft (Blühfolge sichtbar machen)
+        ctx.fillStyle = L ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.04)'
+        ctx.fill()
+        ctx.strokeStyle = L ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.10)'
+        ctx.lineWidth = 1
+        ctx.stroke()
+      }
     })
-  }, [plantsWithPlacement, beetW, beetH, beetForm, L])
+  }, [plantsWithPlacement, beetW, beetH, beetForm, L, bloomMonth])
 
   function exportPng() {
     const DPR = 2
@@ -1091,6 +1249,15 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
           <div style={{ background: cardBg, borderRadius: 12, padding: 16, boxShadow: shadow, marginBottom: 16 }}>
             <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12, fontWeight: L ? 700 : 400 }}>
               🗺️ Pflanzverteilung — {beetW}m × {beetH}m
+            </div>
+            {/* Saison-Regler: Blühfolge sichtbar machen (Pollinator-Pathmaker-Prinzip) */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <span style={{ fontSize: 11, color: bloomMonth === 0 ? MUTED : A, fontWeight: 700, whiteSpace: 'nowrap', minWidth: 96 }}>
+                🗓️ {bloomMonth === 0 ? 'Ganzjährig' : `Blüte im ${MONTHS[bloomMonth - 1]}`}
+              </span>
+              <input type="range" min={0} max={12} step={1} value={bloomMonth}
+                onChange={e => setBloomMonth(+e.target.value)}
+                style={{ flex: 1, accentColor: A, cursor: 'pointer' }} />
             </div>
             <canvas
               ref={canvasRef}
@@ -1641,6 +1808,44 @@ function rollupMaterial(habitats) {
     const [material, einheit] = k.split('|')
     return { material, menge: Math.round(menge * 100) / 100, einheit }
   }).sort((a, b) => a.material.localeCompare(b.material))
+}
+
+/* ─── GENERATOR (Säule 2) ────────────────────────────────────────────────────
+   Greedy-Optimierung: wählt aus dem standortpassenden Pool iterativ die Art mit
+   dem höchsten marginalen Score (Blühfolge schließen, Bestäubergruppen abdecken,
+   Bienenwert, Heimisch-Bonus, Ästhetik). Deterministisch — kein Zufall. */
+const GEN_GROUP_KEYS = ['bienen', 'tagfalter', 'nachtfalter', 'kaefer', 'voegel']
+function generatePlan({ licht = 1, wasser = 2, boden = null, area = 10, targetCount = 12, wBloom = 2, wBee = 2, wHeimisch = 1, wZier = 1, targetGroups = ['bienen'] }) {
+  const pool = filterPlants({ licht, wasser, boden }).filter(p => ['staude', 'gras', 'einjährig', 'zweijährig'].includes(p.type))
+  const covered = new Set(), groupCov = new Set(), chosen = [], chosenIds = new Set()
+  while (chosen.length < targetCount) {
+    let best = null, bestScore = -Infinity
+    for (const p of pool) {
+      if (chosenIds.has(p.id)) continue
+      const newMonths = (p.bluete_monate || []).filter(m => !covered.has(m)).length
+      const beeVal = ((p.nektar || 0) + (p.pollen || 0) + (p.insekten || 0)) / 15
+      const grpMatch = targetGroups.length ? targetGroups.filter(g => p[g]).length / targetGroups.length : 1
+      const newGroups = GEN_GROUP_KEYS.filter(g => p[g] && !groupCov.has(g)).length
+      const score = wBloom * (newMonths + newGroups * 0.5) + wBee * (beeVal * 5) + wHeimisch * (p.heimisch ? 1.5 : 0) + wZier * ((p.zierwert || 3) / 5 * 2) + grpMatch
+      if (score > bestScore) { bestScore = score; best = p }
+    }
+    if (!best) break
+    chosenIds.add(best.id); chosen.push(best)
+    ;(best.bluete_monate || []).forEach(m => covered.add(m))
+    GEN_GROUP_KEYS.forEach(g => { if (best[g]) groupCov.add(g) })
+  }
+  const nS = chosen.length || 1
+  return chosen.map(p => {
+    const spacing = (p.pflanzabstand || 40) / 100
+    const perM2 = 1 / (spacing * spacing)
+    return { ...p, count: Math.max(1, Math.round((area / nS) * perM2)) }
+  })
+}
+function suggestHabitats({ licht = 1, wasser = 2 }) {
+  const ids = new Set(['insektentraenke', 'liegendes-totholz', 'vogelkasten'])
+  if (wasser >= 3) { ids.add('sumpfbeet'); ids.add('teich') }
+  if (wasser <= 1 && licht === 1) { ids.add('sandarium'); ids.add('lesesteinhaufen'); ids.add('wildbienen-nisthilfe') }
+  return HABITATS.filter(h => ids.has(h.id)).map(h => ({ ...h, count: 1 }))
 }
 
 function exportPdf(plan, { label, beetArea, beetW, beetH, habitats = [] } = {}) {
