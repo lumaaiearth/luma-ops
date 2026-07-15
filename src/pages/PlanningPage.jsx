@@ -594,6 +594,22 @@ export default function PlanningPage() {
                       <div style={{ fontSize: 12, color: FG }}>{sheetPlant.raupenfutter_arten.join(' · ')}</div>
                     </div>
                   )}
+                  {/* Spezialisierte & assoziierte Arten */}
+                  {(sheetPlant.spezialisten?.length > 0 || sheetPlant.assoziierte_arten) && (
+                    <div style={{ background: '#f59e0b12', border: '1px solid #f59e0b30', borderRadius: 8, padding: '10px 14px', marginBottom: 12 }}>
+                      {sheetPlant.assoziierte_arten ? (
+                        <div style={{ fontSize: 12.5, color: FG, marginBottom: sheetPlant.spezialisten?.length ? 8 : 0 }}>
+                          <b style={{ color: '#b45309', fontSize: 15 }}>~{sheetPlant.assoziierte_arten}</b> assoziierte Insektenarten profitieren von dieser Pflanze.
+                        </div>
+                      ) : null}
+                      {sheetPlant.spezialisten?.length > 0 && (
+                        <>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: '#b45309', marginBottom: 4 }}>🐝 Spezialisten (auf diese Pflanze angewiesen):</div>
+                          <div style={{ fontSize: 12, color: FG }}>{sheetPlant.spezialisten.join(' · ')}</div>
+                        </>
+                      )}
+                    </div>
+                  )}
                   {/* Links */}
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
                     <a href={`https://de.wikipedia.org/wiki/${sheetPlant.latin.replace(/ /g,'_')}`} target="_blank" rel="noopener noreferrer"
@@ -2144,6 +2160,35 @@ function InfoLine({ label, value }) {
   )
 }
 
+// Reales Foto je Habitatelement über die deutsche Wikipedia (Fallback: Emoji).
+const HABITAT_WIKI = {
+  'liegendes-totholz': 'Totholz', 'stehendes-totholz': 'Totholz', 'reisig-kreis': 'Reisighaufen',
+  'kaeferkeller': 'Totholz', 'totholz-beeteinfassung': 'Totholz', 'benjeshecke': 'Benjeshecke',
+  'trockenmauer': 'Trockenmauer', 'lesesteinhaufen': 'Lesesteinhaufen', 'sickermulde': 'Versickerungsmulde',
+  'sumpfbeet': 'Sumpfbeet', 'teich': 'Gartenteich', 'insektentraenke': 'Vogeltränke',
+  'sandarium': 'Wildbienen', 'abbruchkante': 'Steilwand', 'wildbienen-nisthilfe': 'Insektenhotel',
+  'fledermauskasten': 'Fledermauskasten', 'vogelkasten': 'Nistkasten',
+}
+function HabitatImage({ id, emoji, variant }) {
+  const [src, setSrc] = useState(null)
+  const ref = useRef(null)
+  useEffect(() => {
+    const title = HABITAT_WIKI[id]
+    if (!title) return
+    const load = () => fetchPlantImages(title).then(a => { if (a[0]) setSrc(a[0]) })
+    const el = ref.current
+    if (!el || typeof IntersectionObserver === 'undefined') { load(); return }
+    const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { io.disconnect(); load() } }, { rootMargin: '250px' })
+    io.observe(el); return () => io.disconnect()
+  }, [id])
+  const H = variant === 'sheet' ? 200 : 104
+  const radius = variant === 'sheet' ? 12 : 0
+  if (!src) return (
+    <div ref={ref} style={{ width: '100%', height: H, background: 'rgba(127,127,127,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: variant === 'sheet' ? 54 : 40, borderRadius: radius }}>{emoji}</div>
+  )
+  return <img ref={ref} src={src} alt="" style={{ width: '100%', height: H, objectFit: 'cover', display: 'block', borderRadius: radius }} />
+}
+
 function HabitatCatalog({ habCat, setHabCat, habSearch, setHabSearch, habitatPlan, onTap, onAdd, onRemove, isMobile, L, shadow, cardBg }) {
   const list = filterHabitats({ kategorie: habCat, searchTerm: habSearch })
   const cats = Object.keys(HABITAT_KATEGORIE_LABELS)
@@ -2182,32 +2227,32 @@ function HabitatCatalog({ habCat, setHabCat, habSearch, setHabSearch, habitatPla
 function HabitatCard({ habitat, inPlan, onTap, onAdd, onRemove, L, shadow, cardBg }) {
   const ziele = habitatZielEmojis(habitat)
   return (
-    <div onClick={onTap} style={{ background: cardBg, borderRadius: 12, padding: 14, cursor: 'pointer', boxShadow: shadow, display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-        <div style={{ fontSize: 26, lineHeight: 1 }}>{habitat.bild_emoji}</div>
-        <div style={{ flex: 1, minWidth: 0 }}>
+    <div onClick={onTap} style={{ background: cardBg, borderRadius: 12, overflow: 'hidden', cursor: 'pointer', boxShadow: shadow, display: 'flex', flexDirection: 'column' }}>
+      <HabitatImage id={habitat.id} emoji={habitat.bild_emoji} variant="banner" />
+      <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+        <div>
           <div style={{ fontSize: 14, fontWeight: 700, color: FG }}>{habitat.name}</div>
           <div style={{ fontSize: 11, color: MUTED }}>
             {HABITAT_KATEGORIE_LABELS[habitat.kategorie]}{habitat.flaeche_m2 ? ` · ${habitat.flaeche_m2} m²` : ''} · ⏱ {habitat.aufwand_h} h
           </div>
         </div>
-      </div>
-      <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{habitat.beschreibung}</div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 'auto' }}>
-        <div style={{ display: 'flex', gap: 4, flex: 1, flexWrap: 'wrap' }}>
-          {ziele.map(z => <span key={z.t} title={z.t} style={{ fontSize: 14 }}>{z.e}</span>)}
-        </div>
-        {inPlan ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} onClick={e => e.stopPropagation()}>
-            <button onClick={onRemove} style={roundBtn(L)}><Minus size={14} /></button>
-            <span style={{ fontSize: 13, fontWeight: 700, color: FG, minWidth: 16, textAlign: 'center' }}>{inPlan.count}</span>
-            <button onClick={onAdd} style={roundBtn(L, true)}><Plus size={14} /></button>
+        <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{habitat.beschreibung}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 'auto' }}>
+          <div style={{ display: 'flex', gap: 4, flex: 1, flexWrap: 'wrap' }}>
+            {ziele.map(z => <span key={z.t} title={z.t} style={{ fontSize: 14 }}>{z.e}</span>)}
           </div>
-        ) : (
-          <button onClick={e => { e.stopPropagation(); onAdd() }} style={{ display: 'flex', alignItems: 'center', gap: 5, background: A14, border: `1px solid ${A20}`, color: A, borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
-            <Plus size={13} /> Plan
-          </button>
-        )}
+          {inPlan ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} onClick={e => e.stopPropagation()}>
+              <button onClick={onRemove} style={roundBtn(L)}><Minus size={14} /></button>
+              <span style={{ fontSize: 13, fontWeight: 700, color: FG, minWidth: 16, textAlign: 'center' }}>{inPlan.count}</span>
+              <button onClick={onAdd} style={roundBtn(L, true)}><Plus size={14} /></button>
+            </div>
+          ) : (
+            <button onClick={e => { e.stopPropagation(); onAdd() }} style={{ display: 'flex', alignItems: 'center', gap: 5, background: A14, border: `1px solid ${A20}`, color: A, borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
+              <Plus size={13} /> Plan
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -2245,8 +2290,9 @@ function HabitatSheet({ habitat, onClose, onAdd, L }) {
           <div style={{ width: 36, height: 4, borderRadius: 2, background: BORDER }} />
         </div>
         <div style={{ overflowY: 'auto', padding: '0 20px 40px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '8px 0 12px' }}>
-            <div style={{ fontSize: 34, lineHeight: 1 }}>{habitat.bild_emoji}</div>
+          <div style={{ margin: '8px 0 12px' }}><HabitatImage id={habitat.id} emoji={habitat.bild_emoji} variant="sheet" /></div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '0 0 12px' }}>
+            <div style={{ fontSize: 28, lineHeight: 1 }}>{habitat.bild_emoji}</div>
             <div>
               <div style={{ fontSize: 18, fontWeight: 700, color: FG }}>{habitat.name}</div>
               <div style={{ fontSize: 12, color: MUTED }}>{HABITAT_KATEGORIE_LABELS[habitat.kategorie]}</div>
