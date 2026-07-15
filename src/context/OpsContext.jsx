@@ -4,6 +4,7 @@ import { getJobs, saveJobs, getRecurring, saveRecurring, getSensors, saveSensors
 import { tgSend, tgGroups, groupsForUsers } from '../lib/telegram.js'
 import { maybeSendWeeklySummary } from '../lib/weeklySummary.js'
 import { maybeSendTaskReminders } from '../lib/taskReminders.js'
+import { useAuth } from './AuthContext.jsx'
 import * as gcal from '../lib/gcal.js'
 import { JOB_TYPES, SEED_CLIENTS, VEHICLES as SEED_VEHICLES, SEED_BOARDS } from '../data/seed.js'
 
@@ -36,6 +37,10 @@ const DEFAULT_CHIPS = [
 const OpsContext = createContext(null)
 
 export function OpsProvider({ children }) {
+  // Nur interne Nutzer (admin/mitarbeiter) dürfen Ops-Daten schreiben/seeden.
+  // Für Gäste, Kunden und noch nicht freigeschaltete Konten würde ein Seed-
+  // Upsert sonst an der RLS scheitern („new row violates row-level security…").
+  const { isMitarbeiter } = useAuth()
   const [jobs, setJobsState] = useState([])
   const [recurring, setRecurringState] = useState([])
   const [sensors, setSensorsState] = useState(getSensors)
@@ -78,17 +83,17 @@ export function OpsProvider({ children }) {
         else setSensorsState(getSensors())
         if (cRows.data?.length) {
           setClientsState(cRows.data)
-        } else if (cRows.data) {
+        } else if (cRows.data && isMitarbeiter) {
           sbUpsert('clients', SEED_CLIENTS).catch(dbErr('ops','write'))
           setClientsState(SEED_CLIENTS)
         }
         if (vRows.data?.length) {
           setVehiclesState(vRows.data)
-        } else if (vRows.data) {
+        } else if (vRows.data && isMitarbeiter) {
           sbUpsert('vehicles', SEED_VEHICLES).catch(dbErr('ops','write'))
           setVehiclesState(SEED_VEHICLES)
-        } else {
-          setVehiclesState(SEED_VEHICLES)
+        } else if (!vRows.data) {
+          setVehiclesState(SEED_VEHICLES) // Offline-Fallback (Query fehlgeschlagen)
         }
         if (settingsRow.data?.value) {
           setChipsState(settingsRow.data.value)
@@ -99,7 +104,7 @@ export function OpsProvider({ children }) {
         if (tRows.data) setTasksState(tRows.data)
         if (bRows.data?.length) {
           setBoardsState(bRows.data)
-        } else if (bRows.data) {
+        } else if (bRows.data && isMitarbeiter) {
           // Erstbefüllung: Standard-Bereiche anlegen
           sbUpsert('boards', SEED_BOARDS).catch(dbErr('boards', 'write'))
           setBoardsState(SEED_BOARDS)
@@ -116,7 +121,8 @@ export function OpsProvider({ children }) {
       }
     }
     load()
-  }, [])
+    // Neu laden, sobald die Rolle feststeht (interne Nutzer dürfen dann seeden).
+  }, [isMitarbeiter])
 
   // ── Weekly summary: fires Monday 08:00–09:59 on app load ────────────────────
   useEffect(() => {
