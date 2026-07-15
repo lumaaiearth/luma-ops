@@ -5,6 +5,8 @@ import { useTheme } from '../context/ThemeContext.jsx'
 import { useBreakpoint } from '../lib/useBreakpoint.js'
 import { useOps } from '../context/OpsContext.jsx'
 import { PLANTS, filterPlants, LICHT_LABELS, WASSER_LABELS, BODEN_LABELS, TYPE_LABELS, MONTHS, DRAINAGE_LABELS, WUCHSFORM_LABELS } from '../data/plants.js'
+import { HABITATS, filterHabitats, HABITAT_KATEGORIE_LABELS, HABITAT_KATEGORIE_EMOJI, HABITAT_ZIEL_LABELS } from '../data/habitats.js'
+import { calcAngebot } from '../data/preise.js'
 import {
   Leaf, Search, Plus, Minus, ExternalLink, X, ChevronDown, ChevronUp,
   Filter, Download, SlidersHorizontal, Ruler, Grid3x3, Info,
@@ -69,7 +71,8 @@ export default function PlanningPage() {
   const L = themeId === 'light'
   const bp = useBreakpoint()
   const isMobile = bp === 'xs' || bp === 'sm'
-  const { projects = [], updateProject, pflanzplaene = [], createPflanzplan, updatePflanzplan, deletePflanzplan } = useOps()
+  const { projects = [], updateProject, pflanzplaene = [], createPflanzplan, updatePflanzplan, deletePflanzplan,
+    createTask, createRecurring, tasks = [], recurring = [] } = useOps()
   const location = useLocation()
 
   // ── Filters
@@ -84,6 +87,7 @@ export default function PlanningPage() {
   const [onlyRaupen, setOnlyRaupen] = useState(false)
   const [onlyTagfalter, setOnlyTagfalter] = useState(false)
   const [onlyBienen, setOnlyBienen] = useState(false)
+  const [onlyZier, setOnlyZier] = useState(false)
   const [search, setSearch] = useState('')
   const [filterPanelOpen, setFilterPanelOpen] = useState(() => window.innerWidth >= 768)
   const [activeFilters, setActiveFilters] = useState('standort') // 'standort'|'biologie'|'boden'
@@ -104,6 +108,18 @@ export default function PlanningPage() {
   const [beetH, setBeetH] = useState(2)
   const [beetForm, setBeetForm] = useState('rechteck') // 'rechteck'|'oval'
   const [fromMapFeature, setFromMapFeature] = useState(null)
+
+  // ── Habitate (Habitatelemente)
+  const [habitatPlan, setHabitatPlan] = useState([])
+  const [catalogMode, setCatalogMode] = useState('pflanzen') // 'pflanzen'|'habitate'
+  const [habCat, setHabCat] = useState(null)      // Kategorie-Filter
+  const [habSearch, setHabSearch] = useState('')
+  const [sheetHabitat, setSheetHabitat] = useState(null)
+
+  // ── LUMA-Ops-Anbindung
+  const [showOpsDialog, setShowOpsDialog] = useState(false)
+  const [opsOpts, setOpsOpts] = useState({ bestellung: true, pflanzung: true, einbau: true, erstpflege: true, recurring: false })
+  const [opsDone, setOpsDone] = useState(false)
 
   // Pre-fill from map navigation state
   useEffect(() => {
@@ -135,9 +151,10 @@ export default function PlanningPage() {
       if (onlyRaupen && !p.raupenfutter) return false
       if (onlyTagfalter && !p.tagfalter) return false
       if (onlyBienen && !p.bienen) return false
+      if (onlyZier && !p.zierpflanze) return false
       return true
     })
-  }, [licht, wasser, boden, types, wuchsformen, drainage, ph, search, onlyHeimisch, onlyRaupen, onlyTagfalter, onlyBienen])
+  }, [licht, wasser, boden, types, wuchsformen, drainage, ph, search, onlyHeimisch, onlyRaupen, onlyTagfalter, onlyBienen, onlyZier])
 
   function addToPlan(plant) {
     setPlan(prev => {
@@ -151,7 +168,21 @@ export default function PlanningPage() {
     else setPlan(prev => prev.map(p => p.id === id ? { ...p, count } : p))
   }
 
+  function addHabitat(h) {
+    setHabitatPlan(prev => {
+      const ex = prev.find(x => x.id === h.id)
+      if (ex) return prev.map(x => x.id === h.id ? { ...x, count: x.count + 1 } : x)
+      return [...prev, { ...h, count: 1 }]
+    })
+  }
+  function setHabitatCount(id, count) {
+    if (count <= 0) setHabitatPlan(prev => prev.filter(x => x.id !== id))
+    else setHabitatPlan(prev => prev.map(x => x.id === id ? { ...x, count } : x))
+  }
+
   const totalPlants = plan.reduce((s, p) => s + p.count, 0)
+  const totalHabitats = habitatPlan.reduce((s, h) => s + h.count, 0)
+  const angebot = useMemo(() => calcAngebot({ plan, habitatPlan }), [plan, habitatPlan])
 
   async function savePlanToProject() {
     if (!saveProjectId || !updateProject) return
@@ -162,7 +193,7 @@ export default function PlanningPage() {
   }
 
   async function savePflanzplan() {
-    if (!plan.length) return
+    if (!plan.length && !habitatPlan.length) return
     setSavingPlan(true)
     try {
       const positionen = plan.map(p => ({
@@ -171,17 +202,28 @@ export default function PlanningPage() {
         bluete_monate: p.bluete_monate, heimisch: p.heimisch,
         nektar: p.nektar, raupenfutter: p.raupenfutter,
       }))
+      const habitate = habitatPlan.map(h => ({
+        id: h.id, name: h.name, kategorie: h.kategorie, count: h.count, bild_emoji: h.bild_emoji,
+        flaeche_m2: h.flaeche_m2, aufwand_h: h.aufwand_h, jahreszeit: h.jahreszeit,
+        material: h.material, pflege_intervall_monate: h.pflege_intervall_monate, pflege_hinweis: h.pflege_hinweis,
+        position: h.position ?? null, // {x,y} bzw. Karten-Referenz — für spätere Verortung
+      }))
       const data = {
         titel: planTitel || `Plan ${new Date().toLocaleDateString('de-DE')}`,
         status: 'planung',
         positionen,
+        habitate,
         flaeche_m2: beetArea || null,
         beet_w: beetW, beet_h: beetH, beet_form: beetForm,
         projekt_id: saveProjectId || null,
         standort_id: fromMapFeature?.feature_id || null,
       }
       if (savedPlanId) {
-        updatePflanzplan(savedPlanId, { positionen, titel: data.titel, updated_at: new Date().toISOString() })
+        updatePflanzplan(savedPlanId, {
+          positionen, habitate, titel: data.titel,
+          flaeche_m2: data.flaeche_m2, beet_w: beetW, beet_h: beetH, beet_form: beetForm,
+          updated_at: new Date().toISOString(),
+        })
       } else {
         const saved = await createPflanzplan(data)
         setSavedPlanId(saved.id)
@@ -193,13 +235,69 @@ export default function PlanningPage() {
     }
   }
 
+  // Aus dem gespeicherten Plan Aufgaben/Einsätze im Pflege-Board anlegen.
+  function createOpsFromPlan(opts) {
+    const planId = savedPlanId
+    if (!planId) return
+    const clientId = projects.find(p => p.id === saveProjectId)?.client_id || null
+    const base = { project_id: saveProjectId || null, client_id: clientId, board_id: 'b_pflege', status: 'not_started', priority: 'medium' }
+    const openRef = ref => (tasks || []).some(t => t.source_ref === ref && t.status !== 'done' && t.status !== 'archive')
+    const mk = (suffix, data) => { const ref = `pflanzplan:${planId}:${suffix}`; if (!openRef(ref)) createTask?.({ ...base, source_ref: ref, ...data }) }
+    const label = planTitel || 'Plan'
+    const mat = rollupMaterial(habitatPlan)
+    const matLines = mat.map(m => `${m.material}: ${m.menge} ${m.einheit}`)
+    const plantLines = plan.map(p => `${p.count}× ${p.name}`)
+
+    if (opts.bestellung) mk('bestellung', {
+      title: `Material & Pflanzen bestellen — ${label}`, task_type: 'bestellung',
+      material: [...plantLines, ...matLines],
+      description: `Pflanzen: ${plantLines.join(', ') || '—'}\nMaterial: ${matLines.join(', ') || '—'}`,
+    })
+    if (opts.pflanzung && plan.length) mk('pflanzung', {
+      title: `Pflanzung durchführen — ${label}`, task_type: 'pflanzung',
+      description: plan.map(p => `${p.count}× ${p.name} (Ø${p.pflanzabstand || 40} cm)`).join(', '),
+    })
+    if (opts.einbau) habitatPlan.forEach(h => mk(`einbau:${h.id}`, {
+      title: `${h.name} einbauen${h.count > 1 ? ` (${h.count}×)` : ''}`, task_type: 'installation',
+      description: [h.standort_hinweis, h.maschine ? `Gerät: ${h.maschine}` : ''].filter(Boolean).join(' · '),
+      material: (h.material || []).map(m => `${m.material}: ${Math.round((m.menge || 0) * h.count * 100) / 100} ${m.einheit}`),
+      checklist: (h.einbau_schritte || []).map(text => ({ id: crypto.randomUUID(), text, done: false })),
+    }))
+    if (opts.erstpflege) mk('erstpflege', {
+      title: `Anwachspflege / Gießen 1. Jahr — ${label}`, task_type: 'giessen',
+      description: 'In Trockenphasen des ersten Jahres regelmäßig wässern bis zum Anwachsen. Danach nur bei extremer Trockenheit (mager halten).',
+    })
+    if (opts.recurring && createRecurring) {
+      const existsTmpl = t => (recurring || []).some(r => r.title === t)
+      if (plan.length && !existsTmpl(`Rückschnitt & Pflege — ${label}`)) {
+        createRecurring({ project_id: saveProjectId || null, title: `Rückschnitt & Pflege — ${label}`, job_type: 'pflege',
+          interval_days: 365, next_date: nextDateForMonth(3), assigned_users: [], vehicle_id: null, tools: [],
+          notes: 'Staudenrückschnitt März/April, Schnittgut abräumen (Fläche mager halten).' })
+      }
+      habitatPlan.filter(h => h.pflege_intervall_monate).forEach(h => {
+        const t = `Pflege: ${h.name}`
+        if (!existsTmpl(t)) createRecurring({ project_id: saveProjectId || null, title: t, job_type: 'pflege',
+          interval_days: Math.round(h.pflege_intervall_monate * 30.4), next_date: nextDateForMonth(seasonMonth(h.jahreszeit)),
+          assigned_users: [], vehicle_id: null, tools: [], notes: h.pflege_hinweis || '' })
+      })
+    }
+    setShowOpsDialog(false)
+    setOpsDone(true)
+    setTimeout(() => setOpsDone(false), 3000)
+  }
+
   function loadPflanzplan(pp) {
-    if (!pp?.positionen?.length) return
-    const restored = pp.positionen.map(pos => {
+    if (!pp?.positionen?.length && !pp?.habitate?.length) return
+    const restored = (pp.positionen || []).map(pos => {
       const base = PLANTS.find(p => p.id === pos.id) || {}
       return { ...base, ...pos }
     })
     setPlan(restored)
+    const restoredHab = (pp.habitate || []).map(pos => {
+      const base = HABITATS.find(h => h.id === pos.id) || {}
+      return { ...base, ...pos }
+    })
+    setHabitatPlan(restoredHab)
     setPlanTitel(pp.titel || '')
     setSavedPlanId(pp.id)
     if (pp.beet_w) setBeetW(pp.beet_w)
@@ -216,7 +314,7 @@ export default function PlanningPage() {
   const shadow = L ? '0 1px 4px rgba(0,0,0,0.08), 0 0 0 1.5px rgba(0,0,0,0.07)' : `0 0 0 1px ${BORDER}`
 
   const activeFilterCount = [licht, wasser, boden, drainage, ph, ...types, ...wuchsformen,
-    onlyHeimisch && 'h', onlyRaupen && 'r', onlyTagfalter && 't', onlyBienen && 'b'
+    onlyHeimisch && 'h', onlyRaupen && 'r', onlyTagfalter && 't', onlyBienen && 'b', onlyZier && 'z'
   ].filter(Boolean).length
 
   return (
@@ -242,14 +340,15 @@ export default function PlanningPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: A14, border: `1px solid ${A20}`, borderRadius: 8, padding: '5px 12px' }}>
               <Leaf size={12} color={A} />
               <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: L ? 700 : 400 }}>
-                Florales™ · {PLANTS.length} Arten
+                Florales™ · {PLANTS.length} Arten · {HABITATS.length} Habitate
               </span>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
             <TabBtn label="🔍 Suchen" active={activeTab === 'suche'} onClick={() => setActiveTab('suche')} L={L} />
-            <TabBtn label={`📋 Plan${totalPlants > 0 ? ` (${totalPlants})` : ''}`} active={activeTab === 'plan'} onClick={() => setActiveTab('plan')} L={L} dot={totalPlants > 0 && activeTab !== 'plan'} />
+            <TabBtn label={`📋 Plan${(totalPlants + totalHabitats) > 0 ? ` (${totalPlants + totalHabitats})` : ''}`} active={activeTab === 'plan'} onClick={() => setActiveTab('plan')} L={L} dot={(totalPlants + totalHabitats) > 0 && activeTab !== 'plan'} />
             <TabBtn label="🌿 Beet" active={activeTab === 'beet'} onClick={() => setActiveTab('beet')} L={L} />
+            <TabBtn label="✨ Generator" active={activeTab === 'generator'} onClick={() => setActiveTab('generator')} L={L} />
           </div>
         </div>
       </div>
@@ -258,6 +357,19 @@ export default function PlanningPage() {
       {activeTab === 'suche' && (
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
+          {/* Katalog-Umschalter: Pflanzen | Habitate */}
+          <div style={{ padding: isMobile ? '10px 12px 0' : '12px 24px 0', flexShrink: 0 }}>
+            <div style={{ display: 'inline-flex', gap: 4, background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, padding: 4 }}>
+              {[['pflanzen', '🌱 Pflanzen'], ['habitate', '🪵 Habitate']].map(([k, l]) => (
+                <button key={k} onClick={() => setCatalogMode(k)} style={{
+                  padding: '6px 14px', borderRadius: 7, fontSize: 12, fontWeight: catalogMode === k ? 700 : (L ? 500 : 400),
+                  border: 'none', background: catalogMode === k ? A14 : 'transparent', color: catalogMode === k ? A : MUTED, cursor: 'pointer',
+                }}>{l}</button>
+              ))}
+            </div>
+          </div>
+
+          {catalogMode === 'pflanzen' && (<>
           {/* Filter Panel */}
           <div style={{ padding: isMobile ? '0 12px' : '0 24px', flexShrink: 0 }}>
             <div style={{ background: SURFACE, border: `1.5px solid ${BORDER}`, borderRadius: 12, marginBottom: 12, overflow: 'hidden', boxShadow: L ? '0 1px 4px rgba(0,0,0,0.06)' : 'none' }}>
@@ -307,6 +419,7 @@ export default function PlanningPage() {
                       <BioToggle label="🦋 Tagfalter" active={onlyTagfalter} onClick={() => setOnlyTagfalter(v => !v)} L={L} isMobile={isMobile} />
                       <BioToggle label="🐛 Raupenfutter" active={onlyRaupen} onClick={() => setOnlyRaupen(v => !v)} L={L} isMobile={isMobile} />
                       <BioToggle label="🏡 Heimisch" active={onlyHeimisch} onClick={() => setOnlyHeimisch(v => !v)} L={L} isMobile={isMobile} />
+                      <BioToggle label="🌸 Zierstauden" active={onlyZier} onClick={() => setOnlyZier(v => !v)} L={L} isMobile={isMobile} />
                     </div>
                   )}
 
@@ -389,6 +502,19 @@ export default function PlanningPage() {
               </div>
             )}
           </div>
+          </>)}
+
+          {catalogMode === 'habitate' && (
+            <HabitatCatalog
+              habCat={habCat} setHabCat={setHabCat}
+              habSearch={habSearch} setHabSearch={setHabSearch}
+              habitatPlan={habitatPlan}
+              onTap={setSheetHabitat}
+              onAdd={addHabitat}
+              onRemove={h => setHabitatCount(h.id, (habitatPlan.find(x => x.id === h.id)?.count || 1) - 1)}
+              isMobile={isMobile} L={L} shadow={shadow} cardBg={cardBg}
+            />
+          )}
 
           {/* Mobile Steckbrief Sheet */}
           {sheetPlant && (
@@ -469,17 +595,23 @@ export default function PlanningPage() {
               </div>
             </div>
           )}
+
+          {/* Habitat Steckbrief Sheet */}
+          {sheetHabitat && (
+            <HabitatSheet habitat={sheetHabitat} onClose={() => setSheetHabitat(null)} onAdd={h => { addHabitat(h); setSheetHabitat(null) }} L={L} />
+          )}
         </div>
       )}
 
       {/* ── TAB: PLAN ──────────────────────────────────────────────────── */}
       {activeTab === 'plan' && (
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: '0 24px 24px' }}>
-          {plan.length === 0 ? (
-            <EmptyState msg="Plan ist noch leer 🌱" sub="Pflanzen suchen und hinzufügen" action={() => setActiveTab('suche')} actionLabel="Zur Suche →" />
+          {plan.length === 0 && habitatPlan.length === 0 ? (
+            <EmptyState msg="Plan ist noch leer 🌱" sub="Pflanzen oder Habitate suchen und hinzufügen" action={() => setActiveTab('suche')} actionLabel="Zur Suche →" />
           ) : (
             <div style={{ flex: 1, overflowY: 'auto', paddingTop: 4 }}>
 
+              {plan.length > 0 && (<>
               {/* Stats */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px,1fr))', gap: 10, marginBottom: 16 }}>
                 <StatCard label="Pflanzen gesamt" value={totalPlants} emoji="🌱" color={A} L={L} shadow={shadow} />
@@ -499,24 +631,60 @@ export default function PlanningPage() {
                   <PlanRow key={p.id} plant={p} onAdd={() => addToPlan(p)} onRemove={() => setCount(p.id, p.count - 1)} L={L} shadow={shadow} cardBg={cardBg} />
                 ))}
               </div>
+              </>)}
+
+              {/* Habitatelemente */}
+              {habitatPlan.length > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px,1fr))', gap: 10, marginBottom: 12 }}>
+                    <StatCard label="Habitat-Elemente" value={totalHabitats} emoji="🪵" color="#92400e" L={L} shadow={shadow} />
+                    <StatCard label="Aufwand ca." value={`${habitatPlan.reduce((s, h) => s + (h.aufwand_h || 0) * h.count, 0)} h`} emoji="⏱️" color="#0369a1" L={L} shadow={shadow} />
+                  </div>
+                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', margin: '4px 0 8px', fontWeight: L ? 700 : 400 }}>Habitatelemente</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {habitatPlan.map(h => (
+                      <HabitatPlanRow key={h.id} habitat={h} onAdd={() => addHabitat(h)} onRemove={() => setHabitatCount(h.id, h.count - 1)} L={L} shadow={shadow} cardBg={cardBg} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Kalkulation (intern) */}
+              <div style={{ background: L ? '#f9fafb' : '#0f1a22', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: L ? 700 : 400 }}>Kalkulation (intern)</span>
+                  <span style={{ fontSize: 11, color: MUTED }}>EK {angebot.ek_summe.toLocaleString('de-DE', { minimumFractionDigits: 2 })} €</span>
+                </div>
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'baseline' }}>
+                  <div><span style={{ fontSize: 20, fontWeight: 800, color: A }}>{angebot.vk_netto.toLocaleString('de-DE', { minimumFractionDigits: 2 })} €</span><span style={{ fontSize: 11, color: MUTED }}> VK netto</span></div>
+                  <div style={{ fontSize: 12, color: MUTED }}>Pflanzen {angebot.pflanzen_vk.toLocaleString('de-DE', { minimumFractionDigits: 2 })} € · Material {angebot.material_vk.toLocaleString('de-DE', { minimumFractionDigits: 2 })} € · Arbeit {angebot.arbeit_std} h → {angebot.arbeit_vk.toLocaleString('de-DE', { minimumFractionDigits: 2 })} €</div>
+                </div>
+                {angebot.unbekannt > 0 && <div style={{ fontSize: 10.5, color: '#d97706', marginTop: 6 }}>⚠️ {angebot.unbekannt} Position(en) ohne hinterlegten Preis — VK unvollständig.</div>}
+              </div>
 
               {/* Export */}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button onClick={() => {
-                  exportPdf(plan, { label: fromMapFeature?.label, beetArea, beetW, beetH })
+                  exportPdf(plan, { label: fromMapFeature?.label, beetArea, beetW, beetH, habitats: habitatPlan })
                   if (savedPlanId) updatePflanzplan(savedPlanId, { status: 'pdf_erstellt' })
                 }} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#052e16', border: 'none', color: '#fff', borderRadius: 8, padding: '9px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
-                  <Download size={13} /> Baumschul-PDF
+                  <Download size={13} /> Plan-PDF
                 </button>
-                <button onClick={() => exportPlan(plan)} style={{ display: 'flex', alignItems: 'center', gap: 8, background: A14, border: `1px solid ${A20}`, color: A, borderRadius: 8, padding: '9px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                <button onClick={() => exportPlan(plan, habitatPlan)} style={{ display: 'flex', alignItems: 'center', gap: 8, background: A14, border: `1px solid ${A20}`, color: A, borderRadius: 8, padding: '9px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
                   <Download size={13} /> .txt
                 </button>
-                <button onClick={() => setPlan([])} style={{ background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, padding: '9px 16px', cursor: 'pointer', fontSize: 13 }}>
+                <button onClick={() => { setPlan([]); setHabitatPlan([]) }} style={{ background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, padding: '9px 16px', cursor: 'pointer', fontSize: 13 }}>
                   Plan leeren
                 </button>
                 <button onClick={() => setActiveTab('beet')} style={{ background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, padding: '9px 16px', cursor: 'pointer', fontSize: 13 }}>
                   🌿 Im Beet planen →
                 </button>
+                <button onClick={() => savedPlanId && setShowOpsDialog(true)} disabled={!savedPlanId}
+                  title={savedPlanId ? '' : 'Plan zuerst speichern'}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, background: savedPlanId ? A : (L ? '#e5e7eb' : '#1e2a32'), border: 'none', color: savedPlanId ? 'var(--luma-on-a)' : MUTED, borderRadius: 8, padding: '9px 16px', cursor: savedPlanId ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700 }}>
+                  🗂️ In LUMA Ops anlegen
+                </button>
+                {opsDone && <span style={{ display: 'flex', alignItems: 'center', fontSize: 12, color: A, fontWeight: 700 }}>✓ angelegt</span>}
               </div>
 
               {/* Save Plan */}
@@ -530,8 +698,8 @@ export default function PlanningPage() {
                   />
                   <button
                     onClick={savePflanzplan}
-                    disabled={plan.length === 0 || savingPlan}
-                    style={{ display: 'flex', alignItems: 'center', gap: 7, background: plan.length ? '#052e16' : (L ? '#e5e7eb' : '#1e2a32'), border: 'none', color: plan.length ? '#fff' : MUTED, borderRadius: 8, padding: '9px 18px', cursor: plan.length ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap' }}
+                    disabled={(plan.length === 0 && habitatPlan.length === 0) || savingPlan}
+                    style={{ display: 'flex', alignItems: 'center', gap: 7, background: (plan.length || habitatPlan.length) ? '#052e16' : (L ? '#e5e7eb' : '#1e2a32'), border: 'none', color: (plan.length || habitatPlan.length) ? '#fff' : MUTED, borderRadius: 8, padding: '9px 18px', cursor: (plan.length || habitatPlan.length) ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap' }}
                   >
                     {savedToProject ? '✓ Gespeichert' : savingPlan ? '...' : savedPlanId ? '💾 Aktualisieren' : '💾 Plan speichern'}
                   </button>
@@ -614,6 +782,188 @@ export default function PlanningPage() {
           />
         </div>
       )}
+
+      {/* ── TAB: GENERATOR (Säule 2) ────────────────────────────────────── */}
+      {activeTab === 'generator' && (
+        <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '0 12px 24px' : '0 24px 24px' }}>
+          <Generator L={L} shadow={shadow} cardBg={cardBg}
+            onApply={(plants, habitats) => {
+              setPlan(plants)
+              if (habitats?.length) setHabitatPlan(prev => { const ex = new Set(prev.map(h => h.id)); return [...prev, ...habitats.filter(h => !ex.has(h.id))] })
+              setActiveTab('plan')
+            }} />
+        </div>
+      )}
+
+      {/* ── LUMA-Ops-Dialog ─────────────────────────────────────────────── */}
+      {showOpsDialog && (
+        <OpsDialog opts={opsOpts} setOpts={setOpsOpts}
+          hasPlants={plan.length > 0} hasHabitats={habitatPlan.length > 0}
+          onConfirm={() => createOpsFromPlan(opsOpts)} onClose={() => setShowOpsDialog(false)} L={L} />
+      )}
+    </div>
+  )
+}
+
+function OpsDialog({ opts, setOpts, hasPlants, hasHabitats, onConfirm, onClose, L }) {
+  const Row = ({ k, label, desc, disabled }) => (
+    <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 12px', borderRadius: 8, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.45 : 1, border: `1px solid ${BORDER}` }}>
+      <input type="checkbox" checked={!!opts[k] && !disabled} disabled={disabled} onChange={e => setOpts(o => ({ ...o, [k]: e.target.checked }))} style={{ marginTop: 2 }} />
+      <span>
+        <div style={{ fontSize: 13, fontWeight: 700, color: FG }}>{label}</div>
+        <div style={{ fontSize: 11, color: MUTED }}>{desc}</div>
+      </span>
+    </label>
+  )
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)' }} />
+      <div onClick={e => e.stopPropagation()} style={{ position: 'relative', background: SURFACE, borderRadius: 16, padding: 20, width: 'min(460px, 100%)', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 10px 50px rgba(0,0,0,0.4)' }}>
+        <div style={{ fontSize: 16, fontWeight: 800, color: FG, marginBottom: 4 }}>In LUMA Ops anlegen</div>
+        <div style={{ fontSize: 12, color: MUTED, marginBottom: 14 }}>Wähle, welche Aufgaben &amp; Einsätze aus diesem Plan auf dem Pflege-Board erstellt werden.</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <Row k="bestellung" label="🛒 Material &amp; Pflanzen bestellen" desc="Aufgabe mit Bestell-/Materialliste" />
+          <Row k="pflanzung" label="🌱 Pflanzung durchführen" desc="Aufgabe zur Pflanzung" disabled={!hasPlants} />
+          <Row k="einbau" label="🪵 Habitat-Einbau" desc="Je Element eine Aufgabe mit Einbau-Checkliste" disabled={!hasHabitats} />
+          <Row k="erstpflege" label="💧 Anwachspflege (1. Jahr)" desc="Gieß-/Pflegeaufgabe fürs erste Jahr" />
+          <Row k="recurring" label="🔁 Wiederkehrende Pflege (Serie)" desc="Kalender-Serientermine: Rückschnitt, Nisthilfe-/Teichpflege …" />
+        </div>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 18 }}>
+          <button onClick={onClose} style={{ background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, padding: '9px 16px', cursor: 'pointer', fontSize: 13 }}>Abbrechen</button>
+          <button onClick={onConfirm} style={{ background: A, border: 'none', color: 'var(--luma-on-a)', borderRadius: 8, padding: '9px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>Anlegen</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ─── GENERATOR-KOMPONENTE (Säule 2) ─────────────────────────────────────── */
+function GenBtn3({ v, cur, set, label, L }) {
+  const on = cur === v
+  return (
+    <button onClick={() => set(on ? null : v)} style={{ padding: '6px 10px', borderRadius: 7, fontSize: 12, cursor: 'pointer', fontWeight: on ? 700 : (L ? 500 : 400), border: on ? `1.5px solid ${A}` : `1px solid ${BORDER}`, background: on ? A14 : 'transparent', color: on ? A : MUTED }}>{label}</button>
+  )
+}
+function GenSlider({ label, value, set, min, max, step = 1, suffix = '' }) {
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: MUTED, marginBottom: 4 }}><span>{label}</span><span style={{ color: A, fontWeight: 700 }}>{value}{suffix}</span></div>
+      <input type="range" min={min} max={max} step={step} value={value} onChange={e => set(+e.target.value)} style={{ width: '100%', accentColor: A, cursor: 'pointer' }} />
+    </div>
+  )
+}
+function ScoreTile({ label, value, color }) {
+  return (
+    <div style={{ textAlign: 'center', padding: '8px 4px', borderRadius: 8, border: `1px solid ${BORDER}` }}>
+      <div style={{ fontSize: 18, fontWeight: 800, color }}>{value}</div>
+      <div style={{ fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
+    </div>
+  )
+}
+function Generator({ L, shadow, cardBg, onApply }) {
+  const [licht, setLicht] = useState(1)
+  const [wasser, setWasser] = useState(2)
+  const [boden, setBoden] = useState(null)
+  const [area, setArea] = useState(10)
+  const [targetCount, setTargetCount] = useState(12)
+  const [wBloom, setWBloom] = useState(2)
+  const [wBee, setWBee] = useState(2)
+  const [wHeimisch, setWHeimisch] = useState(1)
+  const [wZier, setWZier] = useState(1)
+  const [groups, setGroups] = useState(['bienen'])
+  const [addHab, setAddHab] = useState(true)
+
+  const result = useMemo(
+    () => generatePlan({ licht, wasser, boden, area, targetCount, wBloom, wBee, wHeimisch, wZier, targetGroups: groups }),
+    [licht, wasser, boden, area, targetCount, wBloom, wBee, wHeimisch, wZier, groups]
+  )
+  const covered = new Set(); result.forEach(p => (p.bluete_monate || []).forEach(m => covered.add(m)))
+  const totalPl = result.reduce((s, p) => s + p.count, 0)
+  const heimP = result.length ? Math.round(result.filter(p => p.heimisch).length / result.length * 100) : 0
+  const toggleGroup = g => setGroups(gs => gs.includes(g) ? gs.filter(x => x !== g) : [...gs, g])
+  const card = { background: cardBg, borderRadius: 12, padding: 16, boxShadow: shadow }
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: 16, alignItems: 'start' }}>
+      {/* Regler */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={card}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>📍 Standort</div>
+          <div style={{ fontSize: 10, color: MUTED, marginBottom: 4 }}>Licht</div>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+            {[[1, '☀️ Sonne'], [2, '⛅ Halbsch.'], [3, '🌥️ Schatten']].map(([v, l]) => <GenBtn3 key={v} v={v} cur={licht} set={setLicht} label={l} L={L} />)}
+          </div>
+          <div style={{ fontSize: 10, color: MUTED, marginBottom: 4 }}>Feuchte</div>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+            {[[1, '🏜️ Trocken'], [2, '💧 Mäßig'], [3, '🌊 Feucht']].map(([v, l]) => <GenBtn3 key={v} v={v} cur={wasser} set={setWasser} label={l} L={L} />)}
+          </div>
+          <div style={{ fontSize: 10, color: MUTED, marginBottom: 4 }}>Boden (optional)</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {[['sandy', '🏖️ Sand'], ['loamy', '🧱 Lehm'], ['humus', '🌿 Humus']].map(([v, l]) => <GenBtn3 key={v} v={v} cur={boden} set={setBoden} label={l} L={L} />)}
+          </div>
+        </div>
+        <div style={card}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 12 }}>🎛️ Regler</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <GenSlider label="Fläche" value={area} set={setArea} min={1} max={100} suffix=" m²" />
+            <GenSlider label="Artenvielfalt" value={targetCount} set={setTargetCount} min={4} max={30} />
+            <GenSlider label="Blühfolge-Gewicht" value={wBloom} set={setWBloom} min={0} max={4} />
+            <GenSlider label="Bienenwert-Gewicht" value={wBee} set={setWBee} min={0} max={4} />
+            <GenSlider label="Heimisch-Gewicht" value={wHeimisch} set={setWHeimisch} min={0} max={4} />
+            <GenSlider label="Ästhetik-Gewicht" value={wZier} set={setWZier} min={0} max={4} />
+          </div>
+        </div>
+        <div style={card}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>🐝 Ziel-Bestäuber</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {[['bienen', '🐝 Bienen'], ['tagfalter', '🦋 Tagfalter'], ['nachtfalter', '🌙 Nachtfalter'], ['kaefer', '🪲 Käfer'], ['voegel', '🐦 Vögel']].map(([g, l]) => (
+              <button key={g} onClick={() => toggleGroup(g)} style={{ padding: '6px 10px', borderRadius: 7, fontSize: 12, cursor: 'pointer', fontWeight: groups.includes(g) ? 700 : (L ? 500 : 400), border: groups.includes(g) ? `1.5px solid ${A}` : `1px solid ${BORDER}`, background: groups.includes(g) ? A14 : 'transparent', color: groups.includes(g) ? A : MUTED }}>{l}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+      {/* Ergebnis */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={card}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: FG }}>✨ Vorschlag</div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: MUTED, cursor: 'pointer' }}>
+              <input type="checkbox" checked={addHab} onChange={e => setAddHab(e.target.checked)} /> Habitate vorschlagen
+            </label>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px,1fr))', gap: 8, marginBottom: 12 }}>
+            <ScoreTile label="Arten" value={result.length} color={A} />
+            <ScoreTile label="Pflanzen" value={totalPl} color="#0369a1" />
+            <ScoreTile label="Blühmonate" value={`${covered.size}/12`} color={covered.size >= 8 ? '#16a34a' : '#d97706'} />
+            <ScoreTile label="Heimisch" value={`${heimP}%`} color="#047A3C" />
+          </div>
+          <div style={{ display: 'flex', gap: 3, marginBottom: 4 }}>
+            {MONTHS.map((mn, i) => (
+              <div key={i} title={mn} style={{ flex: 1, height: 22, borderRadius: 3, background: covered.has(i + 1) ? A : (L ? '#e5e7eb' : '#1e2a32'), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: covered.has(i + 1) ? 'var(--luma-on-a)' : MUTED }}>{mn[0]}</div>
+            ))}
+          </div>
+          <div style={{ fontSize: 10, color: MUTED, marginBottom: 12 }}>Blühfolge über das Jahr (grün = abgedeckt)</div>
+          <button onClick={() => onApply(result, addHab ? suggestHabitats({ licht, wasser }) : null)} disabled={!result.length}
+            style={{ width: '100%', padding: 12, borderRadius: 10, background: result.length ? A : BORDER, border: 'none', color: 'var(--luma-on-a)', fontSize: 14, fontWeight: 700, cursor: result.length ? 'pointer' : 'not-allowed' }}>
+            In Plan übernehmen →
+          </button>
+        </div>
+        <div style={card}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Artenauswahl</div>
+          {result.length === 0 ? <div style={{ fontSize: 13, color: MUTED }}>Keine passenden Arten — Standort/Filter lockern.</div> : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {result.map(p => (
+                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: p.bluete_farbe || A, flexShrink: 0 }} />
+                  <span style={{ color: FG, fontWeight: 600 }}>{p.name}</span>
+                  <span style={{ color: MUTED, fontStyle: 'italic' }}>{p.latin}</span>
+                  <span style={{ marginLeft: 'auto', color: A, fontWeight: 700 }}>{p.count}×</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -652,6 +1002,7 @@ function BloomCalendar({ plan, L, shadow }) {
 /* ─── BEETPLANER ─────────────────────────────────────────────────────────── */
 function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetForm, beetArea, L, shadow, cardBg, onAddMore, label }) {
   const canvasRef = useRef(null)
+  const [bloomMonth, setBloomMonth] = useState(0) // 0 = ganzjährig, 1-12 = Monat (Blühfolge)
 
   // Calculate plant distribution
   const plantsWithPlacement = useMemo(() => {
@@ -714,15 +1065,25 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
       const cx = p.px * scaleX + (p.pflanzabstand || 40) / 100 * scaleX / 2
       const cy = p.py * scaleY + (p.pflanzabstand || 40) / 100 * scaleY / 2
       const r = Math.max(4, ((p.ausbreitung || p.pflanzabstand || 40) / 100 * scaleX) / 2 - 2)
+      const blooming = bloomMonth === 0 || (p.bluete_monate || []).includes(bloomMonth)
       ctx.beginPath()
       ctx.arc(cx, cy, r, 0, Math.PI * 2)
-      ctx.fillStyle = (p.bluete_farbe || '#10b981') + 'cc'
-      ctx.fill()
-      ctx.strokeStyle = (p.bluete_farbe || '#10b981')
-      ctx.lineWidth = 1.5
-      ctx.stroke()
+      if (blooming) {
+        ctx.fillStyle = (p.bluete_farbe || '#10b981') + 'cc'
+        ctx.fill()
+        ctx.strokeStyle = (p.bluete_farbe || '#10b981')
+        ctx.lineWidth = 1.5
+        ctx.stroke()
+      } else {
+        // außerhalb der Blüte: gedämpft (Blühfolge sichtbar machen)
+        ctx.fillStyle = L ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.04)'
+        ctx.fill()
+        ctx.strokeStyle = L ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.10)'
+        ctx.lineWidth = 1
+        ctx.stroke()
+      }
     })
-  }, [plantsWithPlacement, beetW, beetH, beetForm, L])
+  }, [plantsWithPlacement, beetW, beetH, beetForm, L, bloomMonth])
 
   function exportPng() {
     const DPR = 2
@@ -888,6 +1249,15 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
           <div style={{ background: cardBg, borderRadius: 12, padding: 16, boxShadow: shadow, marginBottom: 16 }}>
             <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12, fontWeight: L ? 700 : 400 }}>
               🗺️ Pflanzverteilung — {beetW}m × {beetH}m
+            </div>
+            {/* Saison-Regler: Blühfolge sichtbar machen (Pollinator-Pathmaker-Prinzip) */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <span style={{ fontSize: 11, color: bloomMonth === 0 ? MUTED : A, fontWeight: 700, whiteSpace: 'nowrap', minWidth: 96 }}>
+                🗓️ {bloomMonth === 0 ? 'Ganzjährig' : `Blüte im ${MONTHS[bloomMonth - 1]}`}
+              </span>
+              <input type="range" min={0} max={12} step={1} value={bloomMonth}
+                onChange={e => setBloomMonth(+e.target.value)}
+                style={{ flex: 1, accentColor: A, cursor: 'pointer' }} />
             </div>
             <canvas
               ref={canvasRef}
@@ -1389,14 +1759,21 @@ function EmptyState({ msg, sub, action, actionLabel }) {
   )
 }
 
-function exportPlan(plan) {
+function exportPlan(plan, habitats = []) {
+  const mat = rollupMaterial(habitats)
   const lines = [
-    'PFLANZPLAN — LUMA BIOME',
+    'PFLANZ- & HABITATPLAN — LUMA BIOME',
     '='.repeat(50), '',
     'PFLANZLISTE:',
     ...plan.map(p => `  ${p.count}x  ${p.name} (${p.latin})\n       Licht: ${p.licht.map(l => LICHT_LABELS[l]).join('/')} | Wasser: ${p.wasser.map(w => WASSER_LABELS[w]).join('/')} | Abstand: ${p.pflanzabstand || 40}cm`),
     '',
     `GESAMT: ${plan.reduce((s, p) => s + p.count, 0)} Pflanzen (${plan.length} Arten)`,
+    ...(habitats.length ? [
+      '', 'HABITATELEMENTE:',
+      ...habitats.map(h => `  ${h.count}x  ${h.name} (${HABITAT_KATEGORIE_LABELS[h.kategorie] || h.kategorie}) — Aufwand ${(h.aufwand_h || 0) * h.count} h`),
+      '', 'MATERIAL (aggregiert):',
+      ...mat.map(m => `  ${m.menge} ${m.einheit}  ${m.material}`),
+    ] : []),
   ]
   const blob = new Blob([lines.join('\n')], { type: 'text/plain' })
   const a = document.createElement('a')
@@ -1405,7 +1782,73 @@ function exportPlan(plan) {
   a.click()
 }
 
-function exportPdf(plan, { label, beetArea, beetW, beetH } = {}) {
+function seasonMonth(s) {
+  if (!s) return 4
+  if (s.includes('Frühjahr')) return 3
+  if (s.includes('Herbst')) return 9
+  if (s.includes('Sommer')) return 6
+  if (s.includes('Winter')) return 11
+  return 4
+}
+function nextDateForMonth(month) {
+  const now = new Date()
+  let year = now.getFullYear()
+  if (now.getMonth() + 1 > month) year += 1
+  return `${year}-${String(month).padStart(2, '0')}-15`
+}
+
+function rollupMaterial(habitats) {
+  const acc = new Map()
+  for (const h of habitats)
+    for (const m of (h.material || [])) {
+      const key = `${m.material}|${m.einheit}`
+      acc.set(key, (acc.get(key) || 0) + (m.menge || 0) * (h.count || 1))
+    }
+  return [...acc.entries()].map(([k, menge]) => {
+    const [material, einheit] = k.split('|')
+    return { material, menge: Math.round(menge * 100) / 100, einheit }
+  }).sort((a, b) => a.material.localeCompare(b.material))
+}
+
+/* ─── GENERATOR (Säule 2) ────────────────────────────────────────────────────
+   Greedy-Optimierung: wählt aus dem standortpassenden Pool iterativ die Art mit
+   dem höchsten marginalen Score (Blühfolge schließen, Bestäubergruppen abdecken,
+   Bienenwert, Heimisch-Bonus, Ästhetik). Deterministisch — kein Zufall. */
+const GEN_GROUP_KEYS = ['bienen', 'tagfalter', 'nachtfalter', 'kaefer', 'voegel']
+function generatePlan({ licht = 1, wasser = 2, boden = null, area = 10, targetCount = 12, wBloom = 2, wBee = 2, wHeimisch = 1, wZier = 1, targetGroups = ['bienen'] }) {
+  const pool = filterPlants({ licht, wasser, boden }).filter(p => ['staude', 'gras', 'einjährig', 'zweijährig'].includes(p.type))
+  const covered = new Set(), groupCov = new Set(), chosen = [], chosenIds = new Set()
+  while (chosen.length < targetCount) {
+    let best = null, bestScore = -Infinity
+    for (const p of pool) {
+      if (chosenIds.has(p.id)) continue
+      const newMonths = (p.bluete_monate || []).filter(m => !covered.has(m)).length
+      const beeVal = ((p.nektar || 0) + (p.pollen || 0) + (p.insekten || 0)) / 15
+      const grpMatch = targetGroups.length ? targetGroups.filter(g => p[g]).length / targetGroups.length : 1
+      const newGroups = GEN_GROUP_KEYS.filter(g => p[g] && !groupCov.has(g)).length
+      const score = wBloom * (newMonths + newGroups * 0.5) + wBee * (beeVal * 5) + wHeimisch * (p.heimisch ? 1.5 : 0) + wZier * ((p.zierwert || 3) / 5 * 2) + grpMatch
+      if (score > bestScore) { bestScore = score; best = p }
+    }
+    if (!best) break
+    chosenIds.add(best.id); chosen.push(best)
+    ;(best.bluete_monate || []).forEach(m => covered.add(m))
+    GEN_GROUP_KEYS.forEach(g => { if (best[g]) groupCov.add(g) })
+  }
+  const nS = chosen.length || 1
+  return chosen.map(p => {
+    const spacing = (p.pflanzabstand || 40) / 100
+    const perM2 = 1 / (spacing * spacing)
+    return { ...p, count: Math.max(1, Math.round((area / nS) * perM2)) }
+  })
+}
+function suggestHabitats({ licht = 1, wasser = 2 }) {
+  const ids = new Set(['insektentraenke', 'liegendes-totholz', 'vogelkasten'])
+  if (wasser >= 3) { ids.add('sumpfbeet'); ids.add('teich') }
+  if (wasser <= 1 && licht === 1) { ids.add('sandarium'); ids.add('lesesteinhaufen'); ids.add('wildbienen-nisthilfe') }
+  return HABITATS.filter(h => ids.has(h.id)).map(h => ({ ...h, count: 1 }))
+}
+
+function exportPdf(plan, { label, beetArea, beetW, beetH, habitats = [] } = {}) {
   const total = plan.reduce((s, p) => s + p.count, 0)
   const date = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
   const planTitle = label || `Pflanzplan ${beetW ? `${beetW}m × ${beetH}m` : ''}`
@@ -1427,6 +1870,62 @@ function exportPdf(plan, { label, beetArea, beetW, beetH } = {}) {
       <td class="center">${p.pflanzabstand || 40} cm</td>
       <td class="center bloom">${bloomStr(p)}</td>
     </tr>`).join('')
+
+  // ── Habitat-Abschnitte ──
+  const habTotal = habitats.reduce((s, h) => s + (h.count || 0), 0)
+  const habAufwand = habitats.reduce((s, h) => s + (h.aufwand_h || 0) * (h.count || 1), 0)
+  const habRows = habitats.map((h, i) => `
+    <tr>
+      <td class="nr">${i + 1}</td>
+      <td class="name">${h.bild_emoji || ''} ${h.name}</td>
+      <td>${HABITAT_KATEGORIE_LABELS[h.kategorie] || h.kategorie}</td>
+      <td class="center">${h.count}</td>
+      <td class="center">${h.flaeche_m2 ? (Math.round(h.flaeche_m2 * h.count * 10) / 10) + ' m²' : '—'}</td>
+      <td class="center">${Math.round((h.aufwand_h || 0) * h.count * 10) / 10} h</td>
+      <td>${h.jahreszeit || '—'}</td>
+    </tr>`).join('')
+  const mat = rollupMaterial(habitats)
+  const matRows = mat.map(m => `<tr><td>${m.material}</td><td class="center">${m.menge}</td><td class="center">${m.einheit}</td></tr>`).join('')
+  const einbauBoxes = habitats.filter(h => h.einbau_schritte?.length).map(h => `
+    <div class="box">
+      <div style="font-weight:700; color:#052e16; font-size:10pt;">${h.bild_emoji || ''} ${h.name}${h.count > 1 ? ' · ' + h.count + '×' : ''}</div>
+      ${h.standort_hinweis ? `<div style="font-size:8.5pt; color:#555; margin-top:2px;">Standort: ${h.standort_hinweis}${h.maschine ? ' · Gerät: ' + h.maschine : ''}</div>` : ''}
+      <ol>${h.einbau_schritte.map(s => `<li>${s}</li>`).join('')}</ol>
+    </div>`).join('')
+  const seasons = {}
+  habitats.forEach(h => { const s = h.jahreszeit || 'ganzjährig'; seasons[s] = (seasons[s] || 0) + (h.aufwand_h || 0) * (h.count || 1) })
+  const seasonRows = Object.entries(seasons).map(([s, hrs]) => `<tr><td>${s}</td><td class="center">${Math.round(hrs * 10) / 10} h</td></tr>`).join('')
+  const pflegeRows = habitats.filter(h => h.pflege_hinweis).map(h => `<tr><td>${h.name}</td><td class="center">${h.pflege_intervall_monate ? 'alle ' + h.pflege_intervall_monate + ' Mon.' : '—'}</td><td>${h.pflege_hinweis}</td></tr>`).join('')
+  const habitatSections = habitats.length ? `
+<div class="section-h">Habitatelemente</div>
+<div class="meta">
+  <div class="meta-item"><strong>${habTotal}</strong><span>Elemente</span></div>
+  <div class="meta-item"><strong>${habitats.length}</strong><span>Typen</span></div>
+  <div class="meta-item"><strong>${Math.round(habAufwand * 10) / 10} h</strong><span>Bauaufwand ca.</span></div>
+</div>
+<table>
+  <thead><tr><th>Nr.</th><th>Element</th><th>Kategorie</th><th class="center">Anzahl</th><th class="center">Fläche</th><th class="center">Aufwand</th><th>Jahreszeit</th></tr></thead>
+  <tbody>${habRows}</tbody>
+</table>
+${mat.length ? `<div class="section-h">Materialbestellliste (aggregiert)</div>
+<table>
+  <thead><tr><th>Material</th><th class="center">Menge</th><th class="center">Einheit</th></tr></thead>
+  <tbody>${matRows}</tbody>
+</table>
+<div class="order-note"><strong>📦 Materialbestellung</strong>Obige Mengen beim Naturstoff-/Baustoffhandel anfragen. Eigenmaterial (Schnittgut, Reisig, Aushub) vor Ort nutzen.</div>` : ''}
+${einbauBoxes ? '<div class="section-h">Einbauanleitung (fachgerecht)</div>' + einbauBoxes : ''}
+<div class="section-h">Personal- &amp; Zeitplanung</div>
+<table>
+  <thead><tr><th>Jahreszeit / Baufenster</th><th class="center">Bauaufwand</th></tr></thead>
+  <tbody>${seasonRows}<tr><td style="font-weight:700;">Summe Habitat-Einbau</td><td class="center" style="font-weight:700;">${Math.round(habAufwand * 10) / 10} h</td></tr></tbody>
+</table>
+<div style="font-size:8.5pt; color:#555; margin-top:4px;">Zzgl. Pflanzung (${total} Pflanzen) sowie An-/Abfahrt. Fachkräfte entsprechend Bauaufwand einplanen.</div>
+${pflegeRows ? `<div class="section-h">Pflegeplan</div>
+<table>
+  <thead><tr><th>Element</th><th class="center">Intervall</th><th>Pflegemaßnahme</th></tr></thead>
+  <tbody>${pflegeRows}</tbody>
+</table>` : ''}
+` : ''
 
   const html = `<!DOCTYPE html>
 <html lang="de">
@@ -1462,6 +1961,9 @@ function exportPdf(plan, { label, beetArea, beetW, beetH } = {}) {
   .footer { margin-top: 28px; padding-top: 10px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; font-size: 8pt; color: #999; }
   .order-note { margin-top: 18px; padding: 12px 16px; border: 1.5px dashed #bbf7d0; border-radius: 6px; font-size: 9pt; color: #047a3c; background: #f0fdf4; }
   .order-note strong { display: block; margin-bottom: 4px; font-size: 10pt; color: #052e16; }
+  .section-h { font-size: 13pt; font-weight: 800; color: #052e16; margin: 26px 0 10px; border-bottom: 2px solid #bbf7d0; padding-bottom: 4px; }
+  .box { margin-top: 10px; padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 6px; }
+  .box ol, .box ul { margin: 4px 0 0 18px; font-size: 9pt; color: #333; line-height: 1.6; }
   @media print {
     body { padding: 15mm 15mm; }
     @page { margin: 15mm; }
@@ -1521,6 +2023,8 @@ function exportPdf(plan, { label, beetArea, beetW, beetH } = {}) {
   <div style="flex:1;">Datum, Unterschrift Baumschule:<br><br>_________________________________</div>
 </div>
 
+${habitatSections}
+
 <div class="footer">
   <span>LUMA GmbH · Berlin · luma.earth</span>
   <span>Erstellt mit LUMA BIOME · ${date}</span>
@@ -1533,4 +2037,197 @@ function exportPdf(plan, { label, beetArea, beetW, beetH } = {}) {
   const w = window.open('', '_blank')
   w.document.write(html)
   w.document.close()
+}
+
+/* ─── HABITAT-KOMPONENTEN ────────────────────────────────────────────────── */
+const ZIEL_EMOJI = { wildbienen: '🐝', bienen: '🐝', voegel: '🐦', reptilien: '🦎', amphibien: '🐸', kaefer: '🪲', igel: '🦔', fledermaus: '🦇' }
+function habitatZielEmojis(h) {
+  const seen = new Set(), out = []
+  for (const key of Object.keys(ZIEL_EMOJI)) {
+    const e = ZIEL_EMOJI[key]
+    if (h[key] && !seen.has(e)) { seen.add(e); out.push({ e, t: HABITAT_ZIEL_LABELS[key] }) }
+  }
+  return out
+}
+const roundBtn = (L, primary) => ({
+  display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 7,
+  border: primary ? 'none' : `1px solid ${BORDER}`, background: primary ? A : (L ? '#fff' : SURFACE),
+  color: primary ? 'var(--luma-on-a)' : MUTED, cursor: 'pointer', flexShrink: 0,
+})
+
+function CatChip({ label, active, onClick, L }) {
+  return (
+    <button onClick={onClick} style={{
+      padding: '5px 12px', borderRadius: 6, fontSize: 11, fontWeight: active ? 700 : (L ? 500 : 400),
+      border: active ? `1.5px solid ${A}` : `1px solid ${BORDER}`, background: active ? A14 : 'transparent',
+      color: active ? A : MUTED, cursor: 'pointer',
+    }}>{label}</button>
+  )
+}
+
+function SheetH({ label }) {
+  return <div style={{ fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{label}</div>
+}
+function InfoLine({ label, value }) {
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: MUTED }}>{label}: </span>
+      <span style={{ fontSize: 13, color: FG }}>{value}</span>
+    </div>
+  )
+}
+
+function HabitatCatalog({ habCat, setHabCat, habSearch, setHabSearch, habitatPlan, onTap, onAdd, onRemove, isMobile, L, shadow, cardBg }) {
+  const list = filterHabitats({ kategorie: habCat, searchTerm: habSearch })
+  const cats = Object.keys(HABITAT_KATEGORIE_LABELS)
+  return (
+    <>
+      <div style={{ padding: isMobile ? '10px 12px 0' : '12px 24px 0', flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+          <CatChip label="Alle" active={!habCat} onClick={() => setHabCat(null)} L={L} />
+          {cats.map(c => (
+            <CatChip key={c} label={`${HABITAT_KATEGORIE_EMOJI[c]} ${HABITAT_KATEGORIE_LABELS[c]}`} active={habCat === c} onClick={() => setHabCat(habCat === c ? null : c)} L={L} />
+          ))}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: L ? 'rgba(0,0,0,0.05)' : BG, borderRadius: 8, padding: '8px 12px', border: `1px solid ${BORDER}`, marginBottom: 12 }}>
+          <Search size={13} color={MUTED} />
+          <input value={habSearch} onChange={e => setHabSearch(e.target.value)} placeholder="Habitatelement suchen..."
+            style={{ background: 'none', border: 'none', outline: 'none', color: FG, fontSize: 13, width: '100%' }} />
+          {habSearch && <button onClick={() => setHabSearch('')} style={{ background: 'none', border: 'none', color: MUTED, cursor: 'pointer', padding: 0 }}><X size={12} /></button>}
+        </div>
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '0 12px 24px' : '0 24px 24px' }}>
+        {list.length === 0 ? (
+          <EmptyState msg="Kein Habitatelement gefunden 🪵" sub="Andere Kategorie oder Suche probieren" />
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(290px, 1fr))', gap: 10 }}>
+            {list.map(h => (
+              <HabitatCard key={h.id} habitat={h} inPlan={habitatPlan.find(x => x.id === h.id)}
+                onTap={() => onTap(h)} onAdd={() => onAdd(h)} onRemove={() => onRemove(h)} L={L} shadow={shadow} cardBg={cardBg} />
+            ))}
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
+function HabitatCard({ habitat, inPlan, onTap, onAdd, onRemove, L, shadow, cardBg }) {
+  const ziele = habitatZielEmojis(habitat)
+  return (
+    <div onClick={onTap} style={{ background: cardBg, borderRadius: 12, padding: 14, cursor: 'pointer', boxShadow: shadow, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+        <div style={{ fontSize: 26, lineHeight: 1 }}>{habitat.bild_emoji}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: FG }}>{habitat.name}</div>
+          <div style={{ fontSize: 11, color: MUTED }}>
+            {HABITAT_KATEGORIE_LABELS[habitat.kategorie]}{habitat.flaeche_m2 ? ` · ${habitat.flaeche_m2} m²` : ''} · ⏱ {habitat.aufwand_h} h
+          </div>
+        </div>
+      </div>
+      <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{habitat.beschreibung}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 'auto' }}>
+        <div style={{ display: 'flex', gap: 4, flex: 1, flexWrap: 'wrap' }}>
+          {ziele.map(z => <span key={z.t} title={z.t} style={{ fontSize: 14 }}>{z.e}</span>)}
+        </div>
+        {inPlan ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} onClick={e => e.stopPropagation()}>
+            <button onClick={onRemove} style={roundBtn(L)}><Minus size={14} /></button>
+            <span style={{ fontSize: 13, fontWeight: 700, color: FG, minWidth: 16, textAlign: 'center' }}>{inPlan.count}</span>
+            <button onClick={onAdd} style={roundBtn(L, true)}><Plus size={14} /></button>
+          </div>
+        ) : (
+          <button onClick={e => { e.stopPropagation(); onAdd() }} style={{ display: 'flex', alignItems: 'center', gap: 5, background: A14, border: `1px solid ${A20}`, color: A, borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
+            <Plus size={13} /> Plan
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function HabitatPlanRow({ habitat, onAdd, onRemove, L, shadow, cardBg }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: cardBg, borderRadius: 10, padding: '8px 12px', boxShadow: shadow }}>
+      <div style={{ fontSize: 20 }}>{habitat.bild_emoji}</div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: FG }}>{habitat.name}</div>
+        <div style={{ fontSize: 11, color: MUTED }}>
+          {HABITAT_KATEGORIE_LABELS[habitat.kategorie]} · ⏱ {(habitat.aufwand_h || 0) * habitat.count} h{habitat.jahreszeit ? ` · ${habitat.jahreszeit}` : ''}
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <button onClick={onRemove} style={roundBtn(L)}><Minus size={14} /></button>
+        <span style={{ fontSize: 14, fontWeight: 700, color: FG, minWidth: 18, textAlign: 'center' }}>{habitat.count}</span>
+        <button onClick={onAdd} style={roundBtn(L, true)}><Plus size={14} /></button>
+      </div>
+    </div>
+  )
+}
+
+function HabitatSheet({ habitat, onClose, onAdd, L }) {
+  const ziele = habitatZielEmojis(habitat)
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 300 }} onClick={onClose}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)' }} />
+      <div onClick={e => e.stopPropagation()} style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0, background: SURFACE, borderRadius: '20px 20px 0 0',
+        maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 -8px 40px rgba(0,0,0,0.35)',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 4px' }}>
+          <div style={{ width: 36, height: 4, borderRadius: 2, background: BORDER }} />
+        </div>
+        <div style={{ overflowY: 'auto', padding: '0 20px 40px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '8px 0 12px' }}>
+            <div style={{ fontSize: 34, lineHeight: 1 }}>{habitat.bild_emoji}</div>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: FG }}>{habitat.name}</div>
+              <div style={{ fontSize: 12, color: MUTED }}>{HABITAT_KATEGORIE_LABELS[habitat.kategorie]}</div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 12 }}>
+            {habitat.flaeche_m2 && <MBadge emoji="📐" label={`${habitat.flaeche_m2} m²`} L={L} />}
+            {habitat.dimension && <MBadge emoji="📏" label={habitat.dimension} L={L} />}
+            <MBadge emoji="⏱️" label={`${habitat.aufwand_h} h`} L={L} />
+            {habitat.jahreszeit && <MBadge emoji="📅" label={habitat.jahreszeit} L={L} />}
+            {habitat.maschine && <MBadge emoji="🚜" label={habitat.maschine} L={L} />}
+          </div>
+          {ziele.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderTop: `1px solid ${BORDER}`, borderBottom: `1px solid ${BORDER}`, marginBottom: 12, flexWrap: 'wrap' }}>
+              {ziele.map(z => (
+                <span key={z.t} style={{ fontSize: 12, color: FG, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ fontSize: 16 }}>{z.e}</span>{z.t}
+                </span>
+              ))}
+            </div>
+          )}
+          <p style={{ fontSize: 14, color: FG, lineHeight: 1.7, marginBottom: 12 }}>{habitat.beschreibung}</p>
+          {habitat.standort_hinweis && <InfoLine label="Standort" value={habitat.standort_hinweis} />}
+          {habitat.material?.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <SheetH label="🧱 Material" />
+              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: FG, lineHeight: 1.7 }}>
+                {habitat.material.map((m, i) => <li key={i}>{m.material}: {m.menge} {m.einheit}</li>)}
+              </ul>
+            </div>
+          )}
+          {habitat.einbau_schritte?.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <SheetH label="🔧 Einbau (fachgerecht)" />
+              <ol style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: FG, lineHeight: 1.7 }}>
+                {habitat.einbau_schritte.map((s, i) => <li key={i}>{s}</li>)}
+              </ol>
+            </div>
+          )}
+          {habitat.pflege_hinweis && (
+            <InfoLine label="Pflege" value={`${habitat.pflege_hinweis}${habitat.pflege_intervall_monate ? ` (alle ${habitat.pflege_intervall_monate} Monate)` : ''}`} />
+          )}
+          <button onClick={() => onAdd(habitat)} className="lu-btn-primary"
+            style={{ width: '100%', padding: '14px', borderRadius: 12, background: A, border: 'none', color: 'var(--luma-on-a)', fontSize: 15, fontWeight: 700, cursor: 'pointer', marginTop: 8 }}>
+            + Zum Plan hinzufügen
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
