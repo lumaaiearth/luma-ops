@@ -108,12 +108,13 @@ export function AuthProvider({ children }) {
   const isAdmin      = profile?.rolle === 'admin'
   const isMitarbeiter = profile?.rolle === 'mitarbeiter' || isAdmin
   const isKunde      = profile?.rolle === 'kunde_viewer'
+  const isGast       = profile?.rolle === 'gast'
 
   // Display name: prefer profile name, fallback to email
   const displayName = profile?.name || user?.email?.split('@')[0] || '?'
 
   return (
-    <AuthContext.Provider value={{ user, profile, allProfiles, loading, login, loginWithGoogle, resetPassword, logout, isAdmin, isMitarbeiter, isKunde, displayName, updateProfile, changePassword, changeEmail, profileForTeamId }}>
+    <AuthContext.Provider value={{ user, profile, allProfiles, loading, login, loginWithGoogle, resetPassword, logout, isAdmin, isMitarbeiter, isKunde, isGast, displayName, updateProfile, changePassword, changeEmail, profileForTeamId }}>
       {children}
     </AuthContext.Provider>
   )

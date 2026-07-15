@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { MapContainer, TileLayer, Marker, GeoJSON, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { ArrowLeft, MapPin, Calendar, Clock, Camera, Radio, FileText, Edit3, Save, X, ExternalLink, ListTodo, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, MapPin, Calendar, Clock, Camera, Radio, FileText, Edit3, Save, X, ExternalLink, ListTodo, Plus, Trash2, Globe } from 'lucide-react'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { sb } from '../lib/supabase.js'
@@ -31,6 +31,22 @@ function MapFit({ lat, lng }) {
   return null
 }
 
+// Ein-/Aus-Schalter für die BIOME-Freigabe
+function PubToggle({ on, onChange, label, hint }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 13, color: FG }}>{label}</div>
+        {hint && <div style={{ fontSize: 11, color: MUTED, marginTop: 1 }}>{hint}</div>}
+      </div>
+      <button onClick={() => onChange(!on)} role="switch" aria-checked={on} aria-label={label}
+        style={{ width: 40, height: 22, borderRadius: 999, border: 'none', cursor: 'pointer', position: 'relative', background: on ? A : BORDER, transition: 'background 0.15s', flexShrink: 0 }}>
+        <span style={{ position: 'absolute', top: 2, left: on ? 20 : 2, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 0.15s', boxShadow: '0 1px 2px rgba(0,0,0,0.3)' }} />
+      </button>
+    </div>
+  )
+}
+
 function StatCard({ icon: Icon, label, value, color }) {
   return (
     <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -54,6 +70,8 @@ export default function ProjectPage() {
   const [photos, setPhotos] = useState([])
   const [editingNotes, setEditingNotes] = useState(false)
   const [notesVal, setNotesVal] = useState('')
+  const [editingPubDesc, setEditingPubDesc] = useState(false)
+  const [pubDescVal, setPubDescVal] = useState('')
   const [taskModal, setTaskModal] = useState(null)
   const today = isoToday()
 
@@ -62,6 +80,7 @@ export default function ProjectPage() {
   useEffect(() => {
     if (!project) return
     setNotesVal(project.notes || '')
+    setPubDescVal(project.public_description || '')
     // Load photos for all jobs in this project
     const projectJobIds = jobs.filter(j => j.project_id === id).map(j => j.id)
     if (projectJobIds.length === 0) return
@@ -93,6 +112,11 @@ export default function ProjectPage() {
   async function saveNotes() {
     await updateProject(id, { notes: notesVal })
     setEditingNotes(false)
+  }
+
+  async function savePubDesc() {
+    await updateProject(id, { public_description: pubDescVal })
+    setEditingPubDesc(false)
   }
 
   function createTasksFromPlan() {
@@ -288,6 +312,51 @@ export default function ProjectPage() {
                   </div>
                 )}
               </div>
+
+              {/* Öffentlichkeit · BIOME (nur Admin) — steuert, was Gäste sehen */}
+              {isAdmin && (
+                <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 16 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Öffentlichkeit · BIOME</div>
+                    <Globe size={13} color={project.is_public ? A : MUTED} />
+                  </div>
+                  <PubToggle on={!!project.is_public} onChange={v => updateProject(id, { is_public: v })}
+                    label="Projekt öffentlich zeigen" hint="Erscheint für Gäste in der BIOME-Vorschau" />
+                  {project.is_public && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 14, paddingTop: 14, borderTop: `1px solid ${BORDER}` }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                          <div style={{ fontSize: 12, color: MUTED }}>Öffentliche Beschreibung</div>
+                          {!editingPubDesc && (
+                            <button onClick={() => setEditingPubDesc(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 2 }}><Edit3 size={12} /></button>
+                          )}
+                        </div>
+                        {editingPubDesc ? (
+                          <div>
+                            <textarea value={pubDescVal} onChange={e => setPubDescVal(e.target.value)}
+                              placeholder="Kurzer, öffentlicher Text (keine internen/sensiblen Infos)…"
+                              style={{ width: '100%', background: BG, border: `1px solid ${BORDER}`, borderRadius: 6, padding: '8px 10px', color: FG, fontSize: 13, resize: 'vertical', minHeight: 70, fontFamily: "'Space Grotesk', sans-serif", outline: 'none' }} />
+                            <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', marginTop: 6 }}>
+                              <button onClick={() => { setEditingPubDesc(false); setPubDescVal(project.public_description || '') }}
+                                style={{ padding: '5px 12px', borderRadius: 5, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12 }}><X size={12} /></button>
+                              <button onClick={savePubDesc}
+                                style={{ padding: '5px 12px', borderRadius: 5, border: 'none', background: A, color: 'var(--luma-on-a)', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}><Save size={12} /> Speichern</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: 13, color: project.public_description ? FG : MUTED, lineHeight: 1.5 }}>
+                            {project.public_description || 'Keine öffentliche Beschreibung.'}
+                          </div>
+                        )}
+                      </div>
+                      <PubToggle on={!!project.pub_photos} onChange={v => updateProject(id, { pub_photos: v })}
+                        label="Fotos öffentlich" hint="Projektfotos für Gäste sichtbar" />
+                      <PubToggle on={!!project.pub_sensors} onChange={v => updateProject(id, { pub_sensors: v })}
+                        label="Sensordaten öffentlich" hint="Live-Sensorwerte für Gäste sichtbar" />
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}

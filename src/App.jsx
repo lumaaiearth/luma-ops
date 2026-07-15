@@ -35,12 +35,15 @@ const ArticleViewPage  = lazy(() => import('./pages/ArticleViewPage.jsx'))
 const KundenPortalPage = lazy(() => import('./pages/KundenPortalPage.jsx'))
 const ProfilePage      = lazy(() => import('./pages/ProfilePage.jsx'))
 const SensorPage       = lazy(() => import('./pages/SensorPage.jsx'))
+const ExplorePage      = lazy(() => import('./pages/ExplorePage.jsx'))
 
-function RequireAuth({ children, kundeOk = false }) {
-  const { user, loading, profile, isKunde } = useAuth()
+function RequireAuth({ children, kundeOk = false, gastOk = false }) {
+  const { user, loading, profile, isKunde, isGast } = useAuth()
   if (loading) return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#08AA56', fontFamily: 'monospace' }}>...</div>
   if (!user) return <Navigate to="/login" replace />
-  // Neu angelegtes Konto (z.B. via Google) ohne zugewiesene Org → wartet auf
+  // Gäste sehen ausschließlich die öffentliche BIOME-Ansicht (/explore).
+  if (isGast) return gastOk ? children : <Navigate to="/explore" replace />
+  // Neu angelegtes Nicht-Gast-Konto ohne zugewiesene Org → wartet auf
   // Freischaltung durch eine:n Admin. Bestehende Nutzer haben immer eine org_id.
   if (profile && !profile.org_id) return <PendingActivation />
   // Kunden only see /portal — redirect everything else
@@ -127,6 +130,7 @@ function AppRoutes() {
       <Route path="/analyse/:id" element={<Protected><EpsAnalysePage /></Protected>} />
       <Route path="/analyse/artikel/:id" element={<Protected><ArticleViewPage /></Protected>} />
       <Route path="/portal" element={<RequireAuth kundeOk><ErrorBoundary><Suspense fallback={<PageLoader />}><KundenPortalPage /></Suspense></ErrorBoundary></RequireAuth>} />
+      <Route path="/explore" element={<RequireAuth gastOk><ErrorBoundary><Suspense fallback={<PageLoader />}><ExplorePage /></Suspense></ErrorBoundary></RequireAuth>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   )
