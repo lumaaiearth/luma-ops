@@ -65,6 +65,15 @@ const PH_OPTS = [
 const TYPE_OPTS = Object.entries(TYPE_LABELS || {}).map(([v, l]) => ({ value: v, label: l }))
 const WUCHSFORM_OPTS = Object.entries(WUCHSFORM_LABELS || {}).map(([v, l]) => ({ value: v, label: l }))
 
+// Art der Pflanze / Wuchsform (prädikatbasiert, feiner als der reine `type`)
+const ART_OPTS = [
+  { key: 'staude',       label: '🌼 Krautpflanzen/Stauden', test: p => ['staude', 'einjährig', 'zweijährig'].includes(p.type) },
+  { key: 'gras',         label: '🌾 Gräser',                test: p => p.type === 'gras' },
+  { key: 'strauch',      label: '🪴 Sträucher',             test: p => p.type === 'strauch' },
+  { key: 'baum_niedrig', label: '🌳 Gehölze niedrig',       test: p => p.type === 'baum' && (p.hoehe?.[1] ?? 0) < 800 },
+  { key: 'baum_hoch',    label: '🌲 Gehölze hoch',          test: p => p.type === 'baum' && (p.hoehe?.[1] ?? 0) >= 800 },
+]
+
 /* ─── MAIN ──────────────────────────────────────────────────────────────── */
 export default function PlanningPage() {
   const { themeId } = useTheme()
@@ -87,7 +96,12 @@ export default function PlanningPage() {
   const [onlyRaupen, setOnlyRaupen] = useState(false)
   const [onlyTagfalter, setOnlyTagfalter] = useState(false)
   const [onlyBienen, setOnlyBienen] = useState(false)
+  const [onlyNachtfalter, setOnlyNachtfalter] = useState(false)
+  const [onlyKaefer, setOnlyKaefer] = useState(false)
+  const [onlyVoegel, setOnlyVoegel] = useState(false)
   const [onlyZier, setOnlyZier] = useState(false)
+  const [artKeys, setArtKeys] = useState([])
+  const [openSec, setOpenSec] = useState({ standort: true, art: false, bio: false })
   const [search, setSearch] = useState('')
   const [filterPanelOpen, setFilterPanelOpen] = useState(() => window.innerWidth >= 768)
   const [activeFilters, setActiveFilters] = useState('standort') // 'standort'|'biologie'|'boden'
@@ -139,22 +153,21 @@ export default function PlanningPage() {
 
   const filtered = useMemo(() => {
     const available = typeof filterPlants === 'function' ? filterPlants({
-      licht, wasser, boden,
-      types: types.length ? types : null,
-      wuchsform: wuchsformen.length ? wuchsformen[0] : null,
-      drainage,
-      ph,
-      searchTerm: search,
+      licht, wasser, boden, drainage, ph, searchTerm: search,
     }) : PLANTS
     return available.filter(p => {
+      if (artKeys.length && !ART_OPTS.some(a => artKeys.includes(a.key) && a.test(p))) return false
       if (onlyHeimisch && !p.heimisch) return false
       if (onlyRaupen && !p.raupenfutter) return false
-      if (onlyTagfalter && !p.tagfalter) return false
       if (onlyBienen && !p.bienen) return false
+      if (onlyTagfalter && !p.tagfalter) return false
+      if (onlyNachtfalter && !p.nachtfalter) return false
+      if (onlyKaefer && !p.kaefer) return false
+      if (onlyVoegel && !p.voegel) return false
       if (onlyZier && !p.zierpflanze) return false
       return true
     })
-  }, [licht, wasser, boden, types, wuchsformen, drainage, ph, search, onlyHeimisch, onlyRaupen, onlyTagfalter, onlyBienen, onlyZier])
+  }, [licht, wasser, boden, drainage, ph, search, artKeys, onlyHeimisch, onlyRaupen, onlyTagfalter, onlyBienen, onlyNachtfalter, onlyKaefer, onlyVoegel, onlyZier])
 
   function addToPlan(plant) {
     setPlan(prev => {
@@ -313,8 +326,9 @@ export default function PlanningPage() {
   const cardBg = L ? '#fff' : SURFACE
   const shadow = L ? '0 1px 4px rgba(0,0,0,0.08), 0 0 0 1.5px rgba(0,0,0,0.07)' : `0 0 0 1px ${BORDER}`
 
-  const activeFilterCount = [licht, wasser, boden, drainage, ph, ...types, ...wuchsformen,
-    onlyHeimisch && 'h', onlyRaupen && 'r', onlyTagfalter && 't', onlyBienen && 'b', onlyZier && 'z'
+  const activeFilterCount = [licht, wasser, boden, drainage, ph, ...artKeys,
+    onlyHeimisch && 'h', onlyRaupen && 'r', onlyTagfalter && 't', onlyBienen && 'b',
+    onlyNachtfalter && 'n', onlyKaefer && 'k', onlyVoegel && 'v', onlyZier && 'z'
   ].filter(Boolean).length
 
   return (
@@ -390,42 +404,14 @@ export default function PlanningPage() {
 
               {filterPanelOpen && (
                 <div style={{ borderTop: `1px solid ${BORDER}`, padding: '14px 16px', maxHeight: isMobile ? '45vh' : undefined, overflowY: isMobile ? 'auto' : undefined }}>
-                  {/* Sub-tabs */}
-                  <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
-                    {[['standort', '📍 Standort'], ['biologie', '🐝 Biologie'], ['boden', '🌍 Boden & Art']].map(([k, l]) => (
-                      <button key={k} onClick={() => setActiveFilters(k)} style={{
-                        padding: '5px 12px', borderRadius: 6, fontSize: 11, fontWeight: activeFilters === k ? 700 : (L ? 500 : 400),
-                        border: activeFilters === k ? `1.5px solid ${A}` : `1px solid ${BORDER}`,
-                        background: activeFilters === k ? A14 : 'transparent', color: activeFilters === k ? A : MUTED, cursor: 'pointer',
-                      }}>{l}</button>
-                    ))}
-                  </div>
-
-                  {/* STANDORT filters */}
-                  {activeFilters === 'standort' && !isMobile && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-                      <FilterGroup label="☀️ Licht" opts={LICHT_OPTS} selected={licht} onSelect={v => setLicht(licht === v ? null : v)} color="#d97706" L={L} isMobile={false} />
-                      <FilterGroup label="💧 Wasser" opts={WASSER_OPTS} selected={wasser} onSelect={v => setWasser(wasser === v ? null : v)} color="#0ea5e9" L={L} isMobile={false} />
-                      <FilterGroup label="🌍 Boden" opts={BODEN_OPTS} selected={boden} onSelect={v => setBoden(boden === v ? null : v)} color="#92400e" L={L} isMobile={false} />
+                  {/* Aufklapp-Sektionen */}
+                  <FilterSection label="📍 Standort & Boden" open={openSec.standort} onToggle={() => setOpenSec(s => ({ ...s, standort: !s.standort }))}>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap: 12 }}>
+                      <FilterGroup label="☀️ Licht" opts={LICHT_OPTS} selected={licht} onSelect={v => setLicht(licht === v ? null : v)} color="#d97706" L={L} isMobile={isMobile} />
+                      <FilterGroup label="💧 Wasser" opts={WASSER_OPTS} selected={wasser} onSelect={v => setWasser(wasser === v ? null : v)} color="#0ea5e9" L={L} isMobile={isMobile} />
+                      <FilterGroup label="🌍 Boden" opts={BODEN_OPTS} selected={boden} onSelect={v => setBoden(boden === v ? null : v)} color="#92400e" L={L} isMobile={isMobile} />
                     </div>
-                  )}
-                  {/* Mobile: one group at a time via own sub-tabs */}
-                  {activeFilters === 'standort' && isMobile && <MobileStandortFilter licht={licht} setLicht={setLicht} wasser={wasser} setWasser={setWasser} boden={boden} setBoden={setBoden} L={L} />}
-
-                  {/* BIOLOGIE filters */}
-                  {activeFilters === 'biologie' && (
-                    <div style={{ display: 'flex', gap: isMobile ? 10 : 8, flexWrap: 'wrap', flexDirection: isMobile ? 'column' : 'row' }}>
-                      <BioToggle label="🐝 Bienen" active={onlyBienen} onClick={() => setOnlyBienen(v => !v)} L={L} isMobile={isMobile} />
-                      <BioToggle label="🦋 Tagfalter" active={onlyTagfalter} onClick={() => setOnlyTagfalter(v => !v)} L={L} isMobile={isMobile} />
-                      <BioToggle label="🐛 Raupenfutter" active={onlyRaupen} onClick={() => setOnlyRaupen(v => !v)} L={L} isMobile={isMobile} />
-                      <BioToggle label="🏡 Heimisch" active={onlyHeimisch} onClick={() => setOnlyHeimisch(v => !v)} L={L} isMobile={isMobile} />
-                      <BioToggle label="🌸 Zierstauden" active={onlyZier} onClick={() => setOnlyZier(v => !v)} L={L} isMobile={isMobile} />
-                    </div>
-                  )}
-
-                  {/* BODEN & ART filters */}
-                  {activeFilters === 'boden' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 14 }}>
                       <div>
                         <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>🧪 Drainage</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -441,15 +427,48 @@ export default function PlanningPage() {
                         </div>
                       </div>
                       <div>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>🌿 Typ</div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>🧫 pH-Wert</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          {TYPE_OPTS.map(o => (
-                            <TypeToggle key={o.value} label={o.label} active={types.includes(o.value)} onClick={() => setTypes(prev => prev.includes(o.value) ? prev.filter(t => t !== o.value) : [...prev, o.value])} L={L} />
+                          {PH_OPTS.map(o => (
+                            <button key={String(o.value)} onClick={() => setPh(ph === o.value ? null : o.value)} style={{
+                              padding: '6px 10px', borderRadius: 6, fontSize: 12, textAlign: 'left', cursor: 'pointer',
+                              fontWeight: ph === o.value ? 700 : (L ? 500 : 400),
+                              border: ph === o.value ? `1.5px solid #7c3aed` : `1px solid ${BORDER}`,
+                              background: ph === o.value ? '#7c3aed14' : 'transparent',
+                              color: ph === o.value ? '#7c3aed' : MUTED,
+                            }}>{o.label}</button>
                           ))}
                         </div>
                       </div>
                     </div>
-                  )}
+                  </FilterSection>
+
+                  <FilterSection label="🌿 Art der Pflanze" open={openSec.art} onToggle={() => setOpenSec(s => ({ ...s, art: !s.art }))}>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {ART_OPTS.map(a => {
+                        const on = artKeys.includes(a.key)
+                        return (
+                          <button key={a.key} onClick={() => setArtKeys(k => on ? k.filter(x => x !== a.key) : [...k, a.key])} style={{
+                            padding: '7px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer', fontWeight: on ? 700 : (L ? 500 : 400),
+                            border: on ? `1.5px solid ${A}` : `1px solid ${BORDER}`, background: on ? A14 : 'transparent', color: on ? A : FG,
+                          }}>{a.label}</button>
+                        )
+                      })}
+                    </div>
+                  </FilterSection>
+
+                  <FilterSection label="🐝 Biologische Wertigkeit — welche Arten erreiche ich?" open={openSec.bio} onToggle={() => setOpenSec(s => ({ ...s, bio: !s.bio }))}>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <BioToggle label="🐝 Bienen/Hummeln" active={onlyBienen} onClick={() => setOnlyBienen(v => !v)} L={L} isMobile={isMobile} />
+                      <BioToggle label="🦋 Tagfalter" active={onlyTagfalter} onClick={() => setOnlyTagfalter(v => !v)} L={L} isMobile={isMobile} />
+                      <BioToggle label="🌙 Nachtfalter" active={onlyNachtfalter} onClick={() => setOnlyNachtfalter(v => !v)} L={L} isMobile={isMobile} />
+                      <BioToggle label="🪲 Käfer" active={onlyKaefer} onClick={() => setOnlyKaefer(v => !v)} L={L} isMobile={isMobile} />
+                      <BioToggle label="🐦 Vögel" active={onlyVoegel} onClick={() => setOnlyVoegel(v => !v)} L={L} isMobile={isMobile} />
+                      <BioToggle label="🐛 Raupenfutter" active={onlyRaupen} onClick={() => setOnlyRaupen(v => !v)} L={L} isMobile={isMobile} />
+                      <BioToggle label="🏡 Heimisch" active={onlyHeimisch} onClick={() => setOnlyHeimisch(v => !v)} L={L} isMobile={isMobile} />
+                      <BioToggle label="🌸 Zierstauden" active={onlyZier} onClick={() => setOnlyZier(v => !v)} L={L} isMobile={isMobile} />
+                    </div>
+                  </FilterSection>
 
                   {/* Search */}
                   <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, background: L ? 'rgba(0,0,0,0.05)' : BG, borderRadius: 8, padding: '8px 12px', border: `1px solid ${BORDER}` }}>
@@ -1312,35 +1331,54 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
 
 /* ─── PLANT CARD ─────────────────────────────────────────────────────────── */
 /* ─── PLANT IMAGE + GALLERY ─────────────────────────────────────────────── */
-async function fetchMoreWikiImages(latin, primaryUrl) {
-  const t = encodeURIComponent(latin.replace(/ /g, '_'))
-  try {
-    const r = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${t}&prop=images&format=json&origin=*&imlimit=20`)
-    if (!r.ok) return [primaryUrl]
-    const d = await r.json()
-    const page = Object.values(d?.query?.pages || {})[0]
-    if (!page?.images) return [primaryUrl]
-
-    const candidates = page.images
-      .map(i => i.title)
-      .filter(t => /\.(jpg|jpeg|png)$/i.test(t))
-      .filter(t => !/Flag_|Icon_|Logo_|Map_|Stub_|Pictogram|Symbol|Arrow|Button|Disambig/i.test(t))
-      .slice(0, 10)
-
-    if (!candidates.length) return [primaryUrl]
-
-    const r2 = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${candidates.map(c => encodeURIComponent(c)).join('|')}&prop=imageinfo&iiprop=url&iiurlwidth=800&format=json&origin=*`)
-    if (!r2.ok) return [primaryUrl]
-    const d2 = await r2.json()
-    const extraUrls = Object.values(d2?.query?.pages || {})
-      .map(p => p?.imageinfo?.[0]?.thumburl || p?.imageinfo?.[0]?.url)
-      .filter(Boolean)
-      .filter(u => u !== primaryUrl && u.includes('wikimedia'))
-
-    return [primaryUrl, ...extraUrls].slice(0, 5)
-  } catch {
-    return [primaryUrl]
-  }
+// Bilder zu einer Art per botanischem Namen holen (funktioniert auch ohne
+// hinterlegtes wiki_img). Lead-Bild via Wikipedia-REST (de → en), weitere Bilder
+// via Action-API. Ergebnis pro Art gecacht, damit die Grid-Ansicht nicht flutet.
+const _imgCache = new Map() // latin -> Promise<string[]>
+async function fetchPlantImages(latin, seed) {
+  const key = latin || seed || ''
+  if (_imgCache.has(key)) return _imgCache.get(key)
+  const title = encodeURIComponent((latin || '').replace(/ /g, '_'))
+  const promise = (async () => {
+    const urls = []
+    if (seed) urls.push(seed)
+    // Lead-Bild (Habitus) über die REST-Summary — deutsche Wikipedia bevorzugt
+    for (const lang of ['de', 'en']) {
+      try {
+        const r = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${title}`)
+        if (!r.ok) continue
+        const d = await r.json()
+        const u = d?.originalimage?.source || d?.thumbnail?.source
+        if (u && !urls.includes(u)) { urls.push(u); break }
+      } catch { /* weiter */ }
+    }
+    // Weitere Bilder aus der Bildliste des Artikels
+    try {
+      const r = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${title}&prop=images&format=json&origin=*&imlimit=20`)
+      if (r.ok) {
+        const d = await r.json()
+        const page = Object.values(d?.query?.pages || {})[0]
+        const candidates = (page?.images || []).map(i => i.title)
+          .filter(t => /\.(jpg|jpeg|png)$/i.test(t))
+          .filter(t => !/Flag_|Icon_|Logo_|Map_|Stub_|Pictogram|Symbol|Arrow|Button|Disambig|Commons-logo|Question_|Edit-|Ambox/i.test(t))
+          .slice(0, 10)
+        if (candidates.length) {
+          const r2 = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${candidates.map(c => encodeURIComponent(c)).join('|')}&prop=imageinfo&iiprop=url&iiurlwidth=800&format=json&origin=*`)
+          if (r2.ok) {
+            const d2 = await r2.json()
+            Object.values(d2?.query?.pages || {})
+              .map(p => p?.imageinfo?.[0]?.thumburl || p?.imageinfo?.[0]?.url)
+              .filter(Boolean)
+              .filter(u => u.includes('wikimedia') && !urls.includes(u))
+              .forEach(u => urls.push(u))
+          }
+        }
+      }
+    } catch { /* egal */ }
+    return [...new Set(urls)].slice(0, 6)
+  })()
+  _imgCache.set(key, promise)
+  return promise
 }
 
 function PlantImage({ plant }) {
@@ -1363,8 +1401,10 @@ function PlantGallery({ plant }) {
   const touchStartX = useRef(null)
 
   useEffect(() => {
-    if (!plant.wiki_img) return
-    fetchMoreWikiImages(plant.latin, plant.wiki_img).then(imgs => setImages(imgs))
+    let alive = true
+    setIdx(0)
+    fetchPlantImages(plant.latin, plant.wiki_img).then(imgs => { if (alive && imgs.length) setImages(imgs) })
+    return () => { alive = false }
   }, [plant.latin, plant.wiki_img])
 
   const prev = () => setIdx(i => (i - 1 + images.length) % images.length)
@@ -1395,10 +1435,10 @@ function PlantGallery({ plant }) {
 
   return (
     <div style={{ marginBottom: 16 }}>
-      <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden' }}
+      <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', background: 'rgba(127,127,127,0.10)' }}
         onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         <img src={images[idx]} alt={plant.latin}
-          style={{ width: '100%', height: 220, objectFit: 'cover', display: 'block' }}
+          style={{ width: '100%', height: 260, objectFit: 'contain', display: 'block' }}
           onError={handleImgError} />
         {images.length > 1 && (
           <>
@@ -1425,16 +1465,31 @@ function PlantGallery({ plant }) {
 }
 
 function CardThumb({ plant: p, compact }) {
+  const [src, setSrc] = useState(p.wiki_img || null)
   const [error, setError] = useState(false)
+  const ref = useRef(null)
   const h = compact ? 52 : 110
   const w = compact ? 52 : '100%'
-  if (!p.wiki_img || error) return (
-    <div style={{ width: w, height: h, flexShrink: 0, background: p.bluete_farbe ? p.bluete_farbe + '22' : BORDER, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+  useEffect(() => {
+    setError(false)
+    setSrc(p.wiki_img || null)
+    if (p.wiki_img) return
+    const load = () => fetchPlantImages(p.latin).then(a => { if (a[0]) setSrc(a[0]) })
+    const el = ref.current
+    if (!el || typeof IntersectionObserver === 'undefined') { load(); return }
+    const io = new IntersectionObserver(entries => {
+      if (entries.some(e => e.isIntersecting)) { io.disconnect(); load() }
+    }, { rootMargin: '250px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [p.latin])
+  if (!src || error) return (
+    <div ref={ref} style={{ width: w, height: h, flexShrink: 0, background: p.bluete_farbe ? p.bluete_farbe + '22' : BORDER, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ width: compact ? 20 : 36, height: compact ? 20 : 36, borderRadius: '50%', background: p.bluete_farbe || A, opacity: 0.5 }} />
     </div>
   )
   return (
-    <img src={p.wiki_img} alt={p.latin}
+    <img ref={ref} src={src} alt={p.latin}
       style={{ width: w, height: h, flexShrink: 0, objectFit: 'cover', display: 'block' }}
       onError={() => setError(true)} />
   )
@@ -1632,6 +1687,18 @@ function MobileStandortFilter({ licht, setLicht, wasser, setWasser, boden, setBo
           )
         })}
       </div>
+    </div>
+  )
+}
+
+function FilterSection({ label, open, onToggle, children }) {
+  return (
+    <div style={{ borderBottom: `1px solid ${BORDER}` }}>
+      <button onClick={onToggle} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', cursor: 'pointer', padding: '11px 2px', color: FG }}>
+        <span style={{ fontSize: 12.5, fontWeight: 700 }}>{label}</span>
+        {open ? <ChevronUp size={15} color={MUTED} /> : <ChevronDown size={15} color={MUTED} />}
+      </button>
+      {open && <div style={{ padding: '2px 2px 14px' }}>{children}</div>}
     </div>
   )
 }
