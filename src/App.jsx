@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
+import { Clock } from 'lucide-react'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import { AuthProvider, useAuth } from './context/AuthContext.jsx'
 import { OpsProvider } from './context/OpsContext.jsx'
@@ -36,12 +37,47 @@ const ProfilePage      = lazy(() => import('./pages/ProfilePage.jsx'))
 const SensorPage       = lazy(() => import('./pages/SensorPage.jsx'))
 
 function RequireAuth({ children, kundeOk = false }) {
-  const { user, loading, isKunde } = useAuth()
+  const { user, loading, profile, isKunde } = useAuth()
   if (loading) return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#08AA56', fontFamily: 'monospace' }}>...</div>
   if (!user) return <Navigate to="/login" replace />
+  // Neu angelegtes Konto (z.B. via Google) ohne zugewiesene Org → wartet auf
+  // Freischaltung durch eine:n Admin. Bestehende Nutzer haben immer eine org_id.
+  if (profile && !profile.org_id) return <PendingActivation />
   // Kunden only see /portal — redirect everything else
   if (isKunde && !kundeOk) return <Navigate to="/portal" replace />
   return children
+}
+
+// Zwischenscreen für frisch angelegte Konten (OAuth), die noch keine Rolle/Org
+// haben. Verhindert, dass neue Google-Nutzer in einer leeren App landen.
+function PendingActivation() {
+  const { user, logout } = useAuth()
+  const SANS = "'Space Grotesk', sans-serif", MONO = "'Space Mono', monospace"
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'var(--luma-bg)' }}>
+      <div style={{ width: '100%', maxWidth: 420, textAlign: 'center' }}>
+        <div style={{ fontFamily: MONO, fontSize: 11, color: 'var(--luma-a)', letterSpacing: '0.24em', textTransform: 'uppercase', marginBottom: 26 }}>LUMA Operations</div>
+        <div style={{ width: 56, height: 56, borderRadius: '50%', margin: '0 auto 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'color-mix(in srgb, var(--luma-a) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--luma-a) 30%, transparent)' }}>
+          <Clock size={26} color="var(--luma-a)" />
+        </div>
+        <h1 style={{ fontFamily: SANS, fontSize: 22, fontWeight: 500, color: 'var(--luma-fg)', letterSpacing: '-0.02em', margin: '0 0 10px' }}>Konto wird freigeschaltet</h1>
+        <p style={{ fontFamily: SANS, fontSize: 14, color: 'var(--luma-muted)', lineHeight: 1.55, margin: 0 }}>
+          Dein Konto wurde angelegt und wartet auf die Freischaltung durch eine:n LUMA-Admin. Sobald dir eine Rolle zugewiesen wurde, geht es hier weiter.
+        </p>
+        {user?.email && <p style={{ fontFamily: MONO, fontSize: 12, color: 'var(--luma-muted)', margin: '16px 0 0' }}>{user.email}</p>}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 28 }}>
+          <button onClick={() => window.location.reload()}
+            style={{ padding: '10px 18px', borderRadius: 8, border: '1px solid var(--luma-border)', background: 'transparent', color: 'var(--luma-fg)', cursor: 'pointer', fontFamily: SANS, fontSize: 13 }}>
+            Status aktualisieren
+          </button>
+          <button onClick={logout}
+            style={{ padding: '10px 18px', borderRadius: 8, border: '1px solid transparent', background: 'var(--luma-a)', color: 'var(--luma-on-a)', cursor: 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: 600 }}>
+            Abmelden
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function PageLoader() {
