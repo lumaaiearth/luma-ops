@@ -1,13 +1,15 @@
 // ─── PREIS- & KALKULATIONSMODELL ────────────────────────────────────────────
 // Ziel: aus einem Pflanz- & Habitatplan ein kalkuliertes Angebot ableiten.
-// Logik (Vorgabe LUMA): gespeicherte Werte sind EINKAUFSPREISE (EK, netto).
+// Logik (Vorgabe LUMA): Basiswerte sind EINKAUFSPREISE (EK, netto).
 // Verkaufspreis (VK) = EK + Marge/Aufschlag. Arbeit = Stunden × Stundensatz.
 //
-// Datengrundlage Pflanzen-EK: 6 reale Angebote von Späth'sche Baumschulen Handel
-// GmbH (Berlin) an LUMA/MIYA/LAST, 2022–2025 (EK netto pro Stück, ohne MwSt).
-// Habitat-MATERIAL kommt in diesen Angeboten NICHT vor → dort stehen bewusst
-// als MARKTSCHÄTZUNG markierte Richtwerte, die durch echte Lieferantenpreise
-// (Baustoff-/Naturstoffhandel) ersetzt werden sollten.
+// WICHTIG — Datenschutz/Vertraulichkeit:
+// Diese Datei wird als Client-Bundle öffentlich ausgeliefert (luma-biome.de).
+// Deshalb enthält sie NUR generische Markt-Richtwerte, KEINE lieferanten-
+// spezifischen Einkaufspreise. Die echten, vertraulichen EK-Konditionen werden
+// zur Laufzeit aus einer RLS-geschützten Supabase-Tabelle geladen und nur für
+// eingeloggte interne Nutzer via setPflanzenEkRuntime()/setMaterialEkRuntime()
+// injiziert — sie landen nie im öffentlichen Bundle.
 
 // Standard-Kalkulationsparameter (später via app_settings überschreibbar)
 export const KALKULATION_DEFAULT = {
@@ -15,54 +17,14 @@ export const KALKULATION_DEFAULT = {
   marge_pflanzen_pct: 40,       // Aufschlag auf Pflanzen-EK
   stundensatz_eur: 60,          // Fachkraft-Stundensatz (VK)
   mwst_pct: 19,
-  transport_pauschale_eur: 60,  // Liefer-/Transportpauschale bei Anlieferung (aus Späth-Angebot)
+  transport_pauschale_eur: 60,  // Liefer-/Transportpauschale bei Anlieferung
 }
 
-// ── Pflanzen-EK ─────────────────────────────────────────────────────────────
-// Fallback-EK je plants.js-`type` (netto/Stück), abgeleitet aus den Angeboten.
+// Generische Fallback-EK je plants.js-`type` (netto/Stück) — grobe Markt-Richtwerte
+// für Container-Ware. KEINE lieferantenspezifischen Preise.
 // Hinweis: bei Gehölzen stark größenabhängig (Whip < Heister < mit Ballen/Solitär).
 export const PFLANZEN_PREIS_STANDARD = {
   staude: 2.8, gras: 2.6, einjährig: 2.3, zweijährig: 2.6, strauch: 4.0, baum: 6.0,
-}
-
-// Art-spezifischer EK (netto/Stück), Schlüssel = botanischer Basisname (Gattung Art,
-// ohne Sorte/Hybridzeichen/ssp.). Quelle: Späth-Angebote (Mittelwert bei Mehrfachnennung).
-// Gehölz-/Kletterpreise beziehen sich auf die im Angebot genannte Größe.
-export const PFLANZEN_EK_BY_LATIN = {
-  // Stauden / Kräuter / Gräser / Farne (Container P 0,5 / P 1)
-  'Salvia nemorosa': 2.77, 'Salvia officinalis': 3.00, 'Salvia glutinosa': 2.95,
-  'Thymus serpyllum': 2.18, 'Thymus citriodorus': 2.65, 'Thymus vulgaris': 2.90,
-  'Thymus longicaulis': 2.70, 'Thymus praecox': 3.70,
-  'Lavandula angustifolia': 2.30, 'Origanum vulgare': 2.50, 'Melissa officinalis': 2.40,
-  'Hyssopus officinalis': 2.45, 'Satureja montana': 2.40, 'Nepeta cataria': 2.50,
-  'Agastache foeniculum': 3.10, 'Agastache rugosa': 4.10, 'Perovskia atriplicifolia': 9.70,
-  'Caryopteris clandonensis': 6.65, 'Sideritis syriaca': 3.50, 'Marrubium vulgare': 2.90,
-  'Leonurus cardiaca': 2.95, 'Borago officinalis': 2.30, 'Lotus corniculatus': 2.80,
-  'Malva sylvestris': 2.70, 'Teucrium hircanicum': 3.90, 'Armeria maritima': 2.90,
-  'Alyssum montanum': 2.35, 'Geranium macrorrhizum': 2.50, 'Hesperis matronalis': 2.80,
-  'Pulmonaria officinalis': 2.90, 'Aquilegia vulgaris': 2.50, 'Digitalis purpurea': 2.60,
-  'Galium odoratum': 2.80, 'Galium verum': 3.10, 'Hypericum perforatum': 2.50,
-  'Betonica officinalis': 2.50, 'Stachys officinalis': 2.50, 'Solidago virgaurea': 3.10,
-  'Valeriana officinalis': 2.43, 'Verbena officinalis': 3.00, 'Geum urbanum': 3.00,
-  'Silene vulgaris': 2.90, 'Veronica longifolia': 2.90, 'Deschampsia cespitosa': 2.50,
-  'Polygonatum multiflorum': 3.10, 'Athyrium filix-femina': 2.90,
-  'Dryopteris filix-mas': 3.20, 'Dryopteris carthusiana': 3.10, 'Dryopteris dilatata': 3.30,
-  'Allium aflatunense': 3.00,
-  // Gehölze (jung/verpflanzt bis mit Ballen — größenabhängig)
-  'Fagus sylvatica': 10.95, 'Carpinus betulus': 9.18, 'Taxus baccata': 13.95,
-  'Tilia platyphyllos': 3.69, 'Tilia cordata': 4.00, 'Acer pseudoplatanus': 2.96,
-  'Fraxinus excelsior': 2.96, 'Ulmus laevis': 3.20, 'Sorbus aucuparia': 3.54,
-  'Sorbus torminalis': 9.78, 'Robinia pseudoacacia': 3.20, 'Abies alba': 34.65,
-  'Aesculus hippocastanum': 20.52, 'Prunus avium': 18.42, 'Prunus padus': 4.71,
-  'Prunus spinosa': 3.18, 'Cornus sanguinea': 2.88, 'Corylus avellana': 3.87,
-  'Sambucus nigra': 3.87, 'Crataegus monogyna': 3.87, 'Rhamnus cathartica': 3.48,
-  'Ilex aquifolium': 26.16, 'Lonicera xylosteum': 3.93, 'Euonymus europaeus': 9.48,
-  'Ribes rubrum': 9.72, 'Ribes nigrum': 9.72, 'Cytisus scoparius': 5.01, 'Salix fragilis': 1.73,
-  // Kletterpflanzen (Container)
-  'Hedera helix': 6.50, 'Clematis alpina': 7.28, 'Clematis vitalba': 6.43,
-  'Lonicera periclymenum': 7.28, 'Lonicera henryi': 8.75, 'Humulus lupulus': 5.40,
-  'Parthenocissus quinquefolia': 6.90, 'Parthenocissus tricuspidata': 8.30,
-  'Hydrangea petiolaris': 9.80, 'Wisteria sinensis': 19.50, 'Campsis radicans': 8.55,
 }
 
 // Botanischen Namen auf Basis-Binom normalisieren (Sorte/Hybridzeichen/ssp. entfernen)
@@ -73,17 +35,24 @@ function baseLatin(latin) {
   return tokens.slice(0, 2).join(' ')
 }
 
+// ── Laufzeit-Injektion echter EK-Preise (nur intern, aus Supabase/RLS) ──────
+// Bleiben leer im öffentlichen Bundle; werden nach Login clientseitig befüllt.
+let RUNTIME_PFLANZEN_EK = {}   // { '<Gattung Art>': ek_netto }
+let RUNTIME_MATERIAL_EK = {}   // { '<material>|<einheit>': ek_netto }
+export function setPflanzenEkRuntime(map) { RUNTIME_PFLANZEN_EK = map || {} }
+export function setMaterialEkRuntime(map) { RUNTIME_MATERIAL_EK = { ...MATERIAL_PREISE, ...(map || {}) } }
+
 export function pflanzePreisEk(plant) {
-  if (plant?.preis_ek_eur != null) return plant.preis_ek_eur      // expliziter Override
-  const byLatin = PFLANZEN_EK_BY_LATIN[baseLatin(plant?.latin)]
-  if (byLatin != null) return byLatin                            // reale Angebotsdaten
-  return PFLANZEN_PREIS_STANDARD[plant?.type] ?? null            // Typ-Fallback
+  if (plant?.preis_ek_eur != null) return plant.preis_ek_eur              // expliziter Override
+  const rt = RUNTIME_PFLANZEN_EK[baseLatin(plant?.latin)]
+  if (rt != null) return rt                                              // interne Echt-EK (Laufzeit)
+  return PFLANZEN_PREIS_STANDARD[plant?.type] ?? null                    // generischer Typ-Fallback
 }
 
 // ── Material-EK ─────────────────────────────────────────────────────────────
-// ⚠️ MARKTSCHÄTZUNG (nicht aus den Späth-Angeboten — die enthalten kein Material).
-// Durch echte Lieferantenpreise ersetzen. Schlüssel = "<material>|<einheit>" exakt
-// wie in habitats.js. Eigenmaterial (Schnittgut/Reisig aus der Pflege) = 0.
+// Generische Markt-Richtwerte (nicht lieferantenspezifisch). Schlüssel =
+// "<material>|<einheit>" exakt wie in habitats.js. Eigenmaterial = 0.
+// Echte Lieferantenpreise werden zur Laufzeit via setMaterialEkRuntime() gemerged.
 export const MATERIAL_PREISE = {
   'Stammteile/Äste (Laubholz, mit Rinde)|m³': 0,
   'Stamm (Laubholz, mit Rinde)|Stk': 15,
@@ -126,7 +95,10 @@ export const MATERIAL_PREISE = {
 }
 
 export function materialPreisEk(material, einheit) {
-  const v = MATERIAL_PREISE[`${material}|${einheit}`]
+  const key = `${material}|${einheit}`
+  const rt = RUNTIME_MATERIAL_EK[key]
+  if (rt !== undefined) return rt
+  const v = MATERIAL_PREISE[key]
   return v === undefined ? null : v
 }
 
