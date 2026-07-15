@@ -6,6 +6,7 @@ import { useBreakpoint } from '../lib/useBreakpoint.js'
 import { useOps } from '../context/OpsContext.jsx'
 import { PLANTS, filterPlants, LICHT_LABELS, WASSER_LABELS, BODEN_LABELS, TYPE_LABELS, MONTHS, DRAINAGE_LABELS, WUCHSFORM_LABELS } from '../data/plants.js'
 import { HABITATS, filterHabitats, HABITAT_KATEGORIE_LABELS, HABITAT_KATEGORIE_EMOJI, HABITAT_ZIEL_LABELS } from '../data/habitats.js'
+import { calcAngebot } from '../data/preise.js'
 import {
   Leaf, Search, Plus, Minus, ExternalLink, X, ChevronDown, ChevronUp,
   Filter, Download, SlidersHorizontal, Ruler, Grid3x3, Info,
@@ -173,6 +174,7 @@ export default function PlanningPage() {
 
   const totalPlants = plan.reduce((s, p) => s + p.count, 0)
   const totalHabitats = habitatPlan.reduce((s, h) => s + h.count, 0)
+  const angebot = useMemo(() => calcAngebot({ plan, habitatPlan }), [plan, habitatPlan])
 
   async function savePlanToProject() {
     if (!saveProjectId || !updateProject) return
@@ -586,15 +588,28 @@ export default function PlanningPage() {
                 </div>
               )}
 
+              {/* Kalkulation (intern) */}
+              <div style={{ background: L ? '#f9fafb' : '#0f1a22', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: L ? 700 : 400 }}>Kalkulation (intern)</span>
+                  <span style={{ fontSize: 11, color: MUTED }}>EK {angebot.ek_summe.toLocaleString('de-DE', { minimumFractionDigits: 2 })} €</span>
+                </div>
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'baseline' }}>
+                  <div><span style={{ fontSize: 20, fontWeight: 800, color: A }}>{angebot.vk_netto.toLocaleString('de-DE', { minimumFractionDigits: 2 })} €</span><span style={{ fontSize: 11, color: MUTED }}> VK netto</span></div>
+                  <div style={{ fontSize: 12, color: MUTED }}>Pflanzen {angebot.pflanzen_vk.toLocaleString('de-DE', { minimumFractionDigits: 2 })} € · Material {angebot.material_vk.toLocaleString('de-DE', { minimumFractionDigits: 2 })} € · Arbeit {angebot.arbeit_std} h → {angebot.arbeit_vk.toLocaleString('de-DE', { minimumFractionDigits: 2 })} €</div>
+                </div>
+                {angebot.unbekannt > 0 && <div style={{ fontSize: 10.5, color: '#d97706', marginTop: 6 }}>⚠️ {angebot.unbekannt} Position(en) ohne hinterlegten Preis — VK unvollständig.</div>}
+              </div>
+
               {/* Export */}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button onClick={() => {
-                  exportPdf(plan, { label: fromMapFeature?.label, beetArea, beetW, beetH })
+                  exportPdf(plan, { label: fromMapFeature?.label, beetArea, beetW, beetH, habitats: habitatPlan })
                   if (savedPlanId) updatePflanzplan(savedPlanId, { status: 'pdf_erstellt' })
                 }} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#052e16', border: 'none', color: '#fff', borderRadius: 8, padding: '9px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
-                  <Download size={13} /> Baumschul-PDF
+                  <Download size={13} /> Plan-PDF
                 </button>
-                <button onClick={() => exportPlan(plan)} style={{ display: 'flex', alignItems: 'center', gap: 8, background: A14, border: `1px solid ${A20}`, color: A, borderRadius: 8, padding: '9px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                <button onClick={() => exportPlan(plan, habitatPlan)} style={{ display: 'flex', alignItems: 'center', gap: 8, background: A14, border: `1px solid ${A20}`, color: A, borderRadius: 8, padding: '9px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
                   <Download size={13} /> .txt
                 </button>
                 <button onClick={() => { setPlan([]); setHabitatPlan([]) }} style={{ background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, padding: '9px 16px', cursor: 'pointer', fontSize: 13 }}>
@@ -1475,14 +1490,21 @@ function EmptyState({ msg, sub, action, actionLabel }) {
   )
 }
 
-function exportPlan(plan) {
+function exportPlan(plan, habitats = []) {
+  const mat = rollupMaterial(habitats)
   const lines = [
-    'PFLANZPLAN — LUMA BIOME',
+    'PFLANZ- & HABITATPLAN — LUMA BIOME',
     '='.repeat(50), '',
     'PFLANZLISTE:',
     ...plan.map(p => `  ${p.count}x  ${p.name} (${p.latin})\n       Licht: ${p.licht.map(l => LICHT_LABELS[l]).join('/')} | Wasser: ${p.wasser.map(w => WASSER_LABELS[w]).join('/')} | Abstand: ${p.pflanzabstand || 40}cm`),
     '',
     `GESAMT: ${plan.reduce((s, p) => s + p.count, 0)} Pflanzen (${plan.length} Arten)`,
+    ...(habitats.length ? [
+      '', 'HABITATELEMENTE:',
+      ...habitats.map(h => `  ${h.count}x  ${h.name} (${HABITAT_KATEGORIE_LABELS[h.kategorie] || h.kategorie}) — Aufwand ${(h.aufwand_h || 0) * h.count} h`),
+      '', 'MATERIAL (aggregiert):',
+      ...mat.map(m => `  ${m.menge} ${m.einheit}  ${m.material}`),
+    ] : []),
   ]
   const blob = new Blob([lines.join('\n')], { type: 'text/plain' })
   const a = document.createElement('a')
@@ -1491,7 +1513,20 @@ function exportPlan(plan) {
   a.click()
 }
 
-function exportPdf(plan, { label, beetArea, beetW, beetH } = {}) {
+function rollupMaterial(habitats) {
+  const acc = new Map()
+  for (const h of habitats)
+    for (const m of (h.material || [])) {
+      const key = `${m.material}|${m.einheit}`
+      acc.set(key, (acc.get(key) || 0) + (m.menge || 0) * (h.count || 1))
+    }
+  return [...acc.entries()].map(([k, menge]) => {
+    const [material, einheit] = k.split('|')
+    return { material, menge: Math.round(menge * 100) / 100, einheit }
+  }).sort((a, b) => a.material.localeCompare(b.material))
+}
+
+function exportPdf(plan, { label, beetArea, beetW, beetH, habitats = [] } = {}) {
   const total = plan.reduce((s, p) => s + p.count, 0)
   const date = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
   const planTitle = label || `Pflanzplan ${beetW ? `${beetW}m × ${beetH}m` : ''}`
@@ -1513,6 +1548,62 @@ function exportPdf(plan, { label, beetArea, beetW, beetH } = {}) {
       <td class="center">${p.pflanzabstand || 40} cm</td>
       <td class="center bloom">${bloomStr(p)}</td>
     </tr>`).join('')
+
+  // ── Habitat-Abschnitte ──
+  const habTotal = habitats.reduce((s, h) => s + (h.count || 0), 0)
+  const habAufwand = habitats.reduce((s, h) => s + (h.aufwand_h || 0) * (h.count || 1), 0)
+  const habRows = habitats.map((h, i) => `
+    <tr>
+      <td class="nr">${i + 1}</td>
+      <td class="name">${h.bild_emoji || ''} ${h.name}</td>
+      <td>${HABITAT_KATEGORIE_LABELS[h.kategorie] || h.kategorie}</td>
+      <td class="center">${h.count}</td>
+      <td class="center">${h.flaeche_m2 ? (Math.round(h.flaeche_m2 * h.count * 10) / 10) + ' m²' : '—'}</td>
+      <td class="center">${Math.round((h.aufwand_h || 0) * h.count * 10) / 10} h</td>
+      <td>${h.jahreszeit || '—'}</td>
+    </tr>`).join('')
+  const mat = rollupMaterial(habitats)
+  const matRows = mat.map(m => `<tr><td>${m.material}</td><td class="center">${m.menge}</td><td class="center">${m.einheit}</td></tr>`).join('')
+  const einbauBoxes = habitats.filter(h => h.einbau_schritte?.length).map(h => `
+    <div class="box">
+      <div style="font-weight:700; color:#052e16; font-size:10pt;">${h.bild_emoji || ''} ${h.name}${h.count > 1 ? ' · ' + h.count + '×' : ''}</div>
+      ${h.standort_hinweis ? `<div style="font-size:8.5pt; color:#555; margin-top:2px;">Standort: ${h.standort_hinweis}${h.maschine ? ' · Gerät: ' + h.maschine : ''}</div>` : ''}
+      <ol>${h.einbau_schritte.map(s => `<li>${s}</li>`).join('')}</ol>
+    </div>`).join('')
+  const seasons = {}
+  habitats.forEach(h => { const s = h.jahreszeit || 'ganzjährig'; seasons[s] = (seasons[s] || 0) + (h.aufwand_h || 0) * (h.count || 1) })
+  const seasonRows = Object.entries(seasons).map(([s, hrs]) => `<tr><td>${s}</td><td class="center">${Math.round(hrs * 10) / 10} h</td></tr>`).join('')
+  const pflegeRows = habitats.filter(h => h.pflege_hinweis).map(h => `<tr><td>${h.name}</td><td class="center">${h.pflege_intervall_monate ? 'alle ' + h.pflege_intervall_monate + ' Mon.' : '—'}</td><td>${h.pflege_hinweis}</td></tr>`).join('')
+  const habitatSections = habitats.length ? `
+<div class="section-h">Habitatelemente</div>
+<div class="meta">
+  <div class="meta-item"><strong>${habTotal}</strong><span>Elemente</span></div>
+  <div class="meta-item"><strong>${habitats.length}</strong><span>Typen</span></div>
+  <div class="meta-item"><strong>${Math.round(habAufwand * 10) / 10} h</strong><span>Bauaufwand ca.</span></div>
+</div>
+<table>
+  <thead><tr><th>Nr.</th><th>Element</th><th>Kategorie</th><th class="center">Anzahl</th><th class="center">Fläche</th><th class="center">Aufwand</th><th>Jahreszeit</th></tr></thead>
+  <tbody>${habRows}</tbody>
+</table>
+${mat.length ? `<div class="section-h">Materialbestellliste (aggregiert)</div>
+<table>
+  <thead><tr><th>Material</th><th class="center">Menge</th><th class="center">Einheit</th></tr></thead>
+  <tbody>${matRows}</tbody>
+</table>
+<div class="order-note"><strong>📦 Materialbestellung</strong>Obige Mengen beim Naturstoff-/Baustoffhandel anfragen. Eigenmaterial (Schnittgut, Reisig, Aushub) vor Ort nutzen.</div>` : ''}
+${einbauBoxes ? '<div class="section-h">Einbauanleitung (fachgerecht)</div>' + einbauBoxes : ''}
+<div class="section-h">Personal- &amp; Zeitplanung</div>
+<table>
+  <thead><tr><th>Jahreszeit / Baufenster</th><th class="center">Bauaufwand</th></tr></thead>
+  <tbody>${seasonRows}<tr><td style="font-weight:700;">Summe Habitat-Einbau</td><td class="center" style="font-weight:700;">${Math.round(habAufwand * 10) / 10} h</td></tr></tbody>
+</table>
+<div style="font-size:8.5pt; color:#555; margin-top:4px;">Zzgl. Pflanzung (${total} Pflanzen) sowie An-/Abfahrt. Fachkräfte entsprechend Bauaufwand einplanen.</div>
+${pflegeRows ? `<div class="section-h">Pflegeplan</div>
+<table>
+  <thead><tr><th>Element</th><th class="center">Intervall</th><th>Pflegemaßnahme</th></tr></thead>
+  <tbody>${pflegeRows}</tbody>
+</table>` : ''}
+` : ''
 
   const html = `<!DOCTYPE html>
 <html lang="de">
@@ -1548,6 +1639,9 @@ function exportPdf(plan, { label, beetArea, beetW, beetH } = {}) {
   .footer { margin-top: 28px; padding-top: 10px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; font-size: 8pt; color: #999; }
   .order-note { margin-top: 18px; padding: 12px 16px; border: 1.5px dashed #bbf7d0; border-radius: 6px; font-size: 9pt; color: #047a3c; background: #f0fdf4; }
   .order-note strong { display: block; margin-bottom: 4px; font-size: 10pt; color: #052e16; }
+  .section-h { font-size: 13pt; font-weight: 800; color: #052e16; margin: 26px 0 10px; border-bottom: 2px solid #bbf7d0; padding-bottom: 4px; }
+  .box { margin-top: 10px; padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 6px; }
+  .box ol, .box ul { margin: 4px 0 0 18px; font-size: 9pt; color: #333; line-height: 1.6; }
   @media print {
     body { padding: 15mm 15mm; }
     @page { margin: 15mm; }
@@ -1606,6 +1700,8 @@ function exportPdf(plan, { label, beetArea, beetW, beetH } = {}) {
   <div style="flex:1;">Datum, Unterschrift LUMA:<br><br>_________________________________</div>
   <div style="flex:1;">Datum, Unterschrift Baumschule:<br><br>_________________________________</div>
 </div>
+
+${habitatSections}
 
 <div class="footer">
   <span>LUMA GmbH · Berlin · luma.earth</span>
