@@ -71,7 +71,8 @@ export default function PlanningPage() {
   const L = themeId === 'light'
   const bp = useBreakpoint()
   const isMobile = bp === 'xs' || bp === 'sm'
-  const { projects = [], updateProject, pflanzplaene = [], createPflanzplan, updatePflanzplan, deletePflanzplan } = useOps()
+  const { projects = [], updateProject, pflanzplaene = [], createPflanzplan, updatePflanzplan, deletePflanzplan,
+    createTask, createRecurring, tasks = [], recurring = [] } = useOps()
   const location = useLocation()
 
   // ── Filters
@@ -113,6 +114,11 @@ export default function PlanningPage() {
   const [habCat, setHabCat] = useState(null)      // Kategorie-Filter
   const [habSearch, setHabSearch] = useState('')
   const [sheetHabitat, setSheetHabitat] = useState(null)
+
+  // ── LUMA-Ops-Anbindung
+  const [showOpsDialog, setShowOpsDialog] = useState(false)
+  const [opsOpts, setOpsOpts] = useState({ bestellung: true, pflanzung: true, einbau: true, erstpflege: true, recurring: false })
+  const [opsDone, setOpsDone] = useState(false)
 
   // Pre-fill from map navigation state
   useEffect(() => {
@@ -225,6 +231,57 @@ export default function PlanningPage() {
     } finally {
       setSavingPlan(false)
     }
+  }
+
+  // Aus dem gespeicherten Plan Aufgaben/Einsätze im Pflege-Board anlegen.
+  function createOpsFromPlan(opts) {
+    const planId = savedPlanId
+    if (!planId) return
+    const clientId = projects.find(p => p.id === saveProjectId)?.client_id || null
+    const base = { project_id: saveProjectId || null, client_id: clientId, board_id: 'b_pflege', status: 'not_started', priority: 'medium' }
+    const openRef = ref => (tasks || []).some(t => t.source_ref === ref && t.status !== 'done' && t.status !== 'archive')
+    const mk = (suffix, data) => { const ref = `pflanzplan:${planId}:${suffix}`; if (!openRef(ref)) createTask?.({ ...base, source_ref: ref, ...data }) }
+    const label = planTitel || 'Plan'
+    const mat = rollupMaterial(habitatPlan)
+    const matLines = mat.map(m => `${m.material}: ${m.menge} ${m.einheit}`)
+    const plantLines = plan.map(p => `${p.count}× ${p.name}`)
+
+    if (opts.bestellung) mk('bestellung', {
+      title: `Material & Pflanzen bestellen — ${label}`, task_type: 'bestellung',
+      material: [...plantLines, ...matLines],
+      description: `Pflanzen: ${plantLines.join(', ') || '—'}\nMaterial: ${matLines.join(', ') || '—'}`,
+    })
+    if (opts.pflanzung && plan.length) mk('pflanzung', {
+      title: `Pflanzung durchführen — ${label}`, task_type: 'pflanzung',
+      description: plan.map(p => `${p.count}× ${p.name} (Ø${p.pflanzabstand || 40} cm)`).join(', '),
+    })
+    if (opts.einbau) habitatPlan.forEach(h => mk(`einbau:${h.id}`, {
+      title: `${h.name} einbauen${h.count > 1 ? ` (${h.count}×)` : ''}`, task_type: 'installation',
+      description: [h.standort_hinweis, h.maschine ? `Gerät: ${h.maschine}` : ''].filter(Boolean).join(' · '),
+      material: (h.material || []).map(m => `${m.material}: ${Math.round((m.menge || 0) * h.count * 100) / 100} ${m.einheit}`),
+      checklist: (h.einbau_schritte || []).map(text => ({ id: crypto.randomUUID(), text, done: false })),
+    }))
+    if (opts.erstpflege) mk('erstpflege', {
+      title: `Anwachspflege / Gießen 1. Jahr — ${label}`, task_type: 'giessen',
+      description: 'In Trockenphasen des ersten Jahres regelmäßig wässern bis zum Anwachsen. Danach nur bei extremer Trockenheit (mager halten).',
+    })
+    if (opts.recurring && createRecurring) {
+      const existsTmpl = t => (recurring || []).some(r => r.title === t)
+      if (plan.length && !existsTmpl(`Rückschnitt & Pflege — ${label}`)) {
+        createRecurring({ project_id: saveProjectId || null, title: `Rückschnitt & Pflege — ${label}`, job_type: 'pflege',
+          interval_days: 365, next_date: nextDateForMonth(3), assigned_users: [], vehicle_id: null, tools: [],
+          notes: 'Staudenrückschnitt März/April, Schnittgut abräumen (Fläche mager halten).' })
+      }
+      habitatPlan.filter(h => h.pflege_intervall_monate).forEach(h => {
+        const t = `Pflege: ${h.name}`
+        if (!existsTmpl(t)) createRecurring({ project_id: saveProjectId || null, title: t, job_type: 'pflege',
+          interval_days: Math.round(h.pflege_intervall_monate * 30.4), next_date: nextDateForMonth(seasonMonth(h.jahreszeit)),
+          assigned_users: [], vehicle_id: null, tools: [], notes: h.pflege_hinweis || '' })
+      })
+    }
+    setShowOpsDialog(false)
+    setOpsDone(true)
+    setTimeout(() => setOpsDone(false), 3000)
   }
 
   function loadPflanzplan(pp) {
@@ -618,6 +675,12 @@ export default function PlanningPage() {
                 <button onClick={() => setActiveTab('beet')} style={{ background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, padding: '9px 16px', cursor: 'pointer', fontSize: 13 }}>
                   🌿 Im Beet planen →
                 </button>
+                <button onClick={() => savedPlanId && setShowOpsDialog(true)} disabled={!savedPlanId}
+                  title={savedPlanId ? '' : 'Plan zuerst speichern'}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, background: savedPlanId ? A : (L ? '#e5e7eb' : '#1e2a32'), border: 'none', color: savedPlanId ? 'var(--luma-on-a)' : MUTED, borderRadius: 8, padding: '9px 16px', cursor: savedPlanId ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700 }}>
+                  🗂️ In LUMA Ops anlegen
+                </button>
+                {opsDone && <span style={{ display: 'flex', alignItems: 'center', fontSize: 12, color: A, fontWeight: 700 }}>✓ angelegt</span>}
               </div>
 
               {/* Save Plan */}
@@ -715,6 +778,45 @@ export default function PlanningPage() {
           />
         </div>
       )}
+
+      {/* ── LUMA-Ops-Dialog ─────────────────────────────────────────────── */}
+      {showOpsDialog && (
+        <OpsDialog opts={opsOpts} setOpts={setOpsOpts}
+          hasPlants={plan.length > 0} hasHabitats={habitatPlan.length > 0}
+          onConfirm={() => createOpsFromPlan(opsOpts)} onClose={() => setShowOpsDialog(false)} L={L} />
+      )}
+    </div>
+  )
+}
+
+function OpsDialog({ opts, setOpts, hasPlants, hasHabitats, onConfirm, onClose, L }) {
+  const Row = ({ k, label, desc, disabled }) => (
+    <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 12px', borderRadius: 8, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.45 : 1, border: `1px solid ${BORDER}` }}>
+      <input type="checkbox" checked={!!opts[k] && !disabled} disabled={disabled} onChange={e => setOpts(o => ({ ...o, [k]: e.target.checked }))} style={{ marginTop: 2 }} />
+      <span>
+        <div style={{ fontSize: 13, fontWeight: 700, color: FG }}>{label}</div>
+        <div style={{ fontSize: 11, color: MUTED }}>{desc}</div>
+      </span>
+    </label>
+  )
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)' }} />
+      <div onClick={e => e.stopPropagation()} style={{ position: 'relative', background: SURFACE, borderRadius: 16, padding: 20, width: 'min(460px, 100%)', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 10px 50px rgba(0,0,0,0.4)' }}>
+        <div style={{ fontSize: 16, fontWeight: 800, color: FG, marginBottom: 4 }}>In LUMA Ops anlegen</div>
+        <div style={{ fontSize: 12, color: MUTED, marginBottom: 14 }}>Wähle, welche Aufgaben &amp; Einsätze aus diesem Plan auf dem Pflege-Board erstellt werden.</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <Row k="bestellung" label="🛒 Material &amp; Pflanzen bestellen" desc="Aufgabe mit Bestell-/Materialliste" />
+          <Row k="pflanzung" label="🌱 Pflanzung durchführen" desc="Aufgabe zur Pflanzung" disabled={!hasPlants} />
+          <Row k="einbau" label="🪵 Habitat-Einbau" desc="Je Element eine Aufgabe mit Einbau-Checkliste" disabled={!hasHabitats} />
+          <Row k="erstpflege" label="💧 Anwachspflege (1. Jahr)" desc="Gieß-/Pflegeaufgabe fürs erste Jahr" />
+          <Row k="recurring" label="🔁 Wiederkehrende Pflege (Serie)" desc="Kalender-Serientermine: Rückschnitt, Nisthilfe-/Teichpflege …" />
+        </div>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 18 }}>
+          <button onClick={onClose} style={{ background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, padding: '9px 16px', cursor: 'pointer', fontSize: 13 }}>Abbrechen</button>
+          <button onClick={onConfirm} style={{ background: A, border: 'none', color: 'var(--luma-on-a)', borderRadius: 8, padding: '9px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>Anlegen</button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -1511,6 +1613,21 @@ function exportPlan(plan, habitats = []) {
   a.href = URL.createObjectURL(blob)
   a.download = 'pflanzplan-luma.txt'
   a.click()
+}
+
+function seasonMonth(s) {
+  if (!s) return 4
+  if (s.includes('Frühjahr')) return 3
+  if (s.includes('Herbst')) return 9
+  if (s.includes('Sommer')) return 6
+  if (s.includes('Winter')) return 11
+  return 4
+}
+function nextDateForMonth(month) {
+  const now = new Date()
+  let year = now.getFullYear()
+  if (now.getMonth() + 1 > month) year += 1
+  return `${year}-${String(month).padStart(2, '0')}-15`
 }
 
 function rollupMaterial(habitats) {
