@@ -101,7 +101,7 @@ export default function PlanningPage() {
   const [onlyVoegel, setOnlyVoegel] = useState(false)
   const [onlyZier, setOnlyZier] = useState(false)
   const [artKeys, setArtKeys] = useState([])
-  const [openSec, setOpenSec] = useState({ standort: true, art: false, bio: false })
+  const [openSec, setOpenSec] = useState({ standort: false, art: false, bio: false })
   const [search, setSearch] = useState('')
   const [filterPanelOpen, setFilterPanelOpen] = useState(() => window.innerWidth >= 768)
   const [activeFilters, setActiveFilters] = useState('standort') // 'standort'|'biologie'|'boden'
@@ -112,6 +112,8 @@ export default function PlanningPage() {
   const [saveProjectId, setSaveProjectId] = useState('')
   const [savedToProject, setSavedToProject] = useState(false)
   const [sheetPlant, setSheetPlant] = useState(null) // Steckbrief-Sheet
+  const [sheetQty, setSheetQty] = useState(1)        // Anzahl-Regler im Steckbrief
+  const [autoArea, setAutoArea] = useState(null)     // Fläche für Auto-Auswahl (m²), null = aus Beet
   const [planTitel, setPlanTitel] = useState('')
   const [savedPlanId, setSavedPlanId] = useState(null)
   const [savingPlan, setSavingPlan] = useState(false)
@@ -179,6 +181,38 @@ export default function PlanningPage() {
   function setCount(id, count) {
     if (count <= 0) setPlan(prev => prev.filter(p => p.id !== id))
     else setPlan(prev => prev.map(p => p.id === id ? { ...p, count } : p))
+  }
+  // Setzt die Anzahl auf einen exakten Wert – legt die Art bei Bedarf neu an (Upsert).
+  function setPlanCount(plant, count) {
+    if (count <= 0) { setPlan(prev => prev.filter(p => p.id !== plant.id)); return }
+    setPlan(prev => prev.some(p => p.id === plant.id)
+      ? prev.map(p => p.id === plant.id ? { ...p, count } : p)
+      : [...prev, { ...plant, count }])
+  }
+
+  // Anzahl-Regler im Steckbrief beim Öffnen sinnvoll vorbelegen.
+  useEffect(() => {
+    if (!sheetPlant) return
+    const ex = plan.find(p => p.id === sheetPlant.id)
+    setSheetQty(ex ? ex.count : suggestQty(sheetPlant))
+  }, [sheetPlant?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Trifft automatisch eine standort-/filterpassende Pflanzenauswahl für die Fläche.
+  function autoFillForArea() {
+    const area = autoArea != null ? autoArea : Math.round(beetArea) || 10
+    const usingArtFilter = artKeys.length > 0
+    const pool = usingArtFilter ? filtered : filtered.filter(p => ['staude', 'gras', 'einjährig', 'zweijährig'].includes(p.type))
+    if (!pool.length) return
+    const groups = [
+      onlyBienen && 'bienen', onlyTagfalter && 'tagfalter', onlyNachtfalter && 'nachtfalter',
+      onlyKaefer && 'kaefer', onlyVoegel && 'voegel',
+    ].filter(Boolean)
+    const targetCount = Math.max(5, Math.min(20, Math.round(area / 1.2)))
+    const result = generatePlan({ area, targetCount, candPool: pool, targetGroups: groups.length ? groups : ['bienen'] })
+    if (!result.length) return
+    if (plan.length && !window.confirm(`Aktuellen Plan (${plan.length} Arten) durch die automatische Auswahl ersetzen?`)) return
+    setPlan(result)
+    setActiveTab('plan')
   }
 
   function addHabitat(h) {
@@ -326,10 +360,11 @@ export default function PlanningPage() {
   const cardBg = L ? '#fff' : SURFACE
   const shadow = L ? '0 1px 4px rgba(0,0,0,0.08), 0 0 0 1.5px rgba(0,0,0,0.07)' : `0 0 0 1px ${BORDER}`
 
-  const activeFilterCount = [licht, wasser, boden, drainage, ph, ...artKeys,
-    onlyHeimisch && 'h', onlyRaupen && 'r', onlyTagfalter && 't', onlyBienen && 'b',
-    onlyNachtfalter && 'n', onlyKaefer && 'k', onlyVoegel && 'v', onlyZier && 'z'
-  ].filter(Boolean).length
+  const secCountStandort = [licht, wasser, boden, drainage, ph].filter(v => v != null).length
+  const secCountArt = artKeys.length
+  const secCountBio = [onlyBienen, onlyTagfalter, onlyNachtfalter, onlyKaefer, onlyVoegel, onlyRaupen, onlyHeimisch, onlyZier].filter(Boolean).length
+  const activeFilterCount = secCountStandort + secCountArt + secCountBio
+  const effectiveAutoArea = autoArea != null ? autoArea : (Math.round(beetArea) || 10)
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -405,7 +440,7 @@ export default function PlanningPage() {
               {filterPanelOpen && (
                 <div style={{ borderTop: `1px solid ${BORDER}`, padding: '14px 16px', maxHeight: isMobile ? '45vh' : undefined, overflowY: isMobile ? 'auto' : undefined }}>
                   {/* Aufklapp-Sektionen */}
-                  <FilterSection label="📍 Standort & Boden" open={openSec.standort} onToggle={() => setOpenSec(s => ({ ...s, standort: !s.standort }))}>
+                  <FilterSection label="📍 Standort & Boden" count={secCountStandort} open={openSec.standort} onToggle={() => setOpenSec(s => ({ ...s, standort: !s.standort }))}>
                     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap: 12 }}>
                       <FilterGroup label="☀️ Licht" opts={LICHT_OPTS} selected={licht} onSelect={v => setLicht(licht === v ? null : v)} color="#d97706" L={L} isMobile={isMobile} />
                       <FilterGroup label="💧 Wasser" opts={WASSER_OPTS} selected={wasser} onSelect={v => setWasser(wasser === v ? null : v)} color="#0ea5e9" L={L} isMobile={isMobile} />
@@ -443,7 +478,7 @@ export default function PlanningPage() {
                     </div>
                   </FilterSection>
 
-                  <FilterSection label="🌿 Art der Pflanze" open={openSec.art} onToggle={() => setOpenSec(s => ({ ...s, art: !s.art }))}>
+                  <FilterSection label="🌿 Art der Pflanze" count={secCountArt} open={openSec.art} onToggle={() => setOpenSec(s => ({ ...s, art: !s.art }))}>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       {ART_OPTS.map(a => {
                         const on = artKeys.includes(a.key)
@@ -457,7 +492,7 @@ export default function PlanningPage() {
                     </div>
                   </FilterSection>
 
-                  <FilterSection label="🐝 Biologische Wertigkeit — welche Arten erreiche ich?" open={openSec.bio} onToggle={() => setOpenSec(s => ({ ...s, bio: !s.bio }))}>
+                  <FilterSection label="🐝 Biologische Wertigkeit — welche Arten erreiche ich?" count={secCountBio} open={openSec.bio} onToggle={() => setOpenSec(s => ({ ...s, bio: !s.bio }))}>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       <BioToggle label="🐝 Bienen/Hummeln" active={onlyBienen} onClick={() => setOnlyBienen(v => !v)} L={L} isMobile={isMobile} />
                       <BioToggle label="🦋 Tagfalter" active={onlyTagfalter} onClick={() => setOnlyTagfalter(v => !v)} L={L} isMobile={isMobile} />
@@ -483,6 +518,27 @@ export default function PlanningPage() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Auto-Auswahl für die Fläche */}
+          <div style={{ padding: isMobile ? '0 12px' : '0 24px', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: A14, border: `1px solid ${A20}`, borderRadius: 12, padding: isMobile ? '10px 12px' : '10px 14px', marginBottom: 12 }}>
+              <span style={{ fontSize: 18 }}>✨</span>
+              <div style={{ flex: 1, minWidth: 170 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: FG }}>Auto-Auswahl für deine Fläche</div>
+                <div style={{ fontSize: 11, color: MUTED }}>Stellt automatisch eine passende Bepflanzung zusammen – nutzt die aktiven Filter{secCountArt ? '' : ' (Stauden/Gräser)'}.</div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: cardBg, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '4px 10px' }}>
+                <input type="number" min={1} max={500} value={effectiveAutoArea}
+                  onChange={e => setAutoArea(Math.max(1, Math.round(+e.target.value) || 1))}
+                  style={{ width: 52, background: 'none', border: 'none', color: FG, fontSize: 15, fontWeight: 700, textAlign: 'right', outline: 'none' }} />
+                <span style={{ fontSize: 12, color: MUTED }}>m²</span>
+              </div>
+              <button onClick={autoFillForArea} disabled={!filtered.length}
+                style={{ display: 'flex', alignItems: 'center', gap: 7, background: filtered.length ? A : BORDER, border: 'none', color: 'var(--luma-on-a)', borderRadius: 8, padding: '9px 16px', cursor: filtered.length ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                ✨ Auswahl treffen
+              </button>
             </div>
           </div>
 
@@ -621,10 +677,33 @@ export default function PlanningPage() {
                       <ExternalLink size={12} /> FloraWeb
                     </a>
                   </div>
-                  {/* Add button */}
-                  <button onClick={() => { addToPlan(sheetPlant); setSheetPlant(null) }}
+                  {/* Anzahl-Regler */}
+                  {(() => {
+                    const spacing = (sheetPlant.pflanzabstand || 40) / 100
+                    const coverage = Math.round(sheetQty * spacing * spacing * 100) / 100
+                    const inPlanNow = plan.some(p => p.id === sheetPlant.id)
+                    const stepBtn = { width: 34, height: 34, flexShrink: 0, borderRadius: 8, border: `1px solid ${BORDER}`, background: cardBg, color: FG, fontSize: 18, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }
+                    return (
+                      <div style={{ background: L ? 'rgba(0,0,0,0.03)' : BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '12px 14px', marginBottom: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: FG }}>Anzahl Individuen</span>
+                          <span style={{ fontSize: 11, color: MUTED }}>≈ {coverage} m² · Ø {sheetPlant.pflanzabstand || 40} cm</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <button onClick={() => setSheetQty(q => Math.max(1, q - 1))} style={stepBtn}>−</button>
+                          <input type="range" min={1} max={50} value={Math.min(sheetQty, 50)} onChange={e => setSheetQty(+e.target.value)} style={{ flex: 1, accentColor: A }} />
+                          <button onClick={() => setSheetQty(q => q + 1)} style={stepBtn}>+</button>
+                          <input type="number" min={1} value={sheetQty} onChange={e => setSheetQty(Math.max(1, Math.round(+e.target.value) || 1))}
+                            style={{ width: 56, textAlign: 'center', background: cardBg, border: `1px solid ${BORDER}`, color: FG, borderRadius: 8, padding: '7px 4px', fontSize: 15, fontWeight: 700, outline: 'none' }} />
+                        </div>
+                        {inPlanNow && <div style={{ fontSize: 11, color: A, marginTop: 8, fontWeight: 600 }}>Bereits im Plan — Anzahl wird angepasst.</div>}
+                      </div>
+                    )
+                  })()}
+                  {/* Add / Set button */}
+                  <button onClick={() => { setPlanCount(sheetPlant, sheetQty); setSheetPlant(null) }}
                     className="lu-btn-primary" style={{ width: '100%', padding: '14px', borderRadius: 12, background: A, border: 'none', color: 'var(--luma-on-a)', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
-                    + Zum Plan hinzufügen
+                    {plan.some(p => p.id === sheetPlant.id) ? `✓ Anzahl auf ${sheetQty}× setzen` : `+ ${sheetQty}× zum Plan hinzufügen`}
                   </button>
                 </div>
               </div>
@@ -1707,11 +1786,14 @@ function MobileStandortFilter({ licht, setLicht, wasser, setWasser, boden, setBo
   )
 }
 
-function FilterSection({ label, open, onToggle, children }) {
+function FilterSection({ label, open, onToggle, count = 0, children }) {
   return (
     <div style={{ borderBottom: `1px solid ${BORDER}` }}>
       <button onClick={onToggle} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', cursor: 'pointer', padding: '11px 2px', color: FG }}>
-        <span style={{ fontSize: 12.5, fontWeight: 700 }}>{label}</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 12.5, fontWeight: 700 }}>{label}</span>
+          {count > 0 && <span style={{ fontSize: 10, fontWeight: 700, color: A, background: A14, borderRadius: 20, padding: '1px 7px', lineHeight: 1.6 }}>{count}</span>}
+        </span>
         {open ? <ChevronUp size={15} color={MUTED} /> : <ChevronDown size={15} color={MUTED} />}
       </button>
       {open && <div style={{ padding: '2px 2px 14px' }}>{children}</div>}
@@ -1898,8 +1980,15 @@ function rollupMaterial(habitats) {
    dem höchsten marginalen Score (Blühfolge schließen, Bestäubergruppen abdecken,
    Bienenwert, Heimisch-Bonus, Ästhetik). Deterministisch — kein Zufall. */
 const GEN_GROUP_KEYS = ['bienen', 'tagfalter', 'nachtfalter', 'kaefer', 'voegel']
-function generatePlan({ licht = 1, wasser = 2, boden = null, area = 10, targetCount = 12, wBloom = 2, wBee = 2, wHeimisch = 1, wZier = 1, targetGroups = ['bienen'] }) {
-  const pool = filterPlants({ licht, wasser, boden }).filter(p => ['staude', 'gras', 'einjährig', 'zweijährig'].includes(p.type))
+// Empfohlene Stückzahl für eine kleine Pflanzgruppe (~1 m² Drift) anhand des Pflanzabstands.
+function suggestQty(plant) {
+  const spacing = (plant?.pflanzabstand || 40) / 100
+  return Math.min(24, Math.max(3, Math.round(1 / (spacing * spacing))))
+}
+// candPool: optionaler, bereits gefilterter Kandidatenpool (z.B. aus der Suchansicht),
+// damit die Auto-Auswahl ALLE aktiven Filter berücksichtigt statt nur Standort.
+function generatePlan({ licht = 1, wasser = 2, boden = null, area = 10, targetCount = 12, wBloom = 2, wBee = 2, wHeimisch = 1, wZier = 1, targetGroups = ['bienen'], candPool = null }) {
+  const pool = candPool || filterPlants({ licht, wasser, boden }).filter(p => ['staude', 'gras', 'einjährig', 'zweijährig'].includes(p.type))
   const covered = new Set(), groupCov = new Set(), chosen = [], chosenIds = new Set()
   while (chosen.length < targetCount) {
     let best = null, bestScore = -Infinity
