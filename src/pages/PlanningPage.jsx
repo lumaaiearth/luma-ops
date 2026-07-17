@@ -1118,20 +1118,44 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
   const canvasRef = useRef(null)
   const [bloomMonth, setBloomMonth] = useState(0) // 0 = ganzjährig, 1-12 = Monat (Blühfolge)
 
-  // Calculate plant distribution
+  // Pflanzenverteilung: Drifts/Cluster statt Streuung + Höhenschichtung
+  // (hohe Arten nach hinten/oben). Deterministisch (seeded) → stabiles Bild.
   const plantsWithPlacement = useMemo(() => {
-    const result = []
-    let x = 0, y = 0
+    const pts = []
+    const margin = Math.min(0.15, beetW * 0.03, beetH * 0.03)
+    const uW = Math.max(0.1, beetW - margin * 2), uH = Math.max(0.1, beetH - margin * 2)
+    const heights = plan.map(p => p.hoehe?.[1] ?? 50)
+    const hMin = Math.min(...heights, 20), hMax = Math.max(...heights, 100)
+    const hSpan = Math.max(1, hMax - hMin)
     plan.forEach(plant => {
-      const spacing = (plant.pflanzabstand || 40) / 100 // in meters
-      for (let i = 0; i < plant.count; i++) {
-        result.push({ ...plant, px: x, py: y })
-        x += spacing
-        if (x > beetW - spacing / 2) { x = 0; y += spacing }
+      const seed0 = hashStr(plant.id)
+      const h = plant.hoehe?.[1] ?? 50
+      const tallNorm = (h - hMin) / hSpan // 0 = niedrig, 1 = hoch
+      const bandCenter = margin + uH * (0.12 + (1 - tallNorm) * 0.72) // hoch → hinten (oben)
+      const spacing = (plant.pflanzabstand || 40) / 100
+      const woody = plant.type === 'baum' || plant.type === 'strauch'
+      const driftSize = woody ? 1 : Math.max(3, Math.round(spacing < 0.3 ? 9 : spacing < 0.6 ? 6 : 4))
+      const nDrifts = Math.max(1, Math.ceil(plant.count / driftSize))
+      let placed = 0
+      for (let d = 0; d < nDrifts && placed < plant.count; d++) {
+        const rs = seed0 + d * 131
+        const dcx = margin + seededRand(rs) * uW
+        const dcy = bandCenter + (seededRand(rs + 7) - 0.5) * uH * 0.28
+        const inDrift = Math.min(driftSize, plant.count - placed)
+        const spread = spacing * Math.sqrt(inDrift) * 0.7
+        for (let k = 0; k < inDrift; k++) {
+          const ang = seededRand(rs + 13 + k * 3) * Math.PI * 2
+          const rad = Math.sqrt(seededRand(rs + 17 + k * 3)) * spread
+          const px = Math.max(margin * 0.5, Math.min(beetW - margin * 0.5, dcx + Math.cos(ang) * rad))
+          const py = Math.max(margin * 0.5, Math.min(beetH - margin * 0.5, dcy + Math.sin(ang) * rad))
+          pts.push({ ...plant, px, py, _r: (plant.ausbreitung || plant.pflanzabstand || 40) / 100 })
+          placed++
+        }
       }
     })
-    return result
-  }, [plan, beetW])
+    pts.sort((a, b) => a.py - b.py) // hinten (oben) zuerst zeichnen → Höhenschichtung
+    return pts
+  }, [plan, beetW, beetH])
 
   const totalNeeded = plan.reduce((s, p) => {
     const ppm = 1 / Math.pow((p.pflanzabstand || 40) / 100, 2)
@@ -1173,26 +1197,25 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
       ctx.beginPath(); ctx.moveTo(0, gy * scaleY); ctx.lineTo(W, gy * scaleY); ctx.stroke()
     }
 
-    // Plants
+    // Pflanzen als Drifts – hinten (oben) zuerst gezeichnet, vorne überlagert (Schichtung).
     plantsWithPlacement.forEach(p => {
-      if (p.px > beetW || p.py > beetH) return
-      const cx = p.px * scaleX + (p.pflanzabstand || 40) / 100 * scaleX / 2
-      const cy = p.py * scaleY + (p.pflanzabstand || 40) / 100 * scaleY / 2
-      const r = Math.max(4, ((p.ausbreitung || p.pflanzabstand || 40) / 100 * scaleX) / 2 - 2)
+      const cx = p.px * scaleX
+      const cy = p.py * scaleY
+      const r = Math.max(3, Math.min(42, (p._r * scaleX) / 2))
       const blooming = bloomMonth === 0 || (p.bluete_monate || []).includes(bloomMonth)
       ctx.beginPath()
       ctx.arc(cx, cy, r, 0, Math.PI * 2)
       if (blooming) {
         ctx.fillStyle = (p.bluete_farbe || '#10b981') + 'cc'
         ctx.fill()
-        ctx.strokeStyle = (p.bluete_farbe || '#10b981')
-        ctx.lineWidth = 1.5
+        ctx.strokeStyle = L ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.35)'
+        ctx.lineWidth = 1
         ctx.stroke()
       } else {
         // außerhalb der Blüte: gedämpft (Blühfolge sichtbar machen)
-        ctx.fillStyle = L ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.04)'
+        ctx.fillStyle = L ? 'rgba(0,0,0,0.055)' : 'rgba(255,255,255,0.05)'
         ctx.fill()
-        ctx.strokeStyle = L ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.10)'
+        ctx.strokeStyle = L ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.08)'
         ctx.lineWidth = 1
         ctx.stroke()
       }
@@ -1347,7 +1370,7 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
         <div style={{ background: cardBg, borderRadius: 10, padding: '16px', boxShadow: shadow }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>📊 Fläche</div>
           <div style={{ fontSize: 24, fontWeight: 800, color: A, letterSpacing: '-0.02em' }}>{beetArea.toFixed(1)} m²</div>
-          <div style={{ fontSize: 11, color: MUTED, marginTop: 4 }}>{plan.length > 0 ? `~${Math.round(beetArea * 3)} Pflanzen bei Ø30cm Abstand` : 'Pflanzen zum Plan hinzufügen'}</div>
+          <div style={{ fontSize: 11, color: MUTED, marginTop: 4 }}>{plan.length > 0 ? `${plan.reduce((s, p) => s + p.count, 0)} Pflanzen · ${plan.length} Arten · ${(plan.reduce((s, p) => s + p.count, 0) / Math.max(beetArea, 0.1)).toFixed(1)}/m²` : 'Pflanzen zum Plan hinzufügen'}</div>
         </div>
       </div>
 
@@ -1985,6 +2008,51 @@ function suggestQty(plant) {
   const spacing = (plant?.pflanzabstand || 40) / 100
   return Math.min(24, Math.max(3, Math.round(1 / (spacing * spacing))))
 }
+
+// Strukturelle Rolle einer Art – steuert rollengerechte Stückzahlen UND die
+// Höhenschichtung in der Beet-Visualisierung.
+function plantRole(p) {
+  const h = p.hoehe?.[1] ?? 50
+  if (p.type === 'baum') return 'baum'
+  if (p.type === 'strauch') return 'strauch'
+  if (p.funktion === 'Zw') return 'geophyt'
+  if (p.type === 'gras') return 'gras'
+  if (p.funktion === 'Ge' || h >= 120) return 'geruest'                                   // Gerüstbildner (hoch, wenige)
+  if (p.funktion === 'Bo' || p.wuchsform === 'kriechend' || p.wuchsform === 'polster' || h < 25) return 'bodendecker'
+  if (h >= 60) return 'begleit'                                                            // Struktur-/Leitstaude
+  return 'fuell'                                                                           // Füllstaude
+}
+
+// Rollengerechte Mengen (Staudenmischpflanzung-Prinzip): Gehölze als Einzel-
+// exemplare/Akzente, Krautige nach Ziel-Gesamtdichte × Rollen-Gewicht – statt
+// die Fläche stur gleich auf alle Arten zu verteilen (das ergab „120× Löwenzahn").
+const HERB_DENSITY = 9 // Stauden/m² – Zielgesamtdichte einer dichten Mischpflanzung
+const ROLE_WEIGHT = { geruest: 0.4, begleit: 1, fuell: 1.2, bodendecker: 1.7, gras: 0.9, geophyt: 1 }
+function assignCounts(species, area) {
+  const woody = [], herb = []
+  species.forEach(p => (p.type === 'baum' || p.type === 'strauch' ? woody : herb).push(p))
+  const counts = new Map()
+  let woodyArea = 0
+  for (const p of woody) {
+    const spread = (p.ausbreitung || p.pflanzabstand || (p.type === 'baum' ? 400 : 180)) / 100
+    const footprint = Math.max(0.25, spread * spread)
+    const n = Math.max(1, Math.min(Math.round(area / (footprint * 4)), p.type === 'baum' ? 2 : 5))
+    woodyArea += n * footprint
+    counts.set(p.id, n)
+  }
+  const herbArea = Math.max(area - woodyArea, area * 0.35)
+  const totalHerb = Math.max(herb.length * 3, Math.round(HERB_DENSITY * herbArea))
+  const totalW = herb.reduce((s, p) => s + (ROLE_WEIGHT[plantRole(p)] ?? 1), 0) || 1
+  for (const p of herb) {
+    const raw = totalHerb * (ROLE_WEIGHT[plantRole(p)] ?? 1) / totalW
+    counts.set(p.id, Math.max(3, Math.round(raw)))
+  }
+  return species.map(p => ({ ...p, count: counts.get(p.id) ?? 1, role: plantRole(p) }))
+}
+
+// Deterministische Pseudozufallszahlen (kein Math.random – Plan muss reproduzierbar sein).
+function hashStr(s) { let h = 2166136261; const t = String(s); for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 16777619) } return h >>> 0 }
+function seededRand(seed) { let t = (seed >>> 0) + 0x6D2B79F5; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296 }
 // candPool: optionaler, bereits gefilterter Kandidatenpool (z.B. aus der Suchansicht),
 // damit die Auto-Auswahl ALLE aktiven Filter berücksichtigt statt nur Standort.
 function generatePlan({ licht = 1, wasser = 2, boden = null, area = 10, targetCount = 12, wBloom = 2, wBee = 2, wHeimisch = 1, wZier = 1, targetGroups = ['bienen'], candPool = null }) {
@@ -2006,12 +2074,7 @@ function generatePlan({ licht = 1, wasser = 2, boden = null, area = 10, targetCo
     ;(best.bluete_monate || []).forEach(m => covered.add(m))
     GEN_GROUP_KEYS.forEach(g => { if (best[g]) groupCov.add(g) })
   }
-  const nS = chosen.length || 1
-  return chosen.map(p => {
-    const spacing = (p.pflanzabstand || 40) / 100
-    const perM2 = 1 / (spacing * spacing)
-    return { ...p, count: Math.max(1, Math.round((area / nS) * perM2)) }
-  })
+  return assignCounts(chosen, area)
 }
 function suggestHabitats({ licht = 1, wasser = 2 }) {
   const ids = new Set(['insektentraenke', 'liegendes-totholz', 'vogelkasten'])
