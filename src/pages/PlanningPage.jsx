@@ -892,6 +892,7 @@ export default function PlanningPage() {
             beetArea={beetArea}
             L={L} shadow={shadow} cardBg={cardBg}
             onAddMore={() => setActiveTab('suche')}
+            onRescale={perM2 => setPlan(prev => prev.length ? assignCounts(prev, beetArea, perM2) : prev)}
             label={fromMapFeature?.label}
           />
         </div>
@@ -1114,47 +1115,57 @@ function BloomCalendar({ plan, L, shadow }) {
 }
 
 /* ─── BEETPLANER ─────────────────────────────────────────────────────────── */
-function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetForm, beetArea, L, shadow, cardBg, onAddMore, label }) {
+// Dichte-Stufen = Ziel-Pflanzdichte in Krautigen/m². Die Stückzahlen (und damit
+// die Bepflanzung) skalieren mit der Dichte; große Pflanzen bekommen anteilig
+// weniger (über assignCounts/ROLE_WEIGHT & Ausbreitung).
+const DENSITY_PERM2 = { 1: 4, 2: 6, 3: 8, 4: 11, 5: 15 }
+const DENSITY_LABEL = { 1: 'sehr locker', 2: 'locker', 3: 'normal', 4: 'dicht', 5: 'sehr dicht' }
+function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetForm, beetArea, L, shadow, cardBg, onAddMore, onRescale, label }) {
   const canvasRef = useRef(null)
   const [bloomMonth, setBloomMonth] = useState(0) // 0 = ganzjährig, 1-12 = Monat (Blühfolge)
+  const [density, setDensity] = useState(3)       // 1 = sehr locker … 5 = sehr dicht
 
-  // Pflanzenverteilung: Drifts/Cluster statt Streuung + Höhenschichtung
-  // (hohe Arten nach hinten/oben). Deterministisch (seeded) → stabiles Bild.
+  // Pflanzenverteilung: kollisionsbewusst platziert – Kreisgröße = Ausbreitung
+  // der Pflanze, Abstände richten sich nach der Wuchsgröße (Summe der Radien ×
+  // Dichte-Faktor). Gleiche Arten clustern zu Drifts, hohe Arten nach hinten/oben.
+  // Deterministisch (seeded) → stabiles Bild.
   const plantsWithPlacement = useMemo(() => {
-    const pts = []
     const margin = Math.min(0.15, beetW * 0.03, beetH * 0.03)
-    const uW = Math.max(0.1, beetW - margin * 2), uH = Math.max(0.1, beetH - margin * 2)
     const heights = plan.map(p => p.hoehe?.[1] ?? 50)
-    const hMin = Math.min(...heights, 20), hMax = Math.max(...heights, 100)
-    const hSpan = Math.max(1, hMax - hMin)
+    const hMin = Math.min(...heights, 20), hMax = Math.max(...heights, 100), hSpan = Math.max(1, hMax - hMin)
+    const gap = 1.05 // leichter Abstand; die Dichte steuert die Stückzahl, nicht den Abstand
+    // Alle Individuen bilden; Radius = halbe Ausbreitung (m). Große zuerst platzieren.
+    const items = []
     plan.forEach(plant => {
-      const seed0 = hashStr(plant.id)
+      const r = Math.max(0.05, (plant.ausbreitung || plant.pflanzabstand || 40) / 100 / 2)
       const h = plant.hoehe?.[1] ?? 50
-      const tallNorm = (h - hMin) / hSpan // 0 = niedrig, 1 = hoch
-      const bandCenter = margin + uH * (0.12 + (1 - tallNorm) * 0.72) // hoch → hinten (oben)
-      const spacing = (plant.pflanzabstand || 40) / 100
-      const woody = plant.type === 'baum' || plant.type === 'strauch'
-      const driftSize = woody ? 1 : Math.max(3, Math.round(spacing < 0.3 ? 9 : spacing < 0.6 ? 6 : 4))
-      const nDrifts = Math.max(1, Math.ceil(plant.count / driftSize))
-      let placed = 0
-      for (let d = 0; d < nDrifts && placed < plant.count; d++) {
-        const rs = seed0 + d * 131
-        const dcx = margin + seededRand(rs) * uW
-        const dcy = bandCenter + (seededRand(rs + 7) - 0.5) * uH * 0.28
-        const inDrift = Math.min(driftSize, plant.count - placed)
-        const spread = spacing * Math.sqrt(inDrift) * 0.7
-        for (let k = 0; k < inDrift; k++) {
-          const ang = seededRand(rs + 13 + k * 3) * Math.PI * 2
-          const rad = Math.sqrt(seededRand(rs + 17 + k * 3)) * spread
-          const px = Math.max(margin * 0.5, Math.min(beetW - margin * 0.5, dcx + Math.cos(ang) * rad))
-          const py = Math.max(margin * 0.5, Math.min(beetH - margin * 0.5, dcy + Math.sin(ang) * rad))
-          pts.push({ ...plant, px, py, _r: (plant.ausbreitung || plant.pflanzabstand || 40) / 100 })
-          placed++
-        }
-      }
+      for (let i = 0; i < plant.count; i++) items.push({ plant, r, h, seed: (hashStr(plant.id) + items.length * 0x9E3779B1) >>> 0 })
     })
-    pts.sort((a, b) => a.py - b.py) // hinten (oben) zuerst zeichnen → Höhenschichtung
-    return pts
+    items.sort((a, b) => b.r - a.r)
+    const placed = []
+    for (const it of items) {
+      const tallNorm = (it.h - hMin) / hSpan
+      const bandCy = margin + it.r + Math.max(0.01, beetH - 2 * margin - 2 * it.r) * (0.12 + (1 - tallNorm) * 0.72)
+      let best = { px: beetW / 2, py: bandCy }, bestScore = -Infinity
+      for (let t = 0; t < 18; t++) {
+        const s = (it.seed + t * 101) >>> 0
+        // Kandidaten über die ganze Beetfläche (damit bei Enge ausgewichen werden
+        // kann); Höhenschichtung ist ein WEICHER Bias (Strafe für Abstand zum Band).
+        const cx = margin + it.r + seededRand(s) * Math.max(0.01, beetW - 2 * margin - 2 * it.r)
+        const cy = margin + it.r + seededRand(s + 1) * Math.max(0.01, beetH - 2 * margin - 2 * it.r)
+        let minClear = Infinity, sameNear = 0
+        for (const q of placed) {
+          const d = Math.hypot(q.px - cx, q.py - cy)
+          minClear = Math.min(minClear, d - (q._r + it.r) * gap)
+          if (q.id === it.plant.id) sameNear = Math.max(sameNear, 1 / (1 + d * 5)) // Drift-Bildung: Nähe zur eigenen Art belohnen
+        }
+        const score = (minClear >= 0 ? 60 : minClear * 30) + sameNear * 10 - Math.abs(cy - bandCy) * 7 + seededRand(s + 2) * 0.3
+        if (score > bestScore) { bestScore = score; best = { px: cx, py: cy } }
+      }
+      placed.push({ ...it.plant, px: best.px, py: best.py, _r: it.r })
+    }
+    placed.sort((a, b) => a.py - b.py) // hinten (oben) zuerst → Höhenschichtung
+    return placed
   }, [plan, beetW, beetH])
 
   const totalNeeded = plan.reduce((s, p) => {
@@ -1201,7 +1212,7 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
     plantsWithPlacement.forEach(p => {
       const cx = p.px * scaleX
       const cy = p.py * scaleY
-      const r = Math.max(3, Math.min(42, (p._r * scaleX) / 2))
+      const r = Math.max(3, Math.min(52, p._r * scaleX)) // _r = Radius in m (halbe Ausbreitung)
       const blooming = bloomMonth === 0 || (p.bluete_monate || []).includes(bloomMonth)
       ctx.beginPath()
       ctx.arc(cx, cy, r, 0, Math.PI * 2)
@@ -1388,12 +1399,22 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
               🗺️ Pflanzverteilung — {beetW}m × {beetH}m
             </div>
             {/* Saison-Regler: Blühfolge sichtbar machen (Pollinator-Pathmaker-Prinzip) */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-              <span style={{ fontSize: 11, color: bloomMonth === 0 ? MUTED : A, fontWeight: 700, whiteSpace: 'nowrap', minWidth: 96 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <span style={{ fontSize: 11, color: bloomMonth === 0 ? MUTED : A, fontWeight: 700, whiteSpace: 'nowrap', minWidth: 108 }}>
                 🗓️ {bloomMonth === 0 ? 'Ganzjährig' : `Blüte im ${MONTHS[bloomMonth - 1]}`}
               </span>
               <input type="range" min={0} max={12} step={1} value={bloomMonth}
                 onChange={e => setBloomMonth(+e.target.value)}
+                style={{ flex: 1, accentColor: A, cursor: 'pointer' }} />
+            </div>
+            {/* Dichte-Regler: steuert die Pflanzdichte (Stück/m²) – die Mengen skalieren
+                rollen-/größengerecht mit. Große Pflanzen bekommen anteilig weniger. */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <span style={{ fontSize: 11, color: MUTED, fontWeight: 700, whiteSpace: 'nowrap', minWidth: 108 }}>
+                🌱 Dichte: <span style={{ color: A }}>{DENSITY_LABEL[density]}</span> <span style={{ color: MUTED, fontWeight: 400 }}>(~{DENSITY_PERM2[density]}/m²)</span>
+              </span>
+              <input type="range" min={1} max={5} step={1} value={density}
+                onChange={e => { const v = +e.target.value; setDensity(v); onRescale?.(DENSITY_PERM2[v]) }}
                 style={{ flex: 1, accentColor: A, cursor: 'pointer' }} />
             </div>
             <canvas
@@ -2026,9 +2047,10 @@ function plantRole(p) {
 // Rollengerechte Mengen (Staudenmischpflanzung-Prinzip): Gehölze als Einzel-
 // exemplare/Akzente, Krautige nach Ziel-Gesamtdichte × Rollen-Gewicht – statt
 // die Fläche stur gleich auf alle Arten zu verteilen (das ergab „120× Löwenzahn").
-const HERB_DENSITY = 9 // Stauden/m² – Zielgesamtdichte einer dichten Mischpflanzung
+const HERB_DENSITY = 8 // Stauden/m² – Standard-Zielgesamtdichte („normal")
 const ROLE_WEIGHT = { geruest: 0.4, begleit: 1, fuell: 1.2, bodendecker: 1.7, gras: 0.9, geophyt: 1 }
-function assignCounts(species, area) {
+// perM2: gewünschte Krautige/m² (Pflanzdichte). Gehölze bleiben Einzelakzente.
+function assignCounts(species, area, perM2 = HERB_DENSITY) {
   const woody = [], herb = []
   species.forEach(p => (p.type === 'baum' || p.type === 'strauch' ? woody : herb).push(p))
   const counts = new Map()
@@ -2041,11 +2063,11 @@ function assignCounts(species, area) {
     counts.set(p.id, n)
   }
   const herbArea = Math.max(area - woodyArea, area * 0.35)
-  const totalHerb = Math.max(herb.length * 3, Math.round(HERB_DENSITY * herbArea))
+  const totalHerb = Math.max(herb.length, Math.round(perM2 * herbArea))
   const totalW = herb.reduce((s, p) => s + (ROLE_WEIGHT[plantRole(p)] ?? 1), 0) || 1
   for (const p of herb) {
     const raw = totalHerb * (ROLE_WEIGHT[plantRole(p)] ?? 1) / totalW
-    counts.set(p.id, Math.max(3, Math.round(raw)))
+    counts.set(p.id, Math.max(1, Math.round(raw)))
   }
   return species.map(p => ({ ...p, count: counts.get(p.id) ?? 1, role: plantRole(p) }))
 }
