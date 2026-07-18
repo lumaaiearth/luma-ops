@@ -740,6 +740,8 @@ export default function PlanningPage() {
 
               {/* Blühkalender */}
               <BloomCalendar plan={plan} L={L} shadow={shadow} />
+              {/* Trachtkalender — was blüht wann für wen */}
+              <ForageCalendar plan={plan} L={L} shadow={shadow} />
 
               {/* Plant Rows */}
               <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', margin: '16px 0 8px', fontWeight: L ? 700 : 400 }}>Pflanzliste</div>
@@ -1471,6 +1473,71 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
   )
 }
 
+/* ─── BESTÄUBER / TRACHTKALENDER ─────────────────────────────────────────── */
+// Bestäubergruppen — Datengrundlage sind die bool-Felder je Art in plants.js.
+const POLLI_GROUPS = [
+  { key: 'bienen', label: 'Wildbienen', emoji: '🐝' },
+  { key: 'tagfalter', label: 'Tagfalter', emoji: '🦋' },
+  { key: 'nachtfalter', label: 'Nachtfalter', emoji: '🌙' },
+  { key: 'kaefer', label: 'Käfer', emoji: '🪲' },
+  { key: 'voegel', label: 'Vögel', emoji: '🐦' },
+]
+// Hauptflugzeit der Bestäuber (April–September): Blühlücken hier sind kritisch.
+const FORAGE_SEASON = [4, 5, 6, 7, 8, 9]
+
+// „Was blüht wann für wen": Matrix Bestäubergruppe × Monat, Zelle = Anzahl der
+// Arten im Plan, die diese Gruppe versorgen UND in dem Monat blühen. Lücken in
+// der Hauptflugzeit werden hervorgehoben (wissenschaftlicher als Pathmaker).
+function ForageCalendar({ plan, L, shadow }) {
+  const groups = POLLI_GROUPS.filter(g => plan.some(p => p[g.key]))
+  if (!groups.length) return null
+  const val = (gk, mi) => plan.filter(p => p[gk] && p.bluete_monate?.includes(mi + 1)).length
+  const maxByGroup = Object.fromEntries(groups.map(g => [g.key, Math.max(1, ...MONTHS.map((_, mi) => val(g.key, mi)))]))
+  const gaps = groups.flatMap(g => FORAGE_SEASON.filter(m => val(g.key, m - 1) === 0).map(m => ({ g, m })))
+
+  return (
+    <div style={{ background: L ? '#fff' : SURFACE, borderRadius: 12, padding: '16px 18px', boxShadow: shadow, marginBottom: 4, marginTop: 12 }}>
+      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4, fontWeight: L ? 700 : 400 }}>🐝 Trachtkalender — was blüht wann für wen</div>
+      <div style={{ fontSize: 11, color: MUTED, marginBottom: 12 }}>Arten im Plan, die je Gruppe & Monat Nahrung bieten. Rot = Lücke in der Hauptflugzeit (Apr–Sep).</div>
+      <div style={{ overflowX: 'auto' }}>
+        <div style={{ minWidth: 420 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '96px repeat(12,1fr)', gap: 3, marginBottom: 3 }}>
+            <span />
+            {MONTHS.map(m => <span key={m} style={{ textAlign: 'center', fontSize: 8, color: MUTED, fontFamily: "'Space Mono', monospace", fontWeight: L ? 700 : 400 }}>{m}</span>)}
+          </div>
+          {groups.map(g => (
+            <div key={g.key} style={{ display: 'grid', gridTemplateColumns: '96px repeat(12,1fr)', gap: 3, marginBottom: 3, alignItems: 'center' }}>
+              <span style={{ fontSize: 11, color: FG, fontWeight: L ? 600 : 400, whiteSpace: 'nowrap' }}>{g.emoji} {g.label}</span>
+              {MONTHS.map((m, mi) => {
+                const v = val(g.key, mi)
+                const isSeason = FORAGE_SEASON.includes(mi + 1)
+                const bg = v > 0
+                  ? `rgba(4,122,60,${0.2 + 0.6 * v / maxByGroup[g.key]})`
+                  : (isSeason ? 'rgba(220,38,38,0.16)' : (L ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.04)'))
+                return (
+                  <span key={m} title={`${g.label} · ${m}: ${v} Art(en)`} style={{
+                    height: 22, borderRadius: 4, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 9, fontWeight: 700, color: v > 0 ? '#fff' : (isSeason ? '#dc2626' : MUTED),
+                    border: v === 0 && isSeason ? '1px solid rgba(220,38,38,0.4)' : 'none',
+                  }}>{v > 0 ? v : (isSeason ? '!' : '·')}</span>
+                )
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+      {gaps.length > 0 && (
+        <div style={{ fontSize: 11, color: '#dc2626', marginTop: 10, background: 'rgba(220,38,38,0.08)', borderRadius: 6, padding: '7px 10px' }}>
+          ⚠️ Blühlücke: {groups.filter(g => FORAGE_SEASON.some(m => val(g.key, m - 1) === 0)).map(g => {
+            const gm = FORAGE_SEASON.filter(m => val(g.key, m - 1) === 0).map(m => MONTHS[m - 1]).join(', ')
+            return `${g.label} (${gm})`
+          }).join(' · ')} — eine früher/später blühende Art derselben Gruppe ergänzen.
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ─── BEET 3D — isometrische Jahresansicht ───────────────────────────────── */
 // Rendert das Beet aus derselben Platzierung wie die Drift-Karte, aber
 // isometrisch mit prozeduralen Pflanzen-Sprites. Saison-Stepper + Play zeigen
@@ -1485,6 +1552,7 @@ function Beet3D({ placement, beetW, beetH, beetForm, L, shadow, cardBg, label })
   const [zoom, setZoom] = useState(1)
   const [playing, setPlaying] = useState(false)
   const [sel, setSel] = useState(null) // gewählte Art (Objekt)
+  const [group, setGroup] = useState('alle') // Bestäuber-Fokus: 'alle' | bienen | …
   const hitRef = useRef([])
   const dragRef = useRef({ on: false, x: 0, moved: 0 })
 
@@ -1496,6 +1564,9 @@ function Beet3D({ placement, beetW, beetH, beetForm, L, shadow, cardBg, label })
   }, [placement])
   const bluehend = arten.filter(p => (p.bluete_monate || []).includes(month)).length
   const heimPct = arten.length ? Math.round(100 * arten.filter(p => p.heimisch).length / arten.length) : 0
+  // Bestäuber-Fokus: wie viele Arten versorgen die Gruppe – und blühen sie gerade?
+  const groupArten = group === 'alle' ? arten.length : arten.filter(p => p[group]).length
+  const groupBluehend = group === 'alle' ? bluehend : arten.filter(p => p[group] && (p.bluete_monate || []).includes(month)).length
 
   useEffect(() => {
     if (!playing) return
@@ -1549,10 +1620,14 @@ function Beet3D({ placement, beetW, beetH, beetForm, L, shadow, cardBg, label })
       const img = plantSprite(p, st, growth, gb, variant)
       const scale = (S / SPRITE_PX_PER_M) * 1.05
       const w = img.width * scale, h = img.height * scale
+      // Bestäuber-Fokus: Arten, die die gewählte Gruppe NICHT versorgen, abdimmen.
+      const serves = group === 'alle' || p[group]
+      ctx.globalAlpha = serves ? 1 : 0.16
       ctx.fillStyle = 'rgba(0,0,0,0.10)'
       ctx.beginPath(); ctx.ellipse(sx, sy, Math.max(4, w * 0.22), Math.max(2, w * 0.09), 0, 0, 7); ctx.fill()
       const flip = ((Math.round(p.px * 5)) % 2) ? -1 : 1
       ctx.save(); ctx.translate(sx, sy); ctx.scale(flip, 1); ctx.drawImage(img, -w / 2, -h, w, h); ctx.restore()
+      ctx.globalAlpha = 1
       if (sel && sel.id === p.id) {
         ctx.strokeStyle = L ? '#047a3c' : '#4fae7a'; ctx.lineWidth = 2
         ctx.beginPath(); ctx.ellipse(sx, sy, Math.max(6, w * 0.3), Math.max(3, w * 0.12), 0, 0, 7); ctx.stroke()
@@ -1562,7 +1637,7 @@ function Beet3D({ placement, beetW, beetH, beetForm, L, shadow, cardBg, label })
     hitRef.current = hits
   }
 
-  useEffect(draw, [placement, beetW, beetH, beetForm, L, month, theta, zoom, sel])
+  useEffect(draw, [placement, beetW, beetH, beetForm, L, month, theta, zoom, sel, group])
   useEffect(() => {
     const onResize = () => draw()
     window.addEventListener('resize', onResize)
@@ -1606,10 +1681,35 @@ function Beet3D({ placement, beetW, beetH, beetForm, L, shadow, cardBg, label })
       </div>
       {/* Kennzahlen */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
-        {[[`${arten.length} Arten`], [`${placement.length} Pflanzen`], [`heimisch ${heimPct}%`], [`blühend im ${MONTHS_FULL[month - 1]}: ${bluehend}/${arten.length}`]].map((c, i) => (
+        {[
+          `${arten.length} Arten`, `${placement.length} Pflanzen`, `heimisch ${heimPct}%`,
+          group === 'alle'
+            ? `blühend im ${MONTHS_FULL[month - 1]}: ${bluehend}/${arten.length}`
+            : `versorgt ${POLLI_GROUPS.find(g => g.key === group)?.label} im ${MONTHS_FULL[month - 1]}: ${groupBluehend}/${groupArten}`,
+        ].map((c, i) => (
           <span key={i} style={{ background: L ? A14 : 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`, borderRadius: 999, padding: '3px 10px', fontSize: 11, color: FG, fontVariantNumeric: 'tabular-nums' }}>{c}</span>
         ))}
       </div>
+      {/* Bestäuber-Fokus */}
+      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 10, alignItems: 'center' }}>
+        <span style={{ fontSize: 11, color: MUTED, fontWeight: 700, marginRight: 2 }}>Bestäuber-Fokus:</span>
+        {[{ key: 'alle', label: 'Alle', emoji: '🌍' }, ...POLLI_GROUPS].map(g => {
+          const has = g.key === 'alle' || arten.some(p => p[g.key])
+          return (
+            <button key={g.key} disabled={!has} onClick={() => setGroup(g.key)} style={{
+              display: 'flex', alignItems: 'center', gap: 4, padding: '4px 9px', borderRadius: 999, fontSize: 11,
+              cursor: has ? 'pointer' : 'not-allowed', opacity: has ? 1 : 0.35, fontWeight: group === g.key ? 700 : 400,
+              border: group === g.key ? `1.5px solid ${A}` : `1px solid ${BORDER}`,
+              background: group === g.key ? A14 : 'transparent', color: group === g.key ? A : MUTED,
+            }}>{g.emoji} {g.label}</button>
+          )
+        })}
+      </div>
+      {group !== 'alle' && groupBluehend === 0 && (
+        <div style={{ fontSize: 11, color: '#dc2626', marginBottom: 8, background: 'rgba(220,38,38,0.08)', borderRadius: 6, padding: '6px 10px' }}>
+          ⚠️ Im {MONTHS_FULL[month - 1]} blüht nichts für {POLLI_GROUPS.find(g => g.key === group)?.label}. Blühlücke — passende Art ergänzen.
+        </div>
+      )}
       <div style={{ position: 'relative' }}>
         <canvas ref={canvasRef}
           onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp}
@@ -2456,7 +2556,65 @@ function suggestHabitats({ licht = 1, wasser = 2 }) {
   return HABITATS.filter(h => ids.has(h.id)).map(h => ({ ...h, count: 1 }))
 }
 
+// Offscreen-Schnappschuss der isometrischen Ansicht (Hochsommer, feste Kamera)
+// als dataURL — für die Einbettung ins Plan-PDF.
+function renderIsoSnapshot(plan, beetW = 6, beetH = 4, month = 7) {
+  try {
+    const placement = computePlacement(plan, beetW, beetH)
+    if (!placement.length) return null
+    const W = 1000, H = 460
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H
+    const ctx = cv.getContext('2d')
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H)
+    const theta = -0.5, cos = Math.cos(theta), sin = Math.sin(theta)
+    const S = Math.min(W / (beetW + 3), H / ((beetH + 4) * 0.55))
+    const cx = W / 2, cy = H * 0.58
+    const P = (x, y) => { const xr = (x - beetW / 2) * cos - (y - beetH / 2) * sin, yr = (x - beetW / 2) * sin + (y - beetH / 2) * cos; return [cx + xr * S, cy + yr * S * 0.5] }
+    ctx.strokeStyle = 'rgba(4,122,60,0.12)'
+    for (let gx = -3; gx <= beetW + 3; gx++) { const a = P(gx, -2), b = P(gx, beetH + 2); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke() }
+    for (let gy = -2; gy <= beetH + 2; gy++) { const a = P(-3, gy), b = P(beetW + 3, gy); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke() }
+    ctx.fillStyle = '#eef4ea'; ctx.beginPath();[[0, 0], [beetW, 0], [beetW, beetH], [0, beetH]].forEach((p, i) => { const q = P(p[0], p[1]); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]) }); ctx.closePath(); ctx.fill()
+    const growth = growthForMonth(month), gb = growthBucket(month)
+    const order = placement.map(p => { const [sx, sy] = P(p.px, p.py); return { p, sx, sy } }).sort((a, b) => a.sy - b.sy)
+    for (const { p, sx, sy } of order) {
+      const img = plantSprite(p, stateForMonth(p, month), growth, gb, (Math.round(p.px * 7) + Math.round(p.py * 13)) % 2)
+      const scale = (S / SPRITE_PX_PER_M) * 1.05, w = img.width * scale, h = img.height * scale
+      ctx.fillStyle = 'rgba(0,0,0,0.10)'; ctx.beginPath(); ctx.ellipse(sx, sy, Math.max(4, w * 0.22), Math.max(2, w * 0.09), 0, 0, 7); ctx.fill()
+      ctx.drawImage(img, sx - w / 2, sy - h, w, h)
+    }
+    return cv.toDataURL('image/jpeg', 0.82)
+  } catch { return null }
+}
+// Offscreen-Schnappschuss des Rasterplans (Vierecke + Codes) als dataURL.
+function renderRasterSnapshot(plan, beetW = 6, beetH = 4, cellCm = 33) {
+  try {
+    const g = buildGrid(plan, beetW, beetH, cellCm)
+    if (!g.legend.length) return null
+    const by = new Map(g.legend.map(l => [l.id, l]))
+    const cell = Math.max(16, Math.min(40, Math.floor(900 / g.cols)))
+    const pad = 22
+    const W = g.cols * cell + pad * 2, H = g.rows * cell + pad * 2
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H
+    const ctx = cv.getContext('2d')
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H)
+    for (let idx = 0; idx < g.cells.length; idx++) {
+      const col = idx % g.cols, row = Math.floor(idx / g.cols), x = pad + col * cell, y = pad + row * cell
+      const leg = g.cells[idx] && by.get(g.cells[idx])
+      ctx.fillStyle = leg ? leg.farbe : '#f0f0f0'; ctx.fillRect(x, y, cell, cell)
+      ctx.strokeStyle = 'rgba(5,46,22,0.18)'; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, cell - 1, cell - 1)
+      if (leg && cell >= 16) { ctx.fillStyle = pickTextColor(leg.farbe); ctx.font = `bold ${Math.min(13, cell * 0.42)}px monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(leg.code, x + cell / 2, y + cell / 2) }
+    }
+    ctx.fillStyle = '#888'; ctx.font = '9px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'
+    for (let c = 0; c < g.cols; c++) ctx.fillText(String(c + 1), pad + c * cell + cell / 2, pad - 6)
+    ctx.textAlign = 'right'
+    for (let r = 0; r < g.rows; r++) ctx.fillText(String(r + 1), pad - 6, pad + r * cell + cell / 2 + 3)
+    return cv.toDataURL('image/jpeg', 0.85)
+  } catch { return null }
+}
+
 function exportPdf(plan, { label, beetArea, beetW, beetH, habitats = [] } = {}) {
+  const isoImg = renderIsoSnapshot(plan, beetW || 6, beetH || 4, 7)
+  const rasterImg = renderRasterSnapshot(plan, beetW || 6, beetH || 4, 33)
   const total = plan.reduce((s, p) => s + p.count, 0)
   const date = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
   const planTitle = label || `Pflanzplan ${beetW ? `${beetW}m × ${beetH}m` : ''}`
@@ -2572,6 +2730,10 @@ ${pflegeRows ? `<div class="section-h">Pflegeplan</div>
   .section-h { font-size: 13pt; font-weight: 800; color: #052e16; margin: 26px 0 10px; border-bottom: 2px solid #bbf7d0; padding-bottom: 4px; }
   .box { margin-top: 10px; padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 6px; }
   .box ol, .box ul { margin: 4px 0 0 18px; font-size: 9pt; color: #333; line-height: 1.6; }
+  .viz { display: flex; flex-direction: column; gap: 14px; margin-bottom: 18px; }
+  .viz figure { border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px; background: #fff; }
+  .viz img { width: 100%; height: auto; display: block; border-radius: 4px; }
+  .viz figcaption { font-size: 8.5pt; color: #555; margin-top: 6px; text-align: center; }
   @media print {
     body { padding: 15mm 15mm; }
     @page { margin: 15mm; }
@@ -2610,6 +2772,13 @@ ${pflegeRows ? `<div class="section-h">Pflegeplan</div>
   </thead>
   <tbody>${rows}</tbody>
 </table>
+
+${(isoImg || rasterImg) ? `
+<div class="section-h">Visualisierung &amp; Pflanzanleitung</div>
+<div class="viz">
+  ${isoImg ? `<figure><img src="${isoImg}" alt="3D-Jahresansicht"><figcaption>Isometrisches Pflanzbild (Hochsommer) — so entwickelt sich das Beet.</figcaption></figure>` : ''}
+  ${rasterImg ? `<figure><img src="${rasterImg}" alt="Rasterplan"><figcaption>Pflanzanleitung: jede Zelle = 33×33 cm = eine Pflanze (Code laut Pflanzliste-Farbe).</figcaption></figure>` : ''}
+</div>` : ''}
 
 <div class="order-note">
   <strong>🌿 Bestellanfrage an Baumschule</strong>
