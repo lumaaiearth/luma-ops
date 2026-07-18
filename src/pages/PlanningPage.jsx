@@ -11,7 +11,10 @@ import {
   Leaf, Search, Plus, Minus, ExternalLink, X, ChevronDown, ChevronUp,
   Filter, Download, SlidersHorizontal, Ruler, Grid3x3, Info,
   Sun, Droplets, FlaskConical, Bug, Bird, Flower, Sprout, TreePine,
+  Box, LayoutGrid, Map as MapIcon, Play, Pause, RotateCw,
 } from 'lucide-react'
+import { computePlacement, buildGrid, stateForMonth, growthForMonth, growthBucket } from '../lib/beetLayout.js'
+import { plantSprite, SPRITE_PX_PER_M } from '../lib/plantSprites.js'
 
 /* ─── PFLANZPLAN STATUS ─────────────────────────────────────────────────── */
 const STATUS_LABELS = {
@@ -1124,49 +1127,15 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
   const canvasRef = useRef(null)
   const [bloomMonth, setBloomMonth] = useState(0) // 0 = ganzjährig, 1-12 = Monat (Blühfolge)
   const [density, setDensity] = useState(3)       // 1 = sehr locker … 5 = sehr dicht
+  const [view, setView] = useState('iso')         // 'iso' = 3D-Jahr · 'raster' = Pflanzanleitung · 'drift' = Drift-Karte
 
-  // Pflanzenverteilung: kollisionsbewusst platziert – Kreisgröße = Ausbreitung
-  // der Pflanze, Abstände richten sich nach der Wuchsgröße (Summe der Radien ×
-  // Dichte-Faktor). Gleiche Arten clustern zu Drifts, hohe Arten nach hinten/oben.
-  // Deterministisch (seeded) → stabiles Bild.
-  const plantsWithPlacement = useMemo(() => {
-    const margin = Math.min(0.15, beetW * 0.03, beetH * 0.03)
-    const heights = plan.map(p => p.hoehe?.[1] ?? 50)
-    const hMin = Math.min(...heights, 20), hMax = Math.max(...heights, 100), hSpan = Math.max(1, hMax - hMin)
-    const gap = 1.05 // leichter Abstand; die Dichte steuert die Stückzahl, nicht den Abstand
-    // Alle Individuen bilden; Radius = halbe Ausbreitung (m). Große zuerst platzieren.
-    const items = []
-    plan.forEach(plant => {
-      const r = Math.max(0.05, (plant.ausbreitung || plant.pflanzabstand || 40) / 100 / 2)
-      const h = plant.hoehe?.[1] ?? 50
-      for (let i = 0; i < plant.count; i++) items.push({ plant, r, h, seed: (hashStr(plant.id) + items.length * 0x9E3779B1) >>> 0 })
-    })
-    items.sort((a, b) => b.r - a.r)
-    const placed = []
-    for (const it of items) {
-      const tallNorm = (it.h - hMin) / hSpan
-      const bandCy = margin + it.r + Math.max(0.01, beetH - 2 * margin - 2 * it.r) * (0.12 + (1 - tallNorm) * 0.72)
-      let best = { px: beetW / 2, py: bandCy }, bestScore = -Infinity
-      for (let t = 0; t < 18; t++) {
-        const s = (it.seed + t * 101) >>> 0
-        // Kandidaten über die ganze Beetfläche (damit bei Enge ausgewichen werden
-        // kann); Höhenschichtung ist ein WEICHER Bias (Strafe für Abstand zum Band).
-        const cx = margin + it.r + seededRand(s) * Math.max(0.01, beetW - 2 * margin - 2 * it.r)
-        const cy = margin + it.r + seededRand(s + 1) * Math.max(0.01, beetH - 2 * margin - 2 * it.r)
-        let minClear = Infinity, sameNear = 0
-        for (const q of placed) {
-          const d = Math.hypot(q.px - cx, q.py - cy)
-          minClear = Math.min(minClear, d - (q._r + it.r) * gap)
-          if (q.id === it.plant.id) sameNear = Math.max(sameNear, 1 / (1 + d * 5)) // Drift-Bildung: Nähe zur eigenen Art belohnen
-        }
-        const score = (minClear >= 0 ? 60 : minClear * 30) + sameNear * 10 - Math.abs(cy - bandCy) * 7 + seededRand(s + 2) * 0.3
-        if (score > bestScore) { bestScore = score; best = { px: cx, py: cy } }
-      }
-      placed.push({ ...it.plant, px: best.px, py: best.py, _r: it.r })
-    }
-    placed.sort((a, b) => a.py - b.py) // hinten (oben) zuerst → Höhenschichtung
-    return placed
-  }, [plan, beetW, beetH])
+  // Pflanzenverteilung: kollisionsbewusst platziert (Drifts, Höhenstaffelung),
+  // deterministisch. Von Drift-Karte UND isometrischer Ansicht gemeinsam genutzt
+  // (src/lib/beetLayout.js) → 2D-Plan und 3D zeigen exakt dasselbe Beet.
+  const plantsWithPlacement = useMemo(
+    () => computePlacement(plan, beetW, beetH),
+    [plan, beetW, beetH]
+  )
 
   const totalNeeded = plan.reduce((s, p) => {
     const ppm = 1 / Math.pow((p.pflanzabstand || 40) / 100, 2)
@@ -1174,6 +1143,7 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
   }, 0)
 
   useEffect(() => {
+    if (view !== 'drift') return
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
@@ -1231,7 +1201,7 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
         ctx.stroke()
       }
     })
-  }, [plantsWithPlacement, beetW, beetH, beetForm, L, bloomMonth])
+  }, [plantsWithPlacement, beetW, beetH, beetForm, L, bloomMonth, view])
 
   function exportPng() {
     const DPR = 2
@@ -1393,69 +1363,102 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
         </div>
       ) : (
         <>
-          {/* Canvas */}
-          <div style={{ background: cardBg, borderRadius: 12, padding: 16, boxShadow: shadow, marginBottom: 16 }}>
-            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12, fontWeight: L ? 700 : 400 }}>
-              🗺️ Pflanzverteilung — {beetW}m × {beetH}m
-            </div>
-            {/* Saison-Regler: Blühfolge sichtbar machen (Pollinator-Pathmaker-Prinzip) */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-              <span style={{ fontSize: 11, color: bloomMonth === 0 ? MUTED : A, fontWeight: 700, whiteSpace: 'nowrap', minWidth: 108 }}>
-                🗓️ {bloomMonth === 0 ? 'Ganzjährig' : `Blüte im ${MONTHS[bloomMonth - 1]}`}
-              </span>
-              <input type="range" min={0} max={12} step={1} value={bloomMonth}
-                onChange={e => setBloomMonth(+e.target.value)}
-                style={{ flex: 1, accentColor: A, cursor: 'pointer' }} />
-            </div>
-            {/* Dichte-Regler: steuert die Pflanzdichte (Stück/m²) – die Mengen skalieren
-                rollen-/größengerecht mit. Große Pflanzen bekommen anteilig weniger. */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-              <span style={{ fontSize: 11, color: MUTED, fontWeight: 700, whiteSpace: 'nowrap', minWidth: 108 }}>
-                🌱 Dichte: <span style={{ color: A }}>{DENSITY_LABEL[density]}</span> <span style={{ color: MUTED, fontWeight: 400 }}>(~{DENSITY_PERM2[density]}/m²)</span>
-              </span>
-              <input type="range" min={1} max={5} step={1} value={density}
-                onChange={e => { const v = +e.target.value; setDensity(v); onRescale?.(DENSITY_PERM2[v]) }}
-                style={{ flex: 1, accentColor: A, cursor: 'pointer' }} />
-            </div>
-            <canvas
-              ref={canvasRef}
-              width={Math.min(800, beetW * 80)}
-              height={Math.min(400, beetH * 80)}
-              style={{ width: '100%', borderRadius: 8, display: 'block', maxHeight: 300 }}
-            />
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12, alignItems: 'center' }}>
-              {plan.map(p => (
-                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11 }}>
-                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: p.bluete_farbe || A, flexShrink: 0 }} />
-                  <span style={{ color: FG, fontWeight: L ? 600 : 400 }}>{p.name}</span>
-                  <span style={{ color: MUTED }}>({p.count}×)</span>
-                </div>
-              ))}
-              <button onClick={exportPng} style={{
-                marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6,
-                background: A14, border: `1px solid ${A20}`, color: A,
-                borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontSize: 12, fontWeight: 600, flexShrink: 0,
-              }}>
-                <Download size={12} /> PNG exportieren
-              </button>
-            </div>
+          {/* Dichte-Regler (global): steuert Pflanzdichte (Stück/m²) – Mengen skalieren
+              rollen-/größengerecht mit. Große Pflanzen bekommen anteilig weniger. */}
+          <div style={{ background: cardBg, borderRadius: 12, padding: '14px 16px', boxShadow: shadow, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12, color: MUTED, fontWeight: 700, whiteSpace: 'nowrap' }}>
+              🌱 Pflanzdichte: <span style={{ color: A }}>{DENSITY_LABEL[density]}</span> <span style={{ color: MUTED, fontWeight: 400 }}>(~{DENSITY_PERM2[density]} Stauden/m²)</span>
+            </span>
+            <input type="range" min={1} max={5} step={1} value={density}
+              onChange={e => { const v = +e.target.value; setDensity(v); onRescale?.(DENSITY_PERM2[v]) }}
+              style={{ flex: 1, minWidth: 160, accentColor: A, cursor: 'pointer' }} />
           </div>
 
-          {/* Pflanzabstandstabelle */}
+          {/* Ansicht-Umschalter */}
+          <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+            {[
+              ['iso', <Box size={14} key="i" />, '3D-Jahresansicht'],
+              ['raster', <LayoutGrid size={14} key="r" />, 'Pflanzanleitung (Raster)'],
+              ['drift', <MapIcon size={14} key="d" />, 'Drift-Karte'],
+            ].map(([v, icon, lbl]) => (
+              <button key={v} onClick={() => setView(v)} style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8,
+                fontSize: 12.5, cursor: 'pointer', fontWeight: view === v ? 700 : (L ? 500 : 400),
+                border: view === v ? `1.5px solid ${A}` : `1px solid ${BORDER}`,
+                background: view === v ? A14 : 'transparent', color: view === v ? A : MUTED,
+              }}>{icon} {lbl}</button>
+            ))}
+          </div>
+
+          {/* ── 3D-JAHRESANSICHT (isometrisch) ── */}
+          {view === 'iso' && (
+            <Beet3D placement={plantsWithPlacement} beetW={beetW} beetH={beetH} beetForm={beetForm}
+              L={L} shadow={shadow} cardBg={cardBg} label={label} />
+          )}
+
+          {/* ── PFLANZANLEITUNG (Rasterplan mit Vierecken) ── */}
+          {view === 'raster' && (
+            <RasterPlan plan={plan} beetW={beetW} beetH={beetH} beetArea={beetArea}
+              L={L} shadow={shadow} cardBg={cardBg} label={label} />
+          )}
+
+          {/* ── DRIFT-KARTE (kontinuierliche Blühfolge) ── */}
+          {view === 'drift' && (
+            <div style={{ background: cardBg, borderRadius: 12, padding: 16, boxShadow: shadow, marginBottom: 16 }}>
+              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12, fontWeight: L ? 700 : 400 }}>
+                🗺️ Drift-Karte — {beetW}m × {beetH}m
+              </div>
+              {/* Saison-Regler: Blühfolge sichtbar machen */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <span style={{ fontSize: 11, color: bloomMonth === 0 ? MUTED : A, fontWeight: 700, whiteSpace: 'nowrap', minWidth: 108 }}>
+                  🗓️ {bloomMonth === 0 ? 'Ganzjährig' : `Blüte im ${MONTHS[bloomMonth - 1]}`}
+                </span>
+                <input type="range" min={0} max={12} step={1} value={bloomMonth}
+                  onChange={e => setBloomMonth(+e.target.value)}
+                  style={{ flex: 1, accentColor: A, cursor: 'pointer' }} />
+              </div>
+              <canvas
+                ref={canvasRef}
+                width={Math.min(800, beetW * 80)}
+                height={Math.min(400, beetH * 80)}
+                style={{ width: '100%', borderRadius: 8, display: 'block', maxHeight: 300 }}
+              />
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12, alignItems: 'center' }}>
+                {plan.map(p => (
+                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: p.bluete_farbe || A, flexShrink: 0 }} />
+                    <span style={{ color: FG, fontWeight: L ? 600 : 400 }}>{p.name}</span>
+                    <span style={{ color: MUTED }}>({p.count}×)</span>
+                  </div>
+                ))}
+                <button onClick={exportPng} style={{
+                  marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6,
+                  background: A14, border: `1px solid ${A20}`, color: A,
+                  borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontSize: 12, fontWeight: 600, flexShrink: 0,
+                }}>
+                  <Download size={12} /> PNG exportieren
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Pflanzabstände & Mengen (immer sichtbar) */}
           <div style={{ background: cardBg, borderRadius: 12, padding: '16px 18px', boxShadow: shadow }}>
-            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12, fontWeight: L ? 700 : 400 }}>
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4, fontWeight: L ? 700 : 400 }}>
               📏 Pflanzabstände & Mengen
+            </div>
+            <div style={{ fontSize: 11, color: MUTED, marginBottom: 12 }}>
+              {plan.reduce((s, p) => s + p.count, 0)} Pflanzen auf {beetArea.toFixed(1)} m² · Ø {(plan.reduce((s, p) => s + p.count, 0) / Math.max(beetArea, 0.1)).toFixed(1)}/m²
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {plan.map(p => {
                 const spacing = p.pflanzabstand || 40
-                const ppm = 1 / Math.pow(spacing / 100, 2)
-                const rec = Math.round(beetArea * ppm * (1 / plan.length))
+                const flaeche = (p.count * Math.pow(spacing / 100, 2)) // grobe belegte Fläche (m²)
                 return (
                   <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12 }}>
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.bluete_farbe || A, flexShrink: 0 }} />
                     <span style={{ flex: 1, color: FG, fontWeight: L ? 600 : 400 }}>{p.name}</span>
-                    <span style={{ color: MUTED, fontFamily: "'Space Mono', monospace", fontSize: 10 }}>Ø {spacing}cm</span>
+                    <span style={{ color: MUTED, fontFamily: "'Space Mono', monospace", fontSize: 10 }}>Ø {spacing}cm · ~{flaeche.toFixed(1)}m²</span>
                     <span style={{ color: A, fontWeight: 700, minWidth: 40, textAlign: 'right' }}>{p.count}×</span>
                   </div>
                 )
@@ -1466,6 +1469,354 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
       )}
     </div>
   )
+}
+
+/* ─── BEET 3D — isometrische Jahresansicht ───────────────────────────────── */
+// Rendert das Beet aus derselben Platzierung wie die Drift-Karte, aber
+// isometrisch mit prozeduralen Pflanzen-Sprites. Saison-Stepper + Play zeigen
+// die Entwicklung übers Gartenjahr; Tippen bestimmt die Art; Ziehen dreht.
+const MONTHS_FULL = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
+const SEASON_OF = m => m <= 4 ? 'Frühling' : m === 5 ? 'Spätfrühling' : m === 6 ? 'Frühsommer' : m <= 8 ? 'Hochsommer' : m === 9 ? 'Spätsommer' : 'Herbst'
+function Beet3D({ placement, beetW, beetH, beetForm, L, shadow, cardBg, label }) {
+  const canvasRef = useRef(null)
+  const wrapRef = useRef(null)
+  const [month, setMonth] = useState(6)
+  const [theta, setTheta] = useState(-0.5)
+  const [zoom, setZoom] = useState(1)
+  const [playing, setPlaying] = useState(false)
+  const [sel, setSel] = useState(null) // gewählte Art (Objekt)
+  const hitRef = useRef([])
+  const dragRef = useRef({ on: false, x: 0, moved: 0 })
+
+  // Kennzahlen für den gewählten Monat
+  const arten = useMemo(() => {
+    const seen = new Map()
+    placement.forEach(p => { if (!seen.has(p.id)) seen.set(p.id, p) })
+    return [...seen.values()]
+  }, [placement])
+  const bluehend = arten.filter(p => (p.bluete_monate || []).includes(month)).length
+  const heimPct = arten.length ? Math.round(100 * arten.filter(p => p.heimisch).length / arten.length) : 0
+
+  useEffect(() => {
+    if (!playing) return
+    const t = setInterval(() => setMonth(m => (m >= 10 ? 3 : m + 1)), 950)
+    return () => clearInterval(t)
+  }, [playing])
+
+  const draw = () => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const wrap = wrapRef.current
+    const DPR = Math.min(2, window.devicePixelRatio || 1)
+    const cssW = wrap.clientWidth, cssH = 360
+    canvas.width = cssW * DPR; canvas.height = cssH * DPR
+    canvas.style.height = cssH + 'px'
+    const ctx = canvas.getContext('2d')
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0)
+    ctx.clearRect(0, 0, cssW, cssH)
+
+    const S = Math.min(cssW / (beetW + 3), cssH / ((beetH + 4) * 0.55)) * zoom
+    const cx = cssW / 2, cy = cssH * 0.58
+    const cos = Math.cos(theta), sin = Math.sin(theta)
+    const P = (x, y) => {
+      const xr = (x - beetW / 2) * cos - (y - beetH / 2) * sin
+      const yr = (x - beetW / 2) * sin + (y - beetH / 2) * cos
+      return [cx + xr * S, cy + yr * S * 0.5]
+    }
+
+    // Bodenraster
+    ctx.strokeStyle = L ? 'rgba(4,122,60,0.14)' : 'rgba(120,190,150,0.12)'
+    ctx.lineWidth = 1
+    for (let gx = -3; gx <= beetW + 3; gx++) { const a = P(gx, -2), b = P(gx, beetH + 2); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke() }
+    for (let gy = -2; gy <= beetH + 2; gy++) { const a = P(-3, gy), b = P(beetW + 3, gy); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke() }
+    // Beetfläche
+    ctx.fillStyle = L ? '#eef4ea' : '#131c16'
+    ctx.beginPath()
+    const corners = beetForm === 'oval'
+      ? Array.from({ length: 40 }, (_, i) => { const a = i / 40 * Math.PI * 2; return [beetW / 2 + Math.cos(a) * beetW / 2, beetH / 2 + Math.sin(a) * beetH / 2] })
+      : [[0, 0], [beetW, 0], [beetW, beetH], [0, beetH]]
+    corners.forEach((p, i) => { const q = P(p[0], p[1]); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]) })
+    ctx.closePath(); ctx.fill()
+    ctx.strokeStyle = L ? 'rgba(4,122,60,0.35)' : 'rgba(79,174,122,0.4)'; ctx.stroke()
+
+    // Pflanzen: Tiefensortierung nach projizierter y, dann Sprites zeichnen
+    const growth = growthForMonth(month), gb = growthBucket(month)
+    const order = placement.map(p => { const [sx, sy] = P(p.px, p.py); return { p, sx, sy } }).sort((a, b) => a.sy - b.sy)
+    const hits = []
+    for (const { p, sx, sy } of order) {
+      const st = stateForMonth(p, month)
+      const variant = (Math.round(p.px * 7) + Math.round(p.py * 13)) % 2
+      const img = plantSprite(p, st, growth, gb, variant)
+      const scale = (S / SPRITE_PX_PER_M) * 1.05
+      const w = img.width * scale, h = img.height * scale
+      ctx.fillStyle = 'rgba(0,0,0,0.10)'
+      ctx.beginPath(); ctx.ellipse(sx, sy, Math.max(4, w * 0.22), Math.max(2, w * 0.09), 0, 0, 7); ctx.fill()
+      const flip = ((Math.round(p.px * 5)) % 2) ? -1 : 1
+      ctx.save(); ctx.translate(sx, sy); ctx.scale(flip, 1); ctx.drawImage(img, -w / 2, -h, w, h); ctx.restore()
+      if (sel && sel.id === p.id) {
+        ctx.strokeStyle = L ? '#047a3c' : '#4fae7a'; ctx.lineWidth = 2
+        ctx.beginPath(); ctx.ellipse(sx, sy, Math.max(6, w * 0.3), Math.max(3, w * 0.12), 0, 0, 7); ctx.stroke()
+      }
+      hits.push({ p, sx, sy })
+    }
+    hitRef.current = hits
+  }
+
+  useEffect(draw, [placement, beetW, beetH, beetForm, L, month, theta, zoom, sel])
+  useEffect(() => {
+    const onResize = () => draw()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }) // eslint-disable-line
+
+  const onDown = e => { dragRef.current = { on: true, x: e.clientX, moved: 0 }; e.currentTarget.setPointerCapture?.(e.pointerId) }
+  const onMove = e => {
+    const d = dragRef.current; if (!d.on) return
+    const dx = e.clientX - d.x; d.x = e.clientX; d.moved += Math.abs(dx)
+    setTheta(t => t + dx * 0.006)
+  }
+  const onUp = e => {
+    const d = dragRef.current; dragRef.current = { ...d, on: false }
+    if (d.moved < 6) {
+      const r = canvasRef.current.getBoundingClientRect()
+      const mx = e.clientX - r.left, my = e.clientY - r.top
+      let best = null, bd = 40
+      for (const h of hitRef.current) { const dd = Math.hypot(h.sx - mx, (h.sy - 18) - my); if (dd < bd) { bd = dd; best = h.p } }
+      setSel(best)
+    }
+  }
+
+  function exportPng() {
+    const src = canvasRef.current
+    if (!src) return
+    src.toBlob(blob => {
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = `florales-3d-${MONTHS_FULL[month - 1].toLowerCase()}-${new Date().toISOString().slice(0, 10)}.png`
+      a.click()
+    }, 'image/png')
+  }
+
+  const dots = (v) => '●'.repeat(v || 0) + '○'.repeat(5 - (v || 0))
+
+  return (
+    <div style={{ background: cardBg, borderRadius: 12, padding: 16, boxShadow: shadow, marginBottom: 16 }} ref={wrapRef}>
+      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10, fontWeight: L ? 700 : 400 }}>
+        🌿 3D-Jahresansicht — {beetW}m × {beetH}m
+      </div>
+      {/* Kennzahlen */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+        {[[`${arten.length} Arten`], [`${placement.length} Pflanzen`], [`heimisch ${heimPct}%`], [`blühend im ${MONTHS_FULL[month - 1]}: ${bluehend}/${arten.length}`]].map((c, i) => (
+          <span key={i} style={{ background: L ? A14 : 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`, borderRadius: 999, padding: '3px 10px', fontSize: 11, color: FG, fontVariantNumeric: 'tabular-nums' }}>{c}</span>
+        ))}
+      </div>
+      <div style={{ position: 'relative' }}>
+        <canvas ref={canvasRef}
+          onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp}
+          style={{ width: '100%', borderRadius: 8, display: 'block', touchAction: 'none', cursor: dragRef.current.on ? 'grabbing' : 'grab' }} />
+        {sel && (
+          <div style={{ position: 'absolute', left: 8, bottom: 8, maxWidth: 280, background: cardBg, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '10px 12px', boxShadow: shadow }}>
+            <button onClick={() => setSel(null)} style={{ position: 'absolute', top: 4, right: 6, background: 'none', border: 0, color: MUTED, cursor: 'pointer', fontSize: 14 }}>✕</button>
+            <div style={{ fontStyle: 'italic', fontFamily: 'Charter, Georgia, serif', fontSize: 14, color: FG }}>{sel.latin}</div>
+            <div style={{ fontWeight: 700, color: FG, marginBottom: 4 }}>{sel.name}</div>
+            <div style={{ fontSize: 11, color: MUTED }}>
+              Blüte {MONTHS_FULL[(sel.bluete_monate?.[0] || 1) - 1]}–{MONTHS_FULL[(sel.bluete_monate?.[sel.bluete_monate.length - 1] || 1) - 1]} · bis {sel.hoehe?.[1] ?? '?'} cm<br />
+              Nektar <span style={{ color: A }}>{dots(sel.nektar)}</span> · Pollen <span style={{ color: A }}>{dots(sel.pollen)}</span>
+            </div>
+            <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 10, border: `1px solid ${A}`, color: A, borderRadius: 6, padding: '1px 6px' }}>{sel.heimisch ? 'heimisch' : 'Zierstaude'}</span>
+              {sel.raupenfutter_arten?.length ? <span style={{ fontSize: 10, border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 6, padding: '1px 6px' }}>Raupenfutter: {sel.raupenfutter_arten[0]}</span> : null}
+            </div>
+          </div>
+        )}
+      </div>
+      {/* Steuerung */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: L ? A14 : 'rgba(255,255,255,0.04)', borderRadius: 999, padding: '2px 4px' }}>
+          <button onClick={() => setMonth(m => Math.max(3, m - 1))} style={ctrlBtn(L)} aria-label="Früher">‹</button>
+          <span style={{ minWidth: 132, textAlign: 'center', fontSize: 12, fontWeight: 700, color: FG, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            {SEASON_OF(month)}<br /><span style={{ fontWeight: 400, color: MUTED, textTransform: 'none', fontSize: 11 }}>{MONTHS_FULL[month - 1]}</span>
+          </span>
+          <button onClick={() => setMonth(m => Math.min(10, m + 1))} style={ctrlBtn(L)} aria-label="Später">›</button>
+        </div>
+        <button onClick={() => setPlaying(p => !p)} style={{ ...ctrlBtn(L), background: A, color: '#fff', display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 999, fontWeight: 600 }}>
+          {playing ? <Pause size={13} /> : <Play size={13} />} Jahr
+        </button>
+        <div style={{ display: 'flex', gap: 4, marginLeft: 'auto', flexWrap: 'wrap' }}>
+          <button onClick={() => setZoom(z => Math.max(0.5, z * 0.87))} style={ctrlBtn(L)} aria-label="Kleiner">−</button>
+          <button onClick={() => setZoom(z => Math.min(2.6, z * 1.15))} style={ctrlBtn(L)} aria-label="Größer">+</button>
+          <button onClick={() => { setTheta(-0.5); setZoom(1) }} style={ctrlBtn(L)} aria-label="Ansicht zurücksetzen"><RotateCw size={13} /></button>
+          <button onClick={exportPng} style={{ ...ctrlBtn(L), display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px' }}><Download size={12} /> PNG</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+function ctrlBtn(L) {
+  return { border: `1px solid ${BORDER}`, background: L ? '#fff' : SURFACE, color: FG, borderRadius: 999, padding: '6px 10px', cursor: 'pointer', fontSize: 13, fontWeight: 500, minWidth: 34 }
+}
+
+/* ─── RASTERPLAN — druckbare Pflanzanleitung (Vierecke wie Pathmaker) ─────── */
+const RASTER_CELLS = [
+  { cm: 25, label: '25 cm' },
+  { cm: 33, label: '33 cm' },
+  { cm: 50, label: '50 cm' },
+]
+function RasterPlan({ plan, beetW, beetH, beetArea, L, shadow, cardBg, label }) {
+  const canvasRef = useRef(null)
+  const wrapRef = useRef(null)
+  const [cellCm, setCellCm] = useState(33)
+  const [showCodes, setShowCodes] = useState(true)
+
+  const grid = useMemo(() => buildGrid(plan, beetW, beetH, cellCm), [plan, beetW, beetH, cellCm])
+  const codeById = useMemo(() => new Map(grid.legend.map(l => [l.id, l])), [grid])
+
+  const draw = () => {
+    const canvas = canvasRef.current, wrap = wrapRef.current
+    if (!canvas || !wrap) return
+    const DPR = Math.min(2, window.devicePixelRatio || 1)
+    const cssW = wrap.clientWidth
+    const cell = Math.max(10, Math.min(46, (cssW - 4) / grid.cols))
+    const cssH = cell * grid.rows + 4
+    canvas.width = cssW * DPR; canvas.height = cssH * DPR
+    canvas.style.height = cssH + 'px'
+    const ctx = canvas.getContext('2d')
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0)
+    ctx.clearRect(0, 0, cssW, cssH)
+    const ox = (cssW - grid.cols * cell) / 2, oy = 2
+    for (let idx = 0; idx < grid.cells.length; idx++) {
+      const col = idx % grid.cols, row = Math.floor(idx / grid.cols)
+      const x = ox + col * cell, y = oy + row * cell
+      const id = grid.cells[idx]
+      const leg = id && codeById.get(id)
+      ctx.fillStyle = leg ? leg.farbe : (L ? '#f1f4ef' : '#1a241d')
+      ctx.globalAlpha = leg ? 0.9 : 1
+      ctx.fillRect(x + 1, y + 1, cell - 2, cell - 2)
+      ctx.globalAlpha = 1
+      ctx.strokeStyle = L ? 'rgba(5,46,22,0.18)' : 'rgba(255,255,255,0.16)'
+      ctx.lineWidth = 1
+      ctx.strokeRect(x + 0.5, y + 0.5, cell - 1, cell - 1)
+      if (showCodes && leg && cell >= 16) {
+        ctx.fillStyle = pickTextColor(leg.farbe)
+        ctx.font = `bold ${Math.min(13, cell * 0.42)}px monospace`
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+        ctx.fillText(leg.code, x + cell / 2, y + cell / 2)
+      }
+    }
+  }
+  useEffect(draw, [grid, codeById, L, showCodes])
+  useEffect(() => { const r = () => draw(); window.addEventListener('resize', r); return () => window.removeEventListener('resize', r) }) // eslint-disable-line
+
+  function exportPng() {
+    const DPR = 2
+    const cell = 34
+    const gw = grid.cols * cell, gh = grid.rows * cell
+    const HEAD = 54, PAD = 24
+    const legRows = grid.legend.length
+    const LEG = 26 + legRows * 20 + 16
+    const W = Math.max(gw + PAD * 2, 460), H = HEAD + gh + 40 + LEG
+    const oc = document.createElement('canvas'); oc.width = W * DPR; oc.height = H * DPR
+    const ctx = oc.getContext('2d'); ctx.scale(DPR, DPR)
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H)
+    // Kopf
+    ctx.fillStyle = '#052e16'; ctx.fillRect(0, 0, W, HEAD)
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 17px sans-serif'
+    ctx.fillText('PFLANZANLEITUNG — LUMA BIOME', 20, 23)
+    ctx.font = '11px sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.7)'
+    ctx.fillText(`${label || `${beetW}m × ${beetH}m`} · Raster ${grid.cellCm} cm · ${grid.cols}×${grid.rows} Zellen`, 20, 41)
+    ctx.textAlign = 'right'; ctx.fillText(new Date().toLocaleDateString('de-DE'), W - 20, 41); ctx.textAlign = 'left'
+    // Raster
+    const gx0 = (W - gw) / 2, gy0 = HEAD + 16
+    for (let idx = 0; idx < grid.cells.length; idx++) {
+      const col = idx % grid.cols, row = Math.floor(idx / grid.cols)
+      const x = gx0 + col * cell, y = gy0 + row * cell
+      const leg = grid.cells[idx] && codeById.get(grid.cells[idx])
+      ctx.fillStyle = leg ? leg.farbe : '#f0f0f0'
+      ctx.fillRect(x, y, cell, cell)
+      ctx.strokeStyle = 'rgba(5,46,22,0.18)'; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, cell - 1, cell - 1)
+      if (leg) {
+        ctx.fillStyle = pickTextColor(leg.farbe); ctx.font = 'bold 13px monospace'
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+        ctx.fillText(leg.code, x + cell / 2, y + cell / 2); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'
+      }
+    }
+    // Achsenbeschriftung (Spalten/Reihen), damit man Zellen findet
+    ctx.fillStyle = '#666'; ctx.font = '9px monospace'; ctx.textAlign = 'center'
+    for (let c = 0; c < grid.cols; c++) ctx.fillText(String(c + 1), gx0 + c * cell + cell / 2, gy0 - 4)
+    ctx.textAlign = 'right'
+    for (let r = 0; r < grid.rows; r++) ctx.fillText(String(r + 1), gx0 - 4, gy0 + r * cell + cell / 2 + 3)
+    ctx.textAlign = 'left'
+    // Legende
+    const ly0 = gy0 + gh + 30
+    ctx.fillStyle = '#052e16'; ctx.font = 'bold 10px monospace'; ctx.fillText('LEGENDE', 20, ly0)
+    ctx.textAlign = 'right'; ctx.fillStyle = '#666'; ctx.font = '10px sans-serif'
+    ctx.fillText(`${grid.legend.reduce((s, l) => s + l.cells, 0)} Pflanzen · ${beetArea.toFixed(1)} m²`, W - 20, ly0); ctx.textAlign = 'left'
+    grid.legend.forEach((l, i) => {
+      const y = ly0 + 20 + i * 20
+      ctx.fillStyle = l.farbe; ctx.fillRect(20, y - 10, 14, 14)
+      ctx.strokeStyle = '#ccc'; ctx.strokeRect(20.5, y - 9.5, 13, 13)
+      ctx.fillStyle = pickTextColor(l.farbe); ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center'
+      ctx.fillText(l.code, 27, y - 0.5); ctx.textAlign = 'left'
+      ctx.fillStyle = '#111'; ctx.font = '600 11px sans-serif'; ctx.fillText(l.name, 44, y)
+      ctx.fillStyle = '#666'; ctx.font = 'italic 10px sans-serif'
+      ctx.fillText(l.latin, 44 + ctx.measureText(l.name + '  ').width, y)
+      ctx.fillStyle = '#047a3c'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'right'
+      ctx.fillText(`${l.cells}×`, W - 60, y)
+      ctx.fillStyle = '#999'; ctx.font = '9px monospace'; ctx.fillText(`Ø${l.pflanzabstand}cm`, W - 20, y); ctx.textAlign = 'left'
+    })
+    oc.toBlob(blob => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `pflanzanleitung-luma-${new Date().toISOString().slice(0, 10)}.png`; a.click() }, 'image/png')
+  }
+
+  return (
+    <div style={{ background: cardBg, borderRadius: 12, padding: 16, boxShadow: shadow, marginBottom: 16 }} ref={wrapRef}>
+      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4, fontWeight: L ? 700 : 400 }}>
+        🧭 Pflanzanleitung — Raster {grid.cols}×{grid.rows}
+      </div>
+      <div style={{ fontSize: 11, color: MUTED, marginBottom: 10 }}>
+        Jede Zelle = {grid.cellCm}×{grid.cellCm} cm = eine Pflanze. Setze die Art laut Farbe/Code an ihre Position.
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 11, color: MUTED, fontWeight: 700 }}>Rasterweite:</span>
+        {RASTER_CELLS.map(rc => (
+          <button key={rc.cm} onClick={() => setCellCm(rc.cm)} style={{
+            padding: '5px 12px', borderRadius: 7, fontSize: 12, cursor: 'pointer', fontWeight: cellCm === rc.cm ? 700 : 400,
+            border: cellCm === rc.cm ? `1.5px solid ${A}` : `1px solid ${BORDER}`,
+            background: cellCm === rc.cm ? A14 : 'transparent', color: cellCm === rc.cm ? A : MUTED,
+          }}>{rc.label}</button>
+        ))}
+        <label style={{ fontSize: 11, color: MUTED, display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', marginLeft: 4 }}>
+          <input type="checkbox" checked={showCodes} onChange={e => setShowCodes(e.target.checked)} /> Codes anzeigen
+        </label>
+      </div>
+      <div style={{ overflowX: 'auto' }}>
+        <canvas ref={canvasRef} style={{ width: '100%', display: 'block' }} />
+      </div>
+      {/* Legende */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 12 }}>
+        {grid.legend.map(l => (
+          <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
+            <span style={{ width: 20, height: 20, borderRadius: 4, background: l.farbe, color: pickTextColor(l.farbe), display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'monospace', fontWeight: 700, fontSize: 10, flexShrink: 0 }}>{l.code}</span>
+            <span style={{ flex: 1, color: FG, fontWeight: L ? 600 : 400 }}>{l.name} <span style={{ color: MUTED, fontStyle: 'italic', fontWeight: 400 }}>{l.latin}</span></span>
+            {l.heimisch && <span style={{ fontSize: 9, border: `1px solid ${A}`, color: A, borderRadius: 5, padding: '0 5px' }}>heim.</span>}
+            <span style={{ color: A, fontWeight: 700, minWidth: 40, textAlign: 'right' }}>{l.cells}×</span>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'flex', marginTop: 12 }}>
+        <button onClick={exportPng} style={{
+          marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6,
+          background: A14, border: `1px solid ${A20}`, color: A,
+          borderRadius: 8, padding: '7px 16px', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+        }}><Download size={13} /> Pflanzanleitung als PNG</button>
+      </div>
+    </div>
+  )
+}
+// Textfarbe (schwarz/weiß) nach Kontrast zur Zellfarbe wählen.
+function pickTextColor(hex) {
+  const h = (hex || '#10b981').replace('#', '')
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16)
+  return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? '#1a2b1f' : '#ffffff'
 }
 
 /* ─── PLANT CARD ─────────────────────────────────────────────────────────── */
