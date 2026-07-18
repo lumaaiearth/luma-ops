@@ -39,6 +39,23 @@ export function isNetworkError(err) {
          m.includes('fetch failed')
 }
 
+// Auth-/RLS-Fehler erkennen. Diese sind transient wie ein Netzwerkfehler:
+// Sobald eine gültige Session mit passenden Rechten besteht (nach Login oder
+// Token-Refresh), geht der Schreibvorgang durch. Deshalb Eintrag behalten und
+// später erneut versuchen, statt ihn zu verwerfen (= Datenverlust).
+export function isAuthOrRlsError(err) {
+  if (!err) return false
+  const code = String(err.code || '')
+  if (code === '42501') return true                            // Postgres: RLS-Verletzung (insufficient_privilege)
+  if (code === 'PGRST301' || code === 'PGRST302') return true  // PostgREST: JWT expired / anon nicht erlaubt
+  const status = Number(err.status ?? err.statusCode ?? 0)
+  if (status === 401 || status === 403) return true
+  const m = String(err.message || '').toLowerCase()
+  return m.includes('row-level security') || m.includes('row level security') ||
+         m.includes('jwt') || m.includes('not authenticated') ||
+         m.includes('permission denied')
+}
+
 let flushing = false
 // runOp(entry) führt eine Operation gegen die DB aus (wirft bei Fehler).
 export async function flushOutbox(runOp) {
@@ -52,9 +69,12 @@ export async function flushOutbox(runOp) {
       try {
         await runOp(e)
       } catch (err) {
-        if (isNetworkError(err)) break            // weiterhin offline → später erneut
+        // Offline oder Session/Rechte noch nicht bereit → Eintrag behalten und
+        // später erneut versuchen (nicht verwerfen, sonst Datenverlust).
+        if (isNetworkError(err) || isAuthOrRlsError(err)) break
         console.error('[outbox] Operation verworfen (logischer Fehler):', e, err)
-        // logischer Fehler → entfernen, damit die Queue nicht dauerhaft blockiert
+        // echter logischer Fehler (Constraint/Schema) → entfernen, damit die
+        // Queue nicht dauerhaft blockiert
       }
       const q2 = read(); q2.shift(); write(q2)
     }

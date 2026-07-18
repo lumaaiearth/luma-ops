@@ -40,7 +40,7 @@ export function OpsProvider({ children }) {
   // Nur interne Nutzer (admin/mitarbeiter) dürfen Ops-Daten schreiben/seeden.
   // Für Gäste, Kunden und noch nicht freigeschaltete Konten würde ein Seed-
   // Upsert sonst an der RLS scheitern („new row violates row-level security…").
-  const { isMitarbeiter } = useAuth()
+  const { isMitarbeiter, user } = useAuth()
   const [jobs, setJobsState] = useState([])
   const [recurring, setRecurringState] = useState([])
   const [sensors, setSensorsState] = useState(getSensors)
@@ -58,7 +58,17 @@ export function OpsProvider({ children }) {
 
   // ── Load from Supabase on mount ──────────────────────────────────────────────
   useEffect(() => {
+    let cancelled = false
     async function load() {
+      // Ohne aktive Session (z. B. auf der Login-Seite) gar nicht laden/seeden:
+      // Reads kämen leer zurück und jeder Seed-Upsert würde an der RLS scheitern
+      // („new row violates row-level security policy"). Sobald sich jemand
+      // anmeldet, ändert sich `user?.id` und der Effekt läuft erneut.
+      const { data: { session } } = await sb.auth.getSession()
+      if (!session) {
+        if (!cancelled) setLoading(false)
+        return
+      }
       try {
         const [pRows, jRows, rRows, sRows, cRows, vRows, settingsRow, mfRows, ppRows, tRows, bRows] = await Promise.all([
           sb.from('projects').select('*'),
@@ -117,12 +127,14 @@ export function OpsProvider({ children }) {
         setRecurringState(getRecurring())
         setSensorsState(getSensors())
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
     load()
-    // Neu laden, sobald die Rolle feststeht (interne Nutzer dürfen dann seeden).
-  }, [isMitarbeiter])
+    return () => { cancelled = true }
+    // Neu laden, sobald sich der Login-Status (user?.id) ändert oder die Rolle
+    // feststeht (interne Nutzer dürfen dann seeden).
+  }, [isMitarbeiter, user?.id])
 
   // ── Weekly summary: fires Monday 08:00–09:59 on app load ────────────────────
   useEffect(() => {
