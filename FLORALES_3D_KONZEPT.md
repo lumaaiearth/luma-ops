@@ -81,7 +81,27 @@ erst, wenn freie Kamera oder Insektenflug-Animationen gewünscht sind — die
 Sprite-Fabrik bleibt dabei 1:1 wiederverwendbar (Sprites werden dann
 Billboard-Texturen).
 
-## Umbauplan
+## Stand der Umsetzung (18.07.2026, Branch `claude/florales-3d-modell-umbau-wka5gb`)
+
+**Phase 1 ist umgesetzt** — der Beet-Tab hat jetzt drei Ansichten (Umschalter):
+- **🌿 3D-Jahresansicht** (`Beet3D`): isometrisches Pflanzbild aus derselben
+  Platzierung wie die Drift-Karte, prozedurale Sprites, Saison-Stepper März–Okt
+  + ▶ Jahr-Animation, Drehen/Zoom, Tippen bestimmt die Art (Nektar/Pollen,
+  Raupenfutter, heimisch-Badge), Kennzahlen-Leiste, PNG-Export.
+- **🧭 Pflanzanleitung (Raster)** (`RasterPlan`): Beet in gleich große Zellen
+  (25/33/50 cm wählbar) geteilt, jede Zelle einer Art zugewiesen (Drifts,
+  Zellzahl ∝ Stückzahl), Farb-/Code-Legende, druckbarer PNG-Export mit
+  Spalten-/Reihennummern und Legende — die „wo pflanze ich was"-Anleitung.
+- **🗺️ Drift-Karte**: die bisherige kontinuierliche Blühfolge-Ansicht.
+- Pflanzdichte-Regler global über allen Ansichten; „Pflanzabstände & Mengen"
+  zeigt jetzt belegte Fläche (m²) je Art.
+
+Neue Dateien: `src/lib/beetLayout.js` (Platzierung, Rasterlogik, Archetyp-,
+Saison-Helfer — von allen Ansichten geteilt) und `src/lib/plantSprites.js`
+(prozedurale Sprite-Fabrik). Kein neues npm-Paket, Build grün.
+
+Empathie-/Kunst-Regler bewusst weggelassen (Entscheidung Malte): Fokus auf
+wissenschaftliche Anleitung statt „Kunstwerk".
 
 ### Phase 1 — 3D-Vorschau (der „Wow"-Moment)
 - `src/lib/planting.js`: `plantsWithPlacement` aus `BeetPlaner` extrahieren
