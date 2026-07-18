@@ -11,7 +11,7 @@ import {
   Leaf, Search, Plus, Minus, ExternalLink, X, ChevronDown, ChevronUp,
   Filter, Download, SlidersHorizontal, Ruler, Grid3x3, Info,
   Sun, Droplets, FlaskConical, Bug, Bird, Flower, Sprout, TreePine,
-  Box, LayoutGrid, Map as MapIcon, Play, Pause, RotateCw,
+  Box, LayoutGrid, Map as MapIcon, Play, Pause, RotateCw, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { computePlacement, buildGrid, stateForMonth, growthForMonth, growthBucket } from '../lib/beetLayout.js'
 import { plantSprite, SPRITE_PX_PER_M } from '../lib/plantSprites.js'
@@ -76,6 +76,17 @@ const ART_OPTS = [
   { key: 'baum_niedrig', label: '🌳 Gehölze niedrig',       test: p => p.type === 'baum' && (p.hoehe?.[1] ?? 0) < 800 },
   { key: 'baum_hoch',    label: '🌲 Gehölze hoch',          test: p => p.type === 'baum' && (p.hoehe?.[1] ?? 0) >= 800 },
 ]
+
+/* ─── WORKFLOW-SCHRITTE ─────────────────────────────────────────────────── */
+// Reihenfolge = Customer-Workflow: erst Ziel/Standort → Pflanzen verfeinern →
+// Fläche & Vorschau → Plan & Export. Der Stepper führt den Nutzer hindurch.
+const STEPS = [
+  { key: 'generator', label: 'Start & Ziel',    short: 'Start',    emoji: '✨', hint: 'Standort & Bestäuber-Ziel wählen, Pflanzvorschlag erzeugen' },
+  { key: 'suche',     label: 'Pflanzen',        short: 'Pflanzen', emoji: '🌱', hint: 'Arten & Habitate hinzufügen und verfeinern' },
+  { key: 'beet',      label: 'Beet & Vorschau', short: 'Beet',     emoji: '🌿', hint: 'Fläche, Dichte, 3D-Jahresansicht & Rasterplan' },
+  { key: 'plan',      label: 'Plan & Export',   short: 'Export',   emoji: '📋', hint: 'Pflanzliste, Kalender, PDF & Übergabe an LUMA Ops' },
+]
+const STEP_INDEX = k => Math.max(0, STEPS.findIndex(s => s.key === k))
 
 /* ─── MAIN ──────────────────────────────────────────────────────────────── */
 export default function PlanningPage() {
@@ -385,10 +396,10 @@ export default function PlanningPage() {
         </div>
       )}
 
-      {/* ── HEADER ─────────────────────────────────────────────────────── */}
-      <div style={{ padding: isMobile ? '12px 12px 0' : '16px 24px 0', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      {/* ── HEADER + WORKFLOW-STEPPER ──────────────────────────────────── */}
+      <div style={{ padding: isMobile ? '10px 12px 0' : '14px 24px 0', flexShrink: 0 }}>
+        {!isMobile && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: A14, border: `1px solid ${A20}`, borderRadius: 8, padding: '5px 12px' }}>
               <Leaf size={12} color={A} />
               <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: L ? 700 : 400 }}>
@@ -396,13 +407,9 @@ export default function PlanningPage() {
               </span>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <TabBtn label="🔍 Suchen" active={activeTab === 'suche'} onClick={() => setActiveTab('suche')} L={L} />
-            <TabBtn label={`📋 Plan${(totalPlants + totalHabitats) > 0 ? ` (${totalPlants + totalHabitats})` : ''}`} active={activeTab === 'plan'} onClick={() => setActiveTab('plan')} L={L} dot={(totalPlants + totalHabitats) > 0 && activeTab !== 'plan'} />
-            <TabBtn label="🌿 Beet" active={activeTab === 'beet'} onClick={() => setActiveTab('beet')} L={L} />
-            <TabBtn label="✨ Generator" active={activeTab === 'generator'} onClick={() => setActiveTab('generator')} L={L} />
-          </div>
-        </div>
+        )}
+        <WorkflowStepper active={activeTab} setActive={setActiveTab} isMobile={isMobile} L={L}
+          planCount={totalPlants + totalHabitats} hasPlan={(totalPlants + totalHabitats) > 0} />
       </div>
 
       {/* ── TAB: SUCHE ─────────────────────────────────────────────────── */}
@@ -914,6 +921,10 @@ export default function PlanningPage() {
             }} />
         </div>
       )}
+
+      {/* ── WORKFLOW-FOOTER: durchleiten ────────────────────────────────── */}
+      <WorkflowFooter active={activeTab} setActive={setActiveTab} isMobile={isMobile} L={L}
+        hasPlan={(totalPlants + totalHabitats) > 0} />
 
       {/* ── LUMA-Ops-Dialog ─────────────────────────────────────────────── */}
       {showOpsDialog && (
@@ -2217,17 +2228,97 @@ function PlanRow({ plant: p, onAdd, onRemove, L, shadow, cardBg }) {
 }
 
 /* ─── HELPERS ───────────────────────────────────────────────────────────── */
-function TabBtn({ label, active, onClick, L, dot }) {
+// Workflow-Stepper: nummerierter, geführter Ablauf. Desktop = horizontale
+// Schrittleiste mit Verbindungslinie; Mobil = kompakte Punktreihe + aktueller
+// Schritt gross darüber. Jeder Schritt ist anklickbar (Sprung).
+function WorkflowStepper({ active, setActive, isMobile, L, planCount, hasPlan }) {
+  const cur = STEP_INDEX(active)
+  const done = i => i < cur || (i <= cur && hasPlan) // erledigt: bereits durchlaufen oder Plan vorhanden
+
+  if (isMobile) {
+    const s = STEPS[cur]
+    return (
+      <div style={{ marginBottom: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
+          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: A, fontWeight: 700 }}>Schritt {cur + 1}/{STEPS.length}</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: FG }}>{s.emoji} {s.label}</span>
+          {active === 'plan' && planCount > 0 && <span style={{ fontSize: 11, color: MUTED }}>· {planCount}</span>}
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {STEPS.map((st, i) => (
+            <button key={st.key} onClick={() => setActive(st.key)} aria-label={st.label} style={{
+              flex: 1, height: 6, borderRadius: 999, border: 'none', padding: 0, cursor: 'pointer',
+              background: i === cur ? A : (done(i) ? A20 : (L ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.12)')),
+            }} />
+          ))}
+        </div>
+        <div style={{ fontSize: 11, color: MUTED, marginTop: 6 }}>{s.hint}</div>
+      </div>
+    )
+  }
+
   return (
-    <button onClick={onClick} style={{
-      padding: '7px 14px', borderRadius: 8, fontSize: 12, position: 'relative',
-      fontWeight: active ? 700 : (L ? 500 : 400),
-      border: active ? `1.5px solid ${A}` : `1px solid ${BORDER}`,
-      background: active ? A14 : 'transparent', color: active ? A : MUTED, cursor: 'pointer',
+    <div style={{ display: 'flex', alignItems: 'stretch', gap: 0, marginBottom: 4 }}>
+      {STEPS.map((st, i) => {
+        const isCur = i === cur, isDone = done(i) && !isCur
+        return (
+          <div key={st.key} style={{ display: 'flex', alignItems: 'center', flex: i < STEPS.length - 1 ? 1 : '0 0 auto' }}>
+            <button onClick={() => setActive(st.key)} title={st.hint} style={{
+              display: 'flex', alignItems: 'center', gap: 9, padding: '7px 14px', borderRadius: 10, cursor: 'pointer',
+              border: isCur ? `1.5px solid ${A}` : `1px solid ${BORDER}`,
+              background: isCur ? A14 : (L ? '#fff' : 'transparent'),
+            }}>
+              <span style={{
+                width: 22, height: 22, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 11, fontWeight: 800, fontFamily: "'Space Mono', monospace",
+                background: isCur ? A : (isDone ? A : (L ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.1)')),
+                color: (isCur || isDone) ? 'var(--luma-on-a, #fff)' : MUTED,
+              }}>{isDone ? '✓' : (i + 1)}</span>
+              <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15, textAlign: 'left' }}>
+                <span style={{ fontSize: 13, fontWeight: isCur ? 700 : (L ? 600 : 500), color: isCur ? A : FG }}>{st.emoji} {st.label}</span>
+                <span style={{ fontSize: 10, color: MUTED, maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{st.hint}</span>
+              </span>
+              {st.key === 'plan' && planCount > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: A, background: A14, borderRadius: 999, padding: '1px 8px' }}>{planCount}</span>}
+            </button>
+            {i < STEPS.length - 1 && <div style={{ flex: 1, height: 1.5, background: done(i + 1) ? A20 : BORDER, minWidth: 10 }} />}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// Persistenter Fuss-Navigator „Zurück / Weiter" — führt den Nutzer Schritt für
+// Schritt durch den Workflow (identisch auf Handy & Desktop).
+function WorkflowFooter({ active, setActive, isMobile, L, hasPlan }) {
+  const cur = STEP_INDEX(active)
+  const prev = STEPS[cur - 1], next = STEPS[cur + 1]
+  return (
+    <div style={{
+      flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10,
+      padding: isMobile ? '8px 12px calc(8px + env(safe-area-inset-bottom))' : '10px 24px',
+      borderTop: `1px solid ${BORDER}`, background: L ? '#fff' : SURFACE,
     }}>
-      {label}
-      {dot && <span style={{ position: 'absolute', top: -3, right: -3, width: 7, height: 7, borderRadius: '50%', background: '#047A3C' }} />}
-    </button>
+      {prev ? (
+        <button onClick={() => setActive(prev.key)} style={{
+          display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 9, cursor: 'pointer',
+          border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, fontSize: 13, fontWeight: 500,
+        }}><ChevronLeft size={15} />{isMobile ? '' : 'Zurück'}</button>
+      ) : <span />}
+      <span style={{ flex: 1, textAlign: 'center', fontSize: 12, color: MUTED }}>
+        {isMobile ? `${cur + 1}/${STEPS.length}` : `Schritt ${cur + 1} von ${STEPS.length} · ${STEPS[cur].label}`}
+      </span>
+      {next ? (
+        <button onClick={() => setActive(next.key)} style={{
+          display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 9, cursor: 'pointer',
+          border: 'none', background: A, color: 'var(--luma-on-a, #fff)', fontSize: 13, fontWeight: 700,
+        }}>Weiter: {next.short} <ChevronRight size={15} /></button>
+      ) : (
+        <span style={{ fontSize: 12, color: hasPlan ? A : MUTED, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+          {hasPlan ? '✓ Plan fertig — exportieren' : 'Plan noch leer'}
+        </span>
+      )}
+    </div>
   )
 }
 
