@@ -5,8 +5,9 @@ import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { A, SURFACE, BORDER, FG, MUTED, CARD, A06, A08, A18, A20, OK, WARN } from '../lib/theme.js'
 import { Modal, ModalActions, EmptyState } from '../components/ui.jsx'
-import { TEAM, HOUR_TARGETS } from '../data/seed.js'
+import { TEAM } from '../data/seed.js'
 import { genId, isoToday, addDays, weekStart, getWeekDays } from '../lib/storage.js'
+import { normalizeRule, hasKonto, kontostand, kontoMonthData, yearTargetTotal as ruleYearTarget, hoursFromTimes } from '../lib/hourAccounts.js'
 
 const INPUT = {
   background: SURFACE, border: `1px solid ${BORDER}`,
@@ -72,41 +73,10 @@ function projectHoursInRange(entries, projectId, from, to) {
     .reduce((s, e) => s + Number(e.hours), 0)
 }
 
-function yearTargetTotal(uid) {
-  const t = HOUR_TARGETS[uid]
-  if (!t || t.type !== 'weekly') return null
-  const year = new Date().getFullYear()
-  return Array.from({ length: 12 }, (_, i) => monthlyTarget(uid, year, i + 1)).reduce((s, v) => s + v, 0)
-}
-
-function personKontostand(uid, entries) {
-  const t = HOUR_TARGETS[uid]
-  if (!t || t.type !== 'weekly') return null
-  const year = new Date().getFullYear()
-  const nowMonth = new Date().getMonth() + 1
-  let cumulative = 0
-  for (let m = 1; m <= nowMonth; m++) {
-    cumulative += monthlyActual(entries, uid, year, m) - monthlyTarget(uid, year, m)
-  }
-  return Math.round(cumulative * 10) / 10
-}
-
-function monthlyTarget(userId, year, month) {
-  const t = HOUR_TARGETS[userId]
-  if (!t || t.type !== 'weekly') return 0
-  let mondays = 0
-  const d = new Date(year, month - 1, 1)
-  while (d.getMonth() === month - 1) {
-    if (d.getDay() === 1) mondays++
-    d.setDate(d.getDate() + 1)
-  }
-  return t.weekly * mondays
-}
-
-function monthlyActual(entries, userId, year, month) {
-  const prefix = `${year}-${String(month).padStart(2, '0')}`
-  return entries.filter(e => e.user_id === userId && e.date?.startsWith(prefix))
-    .reduce((s, e) => s + Number(e.hours), 0)
+// SOLL-Regeln kommen aus Supabase (hour_rules) mit seed.js-Fallback —
+// die Rechenlogik liegt in ../lib/hourAccounts.js.
+function ruleFor(hourRules, uid) {
+  return normalizeRule(hourRules?.[uid], uid)
 }
 
 // ── Log Form ──────────────────────────────────────────────────────────────────
@@ -117,6 +87,8 @@ function LogForm({ onSave, prefill, onClose }) {
     project_id: prefill?.project_id || '',
     job_id: prefill?.job_id || '',
     date: prefill?.date || isoToday(),
+    start_time: prefill?.start_time || '',
+    end_time: prefill?.end_time || '',
     hours: prefill?.hours || '',
     description: prefill?.description || '',
   })
@@ -124,12 +96,22 @@ function LogForm({ onSave, prefill, onClose }) {
   const projectJobs = jobs.filter(j => j.project_id === form.project_id && j.status !== 'cancelled')
   const selectedProject = projects.find(p => p.id === form.project_id)
 
+  // Start/Ende gesetzt → Stunden automatisch berechnen (bleiben überschreibbar)
+  function setTime(field, value) {
+    setForm(f => {
+      const next = { ...f, [field]: value }
+      const auto = hoursFromTimes(next.start_time, next.end_time)
+      if (auto !== null) next.hours = String(auto)
+      return next
+    })
+  }
+
   function submit(e) {
     e.preventDefault()
     if (!form.user_id || !form.project_id || !form.hours) return
-    onSave({ ...form, hours: Number(form.hours), job_id: form.job_id || null })
+    onSave({ ...form, hours: Number(form.hours), job_id: form.job_id || null, start_time: form.start_time || null, end_time: form.end_time || null })
     if (onClose) onClose()
-    else setForm(f => ({ ...f, description: '', hours: '', job_id: '' }))
+    else setForm(f => ({ ...f, description: '', hours: '', start_time: '', end_time: '', job_id: '' }))
   }
 
   function appendChip(chip) {
@@ -162,8 +144,18 @@ function LogForm({ onSave, prefill, onClose }) {
       </div>
       <div>
         <label style={LABEL}>Stunden *</label>
-        <input type="number" min="0.25" max="24" step="0.25" style={INPUT} value={form.hours}
+        <input type="number" min="0" max="24" step="0.01" style={INPUT} value={form.hours}
           onChange={e => setForm(f => ({ ...f, hours: e.target.value }))} placeholder="z.B. 4.5" required />
+      </div>
+      <div>
+        <label style={LABEL}>Einsatzstart</label>
+        <input type="time" style={INPUT} value={form.start_time} onChange={e => setTime('start_time', e.target.value)} />
+      </div>
+      <div>
+        <label style={LABEL}>Einsatzende
+          <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, marginLeft: 6, color: MUTED, fontSize: 9 }}>— Stunden werden automatisch berechnet</span>
+        </label>
+        <input type="time" style={INPUT} value={form.end_time} onChange={e => setTime('end_time', e.target.value)} />
       </div>
       <div style={{ gridColumn: '1 / -1' }}>
         <label style={LABEL}>
@@ -270,9 +262,9 @@ function TabErfassen() {
 }
 
 // ── PersonCard ────────────────────────────────────────────────────────────────
-function PersonCard({ uid, entries, projects, range }) {
+function PersonCard({ uid, entries, projects, range, rule }) {
   const u = TEAM.find(t => t.id === uid)
-  const t = HOUR_TARGETS[uid]
+  const t = rule
   const { from, to } = getRangeBounds(range)
   const year = new Date().getFullYear().toString()
 
@@ -281,9 +273,9 @@ function PersonCard({ uid, entries, projects, range }) {
   const weekDays = getWeekDays(weekStart(isoToday()))
   const weekH = hoursThisWeek(entries, uid, weekDays)
 
-  const kontostand = t?.type === 'weekly' ? personKontostand(uid, entries) : null
-  const annualTarget = yearTargetTotal(uid)
-  const kColor = kontostand === null ? MUTED : kontostand > 0 ? OK : kontostand < 0 ? WARN : MUTED
+  const konto = hasKonto(t) ? kontostand(t, entries, uid) : null
+  const annualTarget = ruleYearTarget(t, new Date().getFullYear())
+  const kColor = konto === null ? MUTED : konto > 0 ? OK : konto < 0 ? WARN : MUTED
 
   // Top projects in selected range
   const topProjects = projects
@@ -316,10 +308,10 @@ function PersonCard({ uid, entries, projects, range }) {
           <div style={{ fontSize: 15, fontWeight: 500, color: FG }}>{u.name}</div>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED }}>{ROLE_LABELS[u.role] || u.role}</div>
         </div>
-        {kontostand !== null && (
+        {konto !== null && (
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 20, fontWeight: 700, color: kColor, lineHeight: 1 }}>
-              {kontostand > 0 ? '+' : ''}{kontostand}h
+              {konto > 0 ? '+' : ''}{konto}h
             </div>
             <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: MUTED, marginTop: 2 }}>Kontostand {new Date().getFullYear()}</div>
           </div>
@@ -343,7 +335,7 @@ function PersonCard({ uid, entries, projects, range }) {
         <div style={{ background: `color-mix(in srgb, ${FG} 3%, transparent)`, borderRadius: 6, padding: '8px 10px' }}>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 16, fontWeight: 700, color: FG }}>{weekH}h</div>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: MUTED, marginTop: 2 }}>
-            {t?.type === 'weekly' ? `Ziel: ${t.weekly}h/Wo` : 'Diese Woche'}
+            {t?.type === 'weekly' ? `Ziel: ${t.weekly}h/Wo` : t?.type === 'monthly' ? `Soll: ${t.monthly}h/bez. Monat` : 'Diese Woche'}
           </div>
         </div>
         <div style={{ background: `color-mix(in srgb, ${FG} 3%, transparent)`, borderRadius: 6, padding: '8px 10px' }}>
@@ -364,9 +356,9 @@ function PersonCard({ uid, entries, projects, range }) {
           <div style={{ background: `color-mix(in srgb, ${FG} 6%, transparent)`, borderRadius: 4, height: 7, overflow: 'hidden' }}>
             <div style={{ height: '100%', width: `${annualPct}%`, background: annualPct >= 100 ? OK : u.color, borderRadius: 4, transition: 'width 0.4s' }} />
           </div>
-          {kontostand !== null && (
+          {konto !== null && (
             <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: kColor, marginTop: 4 }}>
-              {kontostand === 0 ? '✓ Ausgeglichen' : kontostand > 0 ? `+${kontostand}h Überstunden` : `${kontostand}h Minusstunden`}
+              {konto === 0 ? '✓ Ausgeglichen' : konto > 0 ? `+${konto}h Guthaben` : `${konto}h Rückstand`}
             </div>
           )}
         </div>
@@ -399,27 +391,15 @@ function PersonCard({ uid, entries, projects, range }) {
 }
 
 // ── Tab 2: Übersicht ──────────────────────────────────────────────────────────
-function KontostandCard({ uid, entries }) {
+function KontostandCard({ uid, entries, rule }) {
   const u = TEAM.find(t => t.id === uid)
   const year = new Date().getFullYear()
   const nowMonth = new Date().getMonth() + 1
 
-  const monthData = Array.from({ length: 12 }, (_, i) => {
-    const m = i + 1
-    const soll = monthlyTarget(uid, year, m)
-    const ist = m <= nowMonth ? monthlyActual(entries, uid, year, m) : null
-    const saldo = ist !== null ? ist - soll : null
-    return { m, soll, ist, saldo }
-  })
-
-  let cumulative = 0
-  const monthDataWithCum = monthData.map(d => {
-    if (d.saldo !== null) cumulative += d.saldo
-    return { ...d, kum: d.saldo !== null ? cumulative : null }
-  })
-
-  const kontostand = monthDataWithCum[nowMonth - 1]?.kum ?? 0
-  const kColor = kontostand > 0 ? OK : kontostand < 0 ? WARN : MUTED
+  const monthDataWithCum = kontoMonthData(rule, entries, uid)
+  const konto = monthDataWithCum[nowMonth - 1]?.kum ?? 0
+  const kColor = konto > 0 ? OK : konto < 0 ? WARN : MUTED
+  const carryover = rule?.carryover || 0
 
   const ROWSTYLE = { fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, paddingRight: 12, textTransform: 'uppercase', whiteSpace: 'nowrap', verticalAlign: 'middle', paddingBottom: 3 }
   const CELLSTYLE = (i) => ({ fontFamily: "'Space Mono', monospace", fontSize: 10, textAlign: 'center', padding: '2px 5px', background: i + 1 === nowMonth ? `color-mix(in srgb, ${A} 7%, transparent)` : 'transparent', verticalAlign: 'middle' })
@@ -432,13 +412,17 @@ function KontostandCard({ uid, entries }) {
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 14, fontWeight: 500, color: FG }}>{u.name}</div>
-          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED }}>Jahres-Kontostand {year}</div>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED }}>
+            Jahres-Kontostand {year}
+            {rule?.type === 'monthly' && ` · Soll ${rule.monthly}h je bezahltem Monat (${rule.paid_months.length} Monate)`}
+            {carryover !== 0 && ` · Übertrag ${new Date().getFullYear() - 1}: −${carryover}h`}
+          </div>
         </div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 24, fontWeight: 700, color: kColor, lineHeight: 1 }}>
-            {kontostand > 0 ? '+' : ''}{kontostand}h
+            {konto > 0 ? '+' : ''}{konto}h
           </div>
-          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, marginTop: 2 }}>Kontostand</div>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, marginTop: 2 }}>{konto >= 0 ? 'Guthaben' : 'Rückstand'}</div>
         </div>
       </div>
 
@@ -491,24 +475,24 @@ function KontostandCard({ uid, entries }) {
 }
 
 function TabUebersicht() {
-  const { entries } = useTime()
+  const { entries, hourRules } = useTime()
   const { projects } = useOps()
   const { user, isAdmin } = useAuth()
   const today = isoToday()
   const [range, setRange] = useState('jahr')
 
-  // Visible persons: admins see everyone, others see themselves + field workers under them
-  const visibleUids = isAdmin
-    ? ['malte', 'lukas', 'jona', 'anselm', 'robert']
-    : [user?.id].filter(Boolean)
+  // Visible persons: admins see everyone, others see themselves
+  const visibleUids = isAdmin ? TEAM.map(t => t.id) : [user?.id].filter(Boolean)
 
   // GF balance (admins only)
   const maltH = hoursThisYear(entries, 'malte')
   const lukasH = hoursThisYear(entries, 'lukas')
   const balanceDiff = maltH - lukasH
 
-  // Field worker Kontostand cards (monthly detail table)
-  const fieldUids = ['jona', 'anselm'].filter(uid => isAdmin || user?.id === uid)
+  // Kontostand-Detailkarten: alle mit weekly/monthly-Regel (Jona, Anselm, Felix)
+  const fieldUids = TEAM.map(t => t.id)
+    .filter(uid => hasKonto(ruleFor(hourRules, uid)))
+    .filter(uid => isAdmin || user?.id === uid)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -551,7 +535,7 @@ function TabUebersicht() {
       {/* Person cards grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 12 }}>
         {visibleUids.map(uid => (
-          <PersonCard key={uid} uid={uid} entries={entries} projects={projects} range={range} />
+          <PersonCard key={uid} uid={uid} entries={entries} projects={projects} range={range} rule={ruleFor(hourRules, uid)} />
         ))}
       </div>
 
@@ -559,7 +543,7 @@ function TabUebersicht() {
       {fieldUids.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Monatliche Soll / Ist / Saldo</div>
-          {fieldUids.map(uid => <KontostandCard key={uid} uid={uid} entries={entries} />)}
+          {fieldUids.map(uid => <KontostandCard key={uid} uid={uid} entries={entries} rule={ruleFor(hourRules, uid)} />)}
         </div>
       )}
     </div>
@@ -568,14 +552,32 @@ function TabUebersicht() {
 
 // ── Tab 3: Abrechnung ─────────────────────────────────────────────────────────
 function TabAbrechnung() {
-  const { entries, invoices, createInvoice, markPaid, deleteInvoice } = useTime()
-  const { projects } = useOps()
+  const { entries, invoices, costs, rates, createInvoice, markPaid, deleteInvoice, addCost, deleteCost, markCostsBilled, setRate } = useTime()
+  const { projects, clients } = useOps()
   const [filterProject, setFilterProject] = useState('')
   const [filterUser, setFilterUser] = useState('')
   const [filterFrom, setFilterFrom] = useState('')
   const [filterTo, setFilterTo] = useState('')
-  const [newInvoice, setNewInvoice] = useState(null) // { project_id, entry_ids }
+  const [newInvoice, setNewInvoice] = useState(null) // { project_id, entry_ids, cost_ids }
   const [invForm, setInvForm] = useState({ invoice_number: '', date_issued: isoToday(), amount: '', notes: '' })
+  const [costForm, setCostForm] = useState({ project_id: '', date: isoToday(), description: '', amount_net: '', markup: '1.5' })
+
+  const fmtEur = n => Number(n).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
+  const rateFor = p => rates[p?.client_id] ?? 50
+  const saleValue = c => Number(c.amount_net) * Number(c.markup)
+
+  function submitCost(e) {
+    e.preventDefault()
+    if (!costForm.amount_net) return
+    addCost({
+      project_id: costForm.project_id || null,
+      date: costForm.date,
+      description: costForm.description,
+      amount_net: Number(costForm.amount_net),
+      markup: Number(costForm.markup) || 1.5,
+    })
+    setCostForm(f => ({ ...f, description: '', amount_net: '' }))
+  }
 
   const filteredForExport = entries.filter(e =>
     (!filterProject || e.project_id === filterProject) &&
@@ -590,24 +592,34 @@ function TabAbrechnung() {
     filterFrom || filterTo ? `${filterFrom || '…'} – ${filterTo || '…'}` : null,
   ].filter(Boolean).join(' · ')
 
-  // Group unbilled entries by project
+  // Group unbilled entries + material costs by project
   const unbilled = entries.filter(e => !e.invoice_id)
+  const unbilledCosts = costs.filter(c => !c.invoice_id && c.billable !== false)
   const unbilledByProject = projects.map(p => {
     const pEntries = unbilled.filter(e => e.project_id === p.id && (!filterUser || e.user_id === filterUser))
-    if (!pEntries.length) return null
-    return { project: p, entries: pEntries, totalHours: pEntries.reduce((s, e) => s + Number(e.hours), 0) }
+    const pCosts = unbilledCosts.filter(c => c.project_id === p.id)
+    if (!pEntries.length && !pCosts.length) return null
+    const totalHours = pEntries.reduce((s, e) => s + Number(e.hours), 0)
+    const materialSum = pCosts.reduce((s, c) => s + saleValue(c), 0)
+    const suggestion = Math.round((totalHours * rateFor(p) + materialSum) * 100) / 100
+    return { project: p, entries: pEntries, costs: pCosts, totalHours, materialSum, suggestion }
   }).filter(Boolean)
 
-  function openInvoiceForm(projectId, entryIds) {
-    setNewInvoice({ project_id: projectId, entry_ids: entryIds })
-    setInvForm({ invoice_number: '', date_issued: isoToday(), amount: '', notes: '' })
+  // Einträge/Kosten ohne Projektzuordnung sichtbar machen (fallen sonst durchs Raster)
+  const orphanEntries = unbilled.filter(e => !e.project_id)
+  const orphanCosts = unbilledCosts.filter(c => !c.project_id)
+
+  function openInvoiceForm(projectId, entryIds, costIds, suggestion) {
+    setNewInvoice({ project_id: projectId, entry_ids: entryIds, cost_ids: costIds })
+    setInvForm({ invoice_number: '', date_issued: isoToday(), amount: suggestion ? String(suggestion) : '', notes: '' })
   }
 
   function submitInvoice(e) {
     e.preventDefault()
     const project = projects.find(p => p.id === newInvoice.project_id)
-    createInvoice({
-      ...newInvoice,
+    const inv = createInvoice({
+      project_id: newInvoice.project_id,
+      entry_ids: newInvoice.entry_ids,
       client: project?.client || '',
       invoice_number: invForm.invoice_number,
       date_issued: invForm.date_issued,
@@ -615,6 +627,7 @@ function TabAbrechnung() {
       notes: invForm.notes,
       total_hours: entries.filter(e => newInvoice.entry_ids.includes(e.id)).reduce((s, e) => s + Number(e.hours), 0),
     })
+    if (newInvoice.cost_ids?.length && inv?.id) markCostsBilled(newInvoice.cost_ids, inv.id)
     setNewInvoice(null)
   }
 
@@ -661,22 +674,40 @@ function TabAbrechnung() {
         <div style={{ marginBottom: 28 }}>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 10 }}>Nicht abgerechnet</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {unbilledByProject.filter(g => !filterProject || g.project.id === filterProject).map(({ project, entries: pEntries, totalHours }) => (
+            {unbilledByProject.filter(g => !filterProject || g.project.id === filterProject).map(({ project, entries: pEntries, costs: pCosts, totalHours, materialSum, suggestion }) => (
               <div key={project.id} style={{ padding: '14px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 500, color: FG }}>{project.name}</div>
-                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>{project.client}</div>
+                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>
+                      {project.client} · {rateFor(project)} €/h
+                      {materialSum > 0 && ` · Material ${fmtEur(materialSum)}`}
+                    </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 16, fontWeight: 700, color: WARN }}>{totalHours}h</span>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 16, fontWeight: 700, color: WARN }}>{fmtEur(suggestion)}</div>
+                      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED }}>{totalHours}h × {rateFor(project)} € {materialSum > 0 ? '+ Material' : ''}</div>
+                    </div>
                     <button
-                      onClick={() => openInvoiceForm(project.id, pEntries.map(e => e.id))}
+                      onClick={() => openInvoiceForm(project.id, pEntries.map(e => e.id), pCosts.map(c => c.id), suggestion)}
                       className="lu-btn-primary" style={{ padding: '6px 12px', borderRadius: 6, background: A, border: 'none', color: 'var(--luma-on-a)', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
                       Rechnung erstellen
                     </button>
                   </div>
                 </div>
+                {pCosts.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 6 }}>
+                    {pCosts.map(c => (
+                      <div key={c.id} style={{ display: 'flex', gap: 10, fontSize: 12, color: MUTED }}>
+                        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, minWidth: 80 }}>{c.date}</span>
+                        <span style={{ color: FG }}>🧾 {fmtEur(saleValue(c))}</span>
+                        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10 }}>({fmtEur(c.amount_net)} × {c.markup})</span>
+                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.description}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                   {pEntries.map(entry => {
                     const user = TEAM.find(u => u.id === entry.user_id)
@@ -697,6 +728,108 @@ function TabAbrechnung() {
           </div>
         </div>
       )}
+
+      {/* Ohne Projektzuordnung — nichts darf durchs Raster fallen */}
+      {(orphanEntries.length > 0 || orphanCosts.length > 0) && (
+        <div style={{ marginBottom: 28, padding: '14px 16px', background: `color-mix(in srgb, ${WARN} 7%, transparent)`, border: `1px solid color-mix(in srgb, ${WARN} 30%, transparent)`, borderRadius: 14 }}>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: WARN, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 8 }}>
+            ⚠ Ohne Projektzuordnung — bitte Projekt nachtragen
+          </div>
+          {orphanEntries.map(e => {
+            const user = TEAM.find(u => u.id === e.user_id)
+            return (
+              <div key={e.id} style={{ display: 'flex', gap: 10, fontSize: 12, color: MUTED, marginBottom: 3 }}>
+                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, minWidth: 80 }}>{e.date}</span>
+                <span style={{ color: FG, fontWeight: 500 }}>{user?.name} · {e.hours}h</span>
+                <span style={{ flex: 1 }}>{e.description}</span>
+              </div>
+            )
+          })}
+          {orphanCosts.map(c => (
+            <div key={c.id} style={{ display: 'flex', gap: 10, fontSize: 12, color: MUTED, marginBottom: 3 }}>
+              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, minWidth: 80 }}>{c.date}</span>
+              <span style={{ color: FG, fontWeight: 500 }}>🧾 {fmtEur(saleValue(c))}</span>
+              <span style={{ flex: 1 }}>{c.description}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Materialkosten erfassen (nur Admin sichtbar — RLS) */}
+      <div style={{ marginBottom: 28, padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14 }}>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 12 }}>
+          Materialkosten (Einkauf netto × Faktor = Weitergabe an Kunde)
+        </div>
+        <form onSubmit={submitCost} style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1.6fr 0.9fr 0.6fr auto', gap: 8, alignItems: 'end', marginBottom: 12 }}>
+          <div>
+            <label style={LABEL}>Projekt</label>
+            <select style={INPUT} value={costForm.project_id} onChange={e => setCostForm(f => ({ ...f, project_id: e.target.value }))}>
+              <option value="">— wählen —</option>
+              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={LABEL}>Datum</label>
+            <input type="date" style={INPUT} value={costForm.date} onChange={e => setCostForm(f => ({ ...f, date: e.target.value }))} />
+          </div>
+          <div>
+            <label style={LABEL}>Beschreibung</label>
+            <input style={INPUT} value={costForm.description} onChange={e => setCostForm(f => ({ ...f, description: e.target.value }))} placeholder="z.B. Microdripsystem" />
+          </div>
+          <div>
+            <label style={LABEL}>Netto €</label>
+            <input type="number" min="0" step="0.01" style={INPUT} value={costForm.amount_net} onChange={e => setCostForm(f => ({ ...f, amount_net: e.target.value }))} placeholder="0.00" required />
+          </div>
+          <div>
+            <label style={LABEL}>Faktor</label>
+            <input type="number" min="1" step="0.1" style={INPUT} value={costForm.markup} onChange={e => setCostForm(f => ({ ...f, markup: e.target.value }))} />
+          </div>
+          <button type="submit" className="lu-btn-primary" style={{ padding: '9px 14px', borderRadius: 6, background: A, border: 'none', color: 'var(--luma-on-a)', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
+            <Plus size={13} />
+          </button>
+        </form>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {costs.slice(0, 12).map(c => {
+            const project = projects.find(p => p.id === c.project_id)
+            return (
+              <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: MUTED, padding: '5px 0', borderBottom: `1px dashed ${BORDER}` }}>
+                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, minWidth: 80 }}>{c.date}</span>
+                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, minWidth: 90 }}>{project?.name || '— kein Projekt'}</span>
+                <span style={{ color: FG, fontWeight: 500, minWidth: 90 }}>{fmtEur(saleValue(c))}</span>
+                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10 }}>({fmtEur(c.amount_net)} × {c.markup})</span>
+                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.description}</span>
+                {c.invoice_id
+                  ? <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: OK }}>abgerechnet</span>
+                  : (
+                    <button onClick={() => deleteCost(c.id)} className="lu-btn-ghost" style={{ width: 24, height: 24, borderRadius: 4, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Trash2 size={10} />
+                    </button>
+                  )}
+              </div>
+            )
+          })}
+          {costs.length === 0 && <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>Noch keine Materialkosten erfasst.</div>}
+        </div>
+      </div>
+
+      {/* Stundensätze je Kunde */}
+      <div style={{ marginBottom: 28, padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14 }}>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 12 }}>
+          Stundensätze je Kunde (Standard 50 €/h) — nur für Admins sichtbar
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 8 }}>
+          {clients.map(c => (
+            <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 12, color: FG, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
+              <input
+                type="number" min="0" step="1" defaultValue={rates[c.id] ?? 50}
+                onBlur={e => { const v = Number(e.target.value); if (v && v !== (rates[c.id] ?? 50)) setRate(c.id, v) }}
+                style={{ ...INPUT, width: 70, padding: '5px 8px', textAlign: 'right' }} />
+              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>€/h</span>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Invoice form modal */}
       {newInvoice && (
@@ -904,12 +1037,12 @@ function StackedBarChart({ weeks, persons }) {
 }
 
 function TabStatistiken() {
-  const { entries } = useTime()
+  const { entries, hourRules } = useTime()
   const { projects } = useOps()
   const today = isoToday()
   const [range, setRange] = useState('jahr')
 
-  const persons = TEAM.filter(t => ['malte', 'lukas', 'jona', 'anselm'].includes(t.id))
+  const persons = TEAM
   const { from, to } = getRangeBounds(range)
 
   // Build chart buckets depending on range
@@ -999,7 +1132,8 @@ function TabStatistiken() {
       {/* KPI row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
         {personRangeH.map(p => {
-          const kontostand = personKontostand(p.id, entries)
+          const rule = ruleFor(hourRules, p.id)
+          const konto = hasKonto(rule) ? kontostand(rule, entries, p.id) : null
           return (
             <div key={p.id} style={{ padding: '14px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
@@ -1009,9 +1143,9 @@ function TabStatistiken() {
                 <span style={{ fontSize: 12, color: FG }}>{p.name}</span>
               </div>
               <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 24, fontWeight: 700, color: p.color, marginBottom: 4, lineHeight: 1 }}>{p.h}h</div>
-              {kontostand !== null && (
-                <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: kontostand > 0 ? OK : kontostand < 0 ? WARN : MUTED }}>
-                  {kontostand > 0 ? `+${kontostand}h` : `${kontostand}h`} Konto
+              {konto !== null && (
+                <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: konto > 0 ? OK : konto < 0 ? WARN : MUTED }}>
+                  {konto > 0 ? `+${konto}h` : `${konto}h`} Konto
                 </div>
               )}
             </div>

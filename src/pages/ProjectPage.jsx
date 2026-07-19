@@ -65,7 +65,7 @@ export default function ProjectPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { projects, jobs, sensors, clients, tasks, updateProject, createTask, updateTask, deleteTask, setTaskStatus } = useOps()
-  const { isAdmin } = useAuth()
+  const { isAdmin, isMitarbeiter } = useAuth()
   const [tab, setTab] = useState('overview')
   const [photos, setPhotos] = useState([])
   const [editingNotes, setEditingNotes] = useState(false)
@@ -264,6 +264,12 @@ export default function ProjectPage() {
                   </div>
                 </div>
               )}
+
+              {/* Flächen-Infoblatt (ersetzt Blätter 3_BEW / 4_JOPE der Pflegetabelle) */}
+              <InfoblattCard project={project} canEdit={isMitarbeiter} onSave={changes => updateProject(id, changes)} />
+
+              {/* Zugangsdaten — nur intern (RLS), nie für Kunden-Viewer/Gäste */}
+              {isMitarbeiter && <ZugangCard projectId={id} />}
 
               {/* Pflanzplan */}
               {project.plant_plan?.length > 0 && (
@@ -519,6 +525,173 @@ export default function ProjectPage() {
           }}
           onClose={() => setTaskModal(null)}
         />
+      )}
+    </div>
+  )
+}
+
+/* ─── FLÄCHEN-INFOBLATT ────────────────────────────────────────────────── */
+const IB_LABEL = { fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', width: 110, flexShrink: 0, paddingTop: 2 }
+const IB_INPUT = { width: '100%', background: BG, border: `1px solid ${BORDER}`, borderRadius: 6, padding: '7px 9px', color: FG, fontSize: 12.5, fontFamily: "'Space Grotesk', sans-serif", outline: 'none', resize: 'vertical' }
+
+function InfoblattRow({ label, children }) {
+  if (!children) return null
+  return (
+    <div style={{ display: 'flex', gap: 10, padding: '6px 0', borderBottom: `1px dashed ${BORDER}`, fontSize: 12.5, lineHeight: 1.55 }}>
+      <span style={IB_LABEL}>{label}</span>
+      <span style={{ color: FG, whiteSpace: 'pre-wrap', minWidth: 0 }}>{children}</span>
+    </div>
+  )
+}
+
+function InfoblattCard({ project, canEdit, onSave }) {
+  const [editing, setEditing] = useState(false)
+  const [form, setForm] = useState({})
+
+  function startEdit() {
+    setForm({
+      contacts: (project.contacts || []).map(c => [c.name, c.phone, c.firma].filter(Boolean).join(' · ')).join('\n'),
+      lager: project.lager || '',
+      ausruestung: project.ausruestung || '',
+      bilder_link: project.bilder_link || '',
+      hinweise: project.hinweise || '',
+    })
+    setEditing(true)
+  }
+
+  function save() {
+    // Kontakte: eine Zeile pro Person — "Name · Telefon · Firma"
+    const contacts = form.contacts.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+      const [name, phone, firma] = l.split('·').map(s => s.trim())
+      return { name: name || l, phone: phone || '', firma: firma || '' }
+    })
+    onSave({ contacts, lager: form.lager, ausruestung: form.ausruestung, bilder_link: form.bilder_link, hinweise: form.hinweise })
+    setEditing(false)
+  }
+
+  const contacts = project.contacts || []
+  const empty = !contacts.length && !project.lager && !project.ausruestung && !project.bilder_link && !project.hinweise
+
+  return (
+    <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+          Flächen-Infoblatt{project.flaeche_code ? ` · ${project.flaeche_code}` : ''}
+        </div>
+        {canEdit && !editing && (
+          <button onClick={startEdit} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 2 }}><Edit3 size={13} /></button>
+        )}
+      </div>
+
+      {editing ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div>
+            <div style={{ ...IB_LABEL, width: 'auto', marginBottom: 3 }}>Ansprechpartner (je Zeile: Name · Telefon · Firma)</div>
+            <textarea style={{ ...IB_INPUT, minHeight: 56 }} value={form.contacts} onChange={e => setForm(f => ({ ...f, contacts: e.target.value }))} />
+          </div>
+          <div>
+            <div style={{ ...IB_LABEL, width: 'auto', marginBottom: 3 }}>Lager</div>
+            <textarea style={{ ...IB_INPUT, minHeight: 40 }} value={form.lager} onChange={e => setForm(f => ({ ...f, lager: e.target.value }))} />
+          </div>
+          <div>
+            <div style={{ ...IB_LABEL, width: 'auto', marginBottom: 3 }}>Ausrüstung vor Ort</div>
+            <textarea style={{ ...IB_INPUT, minHeight: 40 }} value={form.ausruestung} onChange={e => setForm(f => ({ ...f, ausruestung: e.target.value }))} />
+          </div>
+          <div>
+            <div style={{ ...IB_LABEL, width: 'auto', marginBottom: 3 }}>Foto-Doku-Link (Drive)</div>
+            <input style={IB_INPUT} value={form.bilder_link} onChange={e => setForm(f => ({ ...f, bilder_link: e.target.value }))} />
+          </div>
+          <div>
+            <div style={{ ...IB_LABEL, width: 'auto', marginBottom: 3 }}>Hinweise</div>
+            <textarea style={{ ...IB_INPUT, minHeight: 56 }} value={form.hinweise} onChange={e => setForm(f => ({ ...f, hinweise: e.target.value }))} />
+          </div>
+          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+            <button onClick={() => setEditing(false)} style={{ padding: '5px 12px', borderRadius: 5, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12 }}><X size={12} /></button>
+            <button onClick={save} style={{ padding: '5px 12px', borderRadius: 5, border: 'none', background: A, color: 'var(--luma-on-a)', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}><Save size={12} /> Speichern</button>
+          </div>
+        </div>
+      ) : empty ? (
+        <div style={{ fontSize: 12.5, color: MUTED }}>Noch kein Infoblatt — Ansprechpartner, Lager und Ausrüstung hier pflegen.</div>
+      ) : (
+        <div>
+          {contacts.length > 0 && (
+            <InfoblattRow label="Kontakt">
+              {contacts.map((c, i) => (
+                <span key={i} style={{ display: 'block' }}>
+                  {c.name}
+                  {c.phone && <> · <a href={`tel:${c.phone.replace(/\s/g, '')}`} style={{ color: A, textDecoration: 'none' }}>{c.phone}</a></>}
+                  {c.firma && <span style={{ color: MUTED }}> · {c.firma}</span>}
+                </span>
+              ))}
+            </InfoblattRow>
+          )}
+          <InfoblattRow label="Lager">{project.lager}</InfoblattRow>
+          <InfoblattRow label="Ausrüstung">{project.ausruestung}</InfoblattRow>
+          {project.bilder_link && (
+            <InfoblattRow label="Foto-Doku">
+              <a href={project.bilder_link} target="_blank" rel="noreferrer" style={{ color: A, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                Drive-Ordner öffnen <ExternalLink size={11} />
+              </a>
+            </InfoblattRow>
+          )}
+          <InfoblattRow label="Hinweise">{project.hinweise}</InfoblattRow>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ─── ZUGANGSDATEN (nur intern — RLS project_access) ───────────────────── */
+function ZugangCard({ projectId }) {
+  const [row, setRow] = useState(null)
+  const [loaded, setLoaded] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [val, setVal] = useState('')
+  const [revealed, setRevealed] = useState(false)
+
+  useEffect(() => {
+    sb.from('project_access').select('*').eq('project_id', projectId).maybeSingle()
+      .then(({ data }) => { setRow(data); setLoaded(true) })
+  }, [projectId])
+
+  function save() {
+    sb.from('project_access')
+      .upsert({ project_id: projectId, zugang: val, updated_at: new Date().toISOString() }, { onConflict: 'project_id' })
+      .then(({ error }) => { if (!error) setRow(r => ({ ...(r || { project_id: projectId }), zugang: val })) })
+    setEditing(false)
+  }
+
+  if (!loaded) return null
+
+  return (
+    <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+          🔑 Zugang — vertraulich, nie weitergeben
+        </div>
+        {!editing && (
+          <button onClick={() => { setVal(row?.zugang || ''); setEditing(true) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 2 }}><Edit3 size={13} /></button>
+        )}
+      </div>
+      {editing ? (
+        <div>
+          <textarea style={{ ...IB_INPUT, minHeight: 64 }} value={val} onChange={e => setVal(e.target.value)} placeholder="Codes, Schlüssel-Orte, Besonderheiten …" />
+          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', marginTop: 6 }}>
+            <button onClick={() => setEditing(false)} style={{ padding: '5px 12px', borderRadius: 5, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12 }}><X size={12} /></button>
+            <button onClick={save} style={{ padding: '5px 12px', borderRadius: 5, border: 'none', background: A, color: 'var(--luma-on-a)', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}><Save size={12} /> Speichern</button>
+          </div>
+        </div>
+      ) : row?.zugang ? (
+        revealed ? (
+          <div style={{ fontSize: 12.5, color: FG, whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{row.zugang}</div>
+        ) : (
+          <button onClick={() => setRevealed(true)}
+            style={{ width: '100%', padding: '10px 12px', borderRadius: 6, background: A06, border: `1px dashed ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif" }}>
+            ••••• Zugangsdaten anzeigen (Klick) — bitte diskret behandeln
+          </button>
+        )
+      ) : (
+        <div style={{ fontSize: 12.5, color: MUTED }}>Keine Zugangsdaten hinterlegt.</div>
       )}
     </div>
   )
