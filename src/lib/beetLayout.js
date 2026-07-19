@@ -162,6 +162,18 @@ export function gridCode(i) {
   return s
 }
 
+// ── Geteilte UI-Konstanten der Beet-Ansichten ────────────────────────────────
+export const MONTHS_FULL = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
+export const SEASON_OF = m => m <= 4 ? 'Frühling' : m === 5 ? 'Spätfrühling' : m === 6 ? 'Frühsommer' : m <= 8 ? 'Hochsommer' : m === 9 ? 'Spätsommer' : 'Herbst'
+// Bestäubergruppen — Datengrundlage sind die bool-Felder je Art in plants.js.
+export const POLLI_GROUPS = [
+  { key: 'bienen', label: 'Wildbienen', emoji: '🐝' },
+  { key: 'tagfalter', label: 'Tagfalter', emoji: '🦋' },
+  { key: 'nachtfalter', label: 'Nachtfalter', emoji: '🌙' },
+  { key: 'kaefer', label: 'Käfer', emoji: '🪲' },
+  { key: 'voegel', label: 'Vögel', emoji: '🐦' },
+]
+
 // ── Saison-/Wachstumszustand für die isometrische Ansicht ───────────────────
 export function stateForMonth(p, month) {
   const mm = p.bluete_monate || []

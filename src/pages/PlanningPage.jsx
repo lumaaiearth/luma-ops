@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect, lazy, Suspense } from 'react'
 import { useLocation } from 'react-router-dom'
 import { A, SURFACE, BORDER, FG, MUTED, BG, A14, A20 } from '../lib/theme.js'
 import { useTheme } from '../context/ThemeContext.jsx'
@@ -11,10 +11,13 @@ import {
   Leaf, Search, Plus, Minus, ExternalLink, X, ChevronDown, ChevronUp,
   Filter, Download, SlidersHorizontal, Ruler, Grid3x3, Info,
   Sun, Droplets, FlaskConical, Bug, Bird, Flower, Sprout, TreePine,
-  Box, LayoutGrid, Map as MapIcon, Play, Pause, RotateCw, ChevronLeft, ChevronRight,
+  Box, LayoutGrid, Map as MapIcon, ChevronLeft, ChevronRight,
 } from 'lucide-react'
-import { computePlacement, buildGrid, stateForMonth, growthForMonth, growthBucket } from '../lib/beetLayout.js'
+import { computePlacement, buildGrid, stateForMonth, growthForMonth, growthBucket, POLLI_GROUPS } from '../lib/beetLayout.js'
 import { plantSprite, SPRITE_PX_PER_M } from '../lib/plantSprites.js'
+
+// three.js-Ansicht lazy laden — landet als eigener Chunk, nicht im Hauptbundle.
+const Beet3DPoly = lazy(() => import('../components/Beet3DPoly.jsx'))
 
 /* ─── PFLANZPLAN STATUS ─────────────────────────────────────────────────── */
 const STATUS_LABELS = {
@@ -1403,10 +1406,16 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
             ))}
           </div>
 
-          {/* ── 3D-JAHRESANSICHT (isometrisch) ── */}
+          {/* ── 3D-JAHRESANSICHT (Low-Poly-Modelle, WebGL) ── */}
           {view === 'iso' && (
-            <Beet3D placement={plantsWithPlacement} beetW={beetW} beetH={beetH} beetForm={beetForm}
-              L={L} shadow={shadow} cardBg={cardBg} label={label} />
+            <Suspense fallback={
+              <div style={{ background: cardBg, borderRadius: 12, padding: 24, boxShadow: shadow, marginBottom: 16, color: MUTED, fontSize: 13, textAlign: 'center' }}>
+                🌿 3D-Ansicht wird geladen …
+              </div>
+            }>
+              <Beet3DPoly placement={plantsWithPlacement} beetW={beetW} beetH={beetH} beetForm={beetForm}
+                L={L} shadow={shadow} cardBg={cardBg} />
+            </Suspense>
           )}
 
           {/* ── PFLANZANLEITUNG (Rasterplan mit Vierecken) ── */}
@@ -1485,14 +1494,7 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
 }
 
 /* ─── BESTÄUBER / TRACHTKALENDER ─────────────────────────────────────────── */
-// Bestäubergruppen — Datengrundlage sind die bool-Felder je Art in plants.js.
-const POLLI_GROUPS = [
-  { key: 'bienen', label: 'Wildbienen', emoji: '🐝' },
-  { key: 'tagfalter', label: 'Tagfalter', emoji: '🦋' },
-  { key: 'nachtfalter', label: 'Nachtfalter', emoji: '🌙' },
-  { key: 'kaefer', label: 'Käfer', emoji: '🪲' },
-  { key: 'voegel', label: 'Vögel', emoji: '🐦' },
-]
+// POLLI_GROUPS kommt aus beetLayout.js (geteilt mit Beet3DPoly).
 // Hauptflugzeit der Bestäuber (April–September): Blühlücken hier sind kritisch.
 const FORAGE_SEASON = [4, 5, 6, 7, 8, 9]
 
@@ -1549,223 +1551,6 @@ function ForageCalendar({ plan, L, shadow }) {
   )
 }
 
-/* ─── BEET 3D — isometrische Jahresansicht ───────────────────────────────── */
-// Rendert das Beet aus derselben Platzierung wie die Drift-Karte, aber
-// isometrisch mit prozeduralen Pflanzen-Sprites. Saison-Stepper + Play zeigen
-// die Entwicklung übers Gartenjahr; Tippen bestimmt die Art; Ziehen dreht.
-const MONTHS_FULL = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
-const SEASON_OF = m => m <= 4 ? 'Frühling' : m === 5 ? 'Spätfrühling' : m === 6 ? 'Frühsommer' : m <= 8 ? 'Hochsommer' : m === 9 ? 'Spätsommer' : 'Herbst'
-function Beet3D({ placement, beetW, beetH, beetForm, L, shadow, cardBg, label }) {
-  const canvasRef = useRef(null)
-  const wrapRef = useRef(null)
-  const [month, setMonth] = useState(6)
-  const [theta, setTheta] = useState(-0.5)
-  const [zoom, setZoom] = useState(1)
-  const [playing, setPlaying] = useState(false)
-  const [sel, setSel] = useState(null) // gewählte Art (Objekt)
-  const [group, setGroup] = useState('alle') // Bestäuber-Fokus: 'alle' | bienen | …
-  const hitRef = useRef([])
-  const dragRef = useRef({ on: false, x: 0, moved: 0 })
-
-  // Kennzahlen für den gewählten Monat
-  const arten = useMemo(() => {
-    const seen = new Map()
-    placement.forEach(p => { if (!seen.has(p.id)) seen.set(p.id, p) })
-    return [...seen.values()]
-  }, [placement])
-  const bluehend = arten.filter(p => (p.bluete_monate || []).includes(month)).length
-  const heimPct = arten.length ? Math.round(100 * arten.filter(p => p.heimisch).length / arten.length) : 0
-  // Bestäuber-Fokus: wie viele Arten versorgen die Gruppe – und blühen sie gerade?
-  const groupArten = group === 'alle' ? arten.length : arten.filter(p => p[group]).length
-  const groupBluehend = group === 'alle' ? bluehend : arten.filter(p => p[group] && (p.bluete_monate || []).includes(month)).length
-
-  useEffect(() => {
-    if (!playing) return
-    const t = setInterval(() => setMonth(m => (m >= 10 ? 3 : m + 1)), 950)
-    return () => clearInterval(t)
-  }, [playing])
-
-  const draw = () => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const wrap = wrapRef.current
-    const DPR = Math.min(2, window.devicePixelRatio || 1)
-    const cssW = wrap.clientWidth, cssH = 360
-    canvas.width = cssW * DPR; canvas.height = cssH * DPR
-    canvas.style.height = cssH + 'px'
-    const ctx = canvas.getContext('2d')
-    ctx.setTransform(DPR, 0, 0, DPR, 0, 0)
-    ctx.clearRect(0, 0, cssW, cssH)
-
-    const S = Math.min(cssW / (beetW + 3), cssH / ((beetH + 4) * 0.55)) * zoom
-    const cx = cssW / 2, cy = cssH * 0.58
-    const cos = Math.cos(theta), sin = Math.sin(theta)
-    const P = (x, y) => {
-      const xr = (x - beetW / 2) * cos - (y - beetH / 2) * sin
-      const yr = (x - beetW / 2) * sin + (y - beetH / 2) * cos
-      return [cx + xr * S, cy + yr * S * 0.5]
-    }
-
-    // Bodenraster
-    ctx.strokeStyle = L ? 'rgba(4,122,60,0.14)' : 'rgba(120,190,150,0.12)'
-    ctx.lineWidth = 1
-    for (let gx = -3; gx <= beetW + 3; gx++) { const a = P(gx, -2), b = P(gx, beetH + 2); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke() }
-    for (let gy = -2; gy <= beetH + 2; gy++) { const a = P(-3, gy), b = P(beetW + 3, gy); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke() }
-    // Beetfläche
-    ctx.fillStyle = L ? '#eef4ea' : '#131c16'
-    ctx.beginPath()
-    const corners = beetForm === 'oval'
-      ? Array.from({ length: 40 }, (_, i) => { const a = i / 40 * Math.PI * 2; return [beetW / 2 + Math.cos(a) * beetW / 2, beetH / 2 + Math.sin(a) * beetH / 2] })
-      : [[0, 0], [beetW, 0], [beetW, beetH], [0, beetH]]
-    corners.forEach((p, i) => { const q = P(p[0], p[1]); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]) })
-    ctx.closePath(); ctx.fill()
-    ctx.strokeStyle = L ? 'rgba(4,122,60,0.35)' : 'rgba(79,174,122,0.4)'; ctx.stroke()
-
-    // Pflanzen: Tiefensortierung nach projizierter y, dann Sprites zeichnen
-    const growth = growthForMonth(month), gb = growthBucket(month)
-    const order = placement.map(p => { const [sx, sy] = P(p.px, p.py); return { p, sx, sy } }).sort((a, b) => a.sy - b.sy)
-    const hits = []
-    for (const { p, sx, sy } of order) {
-      const st = stateForMonth(p, month)
-      const variant = (Math.round(p.px * 7) + Math.round(p.py * 13)) % 2
-      const img = plantSprite(p, st, growth, gb, variant)
-      const scale = (S / SPRITE_PX_PER_M) * 1.05
-      const w = img.width * scale, h = img.height * scale
-      // Bestäuber-Fokus: Arten, die die gewählte Gruppe NICHT versorgen, abdimmen.
-      const serves = group === 'alle' || p[group]
-      ctx.globalAlpha = serves ? 1 : 0.16
-      ctx.fillStyle = 'rgba(0,0,0,0.10)'
-      ctx.beginPath(); ctx.ellipse(sx, sy, Math.max(4, w * 0.22), Math.max(2, w * 0.09), 0, 0, 7); ctx.fill()
-      const flip = ((Math.round(p.px * 5)) % 2) ? -1 : 1
-      ctx.save(); ctx.translate(sx, sy); ctx.scale(flip, 1); ctx.drawImage(img, -w / 2, -h, w, h); ctx.restore()
-      ctx.globalAlpha = 1
-      if (sel && sel.id === p.id) {
-        ctx.strokeStyle = L ? '#047a3c' : '#4fae7a'; ctx.lineWidth = 2
-        ctx.beginPath(); ctx.ellipse(sx, sy, Math.max(6, w * 0.3), Math.max(3, w * 0.12), 0, 0, 7); ctx.stroke()
-      }
-      hits.push({ p, sx, sy })
-    }
-    hitRef.current = hits
-  }
-
-  useEffect(draw, [placement, beetW, beetH, beetForm, L, month, theta, zoom, sel, group])
-  useEffect(() => {
-    const onResize = () => draw()
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }) // eslint-disable-line
-
-  const onDown = e => { dragRef.current = { on: true, x: e.clientX, moved: 0 }; e.currentTarget.setPointerCapture?.(e.pointerId) }
-  const onMove = e => {
-    const d = dragRef.current; if (!d.on) return
-    const dx = e.clientX - d.x; d.x = e.clientX; d.moved += Math.abs(dx)
-    setTheta(t => t + dx * 0.006)
-  }
-  const onUp = e => {
-    const d = dragRef.current; dragRef.current = { ...d, on: false }
-    if (d.moved < 6) {
-      const r = canvasRef.current.getBoundingClientRect()
-      const mx = e.clientX - r.left, my = e.clientY - r.top
-      let best = null, bd = 40
-      for (const h of hitRef.current) { const dd = Math.hypot(h.sx - mx, (h.sy - 18) - my); if (dd < bd) { bd = dd; best = h.p } }
-      setSel(best)
-    }
-  }
-
-  function exportPng() {
-    const src = canvasRef.current
-    if (!src) return
-    src.toBlob(blob => {
-      const a = document.createElement('a')
-      a.href = URL.createObjectURL(blob)
-      a.download = `florales-3d-${MONTHS_FULL[month - 1].toLowerCase()}-${new Date().toISOString().slice(0, 10)}.png`
-      a.click()
-    }, 'image/png')
-  }
-
-  const dots = (v) => '●'.repeat(v || 0) + '○'.repeat(5 - (v || 0))
-
-  return (
-    <div style={{ background: cardBg, borderRadius: 12, padding: 16, boxShadow: shadow, marginBottom: 16 }} ref={wrapRef}>
-      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10, fontWeight: L ? 700 : 400 }}>
-        🌿 3D-Jahresansicht — {beetW}m × {beetH}m
-      </div>
-      {/* Kennzahlen */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
-        {[
-          `${arten.length} Arten`, `${placement.length} Pflanzen`, `heimisch ${heimPct}%`,
-          group === 'alle'
-            ? `blühend im ${MONTHS_FULL[month - 1]}: ${bluehend}/${arten.length}`
-            : `versorgt ${POLLI_GROUPS.find(g => g.key === group)?.label} im ${MONTHS_FULL[month - 1]}: ${groupBluehend}/${groupArten}`,
-        ].map((c, i) => (
-          <span key={i} style={{ background: L ? A14 : 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`, borderRadius: 999, padding: '3px 10px', fontSize: 11, color: FG, fontVariantNumeric: 'tabular-nums' }}>{c}</span>
-        ))}
-      </div>
-      {/* Bestäuber-Fokus */}
-      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 10, alignItems: 'center' }}>
-        <span style={{ fontSize: 11, color: MUTED, fontWeight: 700, marginRight: 2 }}>Bestäuber-Fokus:</span>
-        {[{ key: 'alle', label: 'Alle', emoji: '🌍' }, ...POLLI_GROUPS].map(g => {
-          const has = g.key === 'alle' || arten.some(p => p[g.key])
-          return (
-            <button key={g.key} disabled={!has} onClick={() => setGroup(g.key)} style={{
-              display: 'flex', alignItems: 'center', gap: 4, padding: '4px 9px', borderRadius: 999, fontSize: 11,
-              cursor: has ? 'pointer' : 'not-allowed', opacity: has ? 1 : 0.35, fontWeight: group === g.key ? 700 : 400,
-              border: group === g.key ? `1.5px solid ${A}` : `1px solid ${BORDER}`,
-              background: group === g.key ? A14 : 'transparent', color: group === g.key ? A : MUTED,
-            }}>{g.emoji} {g.label}</button>
-          )
-        })}
-      </div>
-      {group !== 'alle' && groupBluehend === 0 && (
-        <div style={{ fontSize: 11, color: '#dc2626', marginBottom: 8, background: 'rgba(220,38,38,0.08)', borderRadius: 6, padding: '6px 10px' }}>
-          ⚠️ Im {MONTHS_FULL[month - 1]} blüht nichts für {POLLI_GROUPS.find(g => g.key === group)?.label}. Blühlücke — passende Art ergänzen.
-        </div>
-      )}
-      <div style={{ position: 'relative' }}>
-        <canvas ref={canvasRef}
-          onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp}
-          style={{ width: '100%', borderRadius: 8, display: 'block', touchAction: 'none', cursor: dragRef.current.on ? 'grabbing' : 'grab' }} />
-        {sel && (
-          <div style={{ position: 'absolute', left: 8, bottom: 8, maxWidth: 280, background: cardBg, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '10px 12px', boxShadow: shadow }}>
-            <button onClick={() => setSel(null)} style={{ position: 'absolute', top: 4, right: 6, background: 'none', border: 0, color: MUTED, cursor: 'pointer', fontSize: 14 }}>✕</button>
-            <div style={{ fontStyle: 'italic', fontFamily: 'Charter, Georgia, serif', fontSize: 14, color: FG }}>{sel.latin}</div>
-            <div style={{ fontWeight: 700, color: FG, marginBottom: 4 }}>{sel.name}</div>
-            <div style={{ fontSize: 11, color: MUTED }}>
-              Blüte {MONTHS_FULL[(sel.bluete_monate?.[0] || 1) - 1]}–{MONTHS_FULL[(sel.bluete_monate?.[sel.bluete_monate.length - 1] || 1) - 1]} · bis {sel.hoehe?.[1] ?? '?'} cm<br />
-              Nektar <span style={{ color: A }}>{dots(sel.nektar)}</span> · Pollen <span style={{ color: A }}>{dots(sel.pollen)}</span>
-            </div>
-            <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 10, border: `1px solid ${A}`, color: A, borderRadius: 6, padding: '1px 6px' }}>{sel.heimisch ? 'heimisch' : 'Zierstaude'}</span>
-              {sel.raupenfutter_arten?.length ? <span style={{ fontSize: 10, border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 6, padding: '1px 6px' }}>Raupenfutter: {sel.raupenfutter_arten[0]}</span> : null}
-            </div>
-          </div>
-        )}
-      </div>
-      {/* Steuerung */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: L ? A14 : 'rgba(255,255,255,0.04)', borderRadius: 999, padding: '2px 4px' }}>
-          <button onClick={() => setMonth(m => Math.max(3, m - 1))} style={ctrlBtn(L)} aria-label="Früher">‹</button>
-          <span style={{ minWidth: 132, textAlign: 'center', fontSize: 12, fontWeight: 700, color: FG, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            {SEASON_OF(month)}<br /><span style={{ fontWeight: 400, color: MUTED, textTransform: 'none', fontSize: 11 }}>{MONTHS_FULL[month - 1]}</span>
-          </span>
-          <button onClick={() => setMonth(m => Math.min(10, m + 1))} style={ctrlBtn(L)} aria-label="Später">›</button>
-        </div>
-        <button onClick={() => setPlaying(p => !p)} style={{ ...ctrlBtn(L), background: A, color: '#fff', display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 999, fontWeight: 600 }}>
-          {playing ? <Pause size={13} /> : <Play size={13} />} Jahr
-        </button>
-        <div style={{ display: 'flex', gap: 4, marginLeft: 'auto', flexWrap: 'wrap' }}>
-          <button onClick={() => setZoom(z => Math.max(0.5, z * 0.87))} style={ctrlBtn(L)} aria-label="Kleiner">−</button>
-          <button onClick={() => setZoom(z => Math.min(2.6, z * 1.15))} style={ctrlBtn(L)} aria-label="Größer">+</button>
-          <button onClick={() => { setTheta(-0.5); setZoom(1) }} style={ctrlBtn(L)} aria-label="Ansicht zurücksetzen"><RotateCw size={13} /></button>
-          <button onClick={exportPng} style={{ ...ctrlBtn(L), display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px' }}><Download size={12} /> PNG</button>
-        </div>
-      </div>
-    </div>
-  )
-}
-function ctrlBtn(L) {
-  return { border: `1px solid ${BORDER}`, background: L ? '#fff' : SURFACE, color: FG, borderRadius: 999, padding: '6px 10px', cursor: 'pointer', fontSize: 13, fontWeight: 500, minWidth: 34 }
-}
 
 /* ─── RASTERPLAN — druckbare Pflanzanleitung (Vierecke wie Pathmaker) ─────── */
 const RASTER_CELLS = [
