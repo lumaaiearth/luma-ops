@@ -7,14 +7,15 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { A, A14, A20, BORDER, FG, MUTED, SURFACE } from '../lib/theme.js'
-import { Download, Play, Pause, RotateCw } from 'lucide-react'
+import { Download, Play, Pause, RotateCw, Wind } from 'lucide-react'
 import {
   stateForMonth, growthForMonth, hashStr, seededRand,
   MONTHS_FULL, SEASON_OF, POLLI_GROUPS,
 } from '../lib/beetLayout.js'
-import { speciesGeometry } from '../lib/plantMeshes.js'
+import { speciesGeometry, makePlantMaterial } from '../lib/plantMeshes.js'
 
 const CANVAS_H = 400
+const prefersReducedMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
 
 export default function Beet3DPoly({ placement, beetW, beetH, beetForm, L, shadow, cardBg }) {
   const wrapRef = useRef(null)
@@ -27,6 +28,10 @@ export default function Beet3DPoly({ placement, beetW, beetH, beetForm, L, shado
   const [group, setGroup] = useState('alle')
   const [sel, setSel] = useState(null)
   const [webglFail, setWebglFail] = useState(false)
+  const [wind, setWind] = useState(!prefersReducedMotion)
+  const uTimeRef = useRef({ value: 0 })
+  const uWindRef = useRef({ value: prefersReducedMotion ? 0 : 1 })
+  const rafRef = useRef(0)
 
   const arten = useMemo(() => {
     const seen = new Map()
@@ -156,7 +161,7 @@ export default function Beet3DPoly({ placement, beetW, beetH, beetForm, L, shado
     const up = new THREE.Vector3(0, 1, 0)
     for (const { sp, items } of bySpecies.values()) {
       const geo = speciesGeometry(sp, stateForMonth(sp, month))
-      const mat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, side: THREE.DoubleSide })
+      const mat = makePlantMaterial(uTimeRef.current, uWindRef.current)
       const mesh = new THREE.InstancedMesh(geo, mat, items.length)
       items.forEach((p, i) => {
         const s = 0.85 + seededRand(p.seed ?? hashStr(p.id + i)) * 0.3
@@ -197,6 +202,22 @@ export default function Beet3DPoly({ placement, beetW, beetH, beetForm, L, shado
     const iv = setInterval(() => setMonth(m => (m >= 10 ? 3 : m + 1)), 950)
     return () => clearInterval(iv)
   }, [playing])
+
+  // ── Wind: sanfter Dauer-Loop (rAF), höhenabhängige Schwingung im Shader ───
+  useEffect(() => {
+    uWindRef.current.value = wind ? 1 : 0
+    if (!wind) { cancelAnimationFrame(rafRef.current); render(); return }
+    let start = null
+    const tick = ts => {
+      if (start == null) start = ts
+      uTimeRef.current.value = (ts - start) / 1000
+      render()
+      rafRef.current = requestAnimationFrame(tick)
+    }
+    rafRef.current = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafRef.current)
+  }, [wind]) // eslint-disable-line
+  useEffect(() => () => cancelAnimationFrame(rafRef.current), [])
 
   // ── Interaktion: Orbit, Zoom, Raycast-Pick ────────────────────────────────
   const onDown = e => {
@@ -322,6 +343,9 @@ export default function Beet3DPoly({ placement, beetW, beetH, beetForm, L, shado
         </div>
         <button onClick={() => setPlaying(p => !p)} style={{ ...btn, background: A, color: 'var(--luma-on-a, #fff)', display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', fontWeight: 600, border: 'none' }}>
           {playing ? <Pause size={13} /> : <Play size={13} />} Jahr
+        </button>
+        <button onClick={() => setWind(w => !w)} title="Sanften Wind an/aus" style={{ ...btn, display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', color: wind ? A : MUTED, borderColor: wind ? A : BORDER, fontWeight: wind ? 700 : 500 }}>
+          <Wind size={13} /> Wind
         </button>
         <div style={{ display: 'flex', gap: 4, marginLeft: 'auto', flexWrap: 'wrap' }}>
           <button onClick={() => { camRef.current.dist = Math.min(60, camRef.current.dist * 1.15); render() }} style={btn} aria-label="Kleiner">−</button>
