@@ -4,6 +4,7 @@ import { getJobs, saveJobs, getRecurring, saveRecurring, getSensors, saveSensors
 import { tgSend, tgGroups, groupsForUsers } from '../lib/telegram.js'
 import { maybeSendWeeklySummary } from '../lib/weeklySummary.js'
 import { maybeSendTaskReminders } from '../lib/taskReminders.js'
+import { scheduleJobRemindersDebounced, setReminderOverride, clearReminderOverride } from '../lib/notifications.js'
 import { useAuth } from './AuthContext.jsx'
 import * as gcal from '../lib/gcal.js'
 import { JOB_TYPES, SEED_CLIENTS, VEHICLES as SEED_VEHICLES, SEED_BOARDS } from '../data/seed.js'
@@ -144,6 +145,11 @@ export function OpsProvider({ children }) {
     }
   }, [loading])
 
+  // ── Termin-Erinnerungen (Push): nach Laden und bei jeder Job-Änderung neu planen ─
+  useEffect(() => {
+    if (!loading) scheduleJobRemindersDebounced(jobs)
+  }, [loading, jobs])
+
   // ── Realtime subscriptions ───────────────────────────────────────────────────
   useEffect(() => {
     const channel = sb.channel('ops-sync')
@@ -228,7 +234,11 @@ export function OpsProvider({ children }) {
 
   // ── Jobs ────────────────────────────────────────────────────────────────────
   function createJob(data) {
-    const job = { ...data, id: genId(), created_at: new Date().toISOString() }
+    // reminder_min ist keine DB-Spalte, sondern eine geräte-lokale Erinnerungs-
+    // Einstellung → vor dem Upsert heraustrennen und separat ablegen.
+    const { reminder_min, ...jobData } = data
+    const job = { ...jobData, id: genId(), created_at: new Date().toISOString() }
+    if (reminder_min !== undefined) setReminderOverride(job.id, reminder_min)
     setJobsState(prev => [...prev, job])
     sbUpsert('jobs', [job]).catch(dbErr('ops','write'))
 
@@ -264,9 +274,13 @@ export function OpsProvider({ children }) {
   }
 
   function updateJob(id, changes) {
+    // Erinnerungs-Einstellung (geräte-lokal) getrennt behandeln, nicht in die DB schreiben.
+    const { reminder_min, ...rest } = changes
+    if (reminder_min !== undefined) setReminderOverride(id, reminder_min)
     const existing = jobs.find(j => j.id === id)
-    setJobsState(prev => prev.map(j => j.id === id ? { ...j, ...changes } : j))
-    sbUpdate('jobs', id, changes).catch(dbErr('ops','write'))
+    if (Object.keys(rest).length === 0) return
+    setJobsState(prev => prev.map(j => j.id === id ? { ...j, ...rest } : j))
+    sbUpdate('jobs', id, rest).catch(dbErr('ops','write'))
 
     if (gcal.isConnected() && existing?.gcal_event_id) {
       const merged = { ...existing, ...changes }
@@ -288,6 +302,7 @@ export function OpsProvider({ children }) {
 
   function deleteJob(id) {
     const job = jobs.find(j => j.id === id)
+    clearReminderOverride(id)
     setJobsState(prev => prev.filter(j => j.id !== id))
     sbDelete('jobs', id).catch(dbErr('ops','write'))
     if (gcal.isConnected() && job?.gcal_event_id) {
@@ -328,7 +343,7 @@ export function OpsProvider({ children }) {
   function createRecurring(data) {
     // Strip job-only fields that don't exist as columns in recurring_templates
     // eslint-disable-next-line no-unused-vars
-    const { color, date_end, start_time, end_time, location, vehicle_ids, make_recurring, ...templateFields } = data
+    const { color, date_end, start_time, end_time, location, vehicle_ids, make_recurring, reminder_min, ...templateFields } = data
     const tmpl = { ...templateFields, id: genId(), last_date: null }
     setRecurringState(prev => [...prev, tmpl])
     sbUpsert('recurring_templates', [tmpl]).catch(dbErr('ops','write'))

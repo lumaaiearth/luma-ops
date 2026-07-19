@@ -18,4 +18,12 @@ export async function initNative() {
     const { SplashScreen } = await import('@capacitor/splash-screen')
     await SplashScreen.hide()
   } catch {}
+  // Antippen einer Termin-Erinnerung → zum Datum im Kalender springen.
+  try {
+    const { LocalNotifications } = await import('@capacitor/local-notifications')
+    LocalNotifications.addListener('localNotificationActionPerformed', (event) => {
+      const date = event?.notification?.extra?.date
+      if (date) window.location.href = `/calendar?date=${date}`
+    })
+  } catch {}
 }

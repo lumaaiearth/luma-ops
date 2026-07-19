@@ -7,6 +7,7 @@ import { sb } from '../lib/supabase.js'
 import { compressImage } from '../lib/images.js'
 import { A, SURFACE, BORDER, FG, MUTED, OK, DANGER } from '../lib/theme.js'
 import { PageHeader, Card, Button, Badge, Avatar, INPUT_STYLE, LABEL_STYLE, MONO, SANS } from '../components/ui.jsx'
+import NotificationSettings from '../components/NotificationSettings.jsx'
 import { TEAM } from '../data/seed.js'
 import { useIsMobile } from '../lib/useIsMobile.js'
 
@@ -159,6 +160,9 @@ export default function ProfilePage() {
           </div>
         </form>
       </Card>
+
+      {/* ── Benachrichtigungen ── */}
+      <NotificationSettings />
 
       {/* ── Konto-Sicherheit ── */}
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { X, Repeat, MapPin } from 'lucide-react'
+import { X, Repeat, MapPin, Bell } from 'lucide-react'
 import { TEAM, JOB_TYPES } from '../data/seed.js'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -8,6 +8,15 @@ import JobPhotos from './JobPhotos.jsx'
 import { A, SURFACE, BORDER, FG, MUTED, CARD, A06, A08, A14 } from '../lib/theme.js'
 import { Modal, ModalActions, INPUT_STYLE, LABEL_STYLE } from './ui.jsx'
 import { isoToday } from '../lib/storage.js'
+import { getReminderOverride, isEnabled as notifyEnabled } from '../lib/notifications.js'
+
+// Erinnerungs-Override (geräte-lokal) → Formularwert (String fürs <select>)
+function reminderToFormValue(jobId) {
+  const ov = jobId ? getReminderOverride(jobId) : null
+  if (ov === 'off') return 'off'
+  if (typeof ov === 'number') return String(ov)
+  return '' // Standard-Vorlaufzeit
+}
 
 const TIME_SLOTS = Array.from({ length: 96 }, (_, i) => {
   const h = Math.floor(i / 4), m = (i % 4) * 15
@@ -136,6 +145,7 @@ export default function JobModal({ initialDate, initialJob, initialStartTime, in
     color: initialJob?.color || '',
     tools: initialJob?.tools || [],
     notes: initialJob?.notes || '',
+    reminder: reminderToFormValue(initialJob?.id),
     interval_days: 14,
     make_recurring: false,
   })
@@ -239,6 +249,8 @@ export default function JobModal({ initialDate, initialJob, initialStartTime, in
       tools: form.tools,
       notes: form.notes,
       status: 'planned',
+      // Geräte-lokale Erinnerung: '' → Standard, 'off' → keine, Zahl → Minuten vorher
+      reminder_min: form.reminder === '' ? null : form.reminder === 'off' ? 'off' : Number(form.reminder),
     }
     if (form.make_recurring) {
       onSave({ type: 'recurring', data: { ...jobData, interval_days: Number(form.interval_days), next_date: form.date, active: true } })
@@ -354,6 +366,34 @@ export default function JobModal({ initialDate, initialJob, initialStartTime, in
               </div>
             )}
           </div>
+
+          {/* Erinnerung (nur bei Terminen mit Uhrzeit) */}
+          {form.start_time && (
+            <div>
+              <label style={{ ...LABEL_STYLE, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Bell size={11} /> Erinnerung
+              </label>
+              <select
+                style={INPUT_STYLE}
+                value={form.reminder}
+                onChange={e => setForm(f => ({ ...f, reminder: e.target.value }))}>
+                <option value="">Standard-Vorlaufzeit</option>
+                <option value="off">Keine Erinnerung</option>
+                <option value="5">5 Minuten vorher</option>
+                <option value="10">10 Minuten vorher</option>
+                <option value="15">15 Minuten vorher</option>
+                <option value="30">30 Minuten vorher</option>
+                <option value="60">1 Stunde vorher</option>
+                <option value="120">2 Stunden vorher</option>
+                <option value="1440">1 Tag vorher</option>
+              </select>
+              {!notifyEnabled() && (
+                <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, marginTop: 4 }}>
+                  Push-Benachrichtigungen sind aus — im Profil aktivieren, damit Erinnerungen ankommen.
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Location with Nominatim autocomplete */}
           <div ref={locationRef}>
