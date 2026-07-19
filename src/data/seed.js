@@ -4,13 +4,17 @@ export const TEAM = [
   { id: 'robert', name: 'Robert', role: 'manager', color: '#F3E0A8', initials: 'RB' },
   { id: 'jona',   name: 'Jona',   role: 'field',   color: '#6EA8C0', initials: 'JN' },
   { id: 'anselm', name: 'Anselm', role: 'field',   color: '#C0966E', initials: 'AS' },
+  { id: 'felix',  name: 'Felix',  role: 'field',   color: '#9B8CE8', initials: 'FX' },
 ]
 
-// Weekly/annual hour targets per person
+// Fallback für SOLL-Stunden-Regeln — die führende Quelle ist die Tabelle
+// hour_rules in Supabase (siehe Migration 20260718_stundenkonto_kosten).
+// monthly = X h je bezahltem Monat (paid_months), + carryover aus dem Vorjahr.
 export const HOUR_TARGETS = {
   malte:  { type: 'balance' },   // track balance with lukas
   lukas:  { type: 'balance' },   // track balance with malte
-  jona:   { type: 'weekly', weekly: 10 },
+  jona:   { type: 'monthly', monthly: 30.88, paid_months: ['2026-01', '2026-02'], carryover: 13.26 },
+  felix:  { type: 'monthly', monthly: 30.88, paid_months: ['2026-01', '2026-02'], carryover: 42.5 },
   anselm: { type: 'weekly', weekly: 10 },
   robert: { type: 'project' },   // project-based, no fixed target
 }

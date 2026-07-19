@@ -1,10 +1,70 @@
+import { useState, useEffect } from 'react'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
+import { sb } from '../lib/supabase.js'
 import { A, SURFACE, BORDER, FG, MUTED, A08, A20 } from '../lib/theme.js'
 import { Avatar } from '../components/ui.jsx'
 import { TEAM, JOB_TYPES } from '../data/seed.js'
 import { isoToday, addDays, formatDate } from '../lib/storage.js'
 import { Phone, Mail } from 'lucide-react'
+
+// Wochentags-Verfügbarkeit („kann immer mittwochs") — Tabelle user_availability
+const WEEKDAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+const WEEKDAY_SHORT = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
+
+function AvailabilityEditor({ teamId, color, availability, onChange }) {
+  const row = availability[teamId] || { weekdays: {}, note: '' }
+  const [editingNote, setEditingNote] = useState(false)
+  const [noteVal, setNoteVal] = useState('')
+
+  function toggleDay(key) {
+    const weekdays = { ...(row.weekdays || {}), [key]: !row.weekdays?.[key] }
+    onChange(teamId, { weekdays, note: row.note || '' })
+  }
+
+  function saveNote() {
+    onChange(teamId, { weekdays: row.weekdays || {}, note: noteVal })
+    setEditingNote(false)
+  }
+
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 8.5, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 5 }}>
+        Verfügbarkeit
+      </div>
+      <div style={{ display: 'flex', gap: 3, marginBottom: 5 }}>
+        {WEEKDAY_KEYS.map((key, i) => {
+          const on = !!row.weekdays?.[key]
+          return (
+            <button key={key} onClick={() => toggleDay(key)} title={on ? 'verfügbar — klicken zum Entfernen' : 'klicken = verfügbar'}
+              style={{
+                flex: 1, padding: '3px 0', borderRadius: 5, cursor: 'pointer', fontSize: 10,
+                fontFamily: "'Space Mono', monospace", fontWeight: on ? 700 : 400,
+                background: on ? `${color}22` : 'transparent',
+                border: `1px solid ${on ? color : BORDER}`,
+                color: on ? color : MUTED,
+              }}>
+              {WEEKDAY_SHORT[i]}
+            </button>
+          )
+        })}
+      </div>
+      {editingNote ? (
+        <div style={{ display: 'flex', gap: 4 }}>
+          <input value={noteVal} onChange={e => setNoteVal(e.target.value)} autoFocus
+            onKeyDown={e => { if (e.key === 'Enter') saveNote(); if (e.key === 'Escape') setEditingNote(false) }}
+            style={{ flex: 1, background: 'transparent', border: `1px solid ${BORDER}`, borderRadius: 5, padding: '3px 7px', color: FG, fontSize: 11, outline: 'none', fontFamily: "'Space Grotesk', sans-serif" }} />
+          <button onClick={saveNote} style={{ padding: '3px 9px', borderRadius: 5, border: 'none', background: A, color: 'var(--luma-on-a)', cursor: 'pointer', fontSize: 10 }}>OK</button>
+        </div>
+      ) : (
+        <div onClick={() => { setNoteVal(row.note || ''); setEditingNote(true) }} title="Klicken zum Bearbeiten"
+          style={{ fontSize: 11, color: row.note ? MUTED : `color-mix(in srgb, ${MUTED} 55%, transparent)`, cursor: 'pointer', lineHeight: 1.4 }}>
+          {row.note || '+ Notiz (z.B. „ggf. Di/Fr möglich")'}
+        </div>
+      )}
+    </div>
+  )
+}
 
 const TG_GROUPS = [
   { name: 'LUMA Pflege', members: ['jona', 'anselm', 'malte'], color: '#08AA56', desc: 'Laufende Pflegeeinsätze' },
@@ -14,9 +74,22 @@ const TG_GROUPS = [
 
 export default function TeamPage() {
   const { jobs, projects } = useOps()
-  const { profileForTeamId } = useAuth()
+  const { profileForTeamId, isMitarbeiter } = useAuth()
   const today = isoToday()
   const next7 = addDays(today, 7)
+  const [availability, setAvailability] = useState({})
+
+  useEffect(() => {
+    sb.from('user_availability').select('*').then(({ data }) =>
+      setAvailability(Object.fromEntries((data || []).map(r => [r.team_id, r]))))
+  }, [])
+
+  function saveAvailability(teamId, changes) {
+    setAvailability(prev => ({ ...prev, [teamId]: { ...(prev[teamId] || { team_id: teamId }), ...changes } }))
+    sb.from('user_availability')
+      .upsert({ team_id: teamId, ...changes, updated_at: new Date().toISOString() }, { onConflict: 'team_id' })
+      .then(({ error }) => { if (error) console.error('[DB] user_availability', error.message) })
+  }
 
   return (
     <div style={{ padding: 24, maxWidth: 900, margin: '0 auto' }}>
@@ -53,6 +126,10 @@ export default function TeamPage() {
                   )}
                   {prof.bio && <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.5 }}>{prof.bio}</div>}
                 </div>
+              )}
+
+              {isMitarbeiter && (
+                <AvailabilityEditor teamId={u.id} color={u.color} availability={availability} onChange={saveAvailability} />
               )}
 
               {todayJob ? (

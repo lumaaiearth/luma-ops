@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { LayoutDashboard, CalendarDays, ListChecks, Radio, Users, Settings, LogOut, Clock, Map, Database, FolderOpen, MoreHorizontal, BarChart2, Flower2, ListTodo, UserCircle, Search } from 'lucide-react'
+import { LayoutDashboard, CalendarDays, CalendarRange, ListChecks, Radio, Users, Settings, LogOut, Clock, Map, Database, FolderOpen, MoreHorizontal, BarChart2, Flower2, ListTodo, UserCircle, Search } from 'lucide-react'
 import { A, BG, SURFACE, BORDER, FG, MUTED, A14 } from '../lib/theme.js'
 import { Avatar, MONO, SANS } from './ui.jsx'
 import GlobalSearch from './GlobalSearch.jsx'
@@ -13,6 +13,7 @@ const NAV_GROUPS = [
     items: [
       { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
       { to: '/calendar',  icon: CalendarDays,    label: 'Kalender' },
+      { to: '/wochenplan', icon: CalendarRange,  label: 'Wochenplan' },
       { to: '/tasks',     icon: ListTodo,        label: 'Offene Aufgaben', short: 'Aufgaben' },
       { to: '/jobs',      icon: ListChecks,      label: 'Einsatzübersicht', short: 'Einsätze' },
     ],

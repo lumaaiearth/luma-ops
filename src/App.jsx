@@ -36,6 +36,7 @@ const KundenPortalPage = lazy(() => import('./pages/KundenPortalPage.jsx'))
 const ProfilePage      = lazy(() => import('./pages/ProfilePage.jsx'))
 const SensorPage       = lazy(() => import('./pages/SensorPage.jsx'))
 const ExplorePage      = lazy(() => import('./pages/ExplorePage.jsx'))
+const WochenplanPage   = lazy(() => import('./pages/WochenplanPage.jsx'))
 
 function RequireAuth({ children, kundeOk = false, gastOk = false }) {
   const { user, loading, profile, isKunde, isGast } = useAuth()
@@ -112,6 +113,7 @@ function AppRoutes() {
       <Route path="/" element={<Protected><Navigate to="/dashboard" replace /></Protected>} />
       <Route path="/dashboard" element={<Protected><DashboardPage /></Protected>} />
       <Route path="/calendar" element={<Protected fullHeight><CalendarPage /></Protected>} />
+      <Route path="/wochenplan" element={<Protected><WochenplanPage /></Protected>} />
       <Route path="/jobs" element={<Protected><JobsPage /></Protected>} />
       <Route path="/tasks" element={<Protected><TasksPage /></Protected>} />
       <Route path="/sensors" element={<Protected><SensorsPage /></Protected>} />

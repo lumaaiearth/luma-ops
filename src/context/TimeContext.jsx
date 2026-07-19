@@ -14,16 +14,27 @@ const TimeContext = createContext(null)
 export function TimeProvider({ children }) {
   const [entries, setEntries] = useState([])
   const [invoices, setInvoices] = useState([])
+  // hour_rules aus Supabase ({team_id: row}); Fallback auf seed.js siehe hourAccounts.js
+  const [hourRules, setHourRules] = useState({})
+  // Nur für Admins gefüllt — RLS liefert anderen Rollen schlicht 0 Zeilen.
+  const [costs, setCosts] = useState([])
+  const [rates, setRates] = useState({})
 
   useEffect(() => {
     async function load() {
       try {
-        const [eRows, iRows] = await Promise.all([
+        const [eRows, iRows, rRows, cRows, brRows] = await Promise.all([
           sb.from('time_entries').select('*').order('date', { ascending: false }),
           sb.from('invoices').select('*').order('date_issued', { ascending: false }),
+          sb.from('hour_rules').select('*'),
+          sb.from('project_costs').select('*').order('date', { ascending: false }),
+          sb.from('billing_rates').select('*'),
         ])
         setEntries(eRows.data?.length ? eRows.data : getTimeEntries())
         setInvoices(iRows.data?.length ? iRows.data : getInvoices())
+        setHourRules(Object.fromEntries((rRows.data || []).map(r => [r.team_id, r])))
+        setCosts(cRows.data || [])
+        setRates(Object.fromEntries((brRows.data || []).map(r => [r.client_id, Number(r.hourly_rate)])))
       } catch {
         setEntries(getTimeEntries())
         setInvoices(getInvoices())
@@ -92,10 +103,48 @@ export function TimeProvider({ children }) {
     entries.filter(e => e.invoice_id === invoiceId).forEach(e =>
       sbUpdate('time_entries', e.id, { invoice_id: null }).catch(dbErr('time','write'))
     )
+    setCosts(prev => prev.map(c => c.invoice_id === invoiceId ? { ...c, invoice_id: null } : c))
+    costs.filter(c => c.invoice_id === invoiceId).forEach(c =>
+      sbUpdate('project_costs', c.id, { invoice_id: null }).catch(dbErr('time','write'))
+    )
+  }
+
+  // ── Materialkosten (admin-only, RLS) ──
+  function addCost(data) {
+    const cost = { markup: 1.5, billable: true, ...data, id: genId(), invoice_id: null, created_at: new Date().toISOString() }
+    setCosts(prev => [cost, ...prev])
+    sbUpsert('project_costs', [cost]).catch(dbErr('time','write'))
+    return cost
+  }
+
+  function deleteCost(id) {
+    setCosts(prev => prev.filter(c => c.id !== id))
+    sbDelete('project_costs', id).catch(dbErr('time','write'))
+  }
+
+  function markCostsBilled(costIds, invoiceId) {
+    setCosts(prev => prev.map(c => costIds.includes(c.id) ? { ...c, invoice_id: invoiceId } : c))
+    costIds.forEach(cid => sbUpdate('project_costs', cid, { invoice_id: invoiceId }).catch(dbErr('time','write')))
+  }
+
+  // ── Stundensatz je Kunde (admin-only, RLS) ──
+  function setRate(clientId, hourlyRate) {
+    setRates(prev => ({ ...prev, [clientId]: hourlyRate }))
+    sb.from('billing_rates')
+      .upsert({ client_id: clientId, hourly_rate: hourlyRate, updated_at: new Date().toISOString() }, { onConflict: 'client_id' })
+      .then(({ error }) => { if (error) dbErr('billing_rates','write')(error) })
+  }
+
+  // ── SOLL-Stunden-Regel je Person aktualisieren (intern) ──
+  function saveHourRule(teamId, changes) {
+    setHourRules(prev => ({ ...prev, [teamId]: { ...(prev[teamId] || { team_id: teamId }), ...changes } }))
+    sb.from('hour_rules')
+      .upsert({ team_id: teamId, ...changes, updated_at: new Date().toISOString() }, { onConflict: 'team_id' })
+      .then(({ error }) => { if (error) dbErr('hour_rules','write')(error) })
   }
 
   return (
-    <TimeContext.Provider value={{ entries, invoices, logTime, updateEntry, deleteEntry, createInvoice, markPaid, deleteInvoice }}>
+    <TimeContext.Provider value={{ entries, invoices, hourRules, costs, rates, logTime, updateEntry, deleteEntry, createInvoice, markPaid, deleteInvoice, addCost, deleteCost, markCostsBilled, setRate, saveHourRule }}>
       {children}
     </TimeContext.Provider>
   )

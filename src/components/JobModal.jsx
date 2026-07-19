@@ -108,7 +108,7 @@ function QuickProjectModal({ clients, onSave, onClose }) {
   )
 }
 
-export default function JobModal({ initialDate, initialJob, initialStartTime, initialEndTime, onSave, onClose, isRecurring = false }) {
+export default function JobModal({ initialDate, initialJob, initialStartTime, initialEndTime, initialAssignedUsers, onSave, onClose, isRecurring = false }) {
   const { projects, clients, vehicles: VEHICLES } = useOps()
   const { user } = useAuth()
   const editing = !!initialJob
@@ -130,7 +130,7 @@ export default function JobModal({ initialDate, initialJob, initialStartTime, in
     date_end: initialJob?.date_end || '',
     start_time: initialJob?.start_time || initialStartTime || '',
     end_time: initialJob?.end_time || initialEndTime || '',
-    assigned_users: initialJob?.assigned_users || [],
+    assigned_users: initialJob?.assigned_users || initialAssignedUsers || [],
     vehicle_ids: initialJob?.vehicle_ids || (initialJob?.vehicle_id ? [initialJob.vehicle_id] : []),
     location: initialJob?.location || '',
     color: initialJob?.color || '',
