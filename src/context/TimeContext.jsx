@@ -19,22 +19,26 @@ export function TimeProvider({ children }) {
   // Nur für Admins gefüllt — RLS liefert anderen Rollen schlicht 0 Zeilen.
   const [costs, setCosts] = useState([])
   const [rates, setRates] = useState({})
+  // Interne Stundenkosten je Person ({team_id: €/h}) — admin-only (RLS)
+  const [costRates, setCostRates] = useState({})
 
   useEffect(() => {
     async function load() {
       try {
-        const [eRows, iRows, rRows, cRows, brRows] = await Promise.all([
+        const [eRows, iRows, rRows, cRows, brRows, pcRows] = await Promise.all([
           sb.from('time_entries').select('*').order('date', { ascending: false }),
           sb.from('invoices').select('*').order('date_issued', { ascending: false }),
           sb.from('hour_rules').select('*'),
           sb.from('project_costs').select('*').order('date', { ascending: false }),
           sb.from('billing_rates').select('*'),
+          sb.from('person_cost_rates').select('*'),
         ])
         setEntries(eRows.data?.length ? eRows.data : getTimeEntries())
         setInvoices(iRows.data?.length ? iRows.data : getInvoices())
         setHourRules(Object.fromEntries((rRows.data || []).map(r => [r.team_id, r])))
         setCosts(cRows.data || [])
         setRates(Object.fromEntries((brRows.data || []).map(r => [r.client_id, Number(r.hourly_rate)])))
+        setCostRates(Object.fromEntries((pcRows.data || []).map(r => [r.team_id, Number(r.hourly_cost)])))
       } catch {
         setEntries(getTimeEntries())
         setInvoices(getInvoices())
@@ -135,6 +139,14 @@ export function TimeProvider({ children }) {
       .then(({ error }) => { if (error) dbErr('billing_rates','write')(error) })
   }
 
+  // ── Interner Stundenkostensatz je Person (admin-only, RLS) ──
+  function setCostRate(teamId, hourlyCost) {
+    setCostRates(prev => ({ ...prev, [teamId]: hourlyCost }))
+    sb.from('person_cost_rates')
+      .upsert({ team_id: teamId, hourly_cost: hourlyCost, updated_at: new Date().toISOString() }, { onConflict: 'team_id' })
+      .then(({ error }) => { if (error) dbErr('person_cost_rates','write')(error) })
+  }
+
   // ── SOLL-Stunden-Regel je Person aktualisieren (intern) ──
   function saveHourRule(teamId, changes) {
     setHourRules(prev => ({ ...prev, [teamId]: { ...(prev[teamId] || { team_id: teamId }), ...changes } }))
@@ -144,7 +156,7 @@ export function TimeProvider({ children }) {
   }
 
   return (
-    <TimeContext.Provider value={{ entries, invoices, hourRules, costs, rates, logTime, updateEntry, deleteEntry, createInvoice, markPaid, deleteInvoice, addCost, deleteCost, markCostsBilled, setRate, saveHourRule }}>
+    <TimeContext.Provider value={{ entries, invoices, hourRules, costs, rates, costRates, logTime, updateEntry, deleteEntry, createInvoice, markPaid, deleteInvoice, addCost, deleteCost, markCostsBilled, setRate, setCostRate, saveHourRule }}>
       {children}
     </TimeContext.Provider>
   )
