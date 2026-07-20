@@ -53,7 +53,17 @@
     <style>
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
       html, body, #root { height: 100%; }
-      body { font-family: 'Space Grotesk', sans-serif; background: var(--boot-bg, #eef0ec); color: var(--boot-fg, #0a1409); -webkit-font-smoothing: antialiased; }
+      /* App-Shell fest an den Viewport pinnen: Die WKWebView (Capacitor) lässt das
+         Fenster sonst nach Tastatur-Einblendung o.ä. „verrutscht" stehen — sichtbar
+         als grauer Streifen unter der Bottom-Nav. Gescrollt wird nur innerhalb der
+         App (.main-content), nie auf body-Ebene. */
+      html { overflow: hidden; }
+      /* Seiten ohne App-Shell (Login, Portal) scrollen im #root statt im body */
+      #root { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+      body {
+        position: fixed; inset: 0; overflow: hidden; overscroll-behavior: none;
+        font-family: 'Space Grotesk', sans-serif; background: var(--boot-bg, #eef0ec); color: var(--boot-fg, #0a1409); -webkit-font-smoothing: antialiased;
+      }
       /* Scrollbars, Selects & Statusfarben sind theme-abhängig → src/styles/ui.css */
       button { font-family: inherit; }
       input, textarea, select { font-family: inherit; }
