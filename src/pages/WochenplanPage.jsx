@@ -4,9 +4,9 @@ import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useWeather } from '../context/WeatherContext.jsx'
 import { sb } from '../lib/supabase.js'
-import { TEAM } from '../data/seed.js'
+import { findPerson, allPeople } from '../lib/people.js'
 import { A, SURFACE, BORDER, FG, MUTED, CARD, A08, A14 } from '../lib/theme.js'
-import { INPUT_STYLE, LABEL_STYLE, Modal, ModalActions, MONO, SANS } from '../components/ui.jsx'
+import { INPUT_STYLE, LABEL_STYLE, Modal, ModalActions, MONO, SANS, DateInput } from '../components/ui.jsx'
 import JobModal from '../components/JobModal.jsx'
 import WeatherLine from '../components/WeatherLine.jsx'
 import { getWeatherForDate } from '../lib/weather.js'
@@ -45,7 +45,7 @@ function jobOnDay(job, day) {
 }
 
 function AbsenceModal({ teamId, onSave, onClose }) {
-  const u = TEAM.find(t => t.id === teamId)
+  const u = findPerson(teamId)
   const [form, setForm] = useState({ date_from: isoToday(), date_to: isoToday(), reason: '' })
   return (
     <Modal eyebrow={`Abwesenheit · ${u?.name}`} onClose={onClose} maxWidth={380}>
@@ -53,11 +53,11 @@ function AbsenceModal({ teamId, onSave, onClose }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           <div>
             <label style={LABEL_STYLE}>Von *</label>
-            <input type="date" style={INPUT_STYLE} value={form.date_from} onChange={e => setForm(f => ({ ...f, date_from: e.target.value }))} required />
+            <DateInput value={form.date_from} onChange={v => setForm(f => ({ ...f, date_from: v }))} required />
           </div>
           <div>
             <label style={LABEL_STYLE}>Bis *</label>
-            <input type="date" style={INPUT_STYLE} value={form.date_to} onChange={e => setForm(f => ({ ...f, date_to: e.target.value }))} required />
+            <DateInput value={form.date_to} onChange={v => setForm(f => ({ ...f, date_to: v }))} required />
           </div>
         </div>
         <div>
@@ -277,7 +277,7 @@ export default function WochenplanPage({ embedded = false }) {
   const weekAbsences = useMemo(() =>
     absences.filter(a => a.date_from <= days[6] && days[0] <= a.date_to), [absences, ws])
 
-  const persons = [...TEAM, { id: null, name: 'Ohne Zuweisung', color: MUTED, initials: '?' }]
+  const persons = [...allPeople(), { id: null, name: 'Ohne Zuweisung', color: MUTED, initials: '?' }]
 
   function openCell(d, uid) {
     if (suppressClick.current) return
@@ -425,7 +425,7 @@ export default function WochenplanPage({ embedded = false }) {
             <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 8 }}>Abwesenheiten in KW {kw}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {weekAbsences.map(a => {
-                const u = TEAM.find(t => t.id === a.team_id)
+                const u = findPerson(a.team_id)
                 return (
                   <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: MUTED }}>
                     <span style={{ color: FG, fontWeight: 500, minWidth: 60 }}>{u?.name || a.team_id}</span>
@@ -522,7 +522,7 @@ export default function WochenplanPage({ embedded = false }) {
           <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 8 }}>Abwesenheiten in KW {kw}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {weekAbsences.map(a => {
-              const u = TEAM.find(t => t.id === a.team_id)
+              const u = findPerson(a.team_id)
               return (
                 <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: MUTED }}>
                   <span style={{ color: FG, fontWeight: 500, minWidth: 70 }}>{u?.name || a.team_id}</span>

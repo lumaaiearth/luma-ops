@@ -6,7 +6,8 @@ import { useWeather } from '../context/WeatherContext.jsx'
 import { getWeatherForDate, STATUS_COLOR } from '../lib/weather.js'
 import { A, SURFACE, BORDER, FG, MUTED, BG, A06, OK, DANGER } from '../lib/theme.js'
 import { Button, EmptyState } from '../components/ui.jsx'
-import { TEAM, TASK_STATUSES, TASK_PRIORITIES, TASK_EFFORTS, TASK_TYPES } from '../data/seed.js'
+import { TASK_STATUSES, TASK_PRIORITIES, TASK_EFFORTS, TASK_TYPES } from '../data/seed.js'
+import { findPerson, peopleForIds } from '../lib/people.js'
 import { isoToday, formatDate } from '../lib/storage.js'
 import TaskModal from '../components/TaskModal.jsx'
 import BoardModal from '../components/BoardModal.jsx'
@@ -52,7 +53,7 @@ function zeitraum(t) {
 }
 
 export default function TasksPage() {
-  const { tasks, deletedTasks, projects, clients, boards, createTask, updateTask, deleteTask, restoreTask, purgeTask, setTaskStatus, createBoard, updateBoard, deleteBoard } = useOps()
+  const { tasks, deletedTasks, projects, clients, boards, people, createTask, updateTask, deleteTask, restoreTask, purgeTask, setTaskStatus, createBoard, updateBoard, deleteBoard } = useOps()
   const { user } = useAuth()
   const navigate = useNavigate()
   const weatherForecast = useWeather()
@@ -160,10 +161,10 @@ export default function TasksPage() {
     </div>
   )
 
-  const boardMembers = currentBoard ? TEAM.filter(u => (currentBoard.members || []).includes(u.id)) : []
+  const boardMembers = currentBoard ? peopleForIds(currentBoard.members) : []
 
   return (
-    <div style={{ padding: isMobile ? '14px 12px' : 20, maxWidth: 1500, margin: '0 auto', display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 12 : 20, alignItems: 'flex-start' }}>
+    <div style={{ padding: isMobile ? '14px 12px' : 20, display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 12 : 20, alignItems: 'flex-start' }}>
 
       {/* Board switcher */}
       {isMobile ? switcher : <div style={{ width: 210, flexShrink: 0, position: 'sticky', top: 0 }}>{switcher}</div>}
@@ -244,7 +245,7 @@ export default function TasksPage() {
           </select>
           <select style={SELECT_STYLE} value={fAssignee} onChange={e => setFAssignee(e.target.value)}>
             <option value="all">Alle Personen</option>
-            {TEAM.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+            {people.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
           </select>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: MUTED, cursor: 'pointer', userSelect: 'none' }}>
             <input type="checkbox" checked={showArchive} onChange={e => setShowArchive(e.target.checked)} style={{ accentColor: A, cursor: 'pointer' }} /> Archiv
@@ -252,9 +253,12 @@ export default function TasksPage() {
         </div>
         )}
 
-        {/* BOARD VIEW */}
+        {/* BOARD VIEW — Spalten füllen die Breite; passt es nicht, scrollt das
+            Board horizontal. Die Karten scrollen je Spalte vertikal, damit die
+            horizontale Scrollleiste immer sichtbar bleibt (vorher wurde das
+            Board rechts „abgeschnitten", weil die Leiste unter allen Karten lag). */}
         {activeBoard !== 'trash' && view === 'board' && (
-          <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8, alignItems: 'flex-start' }}>
+          <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8, alignItems: 'flex-start', scrollbarWidth: 'thin' }}>
             {(showArchive ? TASK_STATUSES : BOARD_STATUSES).map(col => {
               const colTasks = sortTasks(filtered.filter(t => t.status === col.id))
               const isOver = dragOver === col.id
@@ -263,7 +267,7 @@ export default function TasksPage() {
                   onDragOver={e => { e.preventDefault(); setDragOver(col.id) }}
                   onDragLeave={() => setDragOver(o => o === col.id ? null : o)}
                   onDrop={e => { e.preventDefault(); if (dragId) setTaskStatus(dragId, col.id); setDragId(null); setDragOver(null) }}
-                  style={{ flex: '0 0 auto', width: isMobile ? 262 : 290, background: isOver ? A06 : 'transparent', border: `1px solid ${isOver ? `color-mix(in srgb, ${A} 38%, transparent)` : 'transparent'}`, borderRadius: 10, padding: 4 }}>
+                  style={{ flex: isMobile ? '0 0 auto' : '1 0 250px', width: isMobile ? 262 : undefined, minWidth: isMobile ? undefined : 250, maxWidth: isMobile ? undefined : 360, background: isOver ? A06 : 'transparent', border: `1px solid ${isOver ? `color-mix(in srgb, ${A} 38%, transparent)` : 'transparent'}`, borderRadius: 10, padding: 4 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px 10px' }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: col.color }} />
                     <span style={{ fontSize: 13, fontWeight: 600, color: FG }}>{col.label}</span>
@@ -271,7 +275,7 @@ export default function TasksPage() {
                     <button onClick={() => setModal(newTaskDefaults({ status: col.id }))} title="Aufgabe hinzufügen"
                       style={{ background: 'transparent', border: 'none', color: MUTED, cursor: 'pointer', padding: 2, display: 'flex' }}><Plus size={14} /></button>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 40 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 40, maxHeight: isMobile ? undefined : 'calc(100vh - 340px)', overflowY: colTasks.length > 0 ? 'auto' : 'visible', paddingRight: 2 }}>
                     {colTasks.map(t => (
                       <TaskCard key={t.id} task={t} projects={projects} clients={clients} boards={boards} today={today} navigate={navigate} weatherForecast={weatherForecast}
                         showBoard={activeBoard === 'all' || activeBoard === 'mine' || activeBoard === 'none'}
@@ -346,8 +350,8 @@ function cycleStatus(task, setTaskStatus) {
 
 /* ─── People row: owner (ringed) + collaborators ───────────────────────────── */
 function People({ ownerId, collaborators, size = 20 }) {
-  const owner = ownerId ? TEAM.find(t => t.id === ownerId) : null
-  const others = (collaborators || []).map(id => TEAM.find(t => t.id === id)).filter(Boolean).filter(u => u.id !== ownerId)
+  const owner = ownerId ? findPerson(ownerId) : null
+  const others = peopleForIds(collaborators).filter(u => u.id !== ownerId)
   if (!owner && others.length === 0) return null
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>

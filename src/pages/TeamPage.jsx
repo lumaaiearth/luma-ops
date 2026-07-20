@@ -74,7 +74,7 @@ const TG_GROUPS = [
 ]
 
 export default function TeamPage() {
-  const { jobs, projects } = useOps()
+  const { jobs, projects, freelancers } = useOps()
   const { profileForTeamId, isMitarbeiter } = useAuth()
   const navigate = useNavigate()
   const today = isoToday()
@@ -159,6 +159,49 @@ export default function TeamPage() {
           )
         })}
       </div>
+
+      {/* Freelancer / Selbstständige */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+          Freelancer &amp; Selbstständige ({freelancers.filter(f => f.active !== false).length})
+        </div>
+        <button onClick={() => navigate('/data?tab=people')} className="lu-btn-ghost"
+          style={{ padding: '5px 12px', borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 11, fontFamily: "'Space Grotesk', sans-serif" }}>
+          Verwalten →
+        </button>
+      </div>
+      {freelancers.filter(f => f.active !== false).length === 0 ? (
+        <div style={{ padding: '14px 18px', background: SURFACE, border: `1px dashed ${BORDER}`, borderRadius: 14, marginBottom: 32, fontSize: 12, color: MUTED }}>
+          Noch keine Freelancer hinterlegt — unter Stammdaten → Personen anlegen. Sie stehen dann in allen Auswahlmenüs (Einsätze, Aufgaben, Zeiten) zur Verfügung.
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10, marginBottom: 32 }}>
+          {freelancers.filter(f => f.active !== false).map(p => {
+            const myJobs = jobs.filter(j => (j.assigned_users || []).includes(p.id) && j.date >= today && j.date <= next7 && j.status !== 'cancelled')
+            const todayJob = myJobs.find(j => j.date === today)
+            return (
+              <div key={p.id} className="lu-card" style={{ padding: '14px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, borderTop: `3px solid ${p.color}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                  <Avatar initials={p.initials} color={p.color} size={32} title={p.name} />
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 500, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{p.firma || 'Freelancer'}</div>
+                  </div>
+                </div>
+                {(p.phone || p.email) && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 8 }}>
+                    {p.phone && <a href={`tel:${p.phone}`} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: FG, textDecoration: 'none' }}><Phone size={11} color={p.color} /> {p.phone}</a>}
+                    {p.email && <a href={`mailto:${p.email}`} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: FG, textDecoration: 'none' }}><Mail size={11} color={p.color} /> {p.email}</a>}
+                  </div>
+                )}
+                <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: todayJob ? p.color : MUTED }}>
+                  {todayJob ? `Heute: ${todayJob.title}` : `${myJobs.length} Einsätze nächste 7 Tage`}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* Telegram groups */}
       <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 12 }}>

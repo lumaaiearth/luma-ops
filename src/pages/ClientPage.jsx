@@ -6,7 +6,8 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { useTime } from '../context/TimeContext.jsx'
 import { sbUpdate } from '../lib/supabase.js'
 import { A, BG, SURFACE, BORDER, FG, MUTED, CARD, A06, A14, OK, DANGER, INFO } from '../lib/theme.js'
-import { TEAM, TASK_STATUSES, TASK_PRIORITIES } from '../data/seed.js'
+import { TASK_STATUSES, TASK_PRIORITIES } from '../data/seed.js'
+import { findPerson, peopleForIds } from '../lib/people.js'
 import { isoToday, formatDate } from '../lib/storage.js'
 
 const TASK_S = Object.fromEntries(TASK_STATUSES.map(s => [s.id, s]))
@@ -223,7 +224,7 @@ export default function ClientPage() {
                   <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 12 }}>Eingesetztes Team</div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {[...allWorkers].map(uid => {
-                      const u = TEAM.find(t => t.id === uid)
+                      const u = findPerson(uid)
                       if (!u) return null
                       return (
                         <button key={uid} onClick={() => navigate('/team', { state: { focusUser: uid } })}
@@ -341,7 +342,7 @@ export default function ClientPage() {
                 const proj = projects.find(p => p.id === t.project_id)
                 const done = t.status === 'done' || t.status === 'archive'
                 const overdue = t.due_date && !done && t.due_date < today
-                const workers = [...new Set([t.owner_id, ...(t.assigned_users || [])].filter(Boolean))].map(uid => TEAM.find(x => x.id === uid)).filter(Boolean)
+                const workers = peopleForIds([...new Set([t.owner_id, ...(t.assigned_users || [])].filter(Boolean))])
                 return (
                   <div key={t.id} onClick={() => navigate('/tasks')}
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 14, background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${prio?.color || BORDER}`, gap: 16, cursor: 'pointer' }}>

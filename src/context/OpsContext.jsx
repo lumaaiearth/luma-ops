@@ -6,7 +6,8 @@ import { maybeSendWeeklySummary } from '../lib/weeklySummary.js'
 import { maybeSendTaskReminders } from '../lib/taskReminders.js'
 import { useAuth } from './AuthContext.jsx'
 import * as gcal from '../lib/gcal.js'
-import { JOB_TYPES, SEED_CLIENTS, VEHICLES as SEED_VEHICLES, SEED_BOARDS } from '../data/seed.js'
+import { JOB_TYPES, SEED_CLIENTS, VEHICLES as SEED_VEHICLES, SEED_BOARDS, TEAM } from '../data/seed.js'
+import { setFreelancerRegistry, normalizePerson } from '../lib/people.js'
 
 // Messwert-Historie: max. ein Reading pro Sensor pro 5 Minuten aufzeichnen,
 // damit die Simulation die Tabelle nicht flutet. Fehler still schlucken
@@ -54,7 +55,18 @@ export function OpsProvider({ children }) {
   const [pflanzplaene, setPflanzplaeneState] = useState([])
   const [tasks, setTasksState] = useState([])
   const [boards, setBoardsState] = useState([])
+  const [freelancers, setFreelancersRaw] = useState([])
   const [loading, setLoading] = useState(true)
+
+  // Freelancer-State + Modul-Registry (lib/people.js) immer gemeinsam setzen,
+  // damit Render-Helfer ohne Context-Zugriff dieselben Personen auflösen.
+  function setFreelancersState(updater) {
+    setFreelancersRaw(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater
+      setFreelancerRegistry(next)
+      return next
+    })
+  }
 
   // ── Load from Supabase on mount ──────────────────────────────────────────────
   useEffect(() => {
@@ -70,7 +82,7 @@ export function OpsProvider({ children }) {
         return
       }
       try {
-        const [pRows, jRows, rRows, sRows, cRows, vRows, settingsRow, mfRows, ppRows, tRows, bRows] = await Promise.all([
+        const [pRows, jRows, rRows, sRows, cRows, vRows, settingsRow, mfRows, ppRows, tRows, bRows, flRows] = await Promise.all([
           sb.from('projects').select('*'),
           sb.from('jobs').select('*').order('date'),
           sb.from('recurring_templates').select('*'),
@@ -82,6 +94,7 @@ export function OpsProvider({ children }) {
           sb.from('pflanzplaene').select('*').order('created_at', { ascending: false }),
           sb.from('tasks').select('*').order('sort_order').order('created_at', { ascending: false }),
           sb.from('boards').select('*').order('sort_order'),
+          sb.from('people').select('*').order('sort_order').order('name'),
         ])
         if (pRows.data?.length) setProjectsState(pRows.data)
         else setProjectsState(getProjects()) // fallback to localStorage seed
@@ -119,6 +132,7 @@ export function OpsProvider({ children }) {
           sbUpsert('boards', SEED_BOARDS).catch(dbErr('boards', 'write'))
           setBoardsState(SEED_BOARDS)
         }
+        if (flRows.data) setFreelancersState(flRows.data)
       } catch (e) {
         console.error('[OpsContext] load failed:', e)
         // Offline fallback
@@ -213,6 +227,13 @@ export function OpsProvider({ children }) {
           if (payload.eventType === 'DELETE') return prev.filter(b => b.id !== payload.old.id)
           if (payload.eventType === 'INSERT') return [...prev.filter(b => b.id !== payload.new.id), payload.new].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
           return prev.map(b => b.id === payload.new.id ? payload.new : b)
+        })
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'people' }, payload => {
+        setFreelancersState(prev => {
+          if (payload.eventType === 'DELETE') return prev.filter(p => p.id !== payload.old.id)
+          if (payload.eventType === 'INSERT') return [...prev.filter(p => p.id !== payload.new.id), payload.new].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name))
+          return prev.map(p => p.id === payload.new.id ? payload.new : p)
         })
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pflanzplaene' }, payload => {
@@ -459,6 +480,30 @@ export function OpsProvider({ children }) {
     sbDelete('vehicles', id).catch(dbErr('ops','write'))
   }
 
+  // ── Personen / Freelancer ────────────────────────────────────────────────────
+  async function createFreelancer(data) {
+    const person = {
+      rolle: 'freelancer', active: true, sort_order: freelancers.length,
+      ...data,
+      id: data.id || genId(),
+      created_at: new Date().toISOString(),
+    }
+    setFreelancersState(prev => [...prev, person])
+    await sbInsert('people', person).catch(dbErr('people', 'write'))
+    return person
+  }
+
+  function updateFreelancer(id, changes) {
+    const upd = { ...changes, updated_at: new Date().toISOString() }
+    setFreelancersState(prev => prev.map(p => p.id === id ? { ...p, ...upd } : p))
+    sbUpdate('people', id, upd).catch(dbErr('people', 'write'))
+  }
+
+  function deleteFreelancer(id) {
+    setFreelancersState(prev => prev.filter(p => p.id !== id))
+    sbDelete('people', id).catch(dbErr('people', 'write'))
+  }
+
   // ── Pflanzplaene ─────────────────────────────────────────────────────────────
   async function createPflanzplan(data) {
     const now = new Date().toISOString()
@@ -579,9 +624,12 @@ export function OpsProvider({ children }) {
 
   const activeTasks = tasks.filter(t => !t.deleted_at)
   const deletedTasks = tasks.filter(t => t.deleted_at)
+  // Alle auswählbaren Personen: festes Kern-Team + aktive Freelancer
+  const normalizedFreelancers = freelancers.map((f, i) => normalizePerson(f, i))
+  const people = [...TEAM, ...normalizedFreelancers.filter(f => f.active !== false)]
 
   return (
-    <OpsContext.Provider value={{ jobs, recurring, sensors, projects, clients, vehicles, chips, mapFeatures, pflanzplaene, tasks: activeTasks, deletedTasks, boards, loading, createJob, updateJob, deleteJob, setJobStatus, createRecurring, deleteRecurring, updateSensorValue, createProject, updateProject, deleteProject, createClient, updateClient, deleteClient, createVehicle, updateVehicle, deleteVehicle, saveChips, createMapFeature, updateMapFeature, deleteMapFeature, createPflanzplan, updatePflanzplan, deletePflanzplan, createTask, updateTask, deleteTask, restoreTask, purgeTask, setTaskStatus, createBoard, updateBoard, deleteBoard }}>
+    <OpsContext.Provider value={{ jobs, recurring, sensors, projects, clients, vehicles, chips, mapFeatures, pflanzplaene, tasks: activeTasks, deletedTasks, boards, people, freelancers: normalizedFreelancers, loading, createJob, updateJob, deleteJob, setJobStatus, createRecurring, deleteRecurring, updateSensorValue, createProject, updateProject, deleteProject, createClient, updateClient, deleteClient, createVehicle, updateVehicle, deleteVehicle, createFreelancer, updateFreelancer, deleteFreelancer, saveChips, createMapFeature, updateMapFeature, deleteMapFeature, createPflanzplan, updatePflanzplan, deletePflanzplan, createTask, updateTask, deleteTask, restoreTask, purgeTask, setTaskStatus, createBoard, updateBoard, deleteBoard }}>
       {children}
     </OpsContext.Provider>
   )

@@ -5,7 +5,8 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { useWeather } from '../context/WeatherContext.jsx'
 import { A, SURFACE, BORDER, FG, MUTED, OK, WARN, DANGER, INFO } from '../lib/theme.js'
 import { StatCard, EmptyState } from '../components/ui.jsx'
-import { JOB_TYPES, TEAM, TASK_STATUSES, TASK_PRIORITIES } from '../data/seed.js'
+import { JOB_TYPES, TASK_STATUSES, TASK_PRIORITIES } from '../data/seed.js'
+import { findPerson, peopleForIds } from '../lib/people.js'
 import { isoToday, addDays, formatDate } from '../lib/storage.js'
 import { AlertTriangle, CheckCircle2, Clock, Repeat, Droplets, Umbrella, Sun as SunIcon, ListTodo, ChevronRight } from 'lucide-react'
 
@@ -247,7 +248,7 @@ export default function DashboardPage() {
             {todayJobs.map(job => {
               const type = JOB_TYPES.find(t => t.id === job.job_type)
               const project = projects.find(p => p.id === job.project_id)
-              const assignees = TEAM.filter(t => (job.assigned_users || []).includes(t.id))
+              const assignees = peopleForIds(job.assigned_users)
               return (
                 <div key={`j-${job.id}`} onClick={() => navigate(`/jobs?open=${job.id}`)} className="lu-card lu-clickable"
                   style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${type?.color || A}`, borderRadius: 14 }}>
@@ -270,7 +271,7 @@ export default function DashboardPage() {
               const st = TASK_S[t.status]
               const prio = TASK_P[t.priority]
               const project = projects.find(p => p.id === t.project_id)
-              const owner = t.owner_id ? TEAM.find(u => u.id === t.owner_id) : null
+              const owner = t.owner_id ? findPerson(t.owner_id) : null
               const overdue = t.due_date < today
               return (
                 <div key={`t-${t.id}`} onClick={() => navigate(`/tasks?open=${t.id}`)} className="lu-card lu-clickable"
@@ -336,7 +337,7 @@ export default function DashboardPage() {
             {upcoming.map(job => {
               const type = JOB_TYPES.find(t => t.id === job.job_type)
               const project = projects.find(p => p.id === job.project_id)
-              const assignees = TEAM.filter(t => (job.assigned_users || []).includes(t.id))
+              const assignees = peopleForIds(job.assigned_users)
               const isToday = job.date === today
               const isTomorrow = job.date === tomorrow
               return (

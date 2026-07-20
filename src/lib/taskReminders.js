@@ -1,4 +1,5 @@
-import { TEAM, TASK_STATUSES } from '../data/seed.js'
+import { TASK_STATUSES } from '../data/seed.js'
+import { findPerson } from './people.js'
 import { tgSend, tgGroups } from './telegram.js'
 import { isoToday } from './storage.js'
 
@@ -7,7 +8,7 @@ function fmt(iso) {
   const [, m, d] = iso.split('-')
   return `${d}.${m}.`
 }
-const person = id => TEAM.find(u => u.id === id)?.name || null
+const person = id => findPerson(id)?.name || null
 const isOpen = t => t.status !== 'done' && t.status !== 'archive'
 
 // Baut einen kompakten Morgen-Digest: überfällige + heute fällige Aufgaben.

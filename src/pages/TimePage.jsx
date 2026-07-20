@@ -4,8 +4,9 @@ import { useTime } from '../context/TimeContext.jsx'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { A, SURFACE, BORDER, FG, MUTED, CARD, A06, A08, A18, A20, OK, WARN } from '../lib/theme.js'
-import { Modal, ModalActions, EmptyState } from '../components/ui.jsx'
+import { Modal, ModalActions, EmptyState, DateInput } from '../components/ui.jsx'
 import { TEAM, TASK_TYPES } from '../data/seed.js'
+import { findPerson, allPeople } from '../lib/people.js'
 import { genId, isoToday, addDays, weekStart, getWeekDays } from '../lib/storage.js'
 import { normalizeRule, hasKonto, kontostand, kontoMonthData, yearTargetTotal as ruleYearTarget, hoursFromTimes } from '../lib/hourAccounts.js'
 import { useIsMobile } from '../lib/useBreakpoint.js'
@@ -125,7 +126,7 @@ function LogForm({ onSave, prefill, onClose }) {
       <div>
         <label style={LABEL}>Person *</label>
         <select style={INPUT} value={form.user_id} onChange={e => setForm(f => ({ ...f, user_id: e.target.value }))}>
-          {TEAM.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+          {allPeople().map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
         </select>
       </div>
       <div>
@@ -142,7 +143,7 @@ function LogForm({ onSave, prefill, onClose }) {
       </div>
       <div>
         <label style={LABEL}>Datum *</label>
-        <input type="date" style={INPUT} value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} required />
+        <DateInput style={INPUT} value={form.date} onChange={v => setForm(f => ({ ...f, date: v }))} required />
       </div>
       <div>
         <label style={LABEL}>Stunden *</label>
@@ -253,7 +254,7 @@ function TabEintraege() {
   const [sort, setSort] = useState({ col: 'date', dir: 'desc' })
 
   const projName = id => projects.find(p => p.id === id)?.name || ''
-  const userName = id => TEAM.find(u => u.id === id)?.name || id
+  const userName = id => findPerson(id)?.name || id
 
   const filtered = useMemo(() => {
     const txt = fText.trim().toLowerCase()
@@ -291,14 +292,14 @@ function TabEintraege() {
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 1fr 1fr 1fr 1.4fr', gap: 8 }}>
           <select style={INPUT} value={fUser} onChange={e => setFUser(e.target.value)}>
             <option value="">Alle Personen</option>
-            {TEAM.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+            {allPeople().map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
           </select>
           <select style={INPUT} value={fProject} onChange={e => setFProject(e.target.value)}>
             <option value="">Alle Projekte</option>
             {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
-          <input type="date" style={INPUT} value={fFrom} onChange={e => setFFrom(e.target.value)} title="Von" />
-          <input type="date" style={INPUT} value={fTo} onChange={e => setFTo(e.target.value)} title="Bis" />
+          <DateInput style={INPUT} value={fFrom} onChange={setFFrom} title="Von" placeholder="Von (TT.MM.JJJJ)" />
+          <DateInput style={INPUT} value={fTo} onChange={setFTo} title="Bis" placeholder="Bis (TT.MM.JJJJ)" />
           <input style={{ ...INPUT, gridColumn: isMobile ? '1 / -1' : 'auto' }} value={fText} onChange={e => setFText(e.target.value)} placeholder="Suche in Tätigkeit/Projekt…" />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
@@ -331,7 +332,7 @@ function TabEintraege() {
             </thead>
             <tbody>
               {filtered.map(e => {
-                const u = TEAM.find(t => t.id === e.user_id)
+                const u = findPerson(e.user_id)
                 return (
                   <tr key={e.id} className="lu-row">
                     <td style={{ padding: '8px 12px', borderBottom: `1px solid color-mix(in srgb, ${BORDER} 55%, transparent)`, fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED, whiteSpace: 'nowrap' }}>{e.date}</td>
@@ -915,7 +916,7 @@ function TabAbrechnung() {
 
   const exportLabel = [
     filterProject ? projects.find(p => p.id === filterProject)?.name : 'Alle Projekte',
-    filterUser ? TEAM.find(u => u.id === filterUser)?.name : 'Alle Personen',
+    filterUser ? findPerson(filterUser)?.name : 'Alle Personen',
     filterFrom || filterTo ? `${filterFrom || '…'} – ${filterTo || '…'}` : null,
   ].filter(Boolean).join(' · ')
 
@@ -972,10 +973,10 @@ function TabAbrechnung() {
           </select>
           <select style={INPUT} value={filterUser} onChange={e => setFilterUser(e.target.value)}>
             <option value="">Alle Personen</option>
-            {TEAM.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+            {allPeople().map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
           </select>
-          <input type="date" style={INPUT} value={filterFrom} onChange={e => setFilterFrom(e.target.value)} placeholder="Von" title="Von Datum" />
-          <input type="date" style={INPUT} value={filterTo} onChange={e => setFilterTo(e.target.value)} placeholder="Bis" title="Bis Datum" />
+          <DateInput style={INPUT} value={filterFrom} onChange={setFilterFrom} placeholder="Von (TT.MM.JJJJ)" title="Von Datum" />
+          <DateInput style={INPUT} value={filterTo} onChange={setFilterTo} placeholder="Bis (TT.MM.JJJJ)" title="Bis Datum" />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, flex: 1 }}>
@@ -1015,11 +1016,11 @@ function TabAbrechnung() {
           </div>
           <div>
             <label style={LABEL}>Von</label>
-            <input type="date" style={INPUT} value={repForm.from} onChange={e => setRepForm(f => ({ ...f, from: e.target.value }))} />
+            <DateInput style={INPUT} value={repForm.from} onChange={v => setRepForm(f => ({ ...f, from: v }))} />
           </div>
           <div>
             <label style={LABEL}>Bis</label>
-            <input type="date" style={INPUT} value={repForm.to} onChange={e => setRepForm(f => ({ ...f, to: e.target.value }))} />
+            <DateInput style={INPUT} value={repForm.to} onChange={v => setRepForm(f => ({ ...f, to: v }))} />
           </div>
           <button
             onClick={() => {
@@ -1095,7 +1096,7 @@ function TabAbrechnung() {
                 )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                   {pEntries.map(entry => {
-                    const user = TEAM.find(u => u.id === entry.user_id)
+                    const user = findPerson(entry.user_id)
                     return (
                       <div key={entry.id} style={{ display: 'flex', gap: 10, fontSize: 12, color: MUTED }}>
                         <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, minWidth: 80 }}>{entry.date}</span>
@@ -1121,7 +1122,7 @@ function TabAbrechnung() {
             ⚠ Ohne Projektzuordnung — bitte Projekt nachtragen
           </div>
           {orphanEntries.map(e => {
-            const user = TEAM.find(u => u.id === e.user_id)
+            const user = findPerson(e.user_id)
             return (
               <div key={e.id} style={{ display: 'flex', gap: 10, fontSize: 12, color: MUTED, marginBottom: 3 }}>
                 <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, minWidth: 80 }}>{e.date}</span>
@@ -1155,7 +1156,7 @@ function TabAbrechnung() {
           </div>
           <div>
             <label style={LABEL}>Datum</label>
-            <input type="date" style={INPUT} value={costForm.date} onChange={e => setCostForm(f => ({ ...f, date: e.target.value }))} />
+            <DateInput style={INPUT} value={costForm.date} onChange={v => setCostForm(f => ({ ...f, date: v }))} />
           </div>
           <div>
             <label style={LABEL}>Beschreibung</label>
@@ -1227,7 +1228,7 @@ function TabAbrechnung() {
                 </div>
                 <div>
                   <label style={LABEL}>Datum *</label>
-                  <input type="date" style={INPUT} value={invForm.date_issued} onChange={e => setInvForm(f => ({ ...f, date_issued: e.target.value }))} required />
+                  <DateInput style={INPUT} value={invForm.date_issued} onChange={v => setInvForm(f => ({ ...f, date_issued: v }))} required />
                 </div>
               </div>
               <div>
@@ -1298,7 +1299,7 @@ function exportCSV(filteredEntries, allInvoices, projects) {
   const rows = [
     ['Datum', 'Person', 'Projekt', 'Kunde', 'Stunden', 'Tätigkeit', 'Abgerechnet', 'Rechnung-Nr', 'Bezahlt'],
     ...filteredEntries.map(e => {
-      const user = TEAM.find(u => u.id === e.user_id)
+      const user = findPerson(e.user_id)
       const project = projects.find(p => p.id === e.project_id)
       const inv = e.invoice_id ? allInvoices.find(i => i.id === e.invoice_id) : null
       return [
@@ -1326,7 +1327,7 @@ function exportPDF(filteredEntries, allInvoices, filterLabel, projects) {
   const invMap = Object.fromEntries(allInvoices.map(inv => [inv.id, inv]))
   const totalHours = filteredEntries.reduce((s, e) => s + Number(e.hours), 0)
   const rows = filteredEntries.map(e => {
-    const user = TEAM.find(u => u.id === e.user_id)
+    const user = findPerson(e.user_id)
     const project = projects.find(p => p.id === e.project_id)
     const inv = e.invoice_id ? invMap[e.invoice_id] : null
     return `<tr>

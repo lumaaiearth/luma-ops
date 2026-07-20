@@ -4,8 +4,8 @@
 // damit alle Seiten dieselbe Sprache sprechen.
 // Hover-/Fokus-Feedback kommt aus src/styles/ui.css (lu-* Klassen).
 // ────────────────────────────────────────────────────────────────
-import { useEffect } from 'react'
-import { X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { X, CalendarDays } from 'lucide-react'
 import { A, SURFACE, BORDER, FG, MUTED, CARD, DANGER } from '../lib/theme.js'
 
 export const MONO = "'Space Mono', monospace"
@@ -22,6 +22,100 @@ export const INPUT_STYLE = {
 export const LABEL_STYLE = {
   fontFamily: MONO, fontSize: 10, color: MUTED,
   letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6, display: 'block',
+}
+
+/* ─── Datumsfeld im deutschen Format ──────────────────────────────────────────
+   Native <input type="date"> zeigt das Datum je nach Plattform/Systemsprache
+   unterschiedlich an (z.B. MM/DD/YYYY). Diese Komponente zeigt IMMER
+   TT.MM.JJJJ an, egal auf welchem Gerät. value/onChange arbeiten weiterhin
+   mit ISO (JJJJ-MM-TT) — Drop-in-Ersatz für <input type="date">.
+   Der Kalender-Button rechts öffnet den nativen Datums-Picker. */
+
+export function isoToGerman(iso) {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}/.test(iso)) return ''
+  const [y, m, d] = iso.slice(0, 10).split('-')
+  return `${d}.${m}.${y}`
+}
+
+export function germanToIso(str) {
+  const s = (str || '').trim()
+  if (!s) return ''
+  let m = s.match(/^(\d{1,2})[./\- ](\d{1,2})[./\- ](\d{2}|\d{4})$/)
+  if (!m) {
+    // Auch reine Ziffernfolge akzeptieren: TTMMJJJJ
+    const digits = s.replace(/\D/g, '')
+    if (digits.length === 8) m = [null, digits.slice(0, 2), digits.slice(2, 4), digits.slice(4)]
+    else return null
+  }
+  const d = Number(m[1]), mo = Number(m[2])
+  let y = Number(m[3])
+  if (y < 100) y += 2000
+  if (mo < 1 || mo > 12 || d < 1 || d > 31 || y < 1900 || y > 2200) return null
+  const dt = new Date(y, mo - 1, d)
+  if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) return null
+  return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+}
+
+export function DateInput({ value, onChange, min, max, required, disabled, placeholder = 'TT.MM.JJJJ', style, title }) {
+  const [text, setText] = useState(() => isoToGerman(value))
+  const [focused, setFocused] = useState(false)
+  const nativeRef = useRef(null)
+
+  // Externe Änderungen (z.B. Formular-Reset, Picker) ins Textfeld spiegeln —
+  // aber nie, während getippt wird (sonst kämpft die Formatierung gegen die Eingabe)
+  useEffect(() => { if (!focused) setText(isoToGerman(value)) }, [value, focused])
+
+  function handleText(e) {
+    const v = e.target.value
+    setText(v)
+    const t = v.trim()
+    if (t === '') { onChange(''); return }
+    // Während des Tippens nur vollständige Daten übernehmen (Jahr 4-stellig),
+    // damit „12.07.20…" nicht vorzeitig als 2020 interpretiert wird
+    if (/\d{4}$/.test(t)) {
+      const iso = germanToIso(t)
+      if (iso) onChange(iso)
+    }
+  }
+
+  function handleBlur() {
+    setFocused(false)
+    const t = text.trim()
+    if (t === '') { onChange(''); setText(''); return }
+    const iso = germanToIso(t)  // beim Verlassen auch Kurzformen (12.7.26) akzeptieren
+    if (iso) { onChange(iso); setText(isoToGerman(iso)) }
+    else setText(isoToGerman(value))  // ungültige Eingabe → zurücksetzen
+  }
+
+  function openPicker() {
+    const el = nativeRef.current
+    if (!el) return
+    try { el.showPicker() } catch { el.focus(); el.click() }
+  }
+
+  return (
+    <div style={{ position: 'relative', width: '100%' }}>
+      <input
+        type="text" inputMode="numeric" value={text} disabled={disabled}
+        onChange={handleText} onBlur={handleBlur} onFocus={() => setFocused(true)}
+        placeholder={placeholder} required={required} title={title}
+        pattern="\d{1,2}[./\- ]\d{1,2}[./\- ](\d{2}|\d{4})"
+        style={{ ...INPUT_STYLE, paddingRight: 38, ...style }}
+      />
+      {/* Verstecktes natives Datumsfeld nur für den Picker */}
+      <input
+        ref={nativeRef} type="date" tabIndex={-1} aria-hidden="true"
+        value={/^\d{4}-\d{2}-\d{2}$/.test(value || '') ? value : ''}
+        min={min} max={max} disabled={disabled}
+        onChange={e => { onChange(e.target.value); setText(isoToGerman(e.target.value)) }}
+        style={{ position: 'absolute', right: 8, bottom: 0, width: 24, height: 1, opacity: 0, pointerEvents: 'none', border: 'none', padding: 0 }}
+      />
+      <button type="button" onClick={openPicker} disabled={disabled} tabIndex={-1} title="Kalender öffnen"
+        style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: MUTED, cursor: disabled ? 'default' : 'pointer', display: 'flex', alignItems: 'center', padding: 4 }}>
+        <CalendarDays size={15} />
+      </button>
+    </div>
+  )
 }
 
 /**
