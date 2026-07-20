@@ -22,6 +22,7 @@ const StammdatenPage   = lazy(() => import('./pages/StammdatenPage.jsx'))
 const TasksPage        = lazy(() => import('./pages/TasksPage.jsx'))
 const SensorsPage      = lazy(() => import('./pages/SensorsPage.jsx'))
 const TeamPage         = lazy(() => import('./pages/TeamPage.jsx'))
+const TeamMemberPage   = lazy(() => import('./pages/TeamMemberPage.jsx'))
 const SettingsPage     = lazy(() => import('./pages/SettingsPage.jsx'))
 const ProjectPage      = lazy(() => import('./pages/ProjectPage.jsx'))
 const DrivePage        = lazy(() => import('./pages/DrivePage.jsx'))
@@ -127,6 +128,7 @@ function AppRoutes() {
       <Route path="/sensors" element={<Protected><SensorsPage /></Protected>} />
       <Route path="/sensors/:id" element={<Protected><SensorPage /></Protected>} />
       <Route path="/team" element={<Protected><TeamPage /></Protected>} />
+      <Route path="/team/:id" element={<Protected><TeamMemberPage /></Protected>} />
       <Route path="/time" element={<Protected><TimePage /></Protected>} />
       <Route path="/map" element={<Protected fullHeight><MapPage /></Protected>} />
       <Route path="/settings" element={<Protected><SettingsPage /></Protected>} />

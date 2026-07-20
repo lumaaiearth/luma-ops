@@ -1,5 +1,11 @@
 # UI-Verbesserungen Arbeitsplanung — Aufgabenliste (Stand 20.07.2026)
 
+> **Status 20.07.2026:** Alle 11 Punkte umgesetzt und nach `main` gemergt
+> (Blöcke A–D, je eigener Merge). Neu dabei: Tabelle `person_cost_rates`
+> (interne Stundenkosten, admin-only RLS; Migration 20260720) und die
+> Routen `/einsaetze` (Hub) sowie `/team/:id` (Mitarbeiter-Detailseite).
+> Alte Routen /calendar, /wochenplan, /jobs leiten auf den Hub um.
+
 Feedback von Malte nach dem ersten Test der neuen Arbeitsplanungs-Features
 (Wochenplan, Stundenkonto, Abrechnung) in der Mobile-App. Aufgaben bitte
 einzeln abarbeiten, nach jedem Block `npm run build` prüfen, dann gemäß
