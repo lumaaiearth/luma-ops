@@ -1094,6 +1094,7 @@ export default function MapPage() {
 
   function onFormSave({ label, properties }, goToFloralis = false) {
     let featureId = genId()
+    const geometry = editingFeature?.geometry || pendingGeometry   // vor dem Reset sichern
     if (editingFeature) {
       updateMapFeature(editingFeature.id, { label, properties })
       featureId = editingFeature.id
@@ -1110,7 +1111,8 @@ export default function MapPage() {
     }
     if (goToFloralis) {
       const area = calcPendingArea()
-      navigate('/planning', { state: { fromMapFeature: { feature_id: featureId, label: label || drawMode, area_m2: area } } })
+      // Vollen Shape mitgeben → Florales leitet GPS/Umfang/Fläche/Form ab.
+      navigate('/planning', { state: { fromMapFeature: { feature_id: featureId, label: label || drawMode, area_m2: area, geometry } } })
     }
     cancelDraw()
   }

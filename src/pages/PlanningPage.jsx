@@ -14,6 +14,7 @@ import {
   Box, LayoutGrid, Map as MapIcon, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { computePlacement, buildGrid, stateForMonth, growthForMonth, growthBucket, POLLI_GROUPS } from '../lib/beetLayout.js'
+import { shapeMetaFromGeometry } from '../lib/shapeMeta.js'
 import { plantSprite, SPRITE_PX_PER_M } from '../lib/plantSprites.js'
 
 // Foto-Sprite-Ansicht lazy laden.
@@ -141,6 +142,7 @@ export default function PlanningPage() {
   const [beetH, setBeetH] = useState(2)
   const [beetForm, setBeetForm] = useState('rechteck') // 'rechteck'|'oval'
   const [fromMapFeature, setFromMapFeature] = useState(null)
+  const [shapeMeta, setShapeMeta] = useState(null)   // aus BIOME-Shape abgeleitet
 
   // ── Habitate (Habitatelemente)
   const [habitatPlan, setHabitatPlan] = useState([])
@@ -158,14 +160,19 @@ export default function PlanningPage() {
   useEffect(() => {
     const state = location.state
     if (!state?.fromMapFeature) return
-    const { area_m2, label, feature_id } = state.fromMapFeature
-    if (area_m2 > 0) {
-      // Derive beet dimensions: assume 2:1 ratio
+    const { area_m2, geometry } = state.fromMapFeature
+    // Vollen Shape auswerten (GPS/Umfang/Fläche/lokale Meter-Form)
+    const meta = geometry ? shapeMetaFromGeometry(geometry) : null
+    if (meta?.local) {
+      // Beet nimmt die exakte Bounding-Box der Form; das Polygon maskiert später.
+      setBeetW(Math.max(0.5, Math.round(meta.bbox_w_m * 10) / 10))
+      setBeetH(Math.max(0.5, Math.round(meta.bbox_h_m * 10) / 10))
+      setShapeMeta(meta)
+      setActiveTab('plan')
+    } else if (area_m2 > 0) {
       const w = Math.round(Math.sqrt(area_m2 * 2) * 10) / 10
       const h = Math.round((area_m2 / w) * 10) / 10
-      setBeetW(w)
-      setBeetH(h)
-      setActiveTab('plan')
+      setBeetW(w); setBeetH(h); setActiveTab('plan')
     }
     setFromMapFeature(state.fromMapFeature)
   }, [location.state])
@@ -391,7 +398,10 @@ export default function PlanningPage() {
         <div style={{ background: '#22c55e18', borderBottom: `1px solid #22c55e30`, padding: '8px 24px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
           <span style={{ fontSize: 14 }}>🗺️</span>
           <span style={{ fontSize: 12, color: '#22c55e', fontFamily: "'Space Grotesk', sans-serif" }}>
-            <b>{fromMapFeature.label}</b> aus der Karte · {fromMapFeature.area_m2?.toFixed(1)} m² vorbelegt
+            <b>{fromMapFeature.label}</b> aus BIOME
+            {shapeMeta
+              ? ` · ${shapeMeta.area_m2} m² · Umfang ${shapeMeta.perimeter_m} m${shapeMeta.centroid ? ` · ${shapeMeta.centroid.lat.toFixed(5)}, ${shapeMeta.centroid.lng.toFixed(5)}` : ''}`
+              : ` · ${fromMapFeature.area_m2?.toFixed(1)} m² vorbelegt`}
           </span>
           <button onClick={() => setFromMapFeature(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#22c55e', cursor: 'pointer', display: 'flex', padding: 2 }}>
             <X size={14} />
@@ -909,6 +919,7 @@ export default function PlanningPage() {
             onAddMore={() => setActiveTab('suche')}
             onRescale={perM2 => setPlan(prev => prev.length ? assignCounts(prev, beetArea, perM2) : prev)}
             label={fromMapFeature?.label}
+            polygon={shapeMeta?.local?.points || null}
           />
         </div>
       )}
@@ -1139,7 +1150,7 @@ function BloomCalendar({ plan, L, shadow }) {
 // weniger (über assignCounts/ROLE_WEIGHT & Ausbreitung).
 const DENSITY_PERM2 = { 1: 4, 2: 6, 3: 8, 4: 11, 5: 15 }
 const DENSITY_LABEL = { 1: 'sehr locker', 2: 'locker', 3: 'normal', 4: 'dicht', 5: 'sehr dicht' }
-function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetForm, beetArea, L, shadow, cardBg, onAddMore, onRescale, label }) {
+function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetForm, beetArea, L, shadow, cardBg, onAddMore, onRescale, label, polygon }) {
   const canvasRef = useRef(null)
   const [bloomMonth, setBloomMonth] = useState(0) // 0 = ganzjährig, 1-12 = Monat (Blühfolge)
   const [density, setDensity] = useState(3)       // 1 = sehr locker … 5 = sehr dicht
@@ -1421,7 +1432,7 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
           {/* ── PFLANZANLEITUNG (Rasterplan mit Vierecken) ── */}
           {view === 'raster' && (
             <RasterPlan plan={plan} beetW={beetW} beetH={beetH} beetArea={beetArea}
-              L={L} shadow={shadow} cardBg={cardBg} label={label} />
+              L={L} shadow={shadow} cardBg={cardBg} label={label} polygon={polygon} />
           )}
 
           {/* ── DRIFT-KARTE (kontinuierliche Blühfolge) ── */}
@@ -1558,13 +1569,13 @@ const RASTER_CELLS = [
   { cm: 33, label: '33 cm' },
   { cm: 50, label: '50 cm' },
 ]
-function RasterPlan({ plan, beetW, beetH, beetArea, L, shadow, cardBg, label }) {
+function RasterPlan({ plan, beetW, beetH, beetArea, L, shadow, cardBg, label, polygon }) {
   const canvasRef = useRef(null)
   const wrapRef = useRef(null)
   const [cellCm, setCellCm] = useState(33)
   const [showCodes, setShowCodes] = useState(true)
 
-  const grid = useMemo(() => buildGrid(plan, beetW, beetH, cellCm), [plan, beetW, beetH, cellCm])
+  const grid = useMemo(() => buildGrid(plan, beetW, beetH, cellCm, { polygon }), [plan, beetW, beetH, cellCm, polygon])
   const codeById = useMemo(() => new Map(grid.legend.map(l => [l.id, l])), [grid])
 
   const draw = () => {
@@ -1581,6 +1592,7 @@ function RasterPlan({ plan, beetW, beetH, beetArea, L, shadow, cardBg, label }) 
     ctx.clearRect(0, 0, cssW, cssH)
     const ox = (cssW - grid.cols * cell) / 2, oy = 2
     for (let idx = 0; idx < grid.cells.length; idx++) {
+      if (grid.inside && !grid.inside[idx]) continue   // außerhalb der Beetform → nicht zeichnen
       const col = idx % grid.cols, row = Math.floor(idx / grid.cols)
       const x = ox + col * cell, y = oy + row * cell
       const id = grid.cells[idx]
@@ -1624,6 +1636,7 @@ function RasterPlan({ plan, beetW, beetH, beetArea, L, shadow, cardBg, label }) 
     // Raster
     const gx0 = (W - gw) / 2, gy0 = HEAD + 16
     for (let idx = 0; idx < grid.cells.length; idx++) {
+      if (grid.inside && !grid.inside[idx]) continue   // außerhalb der Beetform
       const col = idx % grid.cols, row = Math.floor(idx / grid.cols)
       const x = gx0 + col * cell, y = gy0 + row * cell
       const leg = grid.cells[idx] && codeById.get(grid.cells[idx])
