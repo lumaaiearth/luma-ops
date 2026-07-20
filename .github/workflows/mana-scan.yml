@@ -1,0 +1,42 @@
+name: MANA Radar Scan
+
+on:
+  schedule:
+    - cron: '30 4 * * *'   # täglich ~06:30 deutscher Zeit (Sommerzeit)
+  workflow_dispatch:
+    inputs:
+      day:
+        description: 'Tag (YYYY-MM-DD), leer = gestern'
+        required: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Anthropic SDK
+        run: npm i --no-save @anthropic-ai/sdk
+
+      - name: Run MANA scan
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          # Solange die Secrets fehlen, still überspringen statt täglich rot fehlzuschlagen
+          if [ -z "$ANTHROPIC_API_KEY" ] || [ -z "$SUPABASE_SERVICE_KEY" ]; then
+            echo "::warning::MANA-Scan übersprungen — ANTHROPIC_API_KEY/SUPABASE_SERVICE_KEY fehlen (Repo → Settings → Secrets → Actions)."
+            exit 0
+          fi
+          if [ -n "${{ github.event.inputs.day }}" ]; then
+            node scripts/mana-scan.mjs --day=${{ github.event.inputs.day }}
+          else
+            node scripts/mana-scan.mjs
+          fi
