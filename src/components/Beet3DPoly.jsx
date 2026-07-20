@@ -306,7 +306,7 @@ export default function Beet3DPoly({ placement, beetW, beetH, beetForm, L, shado
           )
         })}
       </div>
-      {group !== 'alle' && groupBluehend === 0 && (
+      {group !== 'alle' && groupArten > 0 && groupBluehend === 0 && (
         <div style={{ fontSize: 11, color: '#dc2626', marginBottom: 8, background: 'rgba(220,38,38,0.08)', borderRadius: 6, padding: '6px 10px' }}>
           ⚠️ Im {MONTHS_FULL[month - 1]} blüht nichts für {POLLI_GROUPS.find(g => g.key === group)?.label}. Blühlücke — passende Art ergänzen.
         </div>

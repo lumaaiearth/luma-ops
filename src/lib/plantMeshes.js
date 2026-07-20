@@ -304,10 +304,16 @@ export function speciesGeometry(sp, month) {
     }
   }
 
-  const merged = mergeGeometries(parts, false)
+  const merged = parts.length ? mergeGeometries(parts, false) : null
   parts.forEach(p => p.dispose())
-  merged.computeVertexNormals()
-  merged.computeBoundingSphere()
+  // Fallback (sollte nie eintreten): winziger Platzhalter statt Absturz.
+  const geo = merged || new THREE.IcosahedronGeometry(0.03, 0)
+  if (!merged) paint(geo, '#4d7c3f')
+  geo.computeVertexNormals()
+  geo.computeBoundingSphere()
+  if (cache.size >= MAX_CACHE) { for (const g of cache.values()) g.dispose(); cache.clear() }
+  cache.set(key, geo)
+  return geo
   if (cache.size >= MAX_CACHE) { for (const g of cache.values()) g.dispose(); cache.clear() }
   cache.set(key, merged)
   return merged
