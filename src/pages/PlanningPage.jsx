@@ -1,5 +1,5 @@
-import { useState, useMemo, useRef, useEffect, lazy, Suspense } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useState, useMemo, useRef, useEffect } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { A, SURFACE, BORDER, FG, MUTED, BG, A14, A20 } from '../lib/theme.js'
 import { useTheme } from '../context/ThemeContext.jsx'
 import { useBreakpoint } from '../lib/useBreakpoint.js'
@@ -16,9 +16,6 @@ import {
 import { computePlacement, buildGrid, stateForMonth, growthForMonth, growthBucket, POLLI_GROUPS } from '../lib/beetLayout.js'
 import { shapeMetaFromGeometry } from '../lib/shapeMeta.js'
 import { plantSprite, SPRITE_PX_PER_M } from '../lib/plantSprites.js'
-
-// Foto-Sprite-Ansicht lazy laden.
-const Beet2DSprites = lazy(() => import('../components/Beet2DSprites.jsx'))
 
 /* ─── PFLANZPLAN STATUS ─────────────────────────────────────────────────── */
 const STATUS_LABELS = {
@@ -82,13 +79,11 @@ const ART_OPTS = [
 ]
 
 /* ─── WORKFLOW-SCHRITTE ─────────────────────────────────────────────────── */
-// Reihenfolge = Customer-Workflow: erst Ziel/Standort → Pflanzen verfeinern →
-// Fläche & Vorschau → Plan & Export. Der Stepper führt den Nutzer hindurch.
+// 3-Screen-Ablauf (Neuaufbau): Standort → Beet & Pflanzen → Übersicht & Export.
 const STEPS = [
-  { key: 'generator', label: 'Start & Ziel',    short: 'Start',    emoji: '✨', hint: 'Standort & Bestäuber-Ziel wählen, Pflanzvorschlag erzeugen' },
-  { key: 'suche',     label: 'Pflanzen',        short: 'Pflanzen', emoji: '🌱', hint: 'Arten & Habitate hinzufügen und verfeinern' },
-  { key: 'beet',      label: 'Beet & Vorschau', short: 'Beet',     emoji: '🌿', hint: 'Fläche, Dichte, 3D-Jahresansicht & Rasterplan' },
-  { key: 'plan',      label: 'Plan & Export',   short: 'Export',   emoji: '📋', hint: 'Pflanzliste, Kalender, PDF & Übergabe an LUMA Ops' },
+  { key: 'standort', label: 'Start & Standort',  short: 'Standort', emoji: '📍', hint: 'Fläche aus BIOME, Standortfaktoren & Blickrichtung' },
+  { key: 'beet',     label: 'Beet & Pflanzen',   short: 'Beet',     emoji: '🌿', hint: 'Rasterplan-Vorschau, automatisch füllen oder selbst wählen' },
+  { key: 'plan',     label: 'Übersicht & Export', short: 'Export',  emoji: '📋', hint: 'Wissenschaftliche Übersicht, Pflege, PDF & Excel' },
 ]
 const STEP_INDEX = k => Math.max(0, STEPS.findIndex(s => s.key === k))
 
@@ -101,6 +96,7 @@ export default function PlanningPage() {
   const { projects = [], updateProject, pflanzplaene = [], createPflanzplan, updatePflanzplan, deletePflanzplan,
     createTask, createRecurring, tasks = [], recurring = [] } = useOps()
   const location = useLocation()
+  const navigate = useNavigate()
 
   // ── Filters
   const [licht, setLicht] = useState(null)
@@ -126,7 +122,7 @@ export default function PlanningPage() {
 
   // ── Plan
   const [plan, setPlan] = useState([])
-  const [activeTab, setActiveTab] = useState('suche')
+  const [activeTab, setActiveTab] = useState('standort')
   const [saveProjectId, setSaveProjectId] = useState('')
   const [savedToProject, setSavedToProject] = useState(false)
   const [sheetPlant, setSheetPlant] = useState(null) // Steckbrief-Sheet
@@ -141,6 +137,7 @@ export default function PlanningPage() {
   const [beetW, setBeetW] = useState(4)
   const [beetH, setBeetH] = useState(2)
   const [beetForm, setBeetForm] = useState('rechteck') // 'rechteck'|'oval'
+  const [viewDir, setViewDir] = useState({ x: 0, y: -1 }) // Blickrichtung der Besucher → Höhenschichtung
   const [fromMapFeature, setFromMapFeature] = useState(null)
   const [shapeMeta, setShapeMeta] = useState(null)   // aus BIOME-Shape abgeleitet
 
@@ -168,11 +165,11 @@ export default function PlanningPage() {
       setBeetW(Math.max(0.5, Math.round(meta.bbox_w_m * 10) / 10))
       setBeetH(Math.max(0.5, Math.round(meta.bbox_h_m * 10) / 10))
       setShapeMeta(meta)
-      setActiveTab('plan')
+      setActiveTab('standort')
     } else if (area_m2 > 0) {
       const w = Math.round(Math.sqrt(area_m2 * 2) * 10) / 10
       const h = Math.round((area_m2 / w) * 10) / 10
-      setBeetW(w); setBeetH(h); setActiveTab('plan')
+      setBeetW(w); setBeetH(h); setActiveTab('standort')
     }
     setFromMapFeature(state.fromMapFeature)
   }, [location.state])
@@ -425,8 +422,23 @@ export default function PlanningPage() {
           planCount={totalPlants + totalHabitats} hasPlan={(totalPlants + totalHabitats) > 0} />
       </div>
 
-      {/* ── TAB: SUCHE ─────────────────────────────────────────────────── */}
-      {activeTab === 'suche' && (
+      {/* ── SCREEN 1: START & STANDORT ─────────────────────────────────── */}
+      {activeTab === 'standort' && (
+        <StandortScreen
+          L={L} shadow={shadow} cardBg={cardBg} isMobile={isMobile}
+          shapeMeta={shapeMeta} fromMapFeature={fromMapFeature}
+          beetW={beetW} setBeetW={setBeetW} beetH={beetH} setBeetH={setBeetH}
+          beetForm={beetForm} setBeetForm={setBeetForm}
+          licht={licht} setLicht={setLicht} wasser={wasser} setWasser={setWasser}
+          boden={boden} setBoden={setBoden} drainage={drainage} setDrainage={setDrainage}
+          ph={ph} setPh={setPh} viewDir={viewDir} setViewDir={setViewDir}
+          onOpenBiome={() => navigate('/map')}
+          onNext={() => setActiveTab('beet')}
+        />
+      )}
+
+      {/* ── SCREEN 2: BEET & PFLANZEN ──────────────────────────────────── */}
+      {activeTab === 'beet' && (
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
           {/* Katalog-Umschalter: Pflanzen | Habitate */}
@@ -462,44 +474,16 @@ export default function PlanningPage() {
 
               {filterPanelOpen && (
                 <div style={{ borderTop: `1px solid ${BORDER}`, padding: '14px 16px', maxHeight: isMobile ? '45vh' : undefined, overflowY: isMobile ? 'auto' : undefined }}>
-                  {/* Aufklapp-Sektionen */}
-                  <FilterSection label="📍 Standort & Boden" count={secCountStandort} open={openSec.standort} onToggle={() => setOpenSec(s => ({ ...s, standort: !s.standort }))}>
-                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap: 12 }}>
-                      <FilterGroup label="☀️ Licht" opts={LICHT_OPTS} selected={licht} onSelect={v => setLicht(licht === v ? null : v)} color="#d97706" L={L} isMobile={isMobile} />
-                      <FilterGroup label="💧 Wasser" opts={WASSER_OPTS} selected={wasser} onSelect={v => setWasser(wasser === v ? null : v)} color="#0ea5e9" L={L} isMobile={isMobile} />
-                      <FilterGroup label="🌍 Boden" opts={BODEN_OPTS} selected={boden} onSelect={v => setBoden(boden === v ? null : v)} color="#92400e" L={L} isMobile={isMobile} />
+                  {/* Standort-Faktoren werden auf Screen 1 gesetzt und hier nur angewandt. */}
+                  {(secCountStandort > 0) && (
+                    <div style={{ fontSize: 11, color: MUTED, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ color: A, fontWeight: 700 }}>📍 Standort aktiv:</span>
+                      {licht != null && <span>{LICHT_OPTS.find(o => o.value === licht)?.emoji} {LICHT_OPTS.find(o => o.value === licht)?.label}</span>}
+                      {wasser != null && <span>· {WASSER_OPTS.find(o => o.value === wasser)?.label}</span>}
+                      {boden != null && <span>· {BODEN_OPTS.find(o => o.value === boden)?.label}</span>}
+                      <button onClick={() => setActiveTab('standort')} style={{ marginLeft: 'auto', background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 6, padding: '2px 8px', fontSize: 11, cursor: 'pointer' }}>ändern</button>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 14 }}>
-                      <div>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>🧪 Drainage</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          {DRAINAGE_OPTS.map(o => (
-                            <button key={String(o.value)} onClick={() => setDrainage(drainage === o.value ? null : o.value)} style={{
-                              padding: '6px 10px', borderRadius: 6, fontSize: 12, textAlign: 'left', cursor: 'pointer',
-                              fontWeight: drainage === o.value ? 700 : (L ? 500 : 400),
-                              border: drainage === o.value ? `1.5px solid #92400e` : `1px solid ${BORDER}`,
-                              background: drainage === o.value ? '#92400e14' : 'transparent',
-                              color: drainage === o.value ? '#92400e' : MUTED,
-                            }}>{o.label}</button>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>🧫 pH-Wert</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          {PH_OPTS.map(o => (
-                            <button key={String(o.value)} onClick={() => setPh(ph === o.value ? null : o.value)} style={{
-                              padding: '6px 10px', borderRadius: 6, fontSize: 12, textAlign: 'left', cursor: 'pointer',
-                              fontWeight: ph === o.value ? 700 : (L ? 500 : 400),
-                              border: ph === o.value ? `1.5px solid #7c3aed` : `1px solid ${BORDER}`,
-                              background: ph === o.value ? '#7c3aed14' : 'transparent',
-                              color: ph === o.value ? '#7c3aed' : MUTED,
-                            }}>{o.label}</button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </FilterSection>
+                  )}
 
                   <FilterSection label="🌿 Art der Pflanze" count={secCountArt} open={openSec.art} onToggle={() => setOpenSec(s => ({ ...s, art: !s.art }))}>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -567,6 +551,24 @@ export default function PlanningPage() {
 
           {/* Plant Grid / List */}
           <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '0 12px 24px' : '0 24px 24px' }}>
+            {/* Beet-Vorschau (Rasterplan) über der Liste */}
+            {plan.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <BeetPlaner
+                  plan={plan}
+                  beetW={beetW} setBeetW={setBeetW}
+                  beetH={beetH} setBeetH={setBeetH}
+                  beetForm={beetForm} setBeetForm={setBeetForm}
+                  beetArea={beetArea}
+                  L={L} shadow={shadow} cardBg={cardBg}
+                  onAddMore={() => {}}
+                  onRescale={perM2 => setPlan(prev => prev.length ? assignCounts(prev, beetArea, perM2) : prev)}
+                  label={fromMapFeature?.label}
+                  polygon={shapeMeta?.local?.points || null}
+                  viewDir={viewDir}
+                />
+              </div>
+            )}
             {filtered.length === 0 ? (
               <EmptyState msg="Keine Pflanzen für diese Kombination 🌵" sub="Probiere andere Filter" />
             ) : isMobile ? (
@@ -744,7 +746,7 @@ export default function PlanningPage() {
       {activeTab === 'plan' && (
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: '0 24px 24px' }}>
           {plan.length === 0 && habitatPlan.length === 0 ? (
-            <EmptyState msg="Plan ist noch leer 🌱" sub="Pflanzen oder Habitate suchen und hinzufügen" action={() => setActiveTab('suche')} actionLabel="Zur Suche →" />
+            <EmptyState msg="Plan ist noch leer 🌱" sub="Pflanzen unter Beet & Pflanzen hinzufügen" action={() => setActiveTab('beet')} actionLabel="Zu Beet & Pflanzen →" />
           ) : (
             <div style={{ flex: 1, overflowY: 'auto', paddingTop: 4 }}>
 
@@ -903,36 +905,6 @@ export default function PlanningPage() {
               </div>
             </div>
           )}
-        </div>
-      )}
-
-      {/* ── TAB: BEETPLANER ────────────────────────────────────────────── */}
-      {activeTab === 'beet' && (
-        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: '0 24px 24px' }}>
-          <BeetPlaner
-            plan={plan}
-            beetW={beetW} setBeetW={setBeetW}
-            beetH={beetH} setBeetH={setBeetH}
-            beetForm={beetForm} setBeetForm={setBeetForm}
-            beetArea={beetArea}
-            L={L} shadow={shadow} cardBg={cardBg}
-            onAddMore={() => setActiveTab('suche')}
-            onRescale={perM2 => setPlan(prev => prev.length ? assignCounts(prev, beetArea, perM2) : prev)}
-            label={fromMapFeature?.label}
-            polygon={shapeMeta?.local?.points || null}
-          />
-        </div>
-      )}
-
-      {/* ── TAB: GENERATOR (Säule 2) ────────────────────────────────────── */}
-      {activeTab === 'generator' && (
-        <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '0 12px 24px' : '0 24px 24px' }}>
-          <Generator L={L} shadow={shadow} cardBg={cardBg}
-            onApply={(plants, habitats) => {
-              setPlan(plants)
-              if (habitats?.length) setHabitatPlan(prev => { const ex = new Set(prev.map(h => h.id)); return [...prev, ...habitats.filter(h => !ex.has(h.id))] })
-              setActiveTab('plan')
-            }} />
         </div>
       )}
 
@@ -1144,17 +1116,157 @@ function BloomCalendar({ plan, L, shadow }) {
   )
 }
 
+/* ─── SCREEN 1: START & STANDORT ─────────────────────────────────────────── */
+// Welcome + Fläche (BIOME-Shape oder manuell) + Standortfaktoren + Blickrichtung.
+// Die Faktoren (licht/wasser/boden/drainage/ph) sind die EINZIGE Quelle und
+// steuern Filter & Auto-Auswahl auf Screen 2.
+const VIEW_DIRS = [
+  { key: 'unten', label: 'unten', vec: { x: 0, y: -1 }, arrow: '↑' },
+  { key: 'oben', label: 'oben', vec: { x: 0, y: 1 }, arrow: '↓' },
+  { key: 'links', label: 'links', vec: { x: 1, y: 0 }, arrow: '→' },
+  { key: 'rechts', label: 'rechts', vec: { x: -1, y: 0 }, arrow: '←' },
+]
+function StandortScreen({ L, shadow, cardBg, isMobile, shapeMeta, fromMapFeature, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetForm, licht, setLicht, wasser, setWasser, boden, setBoden, drainage, setDrainage, ph, setPh, viewDir, setViewDir, onOpenBiome, onNext }) {
+  const card = { background: cardBg, borderRadius: 12, padding: '16px 18px', boxShadow: shadow, marginBottom: 14 }
+  const hd = { fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12, fontWeight: L ? 700 : 400 }
+  const hasShape = !!shapeMeta
+  return (
+    <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '12px 12px 24px' : '16px 24px 24px' }}>
+      {/* Welcome */}
+      <div style={{ ...card, background: A14, border: `1px solid ${A20}` }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: FG, marginBottom: 6 }}>🌿 Florales — Pflanzplanung für ökologische Projekte</div>
+        <div style={{ fontSize: 13, color: FG, lineHeight: 1.6 }}>
+          Florales hilft bei der Zusammenstellung und Planung von Staudenbeeten für ökologische
+          Pflanzprojekte. Definiere deine Fläche und Standortbedingungen — anschließend füllst du das
+          Beet automatisch (wissenschaftlich optimiert) oder wählst die Pflanzen selbst. Am Ende
+          bekommst du eine vollständige Übersicht mit Pflege­hinweisen, Kalkulation und Bestellliste.
+        </div>
+      </div>
+
+      {/* Fläche */}
+      <div style={card}>
+        <div style={hd}>📐 Fläche & Form</div>
+        {hasShape ? (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: A, background: A14, border: `1px solid ${A20}`, borderRadius: 999, padding: '3px 10px' }}>🗺️ {fromMapFeature?.label || 'Fläche'} aus BIOME</span>
+              <button onClick={onOpenBiome} style={{ marginLeft: 'auto', background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, padding: '5px 12px', fontSize: 12, cursor: 'pointer' }}>Neue Fläche zeichnen</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: 10 }}>
+              <Meta label="Fläche" value={`${shapeMeta.area_m2} m²`} L={L} />
+              <Meta label="Umfang" value={`${shapeMeta.perimeter_m} m`} L={L} />
+              <Meta label="Maße" value={`${shapeMeta.bbox_w_m}×${shapeMeta.bbox_h_m} m`} L={L} />
+              <Meta label="GPS" value={shapeMeta.centroid ? `${shapeMeta.centroid.lat.toFixed(4)}, ${shapeMeta.centroid.lng.toFixed(4)}` : '—'} L={L} />
+            </div>
+            <div style={{ fontSize: 11, color: MUTED, marginTop: 10 }}>Höhe ü. NHN & Klimazone werden in Kürze ergänzt (Stufe 2).</div>
+          </div>
+        ) : (
+          <div>
+            <button onClick={onOpenBiome} style={{ display: 'flex', alignItems: 'center', gap: 8, background: A, border: 'none', color: 'var(--luma-on-a)', borderRadius: 10, padding: '12px 18px', fontSize: 14, fontWeight: 700, cursor: 'pointer', marginBottom: 12 }}>
+              🗺️ Fläche in BIOME einzeichnen →
+            </button>
+            <div style={{ fontSize: 12, color: MUTED, marginBottom: 12 }}>Empfohlen: Zeichne die exakte Fläche in BIOME — Florales übernimmt Form, Umfang, GPS & Fläche automatisch. Oder gib die Maße manuell ein:</div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+              <label style={{ flex: 1, minWidth: 90 }}>
+                <div style={{ fontSize: 10, color: MUTED, marginBottom: 4 }}>Breite (m)</div>
+                <input type="number" min={0.5} max={50} step={0.5} value={beetW} onChange={e => setBeetW(+e.target.value)}
+                  style={{ width: '100%', background: L ? 'rgba(0,0,0,0.05)' : BG, border: `1px solid ${BORDER}`, borderRadius: 6, padding: '8px 10px', color: FG, fontSize: 14, fontWeight: 700 }} />
+              </label>
+              <label style={{ flex: 1, minWidth: 90 }}>
+                <div style={{ fontSize: 10, color: MUTED, marginBottom: 4 }}>Tiefe (m)</div>
+                <input type="number" min={0.5} max={50} step={0.5} value={beetH} onChange={e => setBeetH(+e.target.value)}
+                  style={{ width: '100%', background: L ? 'rgba(0,0,0,0.05)' : BG, border: `1px solid ${BORDER}`, borderRadius: 6, padding: '8px 10px', color: FG, fontSize: 14, fontWeight: 700 }} />
+              </label>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {[['rechteck', '▬ Rechteck'], ['oval', '⬭ Oval']].map(([v, l]) => (
+                  <button key={v} onClick={() => setBeetForm(v)} style={{
+                    padding: '9px 12px', borderRadius: 7, fontSize: 12, cursor: 'pointer', fontWeight: beetForm === v ? 700 : 500,
+                    border: beetForm === v ? `1.5px solid ${A}` : `1px solid ${BORDER}`, background: beetForm === v ? A14 : 'transparent', color: beetForm === v ? A : MUTED,
+                  }}>{l}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Standortfaktoren */}
+      <div style={card}>
+        <div style={hd}>📍 Standortfaktoren</div>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap: 12 }}>
+          <FilterGroup label="☀️ Licht" opts={LICHT_OPTS} selected={licht} onSelect={v => setLicht(licht === v ? null : v)} color="#d97706" L={L} isMobile={isMobile} />
+          <FilterGroup label="💧 Wasser" opts={WASSER_OPTS} selected={wasser} onSelect={v => setWasser(wasser === v ? null : v)} color="#0ea5e9" L={L} isMobile={isMobile} />
+          <FilterGroup label="🌍 Boden" opts={BODEN_OPTS} selected={boden} onSelect={v => setBoden(boden === v ? null : v)} color="#92400e" L={L} isMobile={isMobile} />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 14 }}>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>🧪 Drainage</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {DRAINAGE_OPTS.map(o => (
+                <button key={String(o.value)} onClick={() => setDrainage(drainage === o.value ? null : o.value)} style={{
+                  padding: '6px 10px', borderRadius: 6, fontSize: 12, textAlign: 'left', cursor: 'pointer', fontWeight: drainage === o.value ? 700 : 500,
+                  border: drainage === o.value ? `1.5px solid #92400e` : `1px solid ${BORDER}`, background: drainage === o.value ? '#92400e14' : 'transparent', color: drainage === o.value ? '#92400e' : MUTED,
+                }}>{o.label}</button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>🧫 pH-Wert</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {PH_OPTS.map(o => (
+                <button key={String(o.value)} onClick={() => setPh(ph === o.value ? null : o.value)} style={{
+                  padding: '6px 10px', borderRadius: 6, fontSize: 12, textAlign: 'left', cursor: 'pointer', fontWeight: ph === o.value ? 700 : 500,
+                  border: ph === o.value ? `1.5px solid #7c3aed` : `1px solid ${BORDER}`, background: ph === o.value ? '#7c3aed14' : 'transparent', color: ph === o.value ? '#7c3aed' : MUTED,
+                }}>{o.label}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Blickrichtung */}
+      <div style={card}>
+        <div style={hd}>👁️ Blickrichtung der Besucher</div>
+        <div style={{ fontSize: 12, color: MUTED, marginBottom: 10 }}>Von wo betrachtet man das Beet? Hohe Arten kommen nach hinten, flache nach vorne.</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {VIEW_DIRS.map(d => {
+            const on = viewDir.x === d.vec.x && viewDir.y === d.vec.y
+            return (
+              <button key={d.key} onClick={() => setViewDir(d.vec)} style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: on ? 700 : 500,
+                border: on ? `1.5px solid ${A}` : `1px solid ${BORDER}`, background: on ? A14 : 'transparent', color: on ? A : FG,
+              }}><span style={{ fontSize: 16 }}>{d.arrow}</span> Betrachter {d.label}</button>
+            )
+          })}
+        </div>
+      </div>
+
+      <button onClick={onNext} style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', background: A, border: 'none', color: 'var(--luma-on-a)', borderRadius: 10, padding: '12px 22px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+        Weiter zu Beet & Pflanzen →
+      </button>
+    </div>
+  )
+}
+function Meta({ label, value, L }) {
+  return (
+    <div style={{ background: L ? 'rgba(0,0,0,0.04)' : BG, borderRadius: 8, padding: '8px 10px', border: `1px solid ${BORDER}` }}>
+      <div style={{ fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
+      <div style={{ fontSize: 14, fontWeight: 800, color: FG, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+    </div>
+  )
+}
+
 /* ─── BEETPLANER ─────────────────────────────────────────────────────────── */
 // Dichte-Stufen = Ziel-Pflanzdichte in Krautigen/m². Die Stückzahlen (und damit
 // die Bepflanzung) skalieren mit der Dichte; große Pflanzen bekommen anteilig
 // weniger (über assignCounts/ROLE_WEIGHT & Ausbreitung).
 const DENSITY_PERM2 = { 1: 4, 2: 6, 3: 8, 4: 11, 5: 15 }
 const DENSITY_LABEL = { 1: 'sehr locker', 2: 'locker', 3: 'normal', 4: 'dicht', 5: 'sehr dicht' }
-function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetForm, beetArea, L, shadow, cardBg, onAddMore, onRescale, label, polygon }) {
+function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetForm, beetArea, L, shadow, cardBg, onAddMore, onRescale, label, polygon, viewDir }) {
   const canvasRef = useRef(null)
   const [bloomMonth, setBloomMonth] = useState(0) // 0 = ganzjährig, 1-12 = Monat (Blühfolge)
   const [density, setDensity] = useState(3)       // 1 = sehr locker … 5 = sehr dicht
-  const [view, setView] = useState('iso')         // 'iso' = 3D-Jahr · 'raster' = Pflanzanleitung · 'drift' = Drift-Karte
+  const [view, setView] = useState('raster')      // 'raster' = Pflanzanleitung (Standard) · 'drift' = Drift-Karte (3D/Fotos archiviert)
 
   // Pflanzenverteilung: kollisionsbewusst platziert (Drifts, Höhenstaffelung),
   // deterministisch. Von Drift-Karte UND isometrischer Ansicht gemeinsam genutzt
@@ -1404,8 +1516,7 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
           {/* Ansicht-Umschalter */}
           <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
             {[
-              ['iso', <Box size={14} key="i" />, 'Pflanzenansicht'],
-              ['raster', <LayoutGrid size={14} key="r" />, 'Pflanzanleitung (Raster)'],
+              ['raster', <LayoutGrid size={14} key="r" />, 'Rasterplan'],
               ['drift', <MapIcon size={14} key="d" />, 'Drift-Karte'],
             ].map(([v, icon, lbl]) => (
               <button key={v} onClick={() => setView(v)} style={{
@@ -1417,22 +1528,10 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
             ))}
           </div>
 
-          {/* ── PFLANZENANSICHT (freigestellte Fotos) ── */}
-          {view === 'iso' && (
-            <Suspense fallback={
-              <div style={{ background: cardBg, borderRadius: 12, padding: 24, boxShadow: shadow, marginBottom: 16, color: MUTED, fontSize: 13, textAlign: 'center' }}>
-                🌸 Pflanzenansicht wird geladen …
-              </div>
-            }>
-              <Beet2DSprites placement={plantsWithPlacement} beetW={beetW} beetH={beetH}
-                L={L} shadow={shadow} cardBg={cardBg} />
-            </Suspense>
-          )}
-
           {/* ── PFLANZANLEITUNG (Rasterplan mit Vierecken) ── */}
           {view === 'raster' && (
             <RasterPlan plan={plan} beetW={beetW} beetH={beetH} beetArea={beetArea}
-              L={L} shadow={shadow} cardBg={cardBg} label={label} polygon={polygon} />
+              L={L} shadow={shadow} cardBg={cardBg} label={label} polygon={polygon} viewDir={viewDir} />
           )}
 
           {/* ── DRIFT-KARTE (kontinuierliche Blühfolge) ── */}
@@ -1569,13 +1668,13 @@ const RASTER_CELLS = [
   { cm: 33, label: '33 cm' },
   { cm: 50, label: '50 cm' },
 ]
-function RasterPlan({ plan, beetW, beetH, beetArea, L, shadow, cardBg, label, polygon }) {
+function RasterPlan({ plan, beetW, beetH, beetArea, L, shadow, cardBg, label, polygon, viewDir }) {
   const canvasRef = useRef(null)
   const wrapRef = useRef(null)
   const [cellCm, setCellCm] = useState(33)
   const [showCodes, setShowCodes] = useState(true)
 
-  const grid = useMemo(() => buildGrid(plan, beetW, beetH, cellCm, { polygon }), [plan, beetW, beetH, cellCm, polygon])
+  const grid = useMemo(() => buildGrid(plan, beetW, beetH, cellCm, { polygon, viewDir }), [plan, beetW, beetH, cellCm, polygon, viewDir])
   const codeById = useMemo(() => new Map(grid.legend.map(l => [l.id, l])), [grid])
 
   const draw = () => {
