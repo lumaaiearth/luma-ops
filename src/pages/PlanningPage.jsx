@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { computePlacement, buildGrid, stateForMonth, growthForMonth, growthBucket, POLLI_GROUPS } from '../lib/beetLayout.js'
 import { shapeMetaFromGeometry } from '../lib/shapeMeta.js'
+import { fetchElevation, siteInfo } from '../lib/siteData.js'
 import { plantSprite, SPRITE_PX_PER_M } from '../lib/plantSprites.js'
 
 /* ─── PFLANZPLAN STATUS ─────────────────────────────────────────────────── */
@@ -140,6 +141,7 @@ export default function PlanningPage() {
   const [viewDir, setViewDir] = useState({ x: 0, y: -1 }) // Blickrichtung der Besucher → Höhenschichtung
   const [fromMapFeature, setFromMapFeature] = useState(null)
   const [shapeMeta, setShapeMeta] = useState(null)   // aus BIOME-Shape abgeleitet
+  const [site, setSite] = useState(null)             // Höhe/Klimazone/Region/Pflegehinweis
 
   // ── Habitate (Habitatelemente)
   const [habitatPlan, setHabitatPlan] = useState([])
@@ -173,6 +175,18 @@ export default function PlanningPage() {
     }
     setFromMapFeature(state.fromMapFeature)
   }, [location.state])
+
+  // Standort-Daten (Höhe via API, Klimazone/Region offline) aus dem Schwerpunkt.
+  useEffect(() => {
+    const c = shapeMeta?.centroid
+    if (!c) { setSite(null); return }
+    let alive = true
+    setSite(siteInfo(c.lat, c.lng, null)) // sofort mit Offline-Werten
+    fetchElevation(c.lat, c.lng).then(elev => {
+      if (alive && elev != null) setSite(siteInfo(c.lat, c.lng, elev))
+    })
+    return () => { alive = false }
+  }, [shapeMeta])
 
   const filtered = useMemo(() => {
     const available = typeof filterPlants === 'function' ? filterPlants({
@@ -426,7 +440,7 @@ export default function PlanningPage() {
       {activeTab === 'standort' && (
         <StandortScreen
           L={L} shadow={shadow} cardBg={cardBg} isMobile={isMobile}
-          shapeMeta={shapeMeta} fromMapFeature={fromMapFeature}
+          shapeMeta={shapeMeta} fromMapFeature={fromMapFeature} site={site}
           beetW={beetW} setBeetW={setBeetW} beetH={beetH} setBeetH={setBeetH}
           beetForm={beetForm} setBeetForm={setBeetForm}
           licht={licht} setLicht={setLicht} wasser={wasser} setWasser={setWasser}
@@ -760,6 +774,21 @@ export default function PlanningPage() {
                 <StatCard label="Raupenfutter" value={plan.filter(p => p.raupenfutter).length} emoji="🐛" color="#10b981" L={L} shadow={shadow} />
               </div>
 
+              {/* Standort & Pflege (wissenschaftliche Indikatoren) */}
+              {site && (
+                <div style={{ background: L ? '#fff' : SURFACE, borderRadius: 12, padding: '16px 18px', boxShadow: shadow, marginBottom: 12 }}>
+                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12, fontWeight: L ? 700 : 400 }}>🌍 Standort & Anwuchspflege</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: 10, marginBottom: 12 }}>
+                    {shapeMeta?.centroid && <Meta label="GPS" value={`${shapeMeta.centroid.lat.toFixed(4)}, ${shapeMeta.centroid.lng.toFixed(4)}`} L={L} />}
+                    <Meta label="Höhe ü. NHN" value={site.elevation != null ? `${site.elevation} m` : '—'} L={L} />
+                    <Meta label="Klimazone" value={`${site.zone} (USDA)`} L={L} />
+                    <Meta label="Region" value={site.region} L={L} />
+                  </div>
+                  <div style={{ fontSize: 12.5, color: FG, lineHeight: 1.6, background: A14, border: `1px solid ${A20}`, borderRadius: 8, padding: '10px 12px' }}>
+                    <b>💧 Anwuchspflege:</b> {site.wateringHint}
+                  </div>
+                </div>
+              )}
               {/* Blühkalender */}
               <BloomCalendar plan={plan} L={L} shadow={shadow} />
               {/* Trachtkalender — was blüht wann für wen */}
@@ -1126,7 +1155,7 @@ const VIEW_DIRS = [
   { key: 'links', label: 'links', vec: { x: 1, y: 0 }, arrow: '→' },
   { key: 'rechts', label: 'rechts', vec: { x: -1, y: 0 }, arrow: '←' },
 ]
-function StandortScreen({ L, shadow, cardBg, isMobile, shapeMeta, fromMapFeature, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetForm, licht, setLicht, wasser, setWasser, boden, setBoden, drainage, setDrainage, ph, setPh, viewDir, setViewDir, onOpenBiome, onNext }) {
+function StandortScreen({ L, shadow, cardBg, isMobile, shapeMeta, fromMapFeature, site, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetForm, licht, setLicht, wasser, setWasser, boden, setBoden, drainage, setDrainage, ph, setPh, viewDir, setViewDir, onOpenBiome, onNext }) {
   const card = { background: cardBg, borderRadius: 12, padding: '16px 18px', boxShadow: shadow, marginBottom: 14 }
   const hd = { fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12, fontWeight: L ? 700 : 400 }
   const hasShape = !!shapeMeta
@@ -1157,8 +1186,11 @@ function StandortScreen({ L, shadow, cardBg, isMobile, shapeMeta, fromMapFeature
               <Meta label="Umfang" value={`${shapeMeta.perimeter_m} m`} L={L} />
               <Meta label="Maße" value={`${shapeMeta.bbox_w_m}×${shapeMeta.bbox_h_m} m`} L={L} />
               <Meta label="GPS" value={shapeMeta.centroid ? `${shapeMeta.centroid.lat.toFixed(4)}, ${shapeMeta.centroid.lng.toFixed(4)}` : '—'} L={L} />
+              <Meta label="Höhe ü. NHN" value={site?.elevation != null ? `${site.elevation} m` : '…'} L={L} />
+              <Meta label="Klimazone" value={site?.zone ? `${site.zone} (USDA)` : '…'} L={L} />
+              <Meta label="Region" value={site?.region || '…'} L={L} />
+              <Meta label="Niederschlag" value={site?.arid || '…'} L={L} />
             </div>
-            <div style={{ fontSize: 11, color: MUTED, marginTop: 10 }}>Höhe ü. NHN & Klimazone werden in Kürze ergänzt (Stufe 2).</div>
           </div>
         ) : (
           <div>
