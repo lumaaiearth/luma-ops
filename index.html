@@ -28,6 +28,18 @@
       ;['gesturestart', 'gesturechange', 'gestureend'].forEach(function (ev) {
         document.addEventListener(ev, function (e) { e.preventDefault() }, { passive: false })
       })
+
+      // WKWebView (Capacitor) lässt das Fenster nach Tastatur-Ein-/Ausblendung
+      // teils verschoben stehen (sichtbar als Lücke unter der Bottom-Nav).
+      // Zusätzlich zum fixierten body: Scroll-Offset nach jedem Viewport-
+      // Resize bzw. Fokusverlust hart auf 0 zurücksetzen.
+      function lumaResetScroll() {
+        window.scrollTo(0, 0)
+        document.documentElement.scrollTop = 0
+        document.body.scrollTop = 0
+      }
+      if (window.visualViewport) window.visualViewport.addEventListener('resize', lumaResetScroll)
+      window.addEventListener('focusout', function () { setTimeout(lumaResetScroll, 50) })
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
