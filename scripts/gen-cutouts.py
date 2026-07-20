@@ -61,12 +61,15 @@ for i, p in enumerate(PLANTS):
         manifest[pid] = True; skip += 1; continue
     url = p.get('wiki') or wiki_lead(p.get('latin'))
     time.sleep(DELAY)
-    if not url:
+    raw = get(url) if url else None
+    if not raw and p.get('wiki'):
+        # hinterlegtes wiki_img tot (404) → Wikipedia-Lead-Bild versuchen
+        alt = wiki_lead(p.get('latin')); time.sleep(DELAY)
+        if alt:
+            raw = get(alt)
+    if not raw:
         manifest[pid] = False; fail += 1; print(f'[{i+1}/{len(PLANTS)}] {pid}: kein Bild'); continue
     try:
-        raw = get(url)
-        if not raw:
-            manifest[pid] = False; fail += 1; print(f'[{i+1}/{len(PLANTS)}] {pid}: Download fehlgeschlagen'); continue
         img = Image.open(io.BytesIO(raw)).convert('RGBA')
         cut = remove(img, session=sess)
         # auf max. Höhe 320 verkleinern
