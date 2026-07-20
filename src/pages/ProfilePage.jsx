@@ -7,6 +7,7 @@ import { sb } from '../lib/supabase.js'
 import { compressImage } from '../lib/images.js'
 import { A, SURFACE, BORDER, FG, MUTED, OK, DANGER } from '../lib/theme.js'
 import { PageHeader, Card, Button, Badge, Avatar, INPUT_STYLE, LABEL_STYLE, MONO, SANS } from '../components/ui.jsx'
+import InstallSection from '../components/InstallSection.jsx'
 import { TEAM } from '../data/seed.js'
 import { useIsMobile } from '../lib/useIsMobile.js'
 
@@ -189,6 +190,12 @@ export default function ProfilePage() {
             </div>
           </form>
         </Card>
+      </div>
+
+      {/* ── App aufs Handy — für alle Rollen erreichbar (Einstellungen sind admin-only) ── */}
+      <div style={{ marginTop: 16 }}>
+        <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 10 }}>App aufs Handy</div>
+        <InstallSection />
       </div>
     </div>
   )
