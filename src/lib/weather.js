@@ -37,7 +37,7 @@ function elevate(current, next) {
   return STATUS_RANK[next] > STATUS_RANK[current] ? next : current
 }
 
-function deriveStatus(wmoCode, tempMax, uvMax, precipSum) {
+function deriveStatus(wmoCode, tempMax, uvMax, precipSum, precipProb) {
   const base = (WMO[wmoCode] || WMO[0]).baseStatus
   let status = base
   const warnings = []
@@ -63,6 +63,9 @@ function deriveStatus(wmoCode, tempMax, uvMax, precipSum) {
   } else if (precipSum >= 10) {
     status = elevate(status, 'warn')
     warnings.push(`Regen ${precipSum} mm`)
+  } else if ((precipProb ?? 0) >= 60) {
+    status = elevate(status, 'warn')
+    warnings.push(`Regenwahrscheinlichkeit ${precipProb}%`)
   }
 
   return { status, warnings }
@@ -78,7 +81,7 @@ export async function fetchWeather() {
   if (_memCache && now - _memCacheTime < CACHE_MS) return _memCache
 
   try {
-    const stored = sessionStorage.getItem('luma-weather-v2')
+    const stored = sessionStorage.getItem('luma-weather-v3')
     if (stored) {
       const { data, ts } = JSON.parse(stored)
       if (now - ts < CACHE_MS) {
@@ -92,7 +95,7 @@ export async function fetchWeather() {
   const qs = new URLSearchParams({
     latitude: WEATHER_LAT,
     longitude: WEATHER_LON,
-    daily: 'temperature_2m_max,temperature_2m_min,precipitation_sum,weathercode,uv_index_max',
+    daily: 'temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weathercode,uv_index_max',
     hourly: 'relative_humidity_2m',
     timezone: 'Europe/Berlin',
     forecast_days: 14,
@@ -110,19 +113,20 @@ export async function fetchWeather() {
       const tempMax = Math.round(daily.temperature_2m_max[i])
       const tempMin = Math.round(daily.temperature_2m_min[i])
       const precipSum = Math.round(daily.precipitation_sum[i] * 10) / 10
+      const precipProb = daily.precipitation_probability_max ? Math.round(daily.precipitation_probability_max[i] ?? 0) : null
       const uvMax = Math.round((daily.uv_index_max[i] || 0) * 10) / 10
 
       // Noon humidity for the day
       const humidity = Math.round(hourly.relative_humidity_2m[i * 24 + 12] ?? 60)
 
-      const { status, warnings } = deriveStatus(wmoCode, tempMax, uvMax, precipSum)
+      const { status, warnings } = deriveStatus(wmoCode, tempMax, uvMax, precipSum, precipProb)
 
-      return { date, tempMax, tempMin, humidity, precip: precipSum, uvMax, wmoCode, label: wmo.label, icon: wmo.icon, status, warnings }
+      return { date, tempMax, tempMin, humidity, precip: precipSum, precipProb, uvMax, wmoCode, label: wmo.label, icon: wmo.icon, status, warnings }
     })
 
     _memCache = days
     _memCacheTime = now
-    try { sessionStorage.setItem('luma-weather-v2', JSON.stringify({ data: days, ts: now })) } catch {}
+    try { sessionStorage.setItem('luma-weather-v3', JSON.stringify({ data: days, ts: now })) } catch {}
     return days
   } catch (err) {
     console.warn('[Weather]', err.message)

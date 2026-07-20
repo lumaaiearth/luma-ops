@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { Clock } from 'lucide-react'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
@@ -19,8 +19,6 @@ import { outboxCount } from './lib/outbox.js'
 const TimePage         = lazy(() => import('./pages/TimePage.jsx'))
 const MapPage          = lazy(() => import('./pages/MapPage.jsx'))
 const StammdatenPage   = lazy(() => import('./pages/StammdatenPage.jsx'))
-const CalendarPage     = lazy(() => import('./pages/CalendarPage.jsx'))
-const JobsPage         = lazy(() => import('./pages/JobsPage.jsx'))
 const TasksPage        = lazy(() => import('./pages/TasksPage.jsx'))
 const SensorsPage      = lazy(() => import('./pages/SensorsPage.jsx'))
 const TeamPage         = lazy(() => import('./pages/TeamPage.jsx'))
@@ -36,7 +34,16 @@ const KundenPortalPage = lazy(() => import('./pages/KundenPortalPage.jsx'))
 const ProfilePage      = lazy(() => import('./pages/ProfilePage.jsx'))
 const SensorPage       = lazy(() => import('./pages/SensorPage.jsx'))
 const ExplorePage      = lazy(() => import('./pages/ExplorePage.jsx'))
-const WochenplanPage   = lazy(() => import('./pages/WochenplanPage.jsx'))
+const EinsaetzePage    = lazy(() => import('./pages/EinsaetzePage.jsx'))
+
+// Alte Einzelrouten (/calendar, /wochenplan, /jobs) leiten auf den Einsätze-Hub
+// um — Query-Parameter (z.B. ?open=<id>, ?date=…) bleiben dabei erhalten.
+function RedirectToHub({ view }) {
+  const loc = useLocation()
+  const params = new URLSearchParams(loc.search)
+  params.set('view', view)
+  return <Navigate to={`/einsaetze?${params.toString()}`} replace />
+}
 
 function RequireAuth({ children, kundeOk = false, gastOk = false }) {
   const { user, loading, profile, isKunde, isGast } = useAuth()
@@ -112,9 +119,10 @@ function AppRoutes() {
       <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
       <Route path="/" element={<Protected><Navigate to="/dashboard" replace /></Protected>} />
       <Route path="/dashboard" element={<Protected><DashboardPage /></Protected>} />
-      <Route path="/calendar" element={<Protected fullHeight><CalendarPage /></Protected>} />
-      <Route path="/wochenplan" element={<Protected><WochenplanPage /></Protected>} />
-      <Route path="/jobs" element={<Protected><JobsPage /></Protected>} />
+      <Route path="/einsaetze" element={<Protected fullHeight><EinsaetzePage /></Protected>} />
+      <Route path="/calendar" element={<RedirectToHub view="kalender" />} />
+      <Route path="/wochenplan" element={<RedirectToHub view="wochenplan" />} />
+      <Route path="/jobs" element={<RedirectToHub view="liste" />} />
       <Route path="/tasks" element={<Protected><TasksPage /></Protected>} />
       <Route path="/sensors" element={<Protected><SensorsPage /></Protected>} />
       <Route path="/sensors/:id" element={<Protected><SensorPage /></Protected>} />
