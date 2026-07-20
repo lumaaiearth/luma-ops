@@ -835,7 +835,7 @@ export default function PlanningPage() {
               {/* Export */}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button onClick={() => {
-                  exportPdf(plan, { label: fromMapFeature?.label, beetArea, beetW, beetH, habitats: habitatPlan })
+                  exportPdf(plan, { label: fromMapFeature?.label, beetArea, beetW, beetH, habitats: habitatPlan, site, shapeMeta })
                   if (savedPlanId) updatePflanzplan(savedPlanId, { status: 'pdf_erstellt' })
                 }} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#052e16', border: 'none', color: '#fff', borderRadius: 8, padding: '9px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
                   <Download size={13} /> Plan-PDF
@@ -2650,7 +2650,7 @@ function renderRasterSnapshot(plan, beetW = 6, beetH = 4, cellCm = 33) {
   } catch { return null }
 }
 
-function exportPdf(plan, { label, beetArea, beetW, beetH, habitats = [] } = {}) {
+function exportPdf(plan, { label, beetArea, beetW, beetH, habitats = [], site = null, shapeMeta = null } = {}) {
   const isoImg = renderIsoSnapshot(plan, beetW || 6, beetH || 4, 7)
   const rasterImg = renderRasterSnapshot(plan, beetW || 6, beetH || 4, 33)
   const total = plan.reduce((s, p) => s + p.count, 0)
@@ -2794,7 +2794,20 @@ ${pflegeRows ? `<div class="section-h">Pflegeplan</div>
   <div class="meta-item"><strong>${total}</strong><span>Pflanzen gesamt</span></div>
   <div class="meta-item"><strong>${plan.length}</strong><span>Arten</span></div>
   ${beetArea ? `<div class="meta-item"><strong>${beetArea.toFixed(1)} m²</strong><span>Fläche</span></div>` : ''}
+  ${shapeMeta?.perimeter_m ? `<div class="meta-item"><strong>${shapeMeta.perimeter_m} m</strong><span>Umfang</span></div>` : ''}
+  ${site?.zone ? `<div class="meta-item"><strong>${site.zone}</strong><span>Klimazone USDA</span></div>` : ''}
+  ${site?.elevation != null ? `<div class="meta-item"><strong>${site.elevation} m</strong><span>ü. NHN</span></div>` : ''}
 </div>
+
+${site ? `<div class="section-h">Standort &amp; Anwuchspflege</div>
+<table>
+  <tbody>
+    ${shapeMeta?.centroid ? `<tr><td class="name">GPS-Koordinaten</td><td>${shapeMeta.centroid.lat.toFixed(5)}, ${shapeMeta.centroid.lng.toFixed(5)}</td></tr>` : ''}
+    <tr><td class="name">Klimaregion</td><td>${site.region} · Niederschlag ${site.arid}</td></tr>
+    <tr><td class="name">Winterhärtezone</td><td>${site.zone} (USDA, Näherung)</td></tr>
+  </tbody>
+</table>
+<div class="order-note"><strong>💧 Anwuchspflege</strong>${site.wateringHint}</div>` : ''}
 
 <table>
   <thead>
