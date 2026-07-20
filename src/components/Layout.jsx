@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { LayoutDashboard, CalendarDays, Radio, Users, Settings, LogOut, Clock, Map, Database, FolderOpen, MoreHorizontal, BarChart2, Flower2, ListTodo, UserCircle, Search, PanelLeftOpen, PanelLeftClose } from 'lucide-react'
+import { LayoutDashboard, CalendarDays, Radio, Users, Settings, LogOut, Clock, Map, Database, FolderOpen, MoreHorizontal, BarChart2, Flower2, ListTodo, UserCircle, Search, PanelLeftOpen, PanelLeftClose, Radar } from 'lucide-react'
 import { A, BG, SURFACE, BORDER, FG, MUTED, A14 } from '../lib/theme.js'
 import { Avatar, MONO, SANS } from './ui.jsx'
 import GlobalSearch from './GlobalSearch.jsx'
@@ -16,6 +16,7 @@ const NAV_GROUPS = [
       { to: '/tasks',     icon: ListTodo,        label: 'Offene Aufgaben', short: 'Aufgaben' },
       // Einsätze-Hub bündelt Liste + Kalender + Wochenplan (Umschalter im Hub)
       { to: '/einsaetze', icon: CalendarDays,    label: 'Einsätze' },
+      { to: '/mana',      icon: Radar,           label: 'MANA™' },
     ],
   },
   {

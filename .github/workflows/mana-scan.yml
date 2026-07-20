@@ -30,6 +30,11 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
+          # Solange die Secrets fehlen, still überspringen statt täglich rot fehlzuschlagen
+          if [ -z "$ANTHROPIC_API_KEY" ] || [ -z "$SUPABASE_SERVICE_KEY" ]; then
+            echo "::warning::MANA-Scan übersprungen — ANTHROPIC_API_KEY/SUPABASE_SERVICE_KEY fehlen (Repo → Settings → Secrets → Actions)."
+            exit 0
+          fi
           if [ -n "${{ github.event.inputs.day }}" ]; then
             node scripts/mana-scan.mjs --day=${{ github.event.inputs.day }}
           else
