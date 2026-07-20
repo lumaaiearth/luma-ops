@@ -14,6 +14,7 @@ import { isoToday, weekStart, getWeekDays, addDays } from '../lib/storage.js'
 import { useBreakpoint } from '../lib/useBreakpoint.js'
 import { fetchTeamBusy } from '../lib/teamBusy.js'
 import WeatherIcon from '../components/WeatherIcon.jsx'
+import WeatherLine from '../components/WeatherLine.jsx'
 import { getWeatherForDate, STATUS_COLOR } from '../lib/weather.js'
 
 const DAY_NAMES = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
@@ -662,13 +663,12 @@ export default function CalendarPage() {
                       <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: isMobile ? 28 : 30, height: isMobile ? 28 : 30, borderRadius: '50%', background: isToday ? A : 'transparent', fontSize: isMobile ? 16 : 18, fontWeight: isToday ? 700 : 400, color: isToday ? 'var(--luma-on-a)' : FG, marginTop: 2 }}>
                         {d.getDate()}
                       </div>
-                      {/* Weather strip */}
+                      {/* Wetterzeile: Temperatur, Regenwahrscheinlichkeit, UV — farbcodiert */}
                       {wfc && (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, marginTop: 4, height: 18 }} title={`${wfc.label} · ${wfc.tempMax}°/${wfc.tempMin}° · ${wfc.precip}mm · UV ${wfc.uvMax}${wfc.warnings.length ? ' · ' + wfc.warnings.join(', ') : ''}`}>
-                          <WeatherIcon code={wfc.wmoCode} size={11} color={wWarn ? wsc : wGood ? wsc : MUTED} />
-                          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: wWarn ? wsc : MUTED }}>{wfc.tempMax}°</span>
-                          {wWarn && <AlertTriangle size={8} color={wsc} />}
-                          {wGood && !isMobile && <CheckCircle2 size={8} color={wsc} />}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, marginTop: 4 }}>
+                          {wWarn && <AlertTriangle size={9} color={wsc} />}
+                          {wGood && !isMobile && <CheckCircle2 size={9} color={wsc} />}
+                          <WeatherLine wfc={wfc} />
                         </div>
                       )}
                     </div>
@@ -863,10 +863,9 @@ export default function CalendarPage() {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                     <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: isToday ? 24 : 'auto', height: isToday ? 24 : 'auto', borderRadius: isToday ? '50%' : 0, background: isToday ? A : 'transparent', fontSize: 13, fontWeight: isToday ? 600 : 400, color: isToday ? 'var(--luma-on-a)' : FG }}>{d.getDate()}</div>
                     {wfc && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 3 }} title={`${wfc.label} ${wfc.tempMax}°/${wfc.tempMin}°${wfc.warnings.length ? ' · ' + wfc.warnings.join(', ') : ''}`}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                         {wWarn && <AlertTriangle size={9} color={wsc} />}
-                        <WeatherIcon code={wfc.wmoCode} size={11} color={wWarn ? wsc : MUTED} />
-                        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: wWarn ? wsc : MUTED }}>{wfc.tempMax}°</span>
+                        <WeatherLine wfc={wfc} />
                       </div>
                     )}
                   </div>
@@ -968,10 +967,10 @@ export default function CalendarPage() {
                         const sc = STATUS_COLOR[selWfc.status]
                         const isWarn = selWfc.status === 'warn' || selWfc.status === 'danger'
                         return (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
-                            <WeatherIcon code={selWfc.wmoCode} size={11} color={isWarn ? sc : MUTED} />
-                            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: isWarn ? sc : MUTED }}>{selWfc.label} · {selWfc.tempMax}°/{selWfc.tempMin}°</span>
-                            {isWarn && <AlertTriangle size={9} color={sc} />}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                            {isWarn && <AlertTriangle size={10} color={sc} />}
+                            <WeatherLine wfc={selWfc} size="lg" />
+                            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: isWarn ? sc : MUTED }}>{selWfc.label}</span>
                           </div>
                         )
                       })()}

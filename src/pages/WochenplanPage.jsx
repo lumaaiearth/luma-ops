@@ -8,8 +8,8 @@ import { TEAM } from '../data/seed.js'
 import { A, SURFACE, BORDER, FG, MUTED, CARD, A08, A14 } from '../lib/theme.js'
 import { INPUT_STYLE, LABEL_STYLE, Modal, ModalActions, MONO, SANS } from '../components/ui.jsx'
 import JobModal from '../components/JobModal.jsx'
-import WeatherIcon from '../components/WeatherIcon.jsx'
-import { getWeatherForDate, STATUS_COLOR } from '../lib/weather.js'
+import WeatherLine from '../components/WeatherLine.jsx'
+import { getWeatherForDate } from '../lib/weather.js'
 import { isoToday, addDays, weekStart, getWeekDays, genId } from '../lib/storage.js'
 import { useIsMobile } from '../lib/useBreakpoint.js'
 
@@ -70,30 +70,6 @@ function AbsenceModal({ teamId, onSave, onClose }) {
   )
 }
 
-// Kompakte Wetterzeile für einen Tag (Temperatur, Regen, UV) — Farben je Status
-function WeatherLine({ wfc, size = 'sm' }) {
-  if (!wfc) return null
-  const sc = STATUS_COLOR[wfc.status]
-  const warn = wfc.status === 'warn' || wfc.status === 'danger'
-  const rainWarn = (wfc.precipProb ?? 0) >= 60 || wfc.precip >= 10
-  const uvHigh = (wfc.uvMax ?? 0) >= 6
-  const big = size === 'lg'
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: big ? 8 : 4, justifyContent: 'center', flexWrap: 'wrap' }}
-      title={`${wfc.label} · ${wfc.tempMax}°/${wfc.tempMin}°${wfc.precipProb != null ? ` · Regen ${wfc.precipProb}%` : ''} · UV ${wfc.uvMax}${wfc.warnings.length ? ' · ' + wfc.warnings.join(', ') : ''}`}>
-      <WeatherIcon code={wfc.wmoCode} size={big ? 16 : 11} color={warn ? sc : MUTED} />
-      <span style={{ fontFamily: MONO, fontSize: big ? 12 : 9, color: FG, fontWeight: big ? 700 : 400 }}>
-        {wfc.tempMax}°<span style={{ color: MUTED, fontWeight: 400 }}>/{wfc.tempMin}°</span>
-      </span>
-      {wfc.precipProb != null && wfc.precipProb >= (big ? 20 : 40) && (
-        <span style={{ fontFamily: MONO, fontSize: big ? 11 : 8.5, color: rainWarn ? '#3B82F6' : MUTED, fontWeight: rainWarn ? 700 : 400 }}>☂{wfc.precipProb}%</span>
-      )}
-      {uvHigh && (
-        <span style={{ fontFamily: MONO, fontSize: big ? 10 : 8, fontWeight: 700, color: '#1a1200', background: '#FFD600', borderRadius: 4, padding: big ? '1px 5px' : '0px 3px' }}>UV{Math.round(wfc.uvMax)}</span>
-      )}
-    </div>
-  )
-}
 
 export default function WochenplanPage({ embedded = false }) {
   const { jobs, projects, vehicles, createJob, updateJob, createRecurring } = useOps()

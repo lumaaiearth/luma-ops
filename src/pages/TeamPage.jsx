@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { sb } from '../lib/supabase.js'
@@ -12,7 +13,7 @@ import { Phone, Mail } from 'lucide-react'
 const WEEKDAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 const WEEKDAY_SHORT = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 
-function AvailabilityEditor({ teamId, color, availability, onChange }) {
+export function AvailabilityEditor({ teamId, color, availability, onChange }) {
   const row = availability[teamId] || { weekdays: {}, note: '' }
   const [editingNote, setEditingNote] = useState(false)
   const [noteVal, setNoteVal] = useState('')
@@ -75,6 +76,7 @@ const TG_GROUPS = [
 export default function TeamPage() {
   const { jobs, projects } = useOps()
   const { profileForTeamId, isMitarbeiter } = useAuth()
+  const navigate = useNavigate()
   const today = isoToday()
   const next7 = addDays(today, 7)
   const [availability, setAvailability] = useState({})
@@ -102,7 +104,9 @@ export default function TeamPage() {
           const todayJob = myJobs.find(j => j.date === today)
           const prof = profileForTeamId(u.id)  // verknüpftes Login-Profil (Foto, Kontakt)
           return (
-            <div key={u.id} style={{ padding: '18px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, borderTop: `3px solid ${u.color}` }}>
+            <div key={u.id} onClick={() => navigate(`/team/${u.id}`)} className="lu-card lu-clickable"
+              title={`${u.name} — Details öffnen`}
+              style={{ padding: '18px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, borderTop: `3px solid ${u.color}`, cursor: 'pointer' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
                 <Avatar initials={u.initials} color={u.color} size={40} src={prof?.avatar_url || null} title={u.name} />
                 <div style={{ minWidth: 0 }}>
@@ -113,7 +117,7 @@ export default function TeamPage() {
 
               {/* Kontakt aus dem verknüpften Profil */}
               {(prof?.phone || prof?.contact_email || prof?.bio) && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 10 }}>
+                <div onClick={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 10, cursor: 'default' }}>
                   {prof.phone && (
                     <a href={`tel:${prof.phone}`} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: FG, textDecoration: 'none' }}>
                       <Phone size={11} color={u.color} /> {prof.phone}
@@ -129,7 +133,9 @@ export default function TeamPage() {
               )}
 
               {isMitarbeiter && (
-                <AvailabilityEditor teamId={u.id} color={u.color} availability={availability} onChange={saveAvailability} />
+                <div onClick={e => e.stopPropagation()} style={{ cursor: 'default' }}>
+                  <AvailabilityEditor teamId={u.id} color={u.color} availability={availability} onChange={saveAvailability} />
+                </div>
               )}
 
               {todayJob ? (
