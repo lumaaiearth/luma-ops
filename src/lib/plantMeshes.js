@@ -1,21 +1,22 @@
 // Prozedurale Low-Poly-Pflanzenmodelle (echte 3D-Polygone) für die Beet-Ansicht.
-// Jede Art bekommt zur Laufzeit ein Habitus-Modell aus ihren Datenfeldern:
-// Archetyp (Blütenstandsform), Höhe, Ausbreitung, Blütenfarbe. Maße in Metern,
-// damit Höhen-/Breitenverhältnisse im Beet real stimmen. Deterministisch
-// (seeded) und pro (Art × Saison-Zustand) gecacht — Erzeugung dauert
-// Millisekunden, gerendert wird per InstancedMesh.
+// Jede Art bekommt zur Laufzeit ein Habitus-Modell aus ihren Merkmalen
+// (plantMorphology.js): Blütenstand, Blattform, Blattstellung, Blatt-/Blütenfarbe
+// — alles über den Jahresverlauf (Wachstum, Blüte→Samen, Frühlings-/Herbstlaub).
+// Maße in Metern → reale Höhen-/Breitenverhältnisse. Deterministisch (seeded)
+// und pro (Art × Monat) gecacht; gerendert per InstancedMesh.
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
-import { hashStr, deriveArchetype } from './beetLayout.js'
+import { hashStr, stateForMonth } from './beetLayout.js'
+import { getMorphology } from './plantMorphology.js'
 
 function mulberry(seed) {
   let a = seed >>> 0
   return () => { a += 0x6D2B79F5; let r = Math.imul(a ^ (a >>> 15), a | 1); r ^= r + Math.imul(r ^ (r >>> 7), r | 61); return ((r ^ (r >>> 14)) >>> 0) / 4294967296 }
 }
+const SEED_COL = '#b09256'
 
-// Vertexfarbe uniform auf eine Teilgeometrie malen (+ leichte Tonvarianz).
-// Wandelt indexed → non-indexed (fürs Mergen müssen alle Teile denselben
-// Index-Status haben) und entfernt UVs.
+function noUV(g) { g.deleteAttribute('uv'); return g }
+// Vertexfarbe auf eine Teilgeometrie (+ leichte Tonvarianz); non-indexed machen.
 function paint(geoIn, hex, vary = 0) {
   const geo = geoIn.index ? geoIn.toNonIndexed() : geoIn
   if (geo !== geoIn) geoIn.dispose()
@@ -29,9 +30,8 @@ function paint(geoIn, hex, vary = 0) {
   return geo
 }
 
-// Getapertes Blatt/Blütenblatt: schmale Lanzette (3 Dreiecke), Fuß bei y=0,
-// Spitze bei y=len. Non-indexed, mit Normalen.
-function blade(len, wBase, curve = 0) {
+// ── Blatt-Primitive: Basis bei y=0, Spitze +y, flach in XY, Normalen gesetzt ──
+function bladeGeo(len, wBase, curve = 0) {
   const wm = wBase * 0.42
   const p = new Float32Array([
     -wBase / 2, 0, 0, wBase / 2, 0, 0, -wm, len * 0.5, curve,
@@ -43,146 +43,264 @@ function blade(len, wBase, curve = 0) {
   g.computeVertexNormals()
   return g
 }
+function ovalGeo(len, w, seg = 7) {
+  const g = new THREE.CircleGeometry(0.5, seg)
+  g.scale(w, len, 1); g.translate(0, len / 2, 0)
+  return noUV(g)
+}
+function needleGeo(len) {
+  const g = new THREE.CylinderGeometry(0.004, 0.006, len, 4)
+  g.translate(0, len / 2, 0)
+  return noUV(g)
+}
+// Zusammengesetzte Blätter aus Teilstücken zu einem Blatt mergen.
+// Alle Teile auf non-indexed + nur position/normal normalisieren (mergeGeometries
+// verlangt einheitliche Attribute und einheitlichen Index-Status).
+function compound(pieces) {
+  const norm = pieces.map(p => {
+    const g = p.index ? p.toNonIndexed() : p
+    if (g !== p) p.dispose()
+    g.deleteAttribute('uv')
+    if (!g.attributes.normal) g.computeVertexNormals()
+    return g
+  })
+  const m = mergeGeometries(norm, false)
+  norm.forEach(p => p.dispose())
+  return m
+}
+function pinnateGeo(len, w) { // gefiedert: Rachis + Fiederblättchen
+  const parts = []
+  const rachis = new THREE.CylinderGeometry(0.004, 0.005, len, 4); rachis.translate(0, len / 2, 0); parts.push(noUV(rachis))
+  const n = 3 + (len > 0.18 ? 1 : 0)
+  for (let i = 1; i <= n; i++) {
+    const y = len * (i / (n + 1)), ll = w * (1.1 - i * 0.12)
+    for (const s of [-1, 1]) {
+      const lf = bladeGeo(ll, w * 0.5, 0); lf.rotateZ(s * 1.15); lf.translate(0, y, 0); parts.push(lf)
+    }
+  }
+  return compound(parts)
+}
+function featheryGeo(len, w) { // fein gefiedert (Achillea/Artemisia)
+  const parts = []
+  const rachis = new THREE.CylinderGeometry(0.003, 0.004, len, 4); rachis.translate(0, len / 2, 0); parts.push(noUV(rachis))
+  const n = 5
+  for (let i = 1; i <= n; i++) {
+    const y = len * (i / (n + 1))
+    for (const s of [-1, 1]) { const lf = bladeGeo(w * 0.7, 0.012, 0); lf.rotateZ(s * 1.3); lf.translate(0, y, 0); parts.push(lf) }
+  }
+  return compound(parts)
+}
+function cloverGeo(len, w) { // klee/dreizählig
+  const parts = []
+  const stalk = new THREE.CylinderGeometry(0.004, 0.005, len * 0.6, 4); stalk.translate(0, len * 0.3, 0); parts.push(noUV(stalk))
+  for (const a of [-0.7, 0, 0.7]) { const lf = ovalGeo(len * 0.5, w * 0.6, 6); lf.rotateZ(a); lf.translate(0, len * 0.6, 0); parts.push(lf) }
+  return compound(parts)
+}
+// Ein Blatt der gewünschten Form erzeugen (Basis y=0, +y).
+function makeLeaf(form, len, w) {
+  switch (form) {
+    case 'grasartig': return bladeGeo(len, w * 0.5, len * 0.14)
+    case 'schmal': return bladeGeo(len, w * 0.55, len * 0.08)
+    case 'schwert': return bladeGeo(len, w * 0.8, 0)
+    case 'lanzettlich': return bladeGeo(len, w, len * 0.08)
+    case 'oval': return ovalGeo(len, w * 0.95, 7)
+    case 'rund': return ovalGeo(len, len * 0.95, 8)
+    case 'herz': return ovalGeo(len, w * 1.1, 6)
+    case 'gelappt': return ovalGeo(len, w * 1.05, 5)
+    case 'nadel': return needleGeo(len)
+    case 'gefiedert': return pinnateGeo(len, w)
+    case 'fein': return featheryGeo(len, w)
+    case 'klee': return cloverGeo(len, w)
+    default: return bladeGeo(len, w, len * 0.08)
+  }
+}
 
-const LEAF = { green: '#4d7c3f', bloom: '#4d7c3f', seed: '#8a8a52' }
-const LEAF2 = { green: '#65953f', bloom: '#65953f', seed: '#a39a5e' }
-const SEED_COL = '#b09256'
+// ── Jahreszeitliche Blattfarbe ────────────────────────────────────────────
+function seasonalLeaf(morph, month) {
+  const base = new THREE.Color(morph.leafCol)
+  if (month <= 4) { const c = base.clone(); c.offsetHSL(0, -0.02, 0.06); return c } // Frühling: frisch
+  if (month <= 8 || morph.evergreen) return base                                     // Sommer / wintergrün
+  const autumn = new THREE.Color(morph.autumn || (morph.leaf === 'grasartig' ? '#c9b37c' : '#b0894f'))
+  return month === 9 ? base.clone().lerp(autumn, 0.45) : autumn                      // Sept anteilig, Okt voll
+}
 
 const cache = new Map()
 const MAX_CACHE = 400
 
-// Haupteinstieg: fertige BufferGeometry (mit Vertexfarben) für Art + Zustand.
-export function speciesGeometry(sp, state) {
-  const key = sp.id + '|' + state
+export function speciesGeometry(sp, month) {
+  const key = sp.id + '|' + month
   const hit = cache.get(key)
   if (hit) return hit
 
-  const arche = deriveArchetype(sp)
+  const M = getMorphology(sp)
+  const state = stateForMonth(sp, month)
   const rnd = mulberry(hashStr(key))
-  const H = Math.max(0.06, (sp.hoehe?.[1] ?? 50) / 100)          // Meter
+  const H = Math.max(0.06, (sp.hoehe?.[1] ?? 50) / 100)
   const spread = Math.max(0.12, (sp.ausbreitung || sp.pflanzabstand || 40) / 100)
-  const bloom = state === 'bloom'
-  const flowerCol = state === 'seed' ? SEED_COL : (bloom ? (sp.bluete_farbe || '#c47ad6') : LEAF2[state])
-  const leaf = LEAF[state], leaf2 = LEAF2[state]
+  const bloom = state === 'bloom', seed = state === 'seed'
+  const leafC = seasonalLeaf(M, month)
+  const leaf = '#' + leafC.getHexString()
+  const leafD = '#' + leafC.clone().offsetHSL(0, 0, -0.06).getHexString()
+  const flowerCol = seed ? SEED_COL : (bloom ? (sp.bluete_farbe || '#c47ad6') : leafD)
   const parts = []
   const add = g => parts.push(g)
 
-  // Ein Stängel (dünner Kegelstumpf); Rückgabe: Spitzenposition.
   function stem(x, z, h, r = 0.011) {
-    const g = new THREE.CylinderGeometry(r * 0.4, r, h, 5)
-    g.translate(0, h / 2, 0)
-    const az = (rnd() - 0.5) * 0.3, ax = (rnd() - 0.5) * 0.3
+    const g = new THREE.CylinderGeometry(r * 0.4, r, h, 5); g.translate(0, h / 2, 0)
+    const az = (rnd() - 0.5) * 0.28, ax = (rnd() - 0.5) * 0.28
     g.rotateZ(az); g.rotateX(ax); g.translate(x, 0, z)
-    add(paint(g, rnd() < 0.5 ? leaf : leaf2, rnd()))
+    add(paint(noUV(g), rnd() < 0.5 ? leaf : leafD, rnd()))
     const sy = h * Math.cos(az), tx = -h * Math.sin(az)
-    return [x + tx, sy * Math.cos(ax), z + sy * Math.sin(ax)]
+    return { x: x + tx, y: sy * Math.cos(ax), z: z + sy * Math.sin(ax), ax, az }
   }
   function ball(x, y, z, r, col, squashY = 1) {
-    const g = new THREE.IcosahedronGeometry(r, 0)
-    g.scale(1, squashY, 1); g.translate(x, y, z)
+    const g = new THREE.IcosahedronGeometry(r, 0); g.scale(1, squashY, 1); g.translate(x, y, z)
     add(paint(g, col, rnd()))
   }
-  // Ein Blatt am Boden platzieren (nach außen gekippt, zufällig gedreht).
-  function groundLeaf(len, w, col) {
-    const b = blade(len, w, len * 0.18)
-    b.rotateX(-1.0 - rnd() * 0.5)
-    b.rotateY(rnd() * Math.PI * 2)
-    add(paint(b, col, rnd()))
+  function leafAt(x, y, z, form, len, w, tilt, col) {
+    const g = makeLeaf(form, len, w)
+    g.rotateX(tilt); g.rotateY(rnd() * Math.PI * 2); g.translate(x, y, z)
+    add(paint(g, col, rnd()))
   }
-  // Blattschopf: flacher Dom + getaperte Blattspreiten.
-  function baseTuft(r, hFac = 0.34) {
-    const dome = new THREE.IcosahedronGeometry(Math.max(0.05, r), 0)
-    dome.scale(1, hFac, 1); dome.translate(0, 0.02, 0)
-    add(paint(dome, leaf, rnd()))
-    const nb = 6 + Math.floor(rnd() * 3)
-    for (let i = 0; i < nb; i++) groundLeaf(Math.max(0.08, r * (0.9 + rnd() * 0.6)), Math.max(0.02, r * 0.28), rnd() < 0.5 ? leaf : leaf2)
-  }
-  // Blütenkopf mit echten Blütenblättern (Körbchen/Strahlenblüte).
-  function corolla(x, y, z, r, petalCol, centerCol) {
-    const nP = 7 + Math.floor(rnd() * 3)
-    for (let i = 0; i < nP; i++) {
-      const pet = blade(r * 1.9, r * 0.7, 0)
-      pet.rotateX(-Math.PI / 2 + 0.35)                 // fast flach, leicht angehoben
-      pet.rotateY((i / nP) * Math.PI * 2 + rnd() * 0.1)
-      pet.translate(x, y, z)
-      add(paint(pet, petalCol, rnd() * 0.6))
+  // Blattschopf am Boden (Rosette / Grundblätter)
+  function basalLeaves(n, len, w, form, tiltBase) {
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + rnd() * 0.5, d = rnd() * spread * 0.14
+      const g = makeLeaf(form, len * (0.85 + rnd() * 0.3), w)
+      g.rotateX(tiltBase + rnd() * 0.25); g.rotateY(a); g.translate(Math.cos(a) * d, 0.01, Math.sin(a) * d)
+      add(paint(g, rnd() < 0.5 ? leaf : leafD, rnd()))
     }
-    ball(x, y + r * 0.12, z, r * 0.5, centerCol || '#9a6a10', 0.6)
+  }
+  // Stängelblätter je Blattstellung
+  function caulineLeaves(base, tip, h) {
+    if (M.leaf === 'grasartig' || M.leaf === 'schwert') return
+    const nodes = h > 0.6 ? 3 : 2
+    const llen = Math.min(0.16, Math.max(0.05, spread * 0.35))
+    for (let k = 1; k <= nodes; k++) {
+      const f = k / (nodes + 1)
+      const nx = base.x + (tip.x - base.x) * f, ny = (tip.y) * f, nz = base.z + (tip.z - base.z) * f
+      const size = llen * (1 - f * 0.5)
+      if (M.arrange === 'gegenstaendig') for (const s of [0, Math.PI]) leafAt2(nx, ny, nz, size, s)
+      else if (M.arrange === 'quirlig') for (const s of [0, 2.1, 4.2]) leafAt2(nx, ny, nz, size, s)
+      else leafAt2(nx, ny, nz, size, rnd() * Math.PI * 2) // wechselständig
+    }
+  }
+  function leafAt2(x, y, z, size, az) {
+    const g = makeLeaf(M.leaf === 'fein' || M.leaf === 'gefiedert' || M.leaf === 'klee' ? M.leaf : (M.leaf === 'oval' || M.leaf === 'herz' || M.leaf === 'rund' || M.leaf === 'gelappt' ? M.leaf : 'lanzettlich'), size, size * 0.5)
+    g.rotateX(-1.15); g.rotateY(az); g.translate(x, y, z)
+    add(paint(g, rnd() < 0.5 ? leaf : leafD, rnd()))
   }
 
-  if (arche === 'baum' || arche === 'strauch') {
-    const trunkH = arche === 'baum' ? H * 0.35 : H * 0.18
-    const t = new THREE.CylinderGeometry(arche === 'baum' ? 0.05 : 0.02, arche === 'baum' ? 0.08 : 0.035, trunkH, 6)
-    t.translate(0, trunkH / 2, 0)
-    add(paint(t, '#6b4e2e'))
-    const crownR = Math.max(0.2, spread * (arche === 'baum' ? 0.45 : 0.4))
-    for (let i = 0; i < 3; i++) {
-      const a = rnd() * Math.PI * 2, d = rnd() * crownR * 0.4
-      ball(Math.cos(a) * d, trunkH + crownR * (0.55 + rnd() * 0.5), Math.sin(a) * d, crownR * (0.65 + rnd() * 0.25), rnd() < 0.5 ? leaf : leaf2, 0.85)
+  // ── Blütenstände ──
+  function inflorescence(tip, h) {
+    const t = tip
+    switch (M.infl) {
+      case 'aehre': case 'lippe': {
+        const spikeLen = Math.max(0.05, H * 0.34), big = M.infl === 'lippe'
+        const s = new THREE.CylinderGeometry(0.006, 0.02, spikeLen, 5); s.translate(t.x, t.y + spikeLen / 2, t.z)
+        add(paint(noUV(s), flowerCol, rnd()))
+        if (bloom) { const nf = big ? 5 : 7; for (let k = 0; k < nf; k++) ball(t.x + (rnd() - 0.5) * (big ? 0.05 : 0.04), t.y + spikeLen * (0.15 + 0.8 * k / nf), t.z + (rnd() - 0.5) * 0.04, big ? 0.02 : 0.014, flowerCol, 0.95) }
+        break
+      }
+      case 'traube': {
+        const rlen = Math.max(0.06, H * 0.35), n = 5
+        for (let k = 0; k < n; k++) { const yy = t.y + rlen * (k / n); ball(t.x + (rnd() - 0.5) * 0.05, yy, t.z + (rnd() - 0.5) * 0.03, 0.016, flowerCol, 1.1) }
+        break
+      }
+      case 'rispe': {
+        const rlen = Math.max(0.05, H * 0.3), n = 9
+        for (let k = 0; k < n; k++) { const yy = t.y + rlen * rnd(), rr = (1 - yy / (t.y + rlen)) * 0.06; ball(t.x + (rnd() - 0.5) * 0.09, yy, t.z + (rnd() - 0.5) * 0.09, seed || !bloom ? 0.008 : 0.012, flowerCol, 0.8) }
+        break
+      }
+      case 'dolde': {
+        const r = Math.max(0.03, H * 0.09)
+        if (bloom) for (let k = 0; k < 12; k++) { const a = rnd() * Math.PI * 2, dd = Math.sqrt(rnd()) * r; ball(t.x + Math.cos(a) * dd, t.y + 0.008 + (rnd() - 0.5) * 0.012, t.z + Math.sin(a) * dd, 0.012, flowerCol, 0.7) }
+        else ball(t.x, t.y + 0.006, t.z, r * 0.7, flowerCol, 0.4)
+        break
+      }
+      case 'korb': {
+        if (bloom) corolla(t.x, t.y + 0.012, t.z, Math.max(0.02, H * 0.05))
+        else ball(t.x, t.y + 0.012, t.z, Math.max(0.02, H * 0.045), flowerCol, 0.6)
+        break
+      }
+      case 'koepfchen': {
+        const r = Math.max(0.02, H * 0.05)
+        ball(t.x, t.y + r * 0.6, t.z, r, flowerCol, 1)
+        if (bloom) for (let k = 0; k < 8; k++) { const a = rnd() * Math.PI * 2; ball(t.x + Math.cos(a) * r, t.y + r * 0.6 + (rnd() - 0.5) * r, t.z + Math.sin(a) * r, r * 0.35, flowerCol) }
+        break
+      }
+      case 'glocke': {
+        const nb = 2 + Math.floor(rnd() * 2)
+        for (let k = 0; k < nb; k++) ball(t.x + (rnd() - 0.5) * 0.04, t.y - k * Math.max(0.03, H * 0.07), t.z + (rnd() - 0.5) * 0.04, 0.022, flowerCol, 1.3)
+        break
+      }
+      case 'kugel': { // Allium
+        const r = Math.max(0.03, H * 0.08)
+        for (let k = 0; k < 26; k++) { const u = rnd() * Math.PI * 2, v = Math.acos(2 * rnd() - 1); ball(t.x + Math.sin(v) * Math.cos(u) * r, t.y + r + Math.cos(v) * r, t.z + Math.sin(v) * Math.sin(u) * r, 0.009, flowerCol) }
+        break
+      }
+      case 'kolben': {
+        const cl = Math.max(0.05, H * 0.2)
+        const s = new THREE.CylinderGeometry(0.012, 0.016, cl, 6); s.translate(t.x, t.y + cl / 2, t.z)
+        add(paint(noUV(s), seed ? SEED_COL : (bloom ? flowerCol : leafD), rnd()))
+        break
+      }
+      default: { // einzeln
+        if (bloom && (M.leaf !== 'nadel')) corolla(t.x, t.y + 0.012, t.z, Math.max(0.024, H * 0.06))
+        else ball(t.x, t.y + 0.012, t.z, Math.max(0.022, H * 0.05), flowerCol, 0.6)
+      }
     }
-    if (bloom) for (let i = 0; i < 7; i++) {
-      const a = rnd() * Math.PI * 2, d = crownR * (0.5 + rnd() * 0.45)
-      ball(Math.cos(a) * d, trunkH + crownR + (rnd() - 0.5) * crownR, Math.sin(a) * d, 0.035, flowerCol)
+  }
+  function corolla(x, y, z, r) {
+    const nP = 7 + Math.floor(rnd() * 3)
+    for (let i = 0; i < nP; i++) {
+      const pet = bladeGeo(r * 1.9, r * 0.7, 0)
+      pet.rotateX(-Math.PI / 2 + 0.35); pet.rotateY((i / nP) * Math.PI * 2 + rnd() * 0.1); pet.translate(x, y, z)
+      add(paint(pet, flowerCol, rnd() * 0.6))
     }
-  } else if (arche === 'decker') {
-    const r = spread * 0.5
-    const dome = new THREE.IcosahedronGeometry(r, 1)
-    dome.scale(1, Math.max(0.12, H / r) * 0.5, 1)
-    add(paint(dome, leaf, rnd()))
-    for (let i = 0; i < 8; i++) groundLeaf(Math.max(0.05, H * 0.7), 0.03, leaf2)
-    const nf = bloom ? 16 : (state === 'seed' ? 6 : 0)
-    for (let i = 0; i < nf; i++) {
-      const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd()) * r * 0.85
-      ball(Math.cos(a) * d, H * 0.75 + 0.015, Math.sin(a) * d, 0.02, flowerCol, 0.7)
-    }
-  } else if (arche === 'gras') {
+    ball(x, y + r * 0.12, z, r * 0.5, seed ? '#7a5a20' : '#9a6a10', 0.6)
+  }
+
+  // ── Aufbau nach Habitus ──
+  if (M.woody) {
+    const trunkH = sp.type === 'baum' ? H * 0.35 : H * 0.18
+    const t = new THREE.CylinderGeometry(sp.type === 'baum' ? 0.05 : 0.02, sp.type === 'baum' ? 0.08 : 0.035, trunkH, 6); t.translate(0, trunkH / 2, 0)
+    add(paint(noUV(t), '#6b4e2e'))
+    const crownR = Math.max(0.2, spread * 0.45)
+    const winterBare = month >= 11 || month <= 2
+    for (let i = 0; i < 3; i++) { const a = rnd() * Math.PI * 2, d = rnd() * crownR * 0.4; ball(Math.cos(a) * d, trunkH + crownR * (0.55 + rnd() * 0.5), Math.sin(a) * d, crownR * (0.65 + rnd() * 0.25), (winterBare && !M.evergreen) ? '#7a6242' : (rnd() < 0.5 ? leaf : leafD), 0.85) }
+    if (bloom) for (let i = 0; i < 8; i++) { const a = rnd() * Math.PI * 2, d = crownR * (0.5 + rnd() * 0.45); ball(Math.cos(a) * d, trunkH + crownR + (rnd() - 0.5) * crownR, Math.sin(a) * d, 0.035, flowerCol) }
+  } else if (M.leaf === 'grasartig') {
     const n = 12 + Math.floor(rnd() * 6)
     for (let i = 0; i < n; i++) {
       const bh = H * (0.65 + rnd() * 0.4)
-      const b = blade(bh, 0.016, bh * 0.12)
-      b.rotateZ((rnd() - 0.5) * 0.8); b.rotateY(rnd() * Math.PI * 2)
-      const a = rnd() * Math.PI * 2, d = rnd() * spread * 0.2
-      b.translate(Math.cos(a) * d, 0, Math.sin(a) * d)
+      const b = bladeGeo(bh, 0.016, bh * 0.13); b.rotateZ((rnd() - 0.5) * 0.8); b.rotateY(rnd() * Math.PI * 2)
+      const a = rnd() * Math.PI * 2, d = rnd() * spread * 0.2; b.translate(Math.cos(a) * d, 0, Math.sin(a) * d)
       add(paint(b, rnd() < 0.35 ? '#8a9a5b' : leaf, rnd()))
-      if ((bloom || state === 'seed') && rnd() < 0.45) {
-        const g = new THREE.CylinderGeometry(0.004, 0.012, bh * 0.22, 4)
-        g.translate(Math.cos(a) * d, bh * 0.98, Math.sin(a) * d)
-        add(paint(g, bloom && sp.bluete_farbe ? sp.bluete_farbe : SEED_COL, rnd()))
-      }
+      if ((bloom || seed) && rnd() < 0.4) { const g = new THREE.CylinderGeometry(0.004, 0.012, bh * 0.22, 4); g.translate(Math.cos(a) * d, bh * 0.98, Math.sin(a) * d); add(paint(noUV(g), bloom && sp.bluete_farbe ? sp.bluete_farbe : SEED_COL, rnd())) }
     }
+  } else if (sp.wuchsform === 'kriechend' || sp.wuchsform === 'polster' || (sp.hoehe?.[1] ?? 50) < 18) {
+    const r = spread * 0.5
+    const dome = new THREE.IcosahedronGeometry(r, 1); dome.scale(1, Math.max(0.12, H / r) * 0.5, 1)
+    add(paint(dome, leaf, rnd()))
+    for (let i = 0; i < 10; i++) { const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd()) * r * 0.9; leafAt(Math.cos(a) * d, H * 0.4, Math.sin(a) * d, M.leaf === 'fein' || M.leaf === 'gefiedert' ? M.leaf : 'schmal', H * 0.7, 0.03, -1.3, rnd() < 0.5 ? leaf : leafD) }
+    const nf = bloom ? 16 : (seed ? 6 : 0)
+    for (let i = 0; i < nf; i++) { const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd()) * r * 0.85; ball(Math.cos(a) * d, H * 0.75 + 0.015, Math.sin(a) * d, 0.02, flowerCol, 0.7) }
   } else {
-    baseTuft(spread * 0.42)
-    const nStems = arche === 'geophyt' ? 3 + Math.floor(rnd() * 2) : 5 + Math.floor(rnd() * 4)
+    // Krautige mit Stängeln
+    const rosette = M.arrange === 'rosette'
+    const basalN = rosette ? 7 + Math.floor(rnd() * 3) : 4 + Math.floor(rnd() * 2)
+    const basalLen = Math.min(0.28, Math.max(0.08, H * 0.4))
+    basalLeaves(basalN, basalLen, Math.max(0.03, spread * 0.32), M.leaf, rosette ? -0.7 : -1.0)
+    const nStems = M.infl === 'kugel' || sp.funktion === 'Zw' ? 2 + Math.floor(rnd() * 2) : 5 + Math.floor(rnd() * 4)
     for (let i = 0; i < nStems; i++) {
       const a = rnd() * Math.PI * 2, d = rnd() * spread * 0.3
       const sx = Math.cos(a) * d, sz = Math.sin(a) * d
-      if (arche === 'aehre') {
-        const stemH = H * (0.55 + rnd() * 0.18)
-        const [tx, ty, tz] = stem(sx, sz, stemH)
-        const spikeLen = Math.max(0.05, H * 0.32)
-        const s = new THREE.CylinderGeometry(0.006, 0.02, spikeLen, 5)
-        s.translate(tx, ty + spikeLen / 2, tz)
-        add(paint(s, flowerCol, rnd()))
-        if (bloom) { // seitliche Einzelblütchen an der Ähre
-          const nf = 5 + Math.floor(rnd() * 3)
-          for (let k = 0; k < nf; k++) ball(tx + (rnd() - 0.5) * 0.05, ty + spikeLen * (0.2 + 0.7 * k / nf), tz + (rnd() - 0.5) * 0.05, 0.016, flowerCol, 0.9)
-        }
-      } else if (arche === 'dolde') {
-        const [tx, ty, tz] = stem(sx, sz, H * (0.8 + rnd() * 0.18))
-        const r = Math.max(0.03, H * 0.08)
-        if (bloom) for (let k = 0; k < 11; k++) { // Einzelblüten der Dolde
-          const ang = rnd() * Math.PI * 2, dd = Math.sqrt(rnd()) * r
-          ball(tx + Math.cos(ang) * dd, ty + 0.01 + (rnd() - 0.5) * 0.01, tz + Math.sin(ang) * dd, 0.012, flowerCol, 0.7)
-        } else ball(tx, ty + 0.008, tz, r * 0.7, flowerCol, 0.45)
-      } else if (arche === 'glocke') {
-        const [tx, ty, tz] = stem(sx, sz, H * (0.72 + rnd() * 0.22))
-        const nb = 2 + Math.floor(rnd() * 2)
-        for (let k = 0; k < nb; k++) ball(tx + (rnd() - 0.5) * 0.04, ty - k * Math.max(0.03, H * 0.07), tz + (rnd() - 0.5) * 0.04, 0.022, flowerCol, 1.25)
-      } else { // korb, geophyt & Standard → Strahlenblüte mit Blütenblättern
-        const [tx, ty, tz] = stem(sx, sz, H * (0.7 + rnd() * 0.25))
-        if (bloom && arche !== 'geophyt') corolla(tx, ty + 0.012, tz, Math.max(0.02, H * 0.05), flowerCol, '#9a6a10')
-        else ball(tx, ty + 0.012, tz, Math.max(0.022, H * 0.05), flowerCol, 0.6)
-      }
+      const stemH = H * (M.infl === 'kugel' ? 0.9 : 0.7 + rnd() * 0.22)
+      const base = { x: sx, y: 0, z: sz }
+      const tip = stem(sx, sz, stemH)
+      if (!rosette) caulineLeaves(base, tip, stemH)
+      inflorescence(tip, stemH)
     }
   }
 
@@ -200,10 +318,7 @@ export function disposePlantGeometryCache() {
   cache.clear()
 }
 
-// Wind-fähiges Lambert-Material: injiziert eine höhenabhängige Schwingung in den
-// Vertex-Shader (onBeforeCompile). uTime/uWind sind geteilte Uniforms, damit ein
-// rAF-Loop alle Instanzen gemeinsam animiert. Phase je Instanz aus ihrer
-// Weltposition → jede Pflanze wiegt sich leicht versetzt.
+// Wind-fähiges Lambert-Material: höhenabhängige Schwingung im Vertex-Shader.
 export function makePlantMaterial(uTime, uWind) {
   const mat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, side: THREE.DoubleSide })
   mat.onBeforeCompile = shader => {
