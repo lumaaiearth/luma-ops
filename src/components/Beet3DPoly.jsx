@@ -9,7 +9,7 @@ import * as THREE from 'three'
 import { A, A14, A20, BORDER, FG, MUTED, SURFACE } from '../lib/theme.js'
 import { Download, Play, Pause, RotateCw, Wind } from 'lucide-react'
 import {
-  stateForMonth, growthForMonth, hashStr, seededRand,
+  growthForMonth, hashStr, seededRand,
   MONTHS_FULL, SEASON_OF, POLLI_GROUPS,
 } from '../lib/beetLayout.js'
 import { speciesGeometry, makePlantMaterial } from '../lib/plantMeshes.js'
@@ -160,7 +160,7 @@ export default function Beet3DPoly({ placement, beetW, beetH, beetForm, L, shado
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), pos = new THREE.Vector3(), scl = new THREE.Vector3()
     const up = new THREE.Vector3(0, 1, 0)
     for (const { sp, items } of bySpecies.values()) {
-      const geo = speciesGeometry(sp, stateForMonth(sp, month))
+      const geo = speciesGeometry(sp, month)
       const mat = makePlantMaterial(uTimeRef.current, uWindRef.current)
       const mesh = new THREE.InstancedMesh(geo, mat, items.length)
       items.forEach((p, i) => {
