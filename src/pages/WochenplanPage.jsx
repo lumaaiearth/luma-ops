@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { ChevronLeft, ChevronRight, Plus, CalendarRange, Pencil, X } from 'lucide-react'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -62,8 +62,30 @@ function AbsenceModal({ teamId, onSave, onClose }) {
 export default function WochenplanPage() {
   const { jobs, projects, vehicles, createJob, updateJob, createRecurring } = useOps()
   const { isMitarbeiter } = useAuth()
-  const today = isoToday()
+  // "Heute" als State: die Capacitor-App lebt oft tagelang im Speicher — ohne
+  // Refresh zeigt ein stehen gebliebenes `today` sonst auf ein altes Datum.
+  const [today, setToday] = useState(isoToday())
   const [ws, setWs] = useState(weekStart(today))
+  const matrixRef = useRef(null)
+
+  useEffect(() => {
+    const refresh = () => setToday(isoToday())
+    document.addEventListener('visibilitychange', refresh)
+    window.addEventListener('focus', refresh)
+    return () => { document.removeEventListener('visibilitychange', refresh); window.removeEventListener('focus', refresh) }
+  }, [])
+
+  // Springt zur aktuellen Woche UND scrollt die Heute-Spalte in Sicht —
+  // auf schmalen Screens ist die Matrix horizontal gescrollt, dort wirkte
+  // der Button sonst wie „ohne Funktion".
+  function goToday() {
+    const t = isoToday()
+    setToday(t)
+    setWs(weekStart(t))
+    setTimeout(() => {
+      matrixRef.current?.querySelector('[data-today]')?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' })
+    }, 60)
+  }
   const [modal, setModal] = useState(null)        // { date, uid } | { job }
   const [selectedJob, setSelectedJob] = useState(null)
   const [absenceModal, setAbsenceModal] = useState(null) // teamId
@@ -133,7 +155,7 @@ export default function WochenplanPage() {
             KW {kw} · {fmtShort(days[0])} – {fmtShort(days[6])}{days[0].slice(0, 4)}
           </div>
           <button onClick={() => setWs(addDays(ws, 7))} className="lu-btn-ghost" style={{ width: 28, height: 28, borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronRight size={14} /></button>
-          <button onClick={() => setWs(weekStart(today))} className="lu-btn-ghost" style={{ padding: '5px 12px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 12 }}>Heute</button>
+          <button onClick={goToday} className="lu-btn-ghost" style={{ padding: '5px 12px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 12 }}>Heute</button>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 14, fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, alignItems: 'center', flexWrap: 'wrap' }}>
           <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, boxShadow: `inset 0 0 0 1.5px ${A}`, verticalAlign: -1, marginRight: 4 }} />verfügbar</span>
@@ -143,12 +165,12 @@ export default function WochenplanPage() {
       </div>
 
       {/* Matrix */}
-      <div style={{ overflowX: 'auto', paddingBottom: 8 }}>
+      <div ref={matrixRef} style={{ overflowX: 'auto', paddingBottom: 8 }}>
         <div style={{ display: 'grid', gridTemplateColumns: `150px repeat(7, minmax(120px, 1fr))`, gap: 4, minWidth: 1050 }}>
           {/* Kopfzeile */}
           <div />
           {days.map((d, i) => (
-            <div key={d} style={{ padding: '4px 8px', textAlign: 'center' }}>
+            <div key={d} {...(d === today ? { 'data-today': true } : {})} style={{ padding: '4px 8px', textAlign: 'center' }}>
               <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', color: d === today ? A : MUTED, fontWeight: d === today ? 700 : 400 }}>
                 {DAY_LABELS[i]} {fmtShort(d)}
               </span>

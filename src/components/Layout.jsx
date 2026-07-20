@@ -205,7 +205,10 @@ export default function Layout({ children, fullHeight = false }) {
   return (
     <div className="luma-root" style={{ display: 'flex', overflow: 'hidden', background: BG }}>
       <style>{`
-        .luma-root { height: 100vh; height: 100dvh; }
+        /* body ist fixiert (index.html) → 100% entspricht exakt dem sichtbaren
+           Viewport. 100vh/100dvh maßen in der WKWebView teils zu hoch und
+           erzeugten die Layout-Lücke unter der Bottom-Nav. */
+        .luma-root { height: 100%; }
         @media (max-width: 768px) {
           .desktop-sidebar { display: none !important; }
           /* Obere Leiste unter die iOS-Statusleiste/Notch schieben (Safe Area) */
