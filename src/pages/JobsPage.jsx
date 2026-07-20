@@ -3,7 +3,8 @@ import { useSearchParams } from 'react-router-dom'
 import { useOps } from '../context/OpsContext.jsx'
 import { A, SURFACE, BORDER, FG, MUTED, OK, DANGER, INFO } from '../lib/theme.js'
 import { PageHeader, Button, Tabs, Chips, EmptyState, Badge } from '../components/ui.jsx'
-import { JOB_TYPES, TEAM, VEHICLES } from '../data/seed.js'
+import { JOB_TYPES, VEHICLES } from '../data/seed.js'
+import { peopleForIds } from '../lib/people.js'
 import { formatDate, isoToday } from '../lib/storage.js'
 import JobModal from '../components/JobModal.jsx'
 import { useBreakpoint } from '../lib/useBreakpoint.js'
@@ -122,7 +123,7 @@ export default function JobsPage() {
           {recurring.map(r => {
             const type      = JOB_TYPES.find(t => t.id === r.job_type)
             const project   = projects.find(p => p.id === r.project_id)
-            const assignees = TEAM.filter(t => (r.assigned_users || []).includes(t.id))
+            const assignees = peopleForIds(r.assigned_users)
             const daysUntil = Math.ceil((new Date(r.next_date + 'T00:00:00') - new Date(today + 'T00:00:00')) / 86400000)
             return (
               <div key={r.id} style={{ padding: '14px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, borderLeft: `3px solid ${type?.color || A}` }}>
@@ -176,7 +177,7 @@ export default function JobsPage() {
 function JobRow({ job, projects, today, isMobile, onToggleStatus, onEdit, onDelete }) {
   const type      = JOB_TYPES.find(t => t.id === job.job_type)
   const project   = projects.find(p => p.id === job.project_id)
-  const assignees = TEAM.filter(t => (job.assigned_users || []).includes(t.id))
+  const assignees = peopleForIds(job.assigned_users)
   const vehicle   = VEHICLES.find(v => v.id === job.vehicle_id)
   const isToday   = job.date === today
   const isDone    = job.status === 'done'

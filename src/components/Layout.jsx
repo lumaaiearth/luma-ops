@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { LayoutDashboard, CalendarDays, Radio, Users, Settings, LogOut, Clock, Map, Database, FolderOpen, MoreHorizontal, BarChart2, Flower2, ListTodo, UserCircle, Search } from 'lucide-react'
+import { LayoutDashboard, CalendarDays, Radio, Users, Settings, LogOut, Clock, Map, Database, FolderOpen, MoreHorizontal, BarChart2, Flower2, ListTodo, UserCircle, Search, PanelLeftOpen, PanelLeftClose } from 'lucide-react'
 import { A, BG, SURFACE, BORDER, FG, MUTED, A14 } from '../lib/theme.js'
 import { Avatar, MONO, SANS } from './ui.jsx'
 import GlobalSearch from './GlobalSearch.jsx'
@@ -12,9 +12,10 @@ const NAV_GROUPS = [
     label: 'Betrieb',
     items: [
       { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+      // Offene Aufgaben bewusst ÜBER den Einsätzen (Wunsch Malte, 2026-07)
+      { to: '/tasks',     icon: ListTodo,        label: 'Offene Aufgaben', short: 'Aufgaben' },
       // Einsätze-Hub bündelt Liste + Kalender + Wochenplan (Umschalter im Hub)
       { to: '/einsaetze', icon: CalendarDays,    label: 'Einsätze' },
-      { to: '/tasks',     icon: ListTodo,        label: 'Offene Aufgaben', short: 'Aufgaben' },
     ],
   },
   {
@@ -85,6 +86,17 @@ export default function Layout({ children, fullHeight = false }) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const userMenuRef = useRef(null)
+  // Desktop-Navigation auf-/zuklappbar: aufgeklappt mit Menünamen (220px),
+  // zugeklappt als Icon-Rail (68px). Zustand bleibt gespeichert.
+  const [navExpanded, setNavExpanded] = useState(() => {
+    try { return localStorage.getItem('luma_nav_expanded') === '1' } catch { return false }
+  })
+  function toggleNav() {
+    setNavExpanded(v => {
+      try { localStorage.setItem('luma_nav_expanded', v ? '0' : '1') } catch {}
+      return !v
+    })
+  }
 
   // Avatar-Menü schließt bei Klick außerhalb
   useEffect(() => {
@@ -108,6 +120,12 @@ export default function Layout({ children, fullHeight = false }) {
       <NavLink to="/dashboard" title="LUMA Ops" style={{ width: 42, height: 42, borderRadius: 14, background: A, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', marginBottom: 8, flexShrink: 0 }}>
         <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: 'var(--luma-on-a)', letterSpacing: '0.02em' }}>LU</span>
       </NavLink>
+
+      {/* Menü aufklappen */}
+      <button onClick={toggleNav} data-tip="Menü aufklappen" aria-label="Menü aufklappen" className="lu-tip lu-rail-link"
+        style={{ width: 42, height: 42, borderRadius: 13, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <PanelLeftOpen size={18} />
+      </button>
 
       {/* Globale Suche (Cmd+K) */}
       <button onClick={() => window.__lumaSearch?.()} data-tip="Suchen  ⌘K" aria-label="Suchen" className="lu-tip lu-rail-link"
@@ -157,13 +175,29 @@ export default function Layout({ children, fullHeight = false }) {
     </div>
   )
 
-  const sidebar = (
+  const renderSidebar = (desktop = false) => (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: SURFACE, borderRight: `1px solid ${BORDER}` }}>
       {/* Brand */}
-      <div style={{ padding: '24px 20px 20px', borderBottom: `1px solid ${BORDER}` }}>
-        <div style={{ fontFamily: MONO, fontSize: 11, color: A, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 2 }}>LUMA</div>
-        <div style={{ fontFamily: SANS, fontSize: 18, fontWeight: 400, color: FG, letterSpacing: '-0.02em' }}>Ops</div>
+      <div style={{ padding: desktop ? '18px 14px 14px 20px' : '24px 20px 20px', borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: A, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 2 }}>LUMA</div>
+          <div style={{ fontFamily: SANS, fontSize: 18, fontWeight: 400, color: FG, letterSpacing: '-0.02em' }}>Ops</div>
+        </div>
+        {desktop && (
+          <button onClick={toggleNav} title="Menü zuklappen" aria-label="Menü zuklappen" className="lu-rail-link"
+            style={{ width: 34, height: 34, borderRadius: 9, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <PanelLeftClose size={17} />
+          </button>
+        )}
       </div>
+
+      {/* Suche (nur Desktop-Variante — mobil gibt es die Topbar-Suche) */}
+      {desktop && (
+        <button onClick={() => window.__lumaSearch?.()} className="lu-btn-ghost"
+          style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '10px 10px 0', padding: '8px 12px', borderRadius: 8, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 13, fontFamily: SANS }}>
+          <Search size={14} /> Suchen… <span style={{ marginLeft: 'auto', fontFamily: MONO, fontSize: 9, opacity: 0.7 }}>⌘K</span>
+        </button>
+      )}
 
       {/* Nav — gruppiert */}
       <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto' }}>
@@ -223,9 +257,9 @@ export default function Layout({ children, fullHeight = false }) {
         }
       `}</style>
 
-      {/* Desktop: Icon-Rail */}
-      <div className="desktop-sidebar" style={{ width: 68, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
-        {rail}
+      {/* Desktop: aufgeklappte Sidebar mit Menünamen ODER kompakte Icon-Rail */}
+      <div className="desktop-sidebar" style={{ width: navExpanded ? 220 : 68, flexShrink: 0, display: 'flex', flexDirection: 'column', transition: 'width 0.15s ease' }}>
+        {navExpanded ? renderSidebar(true) : rail}
       </div>
 
       {/* Mobile full-menu overlay */}
@@ -233,7 +267,7 @@ export default function Layout({ children, fullHeight = false }) {
         <div style={{ position: 'fixed', inset: 0, zIndex: 200 }} onClick={closeMobile}>
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.65)' }} />
           <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 220 }} onClick={e => e.stopPropagation()}>
-            {sidebar}
+            {renderSidebar(false)}
           </div>
         </div>
       )}

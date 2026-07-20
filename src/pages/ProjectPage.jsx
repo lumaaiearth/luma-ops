@@ -8,7 +8,8 @@ import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { sb } from '../lib/supabase.js'
 import { A, BG, SURFACE, BORDER, FG, MUTED, CARD, A06, A14, A18, OK, WARN, DANGER, INFO } from '../lib/theme.js'
-import { JOB_TYPES, TEAM, TASK_STATUSES, TASK_PRIORITIES } from '../data/seed.js'
+import { JOB_TYPES, TASK_STATUSES, TASK_PRIORITIES } from '../data/seed.js'
+import { findPerson, peopleForIds } from '../lib/people.js'
 import { isoToday, formatDate } from '../lib/storage.js'
 import TaskModal from '../components/TaskModal.jsx'
 
@@ -249,7 +250,7 @@ export default function ProjectPage() {
                   <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 12 }}>Team</div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {[...allWorkers].map(uid => {
-                      const u = TEAM.find(t => t.id === uid)
+                      const u = findPerson(uid)
                       if (!u) return null
                       return (
                         <button key={uid} onClick={() => navigate('/team', { state: { focusUser: uid } })}
@@ -388,7 +389,7 @@ export default function ProjectPage() {
                   const prio = TASK_P[t.priority]
                   const done = t.status === 'done' || t.status === 'archive'
                   const workerIds = [...new Set([t.owner_id, ...(t.assigned_users || [])].filter(Boolean))]
-                  const workers = workerIds.map(uid => TEAM.find(x => x.id === uid)).filter(Boolean)
+                  const workers = peopleForIds(workerIds)
                   const overdue = t.due_date && !done && t.due_date < today
                   const zr = t.start_date && t.due_date && t.start_date !== t.due_date
                     ? `${formatDate(t.start_date)} – ${formatDate(t.due_date)}`
@@ -430,7 +431,7 @@ export default function ProjectPage() {
             )}
             {projectJobs.map(job => {
               const type = JOB_TYPES.find(t => t.id === job.job_type)
-              const workers = (job.assigned_users || []).map(uid => TEAM.find(t => t.id === uid)).filter(Boolean)
+              const workers = peopleForIds(job.assigned_users)
               const isUpcoming = job.date >= today
               return (
                 <div key={job.id} style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${type?.color || A}`, borderRadius: 14, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 16 }}>

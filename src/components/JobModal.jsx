@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { X, Repeat, MapPin } from 'lucide-react'
-import { TEAM, JOB_TYPES } from '../data/seed.js'
+import { JOB_TYPES } from '../data/seed.js'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import JobPhotos from './JobPhotos.jsx'
+import PeoplePicker from './PeoplePicker.jsx'
 
 import { A, SURFACE, BORDER, FG, MUTED, CARD, A06, A08, A14 } from '../lib/theme.js'
-import { Modal, ModalActions, INPUT_STYLE, LABEL_STYLE } from './ui.jsx'
+import { Modal, ModalActions, INPUT_STYLE, LABEL_STYLE, DateInput } from './ui.jsx'
 import { isoToday } from '../lib/storage.js'
 
 const TIME_SLOTS = Array.from({ length: 96 }, (_, i) => {
@@ -169,15 +170,6 @@ export default function JobModal({ initialDate, initialJob, initialStartTime, in
 
   const typeColor = JOB_TYPES.find(t => t.id === form.job_type)?.color || A
 
-  function toggleUser(id) {
-    setForm(f => ({
-      ...f,
-      assigned_users: f.assigned_users.includes(id)
-        ? f.assigned_users.filter(u => u !== id)
-        : [...f.assigned_users, id],
-    }))
-  }
-
   function toggleVehicle(id) {
     setForm(f => ({
       ...f,
@@ -316,14 +308,14 @@ export default function JobModal({ initialDate, initialJob, initialStartTime, in
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={LABEL_STYLE}>Datum *</label>
-              <input type="date" style={INPUT_STYLE} value={form.date}
-                onChange={e => setForm(f => ({ ...f, date: e.target.value, date_end: f.date_end && f.date_end < e.target.value ? '' : f.date_end }))}
+              <DateInput value={form.date}
+                onChange={v => setForm(f => ({ ...f, date: v, date_end: f.date_end && f.date_end < v ? '' : f.date_end }))}
                 required />
             </div>
             <div>
               <label style={LABEL_STYLE}>Ende <span style={{ color: MUTED, fontWeight: 400, fontSize: 9 }}>(mehrtägig)</span></label>
-              <input type="date" style={{ ...INPUT_STYLE, opacity: form.date_end ? 1 : 0.5 }} value={form.date_end} min={form.date}
-                onChange={e => setForm(f => ({ ...f, date_end: e.target.value }))} />
+              <DateInput style={{ opacity: form.date_end ? 1 : 0.5 }} value={form.date_end} min={form.date}
+                onChange={v => setForm(f => ({ ...f, date_end: v }))} />
             </div>
           </div>
 
@@ -393,23 +385,11 @@ export default function JobModal({ initialDate, initialJob, initialStartTime, in
             </div>
           </div>
 
-          {/* Team */}
+          {/* Team + Freelancer */}
           <div>
-            <label style={LABEL_STYLE}>Team</label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {TEAM.map(u => {
-                const active = form.assigned_users.includes(u.id)
-                return (
-                  <button key={u.id} type="button" onClick={() => toggleUser(u.id)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 20, background: active ? `${u.color}22` : 'rgba(255,255,255,0.05)', border: `1px solid ${active ? u.color + '80' : BORDER}`, cursor: 'pointer', transition: 'all 0.15s' }}>
-                    <div style={{ width: 18, height: 18, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 7, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
-                    </div>
-                    <span style={{ fontSize: 13, color: active ? u.color : MUTED }}>{u.name}</span>
-                  </button>
-                )
-              })}
-            </div>
+            <label style={LABEL_STYLE}>Team &amp; Freelancer</label>
+            <PeoplePicker multi value={form.assigned_users}
+              onChange={ids => setForm(f => ({ ...f, assigned_users: ids }))} />
           </div>
 
           {/* Vehicles — multi-select pills */}

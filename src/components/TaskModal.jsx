@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { X, MapPin, CalendarPlus, ExternalLink, CheckSquare, Square, Plus, Archive, ArchiveRestore, Trash2 } from 'lucide-react'
-import { TEAM, TASK_STATUSES, TASK_PRIORITIES, TASK_EFFORTS, TASK_TYPES } from '../data/seed.js'
+import { TASK_STATUSES, TASK_PRIORITIES, TASK_EFFORTS, TASK_TYPES } from '../data/seed.js'
+import { findPerson } from '../lib/people.js'
+import PeoplePicker from './PeoplePicker.jsx'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useTime } from '../context/TimeContext.jsx'
@@ -9,7 +11,7 @@ import { genId, isoToday } from '../lib/storage.js'
 import TaskPhotos from './TaskPhotos.jsx'
 import TaskFiles from './TaskFiles.jsx'
 import { A, SURFACE, BORDER, FG, MUTED, CARD, A06, A08 } from '../lib/theme.js'
-import { Modal, ModalActions, INPUT_STYLE, LABEL_STYLE } from './ui.jsx'
+import { Modal, ModalActions, INPUT_STYLE, LABEL_STYLE, DateInput } from './ui.jsx'
 
 /* ─── Pill selector (single choice from a coloured list) ───────────────────── */
 function PillSelect({ options, value, onChange, allowNull = false }) {
@@ -23,32 +25,6 @@ function PillSelect({ options, value, onChange, allowNull = false }) {
               background: active ? `${o.color}22` : 'transparent', border: `1px solid ${active ? o.color + '90' : BORDER}`,
               color: active ? o.color : MUTED, fontWeight: active ? 600 : 400 }}>
             {o.label}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-/* ─── Person picker (single = owner, or multi = collaborators) ─────────────── */
-function PeoplePicker({ value, onChange, multi = false, exclude = [] }) {
-  const list = TEAM.filter(u => !exclude.includes(u.id))
-  const isActive = u => multi ? value.includes(u.id) : value === u.id
-  function toggle(id) {
-    if (multi) onChange(value.includes(id) ? value.filter(v => v !== id) : [...value, id])
-    else onChange(value === id ? null : id)
-  }
-  return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-      {list.map(u => {
-        const active = isActive(u)
-        return (
-          <button key={u.id} type="button" onClick={() => toggle(u.id)}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 20, background: active ? `${u.color}22` : 'rgba(255,255,255,0.05)', border: `1px solid ${active ? u.color + '80' : BORDER}`, cursor: 'pointer' }}>
-            <div style={{ width: 18, height: 18, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 7, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
-            </div>
-            <span style={{ fontSize: 13, color: active ? u.color : MUTED }}>{u.name}</span>
           </button>
         )
       })}
@@ -101,7 +77,7 @@ function TagInput({ id, tags, onChange, placeholder, historyKey }) {
 }
 
 export default function TaskModal({ initialTask, defaults, onSave, onClose }) {
-  const { projects, clients, jobs, boards, createJob, updateTask, setTaskStatus, deleteTask, purgeTask } = useOps()
+  const { projects, clients, jobs, boards, people, createJob, updateTask, setTaskStatus, deleteTask, purgeTask } = useOps()
   const { user } = useAuth()
   const { entries, logTime } = useTime()
   const navigate = useNavigate()
@@ -362,11 +338,11 @@ export default function TaskModal({ initialTask, defaults, onSave, onClose }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={LABEL_STYLE}>Zeitraum von</label>
-              <input type="date" style={INPUT_STYLE} value={form.start_date || ''} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} />
+              <DateInput value={form.start_date || ''} onChange={v => setForm(f => ({ ...f, start_date: v }))} />
             </div>
             <div>
               <label style={LABEL_STYLE}>bis / fällig</label>
-              <input type="date" style={INPUT_STYLE} value={form.due_date || ''} min={form.start_date || undefined} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} />
+              <DateInput value={form.due_date || ''} min={form.start_date || undefined} onChange={v => setForm(f => ({ ...f, due_date: v }))} />
             </div>
           </div>
 
@@ -487,7 +463,7 @@ export default function TaskModal({ initialTask, defaults, onSave, onClose }) {
               {taskEntries.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
                   {[...taskEntries].sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 6).map(e => {
-                    const u = TEAM.find(x => x.id === e.user_id)
+                    const u = findPerson(e.user_id)
                     return (
                       <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: MUTED }}>
                         <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, minWidth: 64 }}>{e.date}</span>
@@ -502,12 +478,14 @@ export default function TaskModal({ initialTask, defaults, onSave, onClose }) {
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                 <select value={timeForm.user_id} onChange={e => setTimeForm(f => ({ ...f, user_id: e.target.value }))}
                   style={{ ...INPUT_STYLE, width: 'auto', flex: '0 0 auto', padding: '8px 10px', fontSize: 13 }}>
-                  {TEAM.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                  {people.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                 </select>
                 <input type="number" min="0.25" step="0.25" value={timeForm.hours} onChange={e => setTimeForm(f => ({ ...f, hours: e.target.value }))}
                   placeholder="Std." style={{ ...INPUT_STYLE, width: 70, flex: '0 0 auto', padding: '8px 10px', fontSize: 13 }} />
-                <input type="date" value={timeForm.date} onChange={e => setTimeForm(f => ({ ...f, date: e.target.value }))}
-                  style={{ ...INPUT_STYLE, width: 'auto', flex: '0 0 auto', padding: '8px 10px', fontSize: 13 }} />
+                <div style={{ width: 150, flex: '0 0 auto' }}>
+                  <DateInput value={timeForm.date} onChange={v => setTimeForm(f => ({ ...f, date: v }))}
+                    style={{ padding: '8px 10px', fontSize: 13 }} />
+                </div>
                 <input value={timeForm.description} onChange={e => setTimeForm(f => ({ ...f, description: e.target.value }))}
                   placeholder="Tätigkeit (optional)" style={{ ...INPUT_STYLE, flex: 1, minWidth: 120, padding: '8px 10px', fontSize: 13 }} />
                 <button type="button" onClick={addTime}

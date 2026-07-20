@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Trash2 } from 'lucide-react'
-import { TEAM, BOARD_EMOJIS, BOARD_COLORS } from '../data/seed.js'
+import { BOARD_EMOJIS, BOARD_COLORS } from '../data/seed.js'
+import PeoplePicker from './PeoplePicker.jsx'
 import { useOps } from '../context/OpsContext.jsx'
 import { BORDER, FG, MUTED } from '../lib/theme.js'
 import { Modal, ModalActions, Button, INPUT_STYLE, LABEL_STYLE } from './ui.jsx'
@@ -16,9 +17,6 @@ export default function BoardModal({ initialBoard, onSave, onClose, onDelete }) 
     client_id: initialBoard?.client_id || '',
   })
 
-  function toggleMember(id) {
-    setForm(f => ({ ...f, members: f.members.includes(id) ? f.members.filter(m => m !== id) : [...f.members, id] }))
-  }
 
   function handleSubmit(e) {
     e.preventDefault()
@@ -81,20 +79,7 @@ export default function BoardModal({ initialBoard, onSave, onClose, onDelete }) 
           {/* Members */}
           <div>
             <label style={LABEL_STYLE}>Mitglieder <span style={{ color: MUTED, fontWeight: 400, fontSize: 9 }}>(wen betrifft dieser Bereich)</span></label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {TEAM.map(u => {
-                const active = form.members.includes(u.id)
-                return (
-                  <button key={u.id} type="button" onClick={() => toggleMember(u.id)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 20, background: active ? `${u.color}22` : 'rgba(255,255,255,0.05)', border: `1px solid ${active ? u.color + '80' : BORDER}`, cursor: 'pointer' }}>
-                    <div style={{ width: 18, height: 18, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 7, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
-                    </div>
-                    <span style={{ fontSize: 13, color: active ? u.color : MUTED }}>{u.name}</span>
-                  </button>
-                )
-              })}
-            </div>
+            <PeoplePicker multi value={form.members} onChange={ids => setForm(f => ({ ...f, members: ids }))} />
             <div style={{ fontSize: 10, color: MUTED, marginTop: 4, fontFamily: "'Space Mono', monospace" }}>Leer = betrifft alle.</div>
           </div>
 

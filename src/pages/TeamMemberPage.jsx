@@ -9,7 +9,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { sb } from '../lib/supabase.js'
 import { TEAM } from '../data/seed.js'
 import { A, SURFACE, BORDER, FG, MUTED, OK, WARN, A08, A14 } from '../lib/theme.js'
-import { Avatar, Badge, Card, EmptyState, INPUT_STYLE, LABEL_STYLE, MONO, SANS, SectionLabel } from '../components/ui.jsx'
+import { Avatar, Badge, Card, EmptyState, INPUT_STYLE, LABEL_STYLE, MONO, SANS, SectionLabel, DateInput } from '../components/ui.jsx'
 import { AvailabilityEditor } from './TeamPage.jsx'
 import { normalizeRule, hasKonto, kontostand, kontoMonthData } from '../lib/hourAccounts.js'
 import { isoToday, addDays, formatDate, genId, weekStart, getWeekDays } from '../lib/storage.js'
@@ -192,11 +192,11 @@ export default function TeamMemberPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 <div>
                   <label style={LABEL_STYLE}>Von *</label>
-                  <input type="date" style={INPUT_STYLE} value={absForm.date_from} onChange={e => setAbsForm(f => ({ ...f, date_from: e.target.value }))} required />
+                  <DateInput value={absForm.date_from} onChange={v => setAbsForm(f => ({ ...f, date_from: v }))} required />
                 </div>
                 <div>
                   <label style={LABEL_STYLE}>Bis *</label>
-                  <input type="date" style={INPUT_STYLE} value={absForm.date_to} onChange={e => setAbsForm(f => ({ ...f, date_to: e.target.value }))} required />
+                  <DateInput value={absForm.date_to} onChange={v => setAbsForm(f => ({ ...f, date_to: v }))} required />
                 </div>
               </div>
               <input style={INPUT_STYLE} value={absForm.reason} onChange={e => setAbsForm(f => ({ ...f, reason: e.target.value }))} placeholder="Grund (z.B. Urlaub)" />

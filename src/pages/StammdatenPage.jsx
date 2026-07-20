@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useOps } from '../context/OpsContext.jsx'
 import { A, SURFACE, BORDER, FG, MUTED, CARD, A06, A14, A18, A30, WARN, DANGER } from '../lib/theme.js'
 import { Button, EmptyState } from '../components/ui.jsx'
 import { genId } from '../lib/storage.js'
-import { Plus, Pencil, Trash2, X, Check, MapPin, User, Building2, Phone, Mail, ExternalLink } from 'lucide-react'
+import { FREELANCER_COLORS, initialsFor } from '../lib/people.js'
+import { Plus, Pencil, Trash2, X, Check, MapPin, User, Building2, Phone, Mail, ExternalLink, Users } from 'lucide-react'
 
 const INPUT = {
   background: SURFACE, border: `1px solid ${BORDER}`,
@@ -172,11 +173,102 @@ function ClientModal({ client, onSave, onClose }) {
   )
 }
 
+// ── Freelancer / Personen Form Modal ───────────────────────────────────────────
+function FreelancerModal({ person, usedColors, onSave, onClose }) {
+  const [form, setForm] = useState({
+    name: person?.name || '',
+    firma: person?.firma || '',
+    phone: person?.phone || '',
+    email: person?.email || '',
+    stundensatz: person?.stundensatz ?? '',
+    color: person?.color || FREELANCER_COLORS.find(c => !usedColors.includes(c)) || FREELANCER_COLORS[0],
+    notizen: person?.notizen || '',
+    active: person?.active !== false,
+  })
+
+  function handleSubmit(e) {
+    e.preventDefault()
+    if (!form.name.trim()) return
+    onSave({
+      ...form,
+      name: form.name.trim(),
+      stundensatz: form.stundensatz === '' ? null : Number(form.stundensatz),
+      initials: initialsFor(form.name),
+      rolle: 'freelancer',
+    })
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }} />
+      <div onClick={e => e.stopPropagation()} style={{ position: 'relative', background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', borderBottom: `1px solid ${BORDER}` }}>
+          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: A, letterSpacing: '0.15em', textTransform: 'uppercase' }}>{person ? 'Person bearbeiten' : 'Neue Person (Freelancer)'}</span>
+          <button onClick={onClose} style={{ background: A06, border: 'none', borderRadius: '50%', width: 30, height: 30, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={14} /></button>
+        </div>
+        <form onSubmit={handleSubmit} style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div>
+            <label style={LABEL}>Name *</label>
+            <input style={INPUT} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Vor- und Nachname" required autoFocus />
+          </div>
+          <div>
+            <label style={LABEL}>Firma / Gewerbe</label>
+            <input style={INPUT} value={form.firma} onChange={e => setForm(f => ({ ...f, firma: e.target.value }))} placeholder="z.B. Garten Müller GbR (optional)" />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={LABEL}>Telefon</label>
+              <input style={INPUT} type="tel" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+49 …" />
+            </div>
+            <div>
+              <label style={LABEL}>E-Mail</label>
+              <input style={INPUT} type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="name@mail.de" />
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={LABEL}>Stundensatz (€/h)</label>
+              <input style={INPUT} type="number" min="0" step="0.5" value={form.stundensatz} onChange={e => setForm(f => ({ ...f, stundensatz: e.target.value }))} placeholder="z.B. 45" />
+            </div>
+            <div>
+              <label style={LABEL}>Farbe</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, paddingTop: 4 }}>
+                {FREELANCER_COLORS.slice(0, 10).map(c => (
+                  <button key={c} type="button" onClick={() => setForm(f => ({ ...f, color: c }))}
+                    style={{ width: 22, height: 22, borderRadius: '50%', background: c, border: form.color === c ? `2px solid ${FG}` : '2px solid transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {form.color === c && <Check size={11} color="#001219" strokeWidth={3} />}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div>
+            <label style={LABEL}>Notizen</label>
+            <textarea style={{ ...INPUT, resize: 'vertical', minHeight: 60 }} value={form.notizen} onChange={e => setForm(f => ({ ...f, notizen: e.target.value }))} placeholder="Qualifikationen, Verfügbarkeit, …" />
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', width: 'fit-content' }}>
+            <input type="checkbox" checked={form.active} onChange={e => setForm(f => ({ ...f, active: e.target.checked }))} style={{ accentColor: A, cursor: 'pointer', width: 15, height: 15 }} />
+            <span style={{ fontSize: 13, color: form.active ? FG : MUTED }}>Aktiv — in Auswahlmenüs anzeigen</span>
+          </label>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 }}>
+            <button type="button" onClick={onClose} style={{ padding: '9px 18px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif" }}>Abbrechen</button>
+            <button type="submit" className="lu-btn-primary" style={{ padding: '9px 22px', borderRadius: 6, background: A, border: 'none', color: 'var(--luma-on-a)', cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif" }}>
+              {person ? 'Speichern' : 'Anlegen'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 // ── Main Page ──────────────────────────────────────────────────────────────────
 export default function StammdatenPage() {
-  const { projects, clients, createProject, updateProject, deleteProject, createClient, updateClient, deleteClient } = useOps()
+  const { projects, clients, freelancers, createProject, updateProject, deleteProject, createClient, updateClient, deleteClient, createFreelancer, updateFreelancer, deleteFreelancer } = useOps()
   const navigate = useNavigate()
-  const [tab, setTab] = useState('projects')
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState(() => ['projects', 'clients', 'people'].includes(searchParams.get('tab')) ? searchParams.get('tab') : 'projects')
+  const [personModal, setPersonModal] = useState(null) // null | 'new' | person object
   const [expandedClient, setExpandedClient] = useState(null)
   const [projectModal, setProjectModal] = useState(null) // null | 'new' | project object
   const [clientModal, setClientModal] = useState(null)
@@ -200,6 +292,15 @@ export default function StammdatenPage() {
     setClientModal(null)
   }
 
+  async function handleSavePerson(data) {
+    if (personModal === 'new') {
+      await createFreelancer(data)
+    } else {
+      updateFreelancer(personModal.id, data)
+    }
+    setPersonModal(null)
+  }
+
   function confirmDelete(type, id, name) {
     setDeleteConfirm({ type, id, name })
   }
@@ -207,6 +308,7 @@ export default function StammdatenPage() {
   function doDelete() {
     if (!deleteConfirm) return
     if (deleteConfirm.type === 'project') deleteProject(deleteConfirm.id)
+    else if (deleteConfirm.type === 'person') deleteFreelancer(deleteConfirm.id)
     else deleteClient(deleteConfirm.id)
     setDeleteConfirm(null)
   }
@@ -218,15 +320,15 @@ export default function StammdatenPage() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <h1 style={{ fontSize: 22, fontWeight: 400, color: FG, letterSpacing: '-0.02em' }}>Stammdaten</h1>
         <button
-          onClick={() => tab === 'projects' ? setProjectModal('new') : setClientModal('new')}
+          onClick={() => tab === 'projects' ? setProjectModal('new') : tab === 'people' ? setPersonModal('new') : setClientModal('new')}
           className="lu-btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 6, background: A, border: 'none', color: 'var(--luma-on-a)', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
-          <Plus size={14} /> {tab === 'projects' ? 'Neues Projekt' : 'Neuer Kunde'}
+          <Plus size={14} /> {tab === 'projects' ? 'Neues Projekt' : tab === 'people' ? 'Neue Person' : 'Neuer Kunde'}
         </button>
       </div>
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${BORDER}`, marginBottom: 20 }}>
-        {[['projects', `Projekte (${projects.length})`], ['clients', `Kunden (${clients.length})`]].map(([id, label]) => (
+        {[['projects', `Projekte (${projects.length})`], ['clients', `Kunden (${clients.length})`], ['people', `Personen (${freelancers.length})`]].map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)}
             style={{ padding: '10px 20px', border: 'none', background: 'transparent', color: tab === id ? A : MUTED, fontFamily: "'Space Grotesk', sans-serif", fontSize: 13, cursor: 'pointer', borderBottom: `2px solid ${tab === id ? A : 'transparent'}`, marginBottom: -1 }}>
             {label}
@@ -366,6 +468,66 @@ export default function StammdatenPage() {
         </div>
       )}
 
+      {/* Personen / Freelancer list */}
+      {tab === 'people' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div style={{ fontSize: 12, color: MUTED, marginBottom: 10, lineHeight: 1.6 }}>
+            Selbstständige / Freelancer, die zusätzlich zum festen Team für Einsätze und Aufgaben ausgewählt werden können (bis zu 20+ Personen). Inaktive Personen bleiben in alten Einsätzen sichtbar, tauchen aber nicht mehr in Auswahlmenüs auf.
+          </div>
+          {freelancers.length === 0 && (
+            <EmptyState icon={Users} title="Noch keine Freelancer" hint="Lege über „Neue Person“ die erste an." />
+          )}
+          {freelancers.map(p => (
+            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 6, borderLeft: `3px solid ${p.color}`, opacity: p.active === false ? 0.55 : 1 }}>
+              <div style={{ width: 34, height: 34, borderRadius: '50%', background: p.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: '#001219', fontWeight: 700 }}>{p.initials}</span>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                  <span style={{ fontSize: 13, fontWeight: 500, color: FG }}>{p.name}</span>
+                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: A, background: A14, padding: '2px 6px', borderRadius: 4 }}>Freelancer</span>
+                  {p.active === false && (
+                    <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: 4 }}>Inaktiv</span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                  {p.firma && (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>
+                      <Building2 size={9} /> {p.firma}
+                    </span>
+                  )}
+                  {p.phone && (
+                    <a href={`tel:${p.phone}`} style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, textDecoration: 'none' }}>
+                      <Phone size={9} /> {p.phone}
+                    </a>
+                  )}
+                  {p.email && (
+                    <a href={`mailto:${p.email}`} style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, textDecoration: 'none' }}>
+                      <Mail size={9} /> {p.email}
+                    </a>
+                  )}
+                  {p.stundensatz != null && p.stundensatz !== '' && (
+                    <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>{p.stundensatz} €/h</span>
+                  )}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                <button onClick={() => updateFreelancer(p.id, { active: p.active === false })} className="lu-btn-ghost" title={p.active === false ? 'Aktivieren' : 'Deaktivieren'}
+                  style={{ padding: '5px 10px', borderRadius: 4, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, fontSize: 11, fontFamily: "'Space Grotesk', sans-serif" }}>
+                  {p.active === false ? 'Aktivieren' : 'Deaktivieren'}
+                </button>
+                <button onClick={() => setPersonModal(p)} className="lu-btn-ghost" style={{ width: 28, height: 28, borderRadius: 4, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Pencil size={12} />
+                </button>
+                <button onClick={() => confirmDelete('person', p.id, p.name)} className="lu-btn-ghost" style={{ width: 28, height: 28, borderRadius: 4, background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Modals */}
       {projectModal && (
         <ProjectModal
@@ -380,6 +542,14 @@ export default function StammdatenPage() {
           client={clientModal === 'new' ? null : clientModal}
           onSave={handleSaveClient}
           onClose={() => setClientModal(null)}
+        />
+      )}
+      {personModal && (
+        <FreelancerModal
+          person={personModal === 'new' ? null : personModal}
+          usedColors={freelancers.map(f => f.color)}
+          onSave={handleSavePerson}
+          onClose={() => setPersonModal(null)}
         />
       )}
 

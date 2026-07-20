@@ -1,4 +1,5 @@
-import { TEAM, JOB_TYPES } from '../data/seed.js'
+import { JOB_TYPES } from '../data/seed.js'
+import { peopleForIds } from './people.js'
 import { tgSend, tgGroups } from './telegram.js'
 
 function getWeekRange() {
@@ -45,7 +46,7 @@ export function buildWeeklySummary(jobs, projects) {
     const dayIdx = (new Date(date).getDay() + 6) % 7
     lines.push(`<b>${days[dayIdx]} ${formatDate(date)}</b>`)
     for (const j of byDay[date]) {
-      const assignees = TEAM.filter(u => (j.assigned_users || []).includes(u.id)).map(u => u.name).join(', ')
+      const assignees = peopleForIds(j.assigned_users).map(u => u.name).join(', ')
       const time = j.start_time ? ` ${j.start_time}${j.end_time ? `–${j.end_time}` : ''}` : ''
       lines.push(`  • ${j.title} [${type(j.job_type)}]${time}`)
       if (assignees) lines.push(`    👤 ${assignees}`)

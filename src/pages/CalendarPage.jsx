@@ -8,6 +8,7 @@ import { A, BG, SURFACE, BORDER, FG, MUTED, A06, A0a, A0d, A14, A40 } from '../l
 import { EmptyState, SANS } from '../components/ui.jsx'
 import JobModal from '../components/JobModal.jsx'
 import { JOB_TYPES, TEAM, VEHICLES, TASK_PRIORITIES } from '../data/seed.js'
+import { peopleForIds } from '../lib/people.js'
 
 const TASK_P_CAL = Object.fromEntries(TASK_PRIORITIES.map(p => [p.id, p]))
 import { isoToday, weekStart, getWeekDays, addDays } from '../lib/storage.js'
@@ -78,7 +79,7 @@ function EventBlock({ job, projects, clients, onOpen, onPointerDown, isGhost }) 
   const bgColor = job.color || clientColor
   // Border = job type color (category ring); fill = client/custom color
   const typeColor = job.isGCal ? (job.calendarColor || bgColor) : (type?.color || bgColor)
-  const assignees = TEAM.filter(u => (job.assigned_users || []).includes(u.id))
+  const assignees = peopleForIds(job.assigned_users)
 
   // Auf das sichtbare Raster begrenzen — verhindert, dass früh/spät/ganztägige
   // Termine über die Kopfzeile (Datumsanzeige) hinausragen.
@@ -189,7 +190,7 @@ function AllDayStrip({ jobs, gcalEvents, projects, clients, onOpen, date, tasks 
   )
 }
 
-export default function CalendarPage() {
+export default function CalendarPage({ viewSwitcher = null }) {
   const { jobs, projects, clients, tasks, createJob, updateJob, deleteJob, createRecurring } = useOps()
   const navigate = useNavigate()
   const { connected: gcalConnected, events: gcalEvents, calendars: gcalCalendars, enabledCalendars, toggleCalendar, fetchForRange, syncing: gcalSyncing } = useGCal()
@@ -566,6 +567,12 @@ export default function CalendarPage() {
           <button onClick={() => setSidebarOpen(true)} title="Kalender-Optionen" className="lu-btn-ghost" style={{ width: 34, height: 34, borderRadius: 7, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <Menu size={16} />
           </button>
+          {/* Liste/Kalender/Wochenplan-Umschalter (vom Einsätze-Hub hereingereicht) */}
+          {viewSwitcher && (
+            <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', paddingRight: 4, marginRight: 2, borderRight: `1px solid ${BORDER}` }}>
+              {viewSwitcher}
+            </div>
+          )}
           {!isMobile && <button onClick={goTodayAll} className="lu-btn-ghost" style={{ padding: '5px 12px', borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", flexShrink: 0 }}>Heute</button>}
           <button onClick={prevPeriod} title="Zurück" className="lu-btn-ghost" style={{ width: isMobile ? 32 : 30, height: isMobile ? 32 : 30, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <ChevronLeft size={15} />
@@ -833,15 +840,15 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {/* ── Month view ── */}
+      {/* ── Month view — füllt die volle Höhe (Zeilen strecken sich mit) ── */}
       {view === 'month' && !isMobile && (
-        <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 8 }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 8, flexShrink: 0 }}>
             {DAY_NAMES.map(d => (
               <div key={d} style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, textAlign: 'center', padding: '4px 0' }}>{d}</div>
             ))}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gridAutoRows: 'minmax(96px, 1fr)', gap: 4, flex: 1 }}>
             {getMonthDays().map((date, i) => {
               if (!date) return <div key={`empty-${i}`} />
               const isToday = date === today

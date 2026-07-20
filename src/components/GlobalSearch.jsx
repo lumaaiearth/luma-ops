@@ -8,7 +8,8 @@ import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { A, BG, SURFACE, BORDER, FG, MUTED, OK, WARN, DANGER, INFO } from '../lib/theme.js'
 import { Avatar, MONO, SANS } from './ui.jsx'
-import { TEAM, JOB_TYPES, TASK_STATUSES, TASK_PRIORITIES } from '../data/seed.js'
+import { JOB_TYPES, TASK_STATUSES, TASK_PRIORITIES } from '../data/seed.js'
+import { allPeople } from '../lib/people.js'
 import { formatDate } from '../lib/storage.js'
 import {
   LayoutDashboard, CalendarDays, ListTodo, ListChecks, Map, BarChart2, Flower2,
@@ -139,10 +140,10 @@ export default function GlobalSearch() {
       push({ type: 'Sensor', id: se.id, label: se.name, sub: [proj?.name, `${se.value}${se.unit}`].filter(Boolean).join(' · '), emoji: '📡', color: SENSOR_STATUS_COLOR[se.status] || MUTED, to: `/sensors/${se.id}` }, s)
     })
 
-    TEAM.forEach(u => {
-      const prof = profileForTeamId(u.id)
+    allPeople().forEach(u => {
+      const prof = u.freelancer ? null : profileForTeamId(u.id)
       const s = Math.max(score(u.name, q), score(prof?.name, q))
-      push({ type: 'Person', id: u.id, label: prof?.name || u.name, sub: u.role, avatar: { initials: u.initials, color: u.color, src: prof?.avatar_url }, color: u.color, to: '/team' }, s)
+      push({ type: 'Person', id: u.id, label: prof?.name || u.name, sub: u.freelancer ? 'Freelancer' : u.role, avatar: { initials: u.initials, color: u.color, src: prof?.avatar_url }, color: u.color, to: u.freelancer ? '/data?tab=people' : '/team' }, s)
     })
 
     NAV_ITEMS.forEach(n => {
