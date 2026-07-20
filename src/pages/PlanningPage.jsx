@@ -840,8 +840,10 @@ export default function PlanningPage() {
                 }} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#052e16', border: 'none', color: '#fff', borderRadius: 8, padding: '9px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
                   <Download size={13} /> Plan-PDF
                 </button>
-                <button onClick={() => exportPlan(plan, habitatPlan)} style={{ display: 'flex', alignItems: 'center', gap: 8, background: A14, border: `1px solid ${A20}`, color: A, borderRadius: 8, padding: '9px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-                  <Download size={13} /> .txt
+                <button onClick={() => exportBaumschulCsv(plan, { label: fromMapFeature?.label })} disabled={!plan.length}
+                  title="Einfache Bestellliste (CSV, öffnet in Excel)"
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, background: A14, border: `1px solid ${A20}`, color: A, borderRadius: 8, padding: '9px 18px', cursor: plan.length ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 600, opacity: plan.length ? 1 : 0.5 }}>
+                  <Download size={13} /> Baumschul-Liste (Excel)
                 </button>
                 <button onClick={() => { setPlan([]); setHabitatPlan([]) }} style={{ background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, padding: '9px 16px', cursor: 'pointer', fontSize: 13 }}>
                   Plan leeren
@@ -2437,6 +2439,22 @@ function EmptyState({ msg, sub, action, actionLabel }) {
       {action && <button onClick={action} style={{ marginTop: 8, background: A14, border: `1px solid ${A20}`, color: A, borderRadius: 8, padding: '8px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>{actionLabel}</button>}
     </div>
   )
+}
+
+// Simple Bestellliste für die Baumschule als CSV (öffnet direkt in Excel).
+// Semikolon-getrennt (deutsches Excel), UTF-8-BOM für Umlaute.
+function exportBaumschulCsv(plan, { label } = {}) {
+  const esc = v => { const s = String(v ?? ''); return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s }
+  const header = ['Nr', 'Anzahl', 'Art (deutsch)', 'Art (botanisch)', 'Pflanzabstand (cm)', 'heimisch']
+  const rows = plan.map((p, i) => [i + 1, p.count, p.name, p.latin, p.pflanzabstand || 40, p.heimisch ? 'ja' : 'nein'])
+  const total = plan.reduce((s, p) => s + p.count, 0)
+  rows.push(['', total, `SUMME (${plan.length} Arten)`, '', '', ''])
+  const csv = [header, ...rows].map(r => r.map(esc).join(';')).join('\r\n')
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = `baumschul-bestellliste-${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
 }
 
 function exportPlan(plan, habitats = []) {
