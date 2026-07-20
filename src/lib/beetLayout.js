@@ -1,6 +1,7 @@
 // Beet-Layout — gemeinsame, deterministische Platzierungs- und Rasterlogik für
 // alle Pflanzplan-Ansichten (Drift-Karte, isometrisches 3D-Jahr, Rasterplan).
 // Kein Zufall: alle Zufallszahlen sind seeded → reproduzierbare Pläne.
+import { pointInPolygon } from './shapeMeta.js'
 
 export function hashStr(s) {
   let h = 2166136261; const t = String(s)
@@ -101,47 +102,79 @@ export function computePlacement(plan, beetW, beetH) {
 // Teilt das Beet in gleich große Zellen und weist jede Zelle einer Art zu.
 // Zellzahl je Art ∝ Stückzahl im Plan; Arten clustern zu Drifts (Voronoi mit
 // Kapazität). Ergebnis: druckbare „Pflanze Art X in Zelle (Spalte,Reihe)"-Karte.
-export function buildGrid(plan, beetW, beetH, cellCm) {
+// opts.polygon: äußerer Ring in lokalen Metern ([[x,y]…], 0..beetW / 0..beetH) →
+//   nur Zellen INNERHALB des Umrisses werden gefüllt (exakte Beetform).
+// opts.viewDir: {x,y} Einheitsvektor „vom Betrachter ins Beet" → Höhenschichtung
+//   (hohe Arten hinten/weiter weg, flache vorne). Default: Betrachter unten.
+export function buildGrid(plan, beetW, beetH, cellCm, opts = {}) {
+  const { polygon = null, viewDir = null } = opts
   const cols = Math.max(1, Math.round(beetW * 100 / cellCm))
   const rows = Math.max(1, Math.round(beetH * 100 / cellCm))
   const nCells = cols * rows
+  const cellM = cellCm / 100
+  // Innen-Maske (Polygon) + gültige Zellen
+  const inside = new Array(nCells)
+  const valid = []
+  for (let idx = 0; idx < nCells; idx++) {
+    const col = idx % cols, row = Math.floor(idx / cols)
+    inside[idx] = polygon ? pointInPolygon([(col + 0.5) * cellM, (row + 0.5) * cellM], polygon) : true
+    if (inside[idx]) valid.push(idx)
+  }
+  const nValid = valid.length || nCells
   const species = plan.filter(p => (p.count || 0) > 0)
   const cells = new Array(nCells).fill(null)
-  if (!species.length) return { cols, rows, cellCm, cells, legend: [] }
+  if (!species.length) return { cols, rows, cellCm, cells, inside, legend: [] }
 
-  // Zielzahl Zellen je Art (∝ count), Summe = nCells (Rest größte Reste zuerst).
+  // Zielzahl Zellen je Art (∝ count), Summe = nValid.
   const totalCount = species.reduce((s, p) => s + p.count, 0) || 1
-  const quota = species.map(p => ({ p, exact: p.count / totalCount * nCells }))
+  const quota = species.map(p => ({ p, exact: p.count / totalCount * nValid, h: p.hoehe?.[1] ?? 50 }))
   quota.forEach(q => { q.n = Math.floor(q.exact) })
-  let rest = nCells - quota.reduce((s, q) => s + q.n, 0)
+  let rest = nValid - quota.reduce((s, q) => s + q.n, 0)
   quota.sort((a, b) => (b.exact - b.n) - (a.exact - a.n))
   for (let i = 0; i < rest; i++) quota[i % quota.length].n++
+
+  // Höhen-Normierung + Tiefenachse (Blickrichtung). Default: Betrachter unten →
+  // „hinten" = kleine Reihe (row 0). viewDir zeigt vom Betrachter ins Beet.
+  const hMin = Math.min(...quota.map(q => q.h)), hMax = Math.max(...quota.map(q => q.h))
+  const hSpan = Math.max(1, hMax - hMin)
+  const vx = viewDir ? viewDir.x : 0, vy = viewDir ? viewDir.y : -1
+  const depth = (col, row) => 0.5 + ((col + 0.5) / cols - 0.5) * vx + ((row + 0.5) / rows - 0.5) * vy
   quota.sort((a, b) => b.p.count - a.p.count)
 
-  // Drift-Zentren je Art (seeded) — mehr Cluster für häufige/kleine Arten.
-  const rnd = mulberry(hashStr('raster|' + species.map(s => s.id).join(',') + '|' + cols + 'x' + rows))
+  // Drift-Zentren je Art per Rejection-Sampling nahe der Ziel-Tiefe (=Höhenrang).
+  const rnd = mulberry(hashStr('raster|' + species.map(s => s.id).join(',') + '|' + cols + 'x' + rows + '|' + vx + ',' + vy))
   const centers = new Map()
-  quota.forEach(({ p, n }) => {
+  quota.forEach(({ p, n, h }) => {
+    const target = (h - hMin) / hSpan          // 0 flach … 1 hoch → Ziel-Tiefe
     const k = Math.max(1, Math.min(6, Math.round(Math.sqrt(n) / 1.6)))
-    centers.set(p.id, Array.from({ length: k }, () => [rnd() * cols, rnd() * rows]))
+    const cs = []
+    for (let attempt = 0; attempt < k * 40 && cs.length < k; attempt++) {
+      const vi = valid[Math.floor(rnd() * valid.length)]
+      const col = vi % cols, row = Math.floor(vi / cols)
+      if (Math.abs(depth(col, row) - target) < 0.22 + attempt * 0.01) cs.push([col + 0.5, row + 0.5])
+    }
+    if (!cs.length) cs.push([cols / 2, rows / 2])
+    centers.set(p.id, cs)
   })
 
-  // Greedy: (Zelle, Art)-Paare nach Distanz zum nächsten eigenen Cluster sortiert;
-  // Zelle der nächstbesten Art mit freiem Kontingent zuweisen → kompakte Drifts.
+  // Greedy: (gültige Zelle, Art)-Paare nach Cluster-Distanz + leichter Tiefen-
+  // Strafe → kompakte Drifts in Höhenbändern. Nur Innen-Zellen.
   const remaining = new Map(quota.map(q => [q.p.id, q.n]))
+  const tgt = new Map(quota.map(q => [q.p.id, (q.h - hMin) / hSpan]))
   const pairs = []
-  for (let idx = 0; idx < nCells; idx++) {
-    const cx = idx % cols + 0.5, cy = Math.floor(idx / cols) + 0.5
+  for (const idx of valid) {
+    const col = idx % cols, row = Math.floor(idx / cols), cx = col + 0.5, cy = row + 0.5
+    const dep = depth(col, row)
     for (const { p } of quota) {
       let d = Infinity
       for (const [ccx, ccy] of centers.get(p.id)) d = Math.min(d, Math.hypot(ccx - cx, ccy - cy))
-      pairs.push({ idx, id: p.id, d: d + rnd() * 0.35 })
+      pairs.push({ idx, id: p.id, d: d + Math.abs(dep - tgt.get(p.id)) * cols * 0.5 + rnd() * 0.35 })
     }
   }
   pairs.sort((a, b) => a.d - b.d)
   let filled = 0
   for (const pr of pairs) {
-    if (filled >= nCells) break
+    if (filled >= nValid) break
     if (cells[pr.idx] !== null) continue
     if ((remaining.get(pr.id) || 0) <= 0) continue
     cells[pr.idx] = pr.id
@@ -153,7 +186,7 @@ export function buildGrid(plan, beetW, beetH, cellCm) {
     id: p.id, name: p.name, latin: p.latin, farbe: p.bluete_farbe || '#10b981',
     code: gridCode(i), cells: n, heimisch: p.heimisch, pflanzabstand: p.pflanzabstand || 40,
   }))
-  return { cols, rows, cellCm, cells, legend }
+  return { cols, rows, cellCm, cells, inside, legend }
 }
 export function gridCode(i) {
   // A, B, … Z, AA, AB …
