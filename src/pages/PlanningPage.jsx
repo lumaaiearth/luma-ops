@@ -16,8 +16,8 @@ import {
 import { computePlacement, buildGrid, stateForMonth, growthForMonth, growthBucket, POLLI_GROUPS } from '../lib/beetLayout.js'
 import { plantSprite, SPRITE_PX_PER_M } from '../lib/plantSprites.js'
 
-// three.js-Ansicht lazy laden — landet als eigener Chunk, nicht im Hauptbundle.
-const Beet3DPoly = lazy(() => import('../components/Beet3DPoly.jsx'))
+// Foto-Sprite-Ansicht lazy laden.
+const Beet2DSprites = lazy(() => import('../components/Beet2DSprites.jsx'))
 
 /* ─── PFLANZPLAN STATUS ─────────────────────────────────────────────────── */
 const STATUS_LABELS = {
@@ -1393,7 +1393,7 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
           {/* Ansicht-Umschalter */}
           <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
             {[
-              ['iso', <Box size={14} key="i" />, '3D-Jahresansicht'],
+              ['iso', <Box size={14} key="i" />, 'Pflanzenansicht'],
               ['raster', <LayoutGrid size={14} key="r" />, 'Pflanzanleitung (Raster)'],
               ['drift', <MapIcon size={14} key="d" />, 'Drift-Karte'],
             ].map(([v, icon, lbl]) => (
@@ -1406,14 +1406,14 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
             ))}
           </div>
 
-          {/* ── 3D-JAHRESANSICHT (Low-Poly-Modelle, WebGL) ── */}
+          {/* ── PFLANZENANSICHT (freigestellte Fotos) ── */}
           {view === 'iso' && (
             <Suspense fallback={
               <div style={{ background: cardBg, borderRadius: 12, padding: 24, boxShadow: shadow, marginBottom: 16, color: MUTED, fontSize: 13, textAlign: 'center' }}>
-                🌿 3D-Ansicht wird geladen …
+                🌸 Pflanzenansicht wird geladen …
               </div>
             }>
-              <Beet3DPoly placement={plantsWithPlacement} beetW={beetW} beetH={beetH} beetForm={beetForm}
+              <Beet2DSprites placement={plantsWithPlacement} beetW={beetW} beetH={beetH}
                 L={L} shadow={shadow} cardBg={cardBg} />
             </Suspense>
           )}
@@ -1494,7 +1494,7 @@ function BeetPlaner({ plan, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetF
 }
 
 /* ─── BESTÄUBER / TRACHTKALENDER ─────────────────────────────────────────── */
-// POLLI_GROUPS kommt aus beetLayout.js (geteilt mit Beet3DPoly).
+// POLLI_GROUPS kommt aus beetLayout.js.
 // Hauptflugzeit der Bestäuber (April–September): Blühlücken hier sind kritisch.
 const FORAGE_SEASON = [4, 5, 6, 7, 8, 9]
 
