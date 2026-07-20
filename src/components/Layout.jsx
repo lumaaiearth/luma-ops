@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { LayoutDashboard, CalendarDays, CalendarRange, ListChecks, Radio, Users, Settings, LogOut, Clock, Map, Database, FolderOpen, MoreHorizontal, BarChart2, Flower2, ListTodo, UserCircle, Search } from 'lucide-react'
+import { LayoutDashboard, CalendarDays, Radio, Users, Settings, LogOut, Clock, Map, Database, FolderOpen, MoreHorizontal, BarChart2, Flower2, ListTodo, UserCircle, Search } from 'lucide-react'
 import { A, BG, SURFACE, BORDER, FG, MUTED, A14 } from '../lib/theme.js'
 import { Avatar, MONO, SANS } from './ui.jsx'
 import GlobalSearch from './GlobalSearch.jsx'
@@ -12,10 +12,9 @@ const NAV_GROUPS = [
     label: 'Betrieb',
     items: [
       { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-      { to: '/calendar',  icon: CalendarDays,    label: 'Kalender' },
-      { to: '/wochenplan', icon: CalendarRange,  label: 'Wochenplan' },
+      // Einsätze-Hub bündelt Liste + Kalender + Wochenplan (Umschalter im Hub)
+      { to: '/einsaetze', icon: CalendarDays,    label: 'Einsätze' },
       { to: '/tasks',     icon: ListTodo,        label: 'Offene Aufgaben', short: 'Aufgaben' },
-      { to: '/jobs',      icon: ListChecks,      label: 'Einsatzübersicht', short: 'Einsätze' },
     ],
   },
   {
@@ -40,8 +39,8 @@ const NAV_GROUPS = [
 
 const NAV_FLAT = NAV_GROUPS.flatMap(g => g.items)
 
-// Die 5 wichtigsten Ziele in der mobilen Bottom-Bar; Rest im „Mehr"-Drawer
-const BOTTOM_NAV = [NAV_FLAT[0], NAV_FLAT[1], NAV_FLAT[2], NAV_FLAT[3], NAV_FLAT[4]]
+// Mobile Bottom-Bar: Dashboard · Einsätze · Aufgaben; Rest im „Mehr"-Drawer
+const BOTTOM_NAV = [NAV_FLAT[0], NAV_FLAT[1], NAV_FLAT[2]]
 
 function SidebarLink({ to, icon: Icon, label, onNavigate }) {
   return (

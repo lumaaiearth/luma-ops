@@ -20,9 +20,11 @@ const TASK_P = Object.fromEntries(TASK_PRIORITIES.map(p => [p.id, p]))
 
 const NAV_ITEMS = [
   { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
-  { label: 'Kalender', to: '/calendar', icon: CalendarDays },
+  { label: 'Einsätze', to: '/einsaetze', icon: CalendarDays },
+  { label: 'Einsätze · Kalender', to: '/einsaetze?view=kalender', icon: CalendarDays },
+  { label: 'Einsätze · Wochenplan', to: '/einsaetze?view=wochenplan', icon: CalendarDays },
   { label: 'Offene Aufgaben', to: '/tasks', icon: ListTodo },
-  { label: 'Einsatzübersicht', to: '/jobs', icon: ListChecks },
+  { label: 'Einsatzübersicht (Liste)', to: '/einsaetze?view=liste', icon: ListChecks },
   { label: 'BIOME™ Karte', to: '/map', icon: Map },
   { label: 'Analysen', to: '/analyse', icon: BarChart2 },
   { label: 'Florales™', to: '/planning', icon: Flower2 },
