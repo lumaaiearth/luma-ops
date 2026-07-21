@@ -158,6 +158,16 @@ export function OpsProvider({ children }) {
     }
   }, [loading])
 
+  // ── Auto-Archiv: Aufgaben, die seit 14 Tagen unverändert auf „Erledigt"
+  //    stehen, wandern beim App-Start automatisch ins Archiv (nicht gelöscht).
+  useEffect(() => {
+    if (loading || !isMitarbeiter) return
+    const cutoff = new Date(Date.now() - 14 * 86400_000).toISOString()
+    tasks
+      .filter(t => t.status === 'done' && !t.deleted_at && (t.updated_at || t.created_at || '') < cutoff)
+      .forEach(t => updateTask(t.id, { status: 'archive' }))
+  }, [loading])
+
   // ── Realtime subscriptions ───────────────────────────────────────────────────
   useEffect(() => {
     const channel = sb.channel('ops-sync')
@@ -343,6 +353,14 @@ export function OpsProvider({ children }) {
         sbUpdate('recurring_templates', tmpl.id, { last_date: job.date, next_date: nextDate }).catch(dbErr('ops','write'))
       }
     }
+  }
+
+  // Fertiggestellten Einsatz bestätigen → Archiv (bleibt erhalten, nur ausgeblendet)
+  function archiveJob(id) {
+    updateJob(id, { status: 'archived' })
+  }
+  function restoreJob(id) {
+    updateJob(id, { status: 'done' })
   }
 
   // ── Recurring ───────────────────────────────────────────────────────────────
@@ -622,6 +640,11 @@ export function OpsProvider({ children }) {
     sb.from('app_settings').upsert({ key: 'activity_chips', value: newChips, updated_at: new Date().toISOString() }, { onConflict: 'key' }).catch(dbErr('ops','write'))
   }
 
+  // Archivierte Einsätze überall herausfiltern (Liste, Kalender, Dashboard …);
+  // nur der Archiv-Filter der Einsatzübersicht greift auf archivedJobs zu.
+  const visibleJobs = jobs.filter(j => j.status !== 'archived')
+  const archivedJobs = jobs.filter(j => j.status === 'archived')
+
   const activeTasks = tasks.filter(t => !t.deleted_at)
   const deletedTasks = tasks.filter(t => t.deleted_at)
   // Alle auswählbaren Personen: festes Kern-Team + aktive Freelancer
@@ -629,7 +652,7 @@ export function OpsProvider({ children }) {
   const people = [...TEAM, ...normalizedFreelancers.filter(f => f.active !== false)]
 
   return (
-    <OpsContext.Provider value={{ jobs, recurring, sensors, projects, clients, vehicles, chips, mapFeatures, pflanzplaene, tasks: activeTasks, deletedTasks, boards, people, freelancers: normalizedFreelancers, loading, createJob, updateJob, deleteJob, setJobStatus, createRecurring, deleteRecurring, updateSensorValue, createProject, updateProject, deleteProject, createClient, updateClient, deleteClient, createVehicle, updateVehicle, deleteVehicle, createFreelancer, updateFreelancer, deleteFreelancer, saveChips, createMapFeature, updateMapFeature, deleteMapFeature, createPflanzplan, updatePflanzplan, deletePflanzplan, createTask, updateTask, deleteTask, restoreTask, purgeTask, setTaskStatus, createBoard, updateBoard, deleteBoard }}>
+    <OpsContext.Provider value={{ jobs: visibleJobs, archivedJobs, recurring, sensors, projects, clients, vehicles, chips, mapFeatures, pflanzplaene, tasks: activeTasks, deletedTasks, boards, people, freelancers: normalizedFreelancers, loading, createJob, updateJob, deleteJob, setJobStatus, archiveJob, restoreJob, createRecurring, deleteRecurring, updateSensorValue, createProject, updateProject, deleteProject, createClient, updateClient, deleteClient, createVehicle, updateVehicle, deleteVehicle, createFreelancer, updateFreelancer, deleteFreelancer, saveChips, createMapFeature, updateMapFeature, deleteMapFeature, createPflanzplan, updatePflanzplan, deletePflanzplan, createTask, updateTask, deleteTask, restoreTask, purgeTask, setTaskStatus, createBoard, updateBoard, deleteBoard }}>
       {children}
     </OpsContext.Provider>
   )
