@@ -40,6 +40,15 @@
       }
       if (window.visualViewport) window.visualViewport.addEventListener('resize', lumaResetScroll)
       window.addEventListener('focusout', function () { setTimeout(lumaResetScroll, 50) })
+      // Standalone-App (Home-Bildschirm): Beim Zurückkehren aus dem App-Switcher
+      // stellt iOS teils einen verschobenen Viewport wieder her, OHNE dass
+      // resize/focusout feuern — die Lücke unter der Bottom-Nav bleibt dann
+      // dauerhaft stehen. Deshalb auch beim Sichtbarwerden hart zurücksetzen.
+      window.addEventListener('pageshow', function () { setTimeout(lumaResetScroll, 50) })
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) setTimeout(lumaResetScroll, 50)
+      })
+      window.addEventListener('orientationchange', function () { setTimeout(lumaResetScroll, 250) })
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

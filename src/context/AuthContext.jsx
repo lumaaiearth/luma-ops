@@ -14,12 +14,16 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   async function fetchProfile(supaUser) {
-    if (!supaUser) { setProfile(null); setAllProfiles([]); return }
+    if (!supaUser) { setProfile(null); setAllProfiles([]); setAvatarRegistry([]); return }
     const { data } = await sb.from('user_profile').select('*').eq('id', supaUser.id).maybeSingle()
     setProfile(data || null)
     // Alle Profile laden (für Avatare/Kontaktdaten app-weit); Fehler unkritisch
     const { data: all } = await sb.from('user_profile').select('id, name, rolle, avatar_url, phone, contact_email, bio, team_id')
     setAllProfiles(all || [])
+    // Registry sofort (synchron) füllen: der useEffect unten läuft erst NACH dem
+    // ersten Seiten-Render — zu spät für Avatar-Reihen, die people.js ohne
+    // React-Bindung abfragen (Aufgabenkarten würden Initialen zeigen).
+    setAvatarRegistry(all || [])
   }
 
   // Fotos app-weit verfügbar machen: people.js löst damit in allen
