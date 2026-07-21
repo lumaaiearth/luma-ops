@@ -180,6 +180,15 @@ export default function PlanningPage() {
     setFromMapFeature(state.fromMapFeature)
   }, [location.state])
 
+  // Deep-Link aus BIOME: verknüpften Pflanzplan direkt öffnen
+  // (Feature-Panel → „Florales™"-Eintrag navigiert mit state.openPlanId hierher)
+  useEffect(() => {
+    const openId = location.state?.openPlanId
+    if (!openId || !pflanzplaene.length) return
+    const pp = pflanzplaene.find(p => p.id === openId)
+    if (pp) loadPflanzplan(pp)
+  }, [location.state, pflanzplaene]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Standort-Daten (Höhe via API, Klimazone/Region offline) aus dem Schwerpunkt.
   useEffect(() => {
     const c = shapeMeta?.centroid

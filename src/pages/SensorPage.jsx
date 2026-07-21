@@ -195,7 +195,14 @@ export default function SensorPage() {
           <Field label="Schwelle min" value={sensor.threshold_low != null ? `${sensor.threshold_low}${sensor.unit}` : '—'} />
           <Field label="Schwelle max" value={sensor.threshold_high != null ? `${sensor.threshold_high}${sensor.unit}` : '—'} />
           <Field label="Letzte Messung" value={sensor.last_updated ? new Date(sensor.last_updated).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'} />
+          <Field label="GPS-Position" value={sensor.lat && sensor.lng ? `${(+sensor.lat).toFixed(6)}, ${(+sensor.lng).toFixed(6)}` : '— (in BIOME auf der Karte anlegen)'} />
         </div>
+        {sensor.lat && sensor.lng ? (
+          <button onClick={() => navigate('/map', { state: { focusCoords: [sensor.lat, sensor.lng] } })}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 14, padding: '8px 14px', borderRadius: 8, border: `1px solid ${BORDER}`, background: 'transparent', color: A, cursor: 'pointer', fontSize: 12, fontFamily: SANS }}>
+            🗺️ Auf Karte zeigen (BIOME™)
+          </button>
+        ) : null}
         <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${BORDER}`, fontFamily: MONO, fontSize: 10, color: MUTED, lineHeight: 1.6 }}>
           Netzwerk-Zuordnung, Installationsdaten, verbaute Komponenten und Notizen folgen mit der Sensor-Verwaltung.
         </div>
