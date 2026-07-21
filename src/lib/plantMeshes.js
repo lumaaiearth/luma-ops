@@ -29,6 +29,25 @@ function paint(geoIn, hex, vary = 0) {
   geo.deleteAttribute('uv')
   return geo
 }
+// Verlaufsfärbung entlang der lokalen y-Achse (Basis→Spitze), z. B. hellere
+// Blütenblatt-Ränder. Vor Rotation/Translation auf das rohe Teil anwenden.
+function paintGrad(geoIn, hexBase, hexTip) {
+  const geo = geoIn.index ? geoIn.toNonIndexed() : geoIn
+  if (geo !== geoIn) geoIn.dispose()
+  const cA = new THREE.Color(hexBase), cB = new THREE.Color(hexTip), c = new THREE.Color()
+  const p = geo.attributes.position, n = p.count
+  let ymin = Infinity, ymax = -Infinity
+  for (let i = 0; i < n; i++) { const y = p.getY(i); if (y < ymin) ymin = y; if (y > ymax) ymax = y }
+  const span = (ymax - ymin) || 1
+  const arr = new Float32Array(n * 3)
+  for (let i = 0; i < n; i++) {
+    c.copy(cA).lerp(cB, (p.getY(i) - ymin) / span)
+    arr[i * 3] = c.r; arr[i * 3 + 1] = c.g; arr[i * 3 + 2] = c.b
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(arr, 3))
+  geo.deleteAttribute('uv')
+  return geo
+}
 
 // ── Blatt-Primitive: Basis bei y=0, Spitze +y, flach in XY, Normalen gesetzt ──
 // Low-Poly-Blatt mit natürlicherem Umriss: schmale Basis, breiteste Stelle bei
@@ -152,6 +171,11 @@ export function speciesGeometry(sp, month) {
   const leaf = '#' + leafC.getHexString()
   const leafD = '#' + leafC.clone().offsetHSL(0, 0, -0.06).getHexString()
   const flowerCol = seed ? SEED_COL : (bloom ? (sp.bluete_farbe || '#c47ad6') : leafD)
+  // Vorblüte-Knospen: gedämpfte, ins Grüne gemischte Blütenfarbe (statt dunkler
+  // Klekse) — nach der Blüte Samenton. Blütenspitze: aufgehellte Blütenfarbe.
+  const budCol = seed ? SEED_COL : (bloom ? flowerCol
+    : '#' + new THREE.Color(leaf).lerp(new THREE.Color(sp.bluete_farbe || '#c47ad6'), 0.16).getHexString())
+  const flowerTip = bloom ? '#' + new THREE.Color(flowerCol).offsetHSL(0, -0.04, 0.13).getHexString() : flowerCol
   const parts = []
   const add = g => parts.push(g)
 
@@ -206,20 +230,33 @@ export function speciesGeometry(sp, month) {
     const t = tip
     switch (M.infl) {
       case 'aehre': case 'lippe': {
-        const spikeLen = Math.max(0.05, H * 0.34), big = M.infl === 'lippe'
-        const s = new THREE.CylinderGeometry(0.006, 0.02, spikeLen, 5); s.translate(t.x, t.y + spikeLen / 2, t.z)
-        add(paint(noUV(s), flowerCol, rnd()))
-        if (bloom) { const nf = big ? 5 : 7; for (let k = 0; k < nf; k++) ball(t.x + (rnd() - 0.5) * (big ? 0.05 : 0.04), t.y + spikeLen * (0.15 + 0.8 * k / nf), t.z + (rnd() - 0.5) * 0.04, big ? 0.02 : 0.014, flowerCol, 0.95) }
+        const big = M.infl === 'lippe'
+        const spikeLen = Math.max(0.05, H * 0.34)
+        // Dünne grüne Achse statt fetter Blütenkegel
+        const axis = new THREE.CylinderGeometry(0.004, 0.007, spikeLen, 5); axis.translate(t.x, t.y + spikeLen / 2, t.z)
+        add(paint(noUV(axis), leafD, rnd()))
+        // Blüten in Scheinquirlen den Ähre hinauf — unten dichter, nach oben schmaler
+        const nW = big ? 5 : 6, col = bloom ? flowerCol : budCol
+        const rr = (bloom ? (big ? 0.019 : 0.013) : (big ? 0.013 : 0.009))
+        for (let w = 0; w < nW; w++) {
+          const f = w / nW, yy = t.y + spikeLen * (0.1 + 0.85 * f)
+          const ringR = (big ? 0.05 : 0.034) * (1 - f * 0.55)
+          const perW = bloom ? (big ? 4 : 6) : 3
+          for (let k = 0; k < perW; k++) {
+            const a = (k / perW) * Math.PI * 2 + w * 0.6
+            ball(t.x + Math.cos(a) * ringR, yy + (rnd() - 0.5) * 0.008, t.z + Math.sin(a) * ringR, rr * (0.85 + rnd() * 0.3), col, big ? 1.25 : 0.95)
+          }
+        }
         break
       }
       case 'traube': {
-        const rlen = Math.max(0.06, H * 0.35), n = 5
-        for (let k = 0; k < n; k++) { const yy = t.y + rlen * (k / n); ball(t.x + (rnd() - 0.5) * 0.05, yy, t.z + (rnd() - 0.5) * 0.03, 0.016, flowerCol, 1.1) }
+        const rlen = Math.max(0.06, H * 0.35), n = bloom ? 6 : 5, col = bloom ? flowerCol : budCol
+        for (let k = 0; k < n; k++) { const yy = t.y + rlen * (k / n); ball(t.x + (rnd() - 0.5) * 0.05, yy, t.z + (rnd() - 0.5) * 0.03, bloom ? 0.016 : 0.011, col, 1.1) }
         break
       }
       case 'rispe': {
-        const rlen = Math.max(0.05, H * 0.3), n = 9
-        for (let k = 0; k < n; k++) { const yy = t.y + rlen * rnd(), rr = (1 - yy / (t.y + rlen)) * 0.06; ball(t.x + (rnd() - 0.5) * 0.09, yy, t.z + (rnd() - 0.5) * 0.09, seed || !bloom ? 0.008 : 0.012, flowerCol, 0.8) }
+        const rlen = Math.max(0.05, H * 0.3), n = 9, col = bloom ? flowerCol : budCol
+        for (let k = 0; k < n; k++) { const yy = t.y + rlen * rnd(), rr = (1 - yy / (t.y + rlen)) * 0.06; ball(t.x + (rnd() - 0.5) * 0.09, yy, t.z + (rnd() - 0.5) * 0.09, seed || !bloom ? 0.008 : 0.012, col, 0.8) }
         break
       }
       case 'dolde': {
@@ -231,18 +268,18 @@ export function speciesGeometry(sp, month) {
             const cx = t.x + Math.cos(a) * dd, cz = t.z + Math.sin(a) * dd, cy = t.y + 0.01 + (rnd() - 0.5) * 0.01
             for (let j = 0; j < 4; j++) { const b = rnd() * Math.PI * 2, e = rnd() * 0.014; ball(cx + Math.cos(b) * e, cy + (rnd() - 0.5) * 0.006, cz + Math.sin(b) * e, 0.007, flowerCol, 0.7) }
           }
-        } else ball(t.x, t.y + 0.006, t.z, r * 0.7, flowerCol, 0.4)
+        } else ball(t.x, t.y + 0.006, t.z, r * 0.7, budCol, 0.4)
         break
       }
       case 'korb': {
         if (bloom) corolla(t.x, t.y + 0.012, t.z, Math.max(0.02, H * 0.05))
-        else ball(t.x, t.y + 0.012, t.z, Math.max(0.02, H * 0.045), flowerCol, 0.6)
+        else ball(t.x, t.y + 0.012, t.z, Math.max(0.02, H * 0.045), budCol, 0.6)
         break
       }
       case 'koepfchen': {
         const r = Math.max(0.02, H * 0.05)
-        ball(t.x, t.y + r * 0.6, t.z, r, flowerCol, 1)
-        if (bloom) for (let k = 0; k < 8; k++) { const a = rnd() * Math.PI * 2; ball(t.x + Math.cos(a) * r, t.y + r * 0.6 + (rnd() - 0.5) * r, t.z + Math.sin(a) * r, r * 0.35, flowerCol) }
+        ball(t.x, t.y + r * 0.6, t.z, r, bloom ? flowerCol : budCol, 1)
+        if (bloom) for (let k = 0; k < 8; k++) { const a = rnd() * Math.PI * 2; ball(t.x + Math.cos(a) * r, t.y + r * 0.6 + (rnd() - 0.5) * r, t.z + Math.sin(a) * r, r * 0.35, flowerTip) }
         break
       }
       case 'glocke': {
@@ -263,7 +300,7 @@ export function speciesGeometry(sp, month) {
       }
       default: { // einzeln
         if (bloom && (M.leaf !== 'nadel')) corolla(t.x, t.y + 0.012, t.z, Math.max(0.024, H * 0.06))
-        else ball(t.x, t.y + 0.012, t.z, Math.max(0.022, H * 0.05), flowerCol, 0.6)
+        else ball(t.x, t.y + 0.012, t.z, Math.max(0.022, H * 0.05), budCol, 0.6)
       }
     }
   }
@@ -273,14 +310,14 @@ export function speciesGeometry(sp, month) {
     for (let i = 0; i < nP; i++) {
       const pet = bladeGeo(r * 2.0, r * 0.62, r * 0.45)
       pet.rotateX(-Math.PI / 2 + 0.32); pet.rotateY((i / nP) * Math.PI * 2 + rnd() * 0.08); pet.translate(x, y, z)
-      add(paint(pet, flowerCol, rnd() * 0.55))
+      add(paintGrad(pet, flowerCol, flowerTip)) // dunklerer Grund, aufgehellte Spitze
     }
     // Innerer, kleinerer & steilerer Kranz — leicht versetzt für Fülle
     const nI = Math.ceil(nP * 0.6)
     for (let i = 0; i < nI; i++) {
       const pet = bladeGeo(r * 1.2, r * 0.5, r * 0.4)
       pet.rotateX(-Math.PI / 2 + 0.72); pet.rotateY((i / nI) * Math.PI * 2 + 0.4 + rnd() * 0.12); pet.translate(x, y + r * 0.05, z)
-      add(paint(pet, flowerCol, 0.3 + rnd() * 0.4))
+      add(paintGrad(pet, flowerCol, flowerTip))
     }
     // Blütenscheibe: Zentrum + Kranz kleiner Röschen statt glatter Kugel
     const discCol = seed ? '#7a5a20' : '#9a6a10'
@@ -300,9 +337,12 @@ export function speciesGeometry(sp, month) {
   } else if (M.leaf === 'grasartig') {
     const n = 12 + Math.floor(rnd() * 6)
     for (let i = 0; i < n; i++) {
-      const bh = H * (0.65 + rnd() * 0.4)
-      const b = bladeGeo(bh, 0.016, bh * 0.13); b.rotateZ((rnd() - 0.5) * 0.8); b.rotateY(rnd() * Math.PI * 2)
-      const a = rnd() * Math.PI * 2, d = rnd() * spread * 0.2; b.translate(Math.cos(a) * d, 0, Math.sin(a) * d)
+      const bh = H * (0.6 + rnd() * 0.5)
+      const a = rnd() * Math.PI * 2, d = rnd() * spread * 0.22
+      // Überhängender Bogen: kräftige Krümmung + nach außen geneigt (Fontänen-Habitus)
+      const b = bladeGeo(bh, 0.017, bh * (0.24 + rnd() * 0.2))
+      b.rotateX(0.15 + rnd() * 0.5); b.rotateY(a + (rnd() - 0.5) * 0.6)
+      b.translate(Math.cos(a) * d, 0, Math.sin(a) * d)
       add(paint(b, rnd() < 0.35 ? '#8a9a5b' : leaf, rnd()))
       if ((bloom || seed) && rnd() < 0.4) { const g = new THREE.CylinderGeometry(0.004, 0.012, bh * 0.22, 4); g.translate(Math.cos(a) * d, bh * 0.98, Math.sin(a) * d); add(paint(noUV(g), bloom && sp.bluete_farbe ? sp.bluete_farbe : SEED_COL, rnd())) }
     }
