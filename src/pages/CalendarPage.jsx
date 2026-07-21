@@ -5,10 +5,10 @@ import { useOps } from '../context/OpsContext.jsx'
 import { useGCal } from '../context/GCalContext.jsx'
 import { useWeather } from '../context/WeatherContext.jsx'
 import { A, BG, SURFACE, BORDER, FG, MUTED, A06, A0a, A0d, A14, A40 } from '../lib/theme.js'
-import { EmptyState, SANS } from '../components/ui.jsx'
+import { EmptyState, SANS, Avatar } from '../components/ui.jsx'
 import JobModal from '../components/JobModal.jsx'
 import { JOB_TYPES, TEAM, VEHICLES, TASK_PRIORITIES } from '../data/seed.js'
-import { peopleForIds } from '../lib/people.js'
+import { peopleForIds, avatarFor } from '../lib/people.js'
 
 const TASK_P_CAL = Object.fromEntries(TASK_PRIORITIES.map(p => [p.id, p]))
 import { isoToday, weekStart, getWeekDays, addDays } from '../lib/storage.js'
@@ -135,11 +135,16 @@ function EventBlock({ job, projects, clients, onOpen, onPointerDown, isGhost }) 
           )}
           {assignees.length > 0 && !tiny && (
             <div style={{ display: 'flex', gap: 2, marginTop: compact ? 0 : 2, flexWrap: 'nowrap', overflow: 'hidden' }}>
-              {assignees.slice(0, compact ? 3 : 5).map(u => (
-                <div key={u.id} title={u.name} style={{ width: compact ? 16 : 20, height: compact ? 16 : 20, borderRadius: '50%', background: 'rgba(0,0,0,0.28)', border: '1.5px solid rgba(255,255,255,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: compact ? 7 : 9, color: '#fff', fontWeight: 700, lineHeight: 1 }}>{u.initials}</span>
-                </div>
-              ))}
+              {assignees.slice(0, compact ? 3 : 5).map(u => {
+                const photo = avatarFor(u.id)
+                return photo ? (
+                  <Avatar key={u.id} title={u.name} initials={u.initials} size={compact ? 16 : 20} src={photo} style={{ border: '1.5px solid rgba(255,255,255,0.5)', background: 'rgba(0,0,0,0.28)' }} />
+                ) : (
+                  <div key={u.id} title={u.name} style={{ width: compact ? 16 : 20, height: compact ? 16 : 20, borderRadius: '50%', background: 'rgba(0,0,0,0.28)', border: '1.5px solid rgba(255,255,255,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <span style={{ fontFamily: "'Space Mono', monospace", fontSize: compact ? 7 : 9, color: '#fff', fontWeight: 700, lineHeight: 1 }}>{u.initials}</span>
+                  </div>
+                )
+              })}
             </div>
           )}
         </>

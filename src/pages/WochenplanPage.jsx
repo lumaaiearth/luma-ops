@@ -4,9 +4,9 @@ import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useWeather } from '../context/WeatherContext.jsx'
 import { sb } from '../lib/supabase.js'
-import { findPerson, allPeople } from '../lib/people.js'
+import { findPerson, allPeople, avatarFor } from '../lib/people.js'
 import { A, SURFACE, BORDER, FG, MUTED, CARD, A08, A14 } from '../lib/theme.js'
-import { INPUT_STYLE, LABEL_STYLE, Modal, ModalActions, MONO, SANS, DateInput } from '../components/ui.jsx'
+import { Avatar, INPUT_STYLE, LABEL_STYLE, Modal, ModalActions, MONO, SANS, DateInput } from '../components/ui.jsx'
 import JobModal from '../components/JobModal.jsx'
 import WeatherLine from '../components/WeatherLine.jsx'
 import { getWeatherForDate } from '../lib/weather.js'
@@ -390,9 +390,7 @@ export default function WochenplanPage({ embedded = false }) {
                   boxShadow: available ? `inset 3px 0 0 ${A}` : 'none',
                 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, width: 52, flexShrink: 0 }}>
-                  <span style={{ width: 26, height: 26, borderRadius: '50%', background: person.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ fontFamily: MONO, fontSize: 8, color: '#001219', fontWeight: 700 }}>{person.initials}</span>
-                  </span>
+                  <Avatar initials={person.initials} color={person.color} size={26} src={avatarFor(person.id)} />
                   <span style={{ fontSize: 9.5, fontWeight: 600, color: FG, textAlign: 'center', lineHeight: 1.1 }}>{person.name.split(' ')[0]}</span>
                   {absence && <span style={{ fontFamily: MONO, fontSize: 7.5, color: MUTED }}>abwesend</span>}
                 </div>
@@ -583,9 +581,7 @@ function RowFragment({ person, days, today, cellJobs, isAvailable, absenceFor, a
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', minHeight: 52 }}>
-        <span style={{ width: 22, height: 22, borderRadius: '50%', background: person.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <span style={{ fontFamily: MONO, fontSize: 7, color: '#001219', fontWeight: 700 }}>{person.initials}</span>
-        </span>
+        <Avatar initials={person.initials} color={person.color} size={22} src={avatarFor(person.id)} />
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: FG, whiteSpace: 'nowrap' }}>{person.name}</div>
           {avail?.note && <div style={{ fontSize: 9, color: MUTED, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }} title={avail.note}>{avail.note}</div>}

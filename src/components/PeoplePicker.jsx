@@ -9,15 +9,14 @@
 import { X, UserPlus } from 'lucide-react'
 import { useOps } from '../context/OpsContext.jsx'
 import { SURFACE, BORDER, FG, MUTED } from '../lib/theme.js'
-import { MONO, SANS } from './ui.jsx'
+import { MONO, SANS, Avatar } from './ui.jsx'
+import { avatarFor } from '../lib/people.js'
 
 function PersonPill({ person, active, onClick, removable }) {
   return (
     <button type="button" onClick={onClick}
       style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 20, background: active ? `${person.color}22` : 'rgba(255,255,255,0.05)', border: `1px solid ${active ? person.color + '80' : BORDER}`, cursor: 'pointer', transition: 'all 0.15s' }}>
-      <div style={{ width: 18, height: 18, borderRadius: '50%', background: person.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <span style={{ fontFamily: MONO, fontSize: 7, color: '#001219', fontWeight: 700 }}>{person.initials}</span>
-      </div>
+      <Avatar initials={person.initials} color={person.color} size={18} src={avatarFor(person.id)} />
       <span style={{ fontSize: 13, color: active ? person.color : MUTED }}>{person.name}</span>
       {removable && <X size={11} color={MUTED} />}
     </button>

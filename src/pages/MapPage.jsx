@@ -10,8 +10,8 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { sb, SUPABASE_URL } from '../lib/supabase.js'
 import { A, BG, SURFACE, BORDER, FG, MUTED, CARD, A06, A10, A14, A18 } from '../lib/theme.js'
 import { JOB_TYPES, TASK_PRIORITIES, TASK_STATUSES } from '../data/seed.js'
-import { findPerson } from '../lib/people.js'
-import { DateInput } from '../components/ui.jsx'
+import { findPerson, avatarFor } from '../lib/people.js'
+import { DateInput, Avatar } from '../components/ui.jsx'
 
 const TASK_P = Object.fromEntries(TASK_PRIORITIES.map(p => [p.id, p]))
 const TASK_S = Object.fromEntries(TASK_STATUSES.map(s => [s.id, s]))
@@ -1894,9 +1894,7 @@ export default function MapPage() {
                         {(j.assigned_users || []).map(uid => {
                           const u = findPerson(uid)
                           return u ? (
-                            <div key={uid} style={{ width: 18, height: 18, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 7, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
-                            </div>
+                            <Avatar key={uid} title={u.name} initials={u.initials} color={u.color} size={18} src={avatarFor(u.id)} />
                           ) : null
                         })}
                       </div>

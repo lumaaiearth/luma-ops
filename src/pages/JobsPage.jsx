@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useOps } from '../context/OpsContext.jsx'
 import { A, SURFACE, BORDER, FG, MUTED, OK, DANGER, INFO } from '../lib/theme.js'
-import { PageHeader, Button, Tabs, Chips, EmptyState, Badge } from '../components/ui.jsx'
+import { PageHeader, Button, Tabs, Chips, EmptyState, Badge, Avatar } from '../components/ui.jsx'
 import { JOB_TYPES, VEHICLES } from '../data/seed.js'
-import { peopleForIds } from '../lib/people.js'
+import { peopleForIds, avatarFor } from '../lib/people.js'
 import { formatDate, isoToday } from '../lib/storage.js'
 import JobModal from '../components/JobModal.jsx'
 import { useBreakpoint } from '../lib/useBreakpoint.js'
@@ -152,9 +152,7 @@ export default function JobsPage() {
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                   {assignees.map(u => (
                     <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 12, background: `${u.color}18`, border: `1px solid ${u.color}30` }}>
-                      <div style={{ width: 14, height: 14, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 6, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
-                      </div>
+                      <Avatar initials={u.initials} color={u.color} size={14} src={avatarFor(u.id)} />
                       <span style={{ fontSize: 11, color: u.color }}>{u.name}</span>
                     </div>
                   ))}
@@ -255,9 +253,7 @@ function JobRow({ job, projects, today, isMobile, onToggleStatus, onEdit, onDele
           {/* Assignee avatars */}
           <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
             {assignees.slice(0, 4).map(u => (
-              <div key={u.id} title={u.name} style={{ width: 20, height: 20, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1.5px solid ${SURFACE}` }}>
-                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 7, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
-              </div>
+              <Avatar key={u.id} title={u.name} initials={u.initials} color={u.color} size={20} src={avatarFor(u.id)} style={{ border: `1.5px solid ${SURFACE}` }} />
             ))}
             {assignees.length > 4 && (
               <div style={{ width: 20, height: 20, borderRadius: '50%', background: BORDER, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -308,9 +304,7 @@ function JobRow({ job, projects, today, isMobile, onToggleStatus, onEdit, onDele
       {/* Assignees */}
       <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
         {assignees.slice(0, 5).map(u => (
-          <div key={u.id} title={u.name} style={{ width: 24, height: 24, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
-          </div>
+          <Avatar key={u.id} title={u.name} initials={u.initials} color={u.color} size={24} src={avatarFor(u.id)} />
         ))}
         {assignees.length > 5 && (
           <div style={{ width: 24, height: 24, borderRadius: '50%', background: BORDER, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
