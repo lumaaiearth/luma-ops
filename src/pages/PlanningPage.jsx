@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect, lazy, Suspense } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { A, SURFACE, BORDER, FG, MUTED, BG, A14, A20 } from '../lib/theme.js'
 import { useTheme } from '../context/ThemeContext.jsx'
@@ -17,6 +17,8 @@ import { computePlacement, buildGrid, stateForMonth, growthForMonth, growthBucke
 import { shapeMetaFromGeometry } from '../lib/shapeMeta.js'
 import { fetchElevation, siteInfo } from '../lib/siteData.js'
 import ShapeView from '../components/ShapeView.jsx'
+// 3D-Modell-Ansicht (three.js) lazy laden — eigener Chunk.
+const Beet3DPoly = lazy(() => import('../components/Beet3DPoly.jsx'))
 import { plantSprite, SPRITE_PX_PER_M } from '../lib/plantSprites.js'
 
 /* ─── PFLANZPLAN STATUS ─────────────────────────────────────────────────── */
@@ -125,6 +127,7 @@ export default function PlanningPage() {
   // ── Plan
   const [plan, setPlan] = useState([])
   const [activeTab, setActiveTab] = useState('standort')
+  const [beetView, setBeetView] = useState('raster') // 'raster' | '3d' (Modul 2/3 Vorschau)
   const [saveProjectId, setSaveProjectId] = useState('')
   const [savedToProject, setSavedToProject] = useState(false)
   const [sheetPlant, setSheetPlant] = useState(null) // Steckbrief-Sheet
@@ -206,6 +209,9 @@ export default function PlanningPage() {
       return true
     })
   }, [licht, wasser, boden, drainage, ph, search, artKeys, onlyHeimisch, onlyRaupen, onlyTagfalter, onlyBienen, onlyNachtfalter, onlyKaefer, onlyVoegel, onlyZier])
+
+  // Kontinuierliche Platzierung für die 3D-Ansicht (Drifts/Höhenschichtung).
+  const plantsWithPlacement = useMemo(() => computePlacement(plan, beetW, beetH), [plan, beetW, beetH])
 
   function addToPlan(plant) {
     setPlan(prev => {
@@ -471,10 +477,26 @@ export default function PlanningPage() {
           <div style={{ padding: isMobile ? '0 12px' : '0 24px', flexShrink: 0 }}>
             {shapeMeta?.local ? (
               <div style={{ background: cardBg, borderRadius: 12, padding: 14, boxShadow: shadow, marginBottom: 12 }}>
-                <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10, fontWeight: L ? 700 : 400 }}>
-                  🗺️ {fromMapFeature?.label || 'Fläche'} · {shapeMeta.area_m2} m² — Bepflanzung in der Freiform
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: L ? 700 : 400, flex: 1 }}>
+                    🗺️ {fromMapFeature?.label || 'Fläche'} · {shapeMeta.area_m2} m²
+                  </div>
+                  {[['raster', '🔤 Rasterplan'], ['3d', '🧊 3D-Modelle']].map(([v, lbl]) => (
+                    <button key={v} onClick={() => setBeetView(v)} style={{
+                      padding: '5px 12px', borderRadius: 7, fontSize: 12, cursor: 'pointer', fontWeight: beetView === v ? 700 : 500,
+                      border: beetView === v ? `1.5px solid ${A}` : `1px solid ${BORDER}`, background: beetView === v ? A14 : 'transparent', color: beetView === v ? A : MUTED,
+                    }}>{lbl}</button>
+                  ))}
                 </div>
-                <ShapeView shapeMeta={shapeMeta} plan={plan} height={isMobile ? 240 : 320} L={L} cardBg={cardBg} showCodes showLegend />
+                {beetView === '3d' ? (
+                  plan.length === 0
+                    ? <div style={{ height: isMobile ? 240 : 320, display: 'flex', alignItems: 'center', justifyContent: 'center', color: MUTED, fontSize: 13, background: L ? '#f4f7f0' : '#0e1712', borderRadius: 8 }}>Fläche zuerst automatisch füllen oder Pflanzen wählen</div>
+                    : <Suspense fallback={<div style={{ height: isMobile ? 240 : 320, display: 'flex', alignItems: 'center', justifyContent: 'center', color: MUTED, fontSize: 13 }}>🧊 3D-Modelle werden geladen …</div>}>
+                        <Beet3DPoly placement={plantsWithPlacement} beetW={beetW} beetH={beetH} beetForm={beetForm} polygon={shapeMeta.local.points} L={L} shadow={shadow} cardBg={cardBg} />
+                      </Suspense>
+                ) : (
+                  <ShapeView shapeMeta={shapeMeta} plan={plan} height={isMobile ? 240 : 320} L={L} cardBg={cardBg} showCodes showLegend />
+                )}
               </div>
             ) : (
               <div style={{ background: A14, border: `1px solid ${A20}`, borderRadius: 12, padding: '12px 14px', marginBottom: 12, fontSize: 12.5, color: FG }}>
