@@ -17,6 +17,24 @@ import { pointInPolygon } from '../lib/shapeMeta.js'
 
 function pointInPoly(x, y, ring) { return pointInPolygon([x, y], ring) }
 const CANVAS_H = 400
+
+// Weicher Schlagschatten: einmalige Radial-Gradient-Textur + flache Scheibe.
+// Pro Pflanze eine Instanz am Boden → billig, ohne Shadow-Map (mobilfreundlich).
+let _shadowTex = null
+function shadowTexture() {
+  if (_shadowTex) return _shadowTex
+  const s = 64
+  const cv = document.createElement('canvas'); cv.width = cv.height = s
+  const ctx = cv.getContext('2d')
+  const g = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2)
+  g.addColorStop(0, 'rgba(0,0,0,0.34)')
+  g.addColorStop(0.5, 'rgba(0,0,0,0.16)')
+  g.addColorStop(1, 'rgba(0,0,0,0)')
+  ctx.fillStyle = g; ctx.fillRect(0, 0, s, s)
+  _shadowTex = new THREE.CanvasTexture(cv)
+  return _shadowTex
+}
+const shadowGeo = new THREE.PlaneGeometry(1, 1); shadowGeo.rotateX(-Math.PI / 2)
 const prefersReducedMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
 
 export default function Beet3DPoly({ placement: placementRaw, beetW, beetH, beetForm, polygon = null, L, shadow, cardBg }) {
@@ -181,6 +199,22 @@ export default function Beet3DPoly({ placement: placementRaw, beetW, beetH, beet
       mesh.userData.sp = sp
       t.plantGroup.add(mesh)
       t.meshBySpecies.set(sp.id, mesh)
+    }
+    // Weiche Bodenschatten unter jeder Pflanze (eine Instanz, wächst mit Saison)
+    if (placement.length) {
+      const shMat = new THREE.MeshBasicMaterial({ map: shadowTexture(), transparent: true, depthWrite: false, opacity: L ? 0.55 : 0.4 })
+      const shMesh = new THREE.InstancedMesh(shadowGeo, shMat, placement.length)
+      placement.forEach((p, i) => {
+        const spread = Math.max(0.14, (p.ausbreitung || p.pflanzabstand || 40) / 100)
+        const rad = spread * (0.7 + 0.35 * growth)
+        pos.set(p.px - beetW / 2, 0.006, p.py - beetH / 2)
+        q.identity(); scl.set(rad, 1, rad)
+        m4.compose(pos, q, scl)
+        shMesh.setMatrixAt(i, m4)
+      })
+      shMesh.instanceMatrix.needsUpdate = true
+      shMesh.renderOrder = -1
+      t.plantGroup.add(shMesh)
     }
     applyFocusAndSelection()
     sizeAndRender()

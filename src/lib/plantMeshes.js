@@ -31,15 +31,25 @@ function paint(geoIn, hex, vary = 0) {
 }
 
 // ── Blatt-Primitive: Basis bei y=0, Spitze +y, flach in XY, Normalen gesetzt ──
+// Low-Poly-Blatt mit natürlicherem Umriss: schmale Basis, breiteste Stelle bei
+// ~35 %, fein auslaufende Spitze; sanfte Krümmung über die Länge (z).
+const BLADE_SECS = [[0.0, 0.16], [0.35, 0.5], [0.7, 0.34], [1.0, 0.0]]
 function bladeGeo(len, wBase, curve = 0) {
-  const wm = wBase * 0.42
-  const p = new Float32Array([
-    -wBase / 2, 0, 0, wBase / 2, 0, 0, -wm, len * 0.5, curve,
-    wBase / 2, 0, 0, wm, len * 0.5, curve, -wm, len * 0.5, curve,
-    -wm, len * 0.5, curve, wm, len * 0.5, curve, 0, len, curve * 1.7,
-  ])
+  const pos = []
+  const zAt = t => curve * t * t * 1.6
+  for (let i = 0; i < BLADE_SECS.length - 1; i++) {
+    const [t0, hw0] = BLADE_SECS[i], [t1, hw1] = BLADE_SECS[i + 1]
+    const y0 = len * t0, y1 = len * t1, z0 = zAt(t0), z1 = zAt(t1)
+    const l0 = -wBase * hw0, r0 = wBase * hw0, l1 = -wBase * hw1, r1 = wBase * hw1
+    if (hw1 === 0) { // auslaufende Spitze → ein Dreieck
+      pos.push(l0, y0, z0, r0, y0, z0, 0, y1, z1)
+    } else {
+      pos.push(l0, y0, z0, r0, y0, z0, r1, y1, z1)
+      pos.push(l0, y0, z0, r1, y1, z1, l1, y1, z1)
+    }
+  }
   const g = new THREE.BufferGeometry()
-  g.setAttribute('position', new THREE.BufferAttribute(p, 3))
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3))
   g.computeVertexNormals()
   return g
 }
@@ -214,8 +224,14 @@ export function speciesGeometry(sp, month) {
       }
       case 'dolde': {
         const r = Math.max(0.03, H * 0.09)
-        if (bloom) for (let k = 0; k < 12; k++) { const a = rnd() * Math.PI * 2, dd = Math.sqrt(rnd()) * r; ball(t.x + Math.cos(a) * dd, t.y + 0.008 + (rnd() - 0.5) * 0.012, t.z + Math.sin(a) * dd, 0.012, flowerCol, 0.7) }
-        else ball(t.x, t.y + 0.006, t.z, r * 0.7, flowerCol, 0.4)
+        if (bloom) { // Doppeldolde: mehrere kleine Döldchen aus je ~4 Röschen
+          const nU = 7
+          for (let k = 0; k < nU; k++) {
+            const a = (k / nU) * Math.PI * 2 + rnd() * 0.3, dd = k === 0 ? 0 : r * (0.55 + rnd() * 0.4)
+            const cx = t.x + Math.cos(a) * dd, cz = t.z + Math.sin(a) * dd, cy = t.y + 0.01 + (rnd() - 0.5) * 0.01
+            for (let j = 0; j < 4; j++) { const b = rnd() * Math.PI * 2, e = rnd() * 0.014; ball(cx + Math.cos(b) * e, cy + (rnd() - 0.5) * 0.006, cz + Math.sin(b) * e, 0.007, flowerCol, 0.7) }
+          }
+        } else ball(t.x, t.y + 0.006, t.z, r * 0.7, flowerCol, 0.4)
         break
       }
       case 'korb': {
@@ -252,13 +268,24 @@ export function speciesGeometry(sp, month) {
     }
   }
   function corolla(x, y, z, r) {
-    const nP = 7 + Math.floor(rnd() * 3)
+    // Äußerer Strahlenkranz
+    const nP = 9 + Math.floor(rnd() * 4)
     for (let i = 0; i < nP; i++) {
-      const pet = bladeGeo(r * 1.9, r * 0.7, 0)
-      pet.rotateX(-Math.PI / 2 + 0.35); pet.rotateY((i / nP) * Math.PI * 2 + rnd() * 0.1); pet.translate(x, y, z)
-      add(paint(pet, flowerCol, rnd() * 0.6))
+      const pet = bladeGeo(r * 2.0, r * 0.62, r * 0.45)
+      pet.rotateX(-Math.PI / 2 + 0.32); pet.rotateY((i / nP) * Math.PI * 2 + rnd() * 0.08); pet.translate(x, y, z)
+      add(paint(pet, flowerCol, rnd() * 0.55))
     }
-    ball(x, y + r * 0.12, z, r * 0.5, seed ? '#7a5a20' : '#9a6a10', 0.6)
+    // Innerer, kleinerer & steilerer Kranz — leicht versetzt für Fülle
+    const nI = Math.ceil(nP * 0.6)
+    for (let i = 0; i < nI; i++) {
+      const pet = bladeGeo(r * 1.2, r * 0.5, r * 0.4)
+      pet.rotateX(-Math.PI / 2 + 0.72); pet.rotateY((i / nI) * Math.PI * 2 + 0.4 + rnd() * 0.12); pet.translate(x, y + r * 0.05, z)
+      add(paint(pet, flowerCol, 0.3 + rnd() * 0.4))
+    }
+    // Blütenscheibe: Zentrum + Kranz kleiner Röschen statt glatter Kugel
+    const discCol = seed ? '#7a5a20' : '#9a6a10'
+    ball(x, y + r * 0.14, z, r * 0.42, discCol, 0.6)
+    for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2 + rnd() * 0.4; ball(x + Math.cos(a) * r * 0.26, y + r * 0.16, z + Math.sin(a) * r * 0.26, r * 0.11, discCol, 0.7) }
   }
 
   // ── Aufbau nach Habitus ──
@@ -314,9 +341,6 @@ export function speciesGeometry(sp, month) {
   if (cache.size >= MAX_CACHE) { for (const g of cache.values()) g.dispose(); cache.clear() }
   cache.set(key, geo)
   return geo
-  if (cache.size >= MAX_CACHE) { for (const g of cache.values()) g.dispose(); cache.clear() }
-  cache.set(key, merged)
-  return merged
 }
 
 export function disposePlantGeometryCache() {
