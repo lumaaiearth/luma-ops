@@ -20,6 +20,9 @@ import { useIsMobile } from '../lib/useIsMobile.js'
 import TreeQuickForm from '../components/TreeQuickForm.jsx'
 import FeaturePanel from '../components/FeaturePanel.jsx'
 import { TREE_SPECIES, matchSpecies, rememberSpecies } from '../data/treeSpecies.js'
+import { TILES, LAYER_CATS, OPEN_LAYERS } from '../data/biomeLayers.js'
+import { geometryCentroid, geomMeasures } from '../lib/geo.js'
+import { SENSOR_TYPE_LABELS, SENSOR_TYPE_ICONS } from '../data/sensorTypes.js'
 import { Layers, Satellite, Map as MapIcon, Pencil, Save, X, ExternalLink, ChevronRight, ChevronDown, FolderOpen, Folder, Eye, EyeOff, Search, MapPin, Plus, Trash2, Upload, Image, SlidersHorizontal, Ruler, Move, LocateFixed } from 'lucide-react'
 
 /* ─── GEO HELPERS ───────────────────────────────────────────────────────── */
@@ -84,27 +87,6 @@ function nextTreeNumber(features, projectId) {
   })
   if (!best) return 'B-0001'
   return best.prefix + String(best.num + 1).padStart(best.width, '0')
-}
-
-const TILES = {
-  satellite: {
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution: '&copy; <a href="https://www.esri.com">Esri</a>, DigitalGlobe, GeoEye, i-cubed, USDA FSA, USGS, AEX, Getmapping, Aerogrid, IGN, IGP, swisstopo, and the GIS User Community',
-    maxNativeZoom: 19,
-    maxZoom: 22,
-  },
-  dark: {
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    maxNativeZoom: 19,
-    maxZoom: 22,
-  },
-  light: {
-    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    maxNativeZoom: 19,
-    maxZoom: 22,
-  },
 }
 
 const PROJECT_COLORS = [
@@ -172,7 +154,7 @@ function DrawControl({ mode, onFeatureDrawn, onCancel, onLiveMeasure }) {
   useEffect(() => {
     if (!map || !mode) return
 
-    const isPoint = mode === 'tree' || mode === 'point'
+    const isPoint = mode === 'tree' || mode === 'point' || mode === 'sensor'
     const isLine = mode === 'line' || mode === 'measure'
     const shapeName = isPoint ? 'Marker' : isLine ? 'Line' : 'Polygon'
 
@@ -261,7 +243,7 @@ function UserLocation({ userPos }) {
 }
 
 /* ─── FEATURE FORM MODAL ────────────────────────────────────────────────── */
-function FeatureForm({ mode, project, color, existingFeature, draft, onSave, onCancel, areaM2 }) {
+function FeatureForm({ mode, project, color, existingFeature, draft, onSave, onCancel, areaM2, onDelete }) {
   const isTree = mode === 'tree'
   const modeInfo = FEATURE_MODES.find(m => m.id === mode) || {}
 
@@ -452,6 +434,12 @@ function FeatureForm({ mode, project, color, existingFeature, draft, onSave, onC
             style={{ padding: '9px 14px', borderRadius: 8, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif" }}>
             Abbrechen
           </button>
+          {existingFeature && onDelete && (
+            <button onClick={onDelete} title="Feature löschen" className="lu-btn-danger"
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '9px 12px', borderRadius: 8, background: 'transparent', border: '1px solid color-mix(in srgb, var(--luma-danger) 40%, transparent)', color: 'var(--luma-danger)', cursor: 'pointer' }}>
+              <Trash2 size={13} />
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -773,33 +761,116 @@ function OrthoTilesModal({ project, onSave, onCancel }) {
   )
 }
 
-/* ─── OPEN DATA LAYERS ──────────────────────────────────────────────────── */
-const LAYER_CATS = [
-  { id: 'klima', label: '🌡️ Klima & Versiegelung', color: '#f97316' },
-  { id: 'bio',   label: '🌿 Vegetation & Ökologie', color: '#22EAA7' },
-]
+/* ─── SENSOR-ERFASSUNG ──────────────────────────────────────────────────── */
+const SENSOR_UNIT_DEFAULTS = { soil_moisture: '%', soil_temp: '°C', air_temp: '°C', rainfall: 'mm' }
 
-const OPEN_LAYERS = [
-  // ─ Klima & Stadtwärme ─────────────────────────────────────────────────────
-  { id: 'corine_urban', label: 'Versiegelung', color: '#f97316', cat: 'klima',
-    desc: 'Bebaute & versiegelte Flächen — Hitzeinsel-Risiko (Copernicus 2018)',
-    wms: { url: 'https://copernicus.discomap.eea.europa.eu/arcgis/services/Corine/CLC2018_WM/MapServer/WMSServer', layers: '1', format: 'image/png', transparent: true, opacity: 0.6, version: '1.1.1' } },
-  { id: 'corine_landuse', label: 'Landnutzung', color: '#a78bfa', cat: 'klima',
-    desc: 'Klassifizierung nach Nutzungstyp — Basis für Klimaplanung (Copernicus 2018)',
-    wms: { url: 'https://copernicus.discomap.eea.europa.eu/arcgis/services/Corine/CLC2018_WM/MapServer/WMSServer', layers: '2', format: 'image/png', transparent: true, opacity: 0.5, version: '1.1.1' } },
+function makeSensorIcon(color, size = 20) {
+  return L.divIcon({
+    html: `<div style="width:${size}px;height:${size}px;border-radius:6px;background:${color};border:2.5px solid rgba(255,255,255,0.95);box-shadow:0 2px 10px rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;font-size:${Math.floor(size * 0.6)}px">📡</div>`,
+    className: '',
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -size / 2 - 4],
+  })
+}
 
-  // ─ Vegetation & Biodiversität ─────────────────────────────────────────────
-  { id: 'corine_vegetation', label: 'Wälder & Wiesen', color: '#22EAA7', cat: 'bio',
-    desc: 'Wälder, Wiesen, Heiden aus CORINE 2018 — Biodiversitätspotenzial',
-    wms: { url: 'https://copernicus.discomap.eea.europa.eu/arcgis/services/Corine/CLC2018_WM/MapServer/WMSServer', layers: '3', format: 'image/png', transparent: true, opacity: 0.6, version: '1.1.1' } },
-  { id: 'corine_water', label: 'Gewässer', color: '#60a5fa', cat: 'bio',
-    desc: 'Flüsse, Seen, Feuchtgebiete — Kühlkorridore im Stadtklima',
-    wms: { url: 'https://copernicus.discomap.eea.europa.eu/arcgis/services/Corine/CLC2018_WM/MapServer/WMSServer', layers: '4', format: 'image/png', transparent: true, opacity: 0.6, version: '1.1.1' } },
-]
+// Formular nach Karten-Klick: legt einen echten Sensor (Tabelle sensors) mit
+// GPS-Koordinate an — verknüpft mit Projekt & Sensorseite (/sensors/:id).
+function SensorFormModal({ project, position, onSave, onCancel }) {
+  const [name, setName] = useState('')
+  const [type, setType] = useState('soil_moisture')
+  const [unit, setUnit] = useState(SENSOR_UNIT_DEFAULTS.soil_moisture)
+  const [low, setLow] = useState('20')
+  const [high, setHigh] = useState('80')
+  const [error, setError] = useState(null)
+
+  function pickType(t) {
+    setType(t)
+    setUnit(SENSOR_UNIT_DEFAULTS[t] || '')
+  }
+
+  function handleSave() {
+    if (!name.trim()) return setError('Bitte einen Namen vergeben')
+    onSave({
+      name: name.trim(), type, unit,
+      threshold_low: low === '' ? null : +low,
+      threshold_high: high === '' ? null : +high,
+      lat: position.lat, lng: position.lng,
+    })
+  }
+
+  const inputStyle = { width: '100%', padding: '6px 10px', borderRadius: 6, border: `1px solid ${BORDER}`, background: 'rgba(255,255,255,0.04)', color: FG, fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", outline: 'none', boxSizing: 'border-box' }
+  const labelStyle = { fontSize: 10, color: MUTED, fontFamily: "'Space Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3, display: 'block' }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.65)' }}
+      onClick={e => e.target === e.currentTarget && onCancel()}>
+      <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 20, width: 380, maxWidth: '95vw', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: '#38bdf820', border: '1px solid #38bdf840', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>📡</div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: FG }}>Sensor anlegen</div>
+            <div style={{ fontSize: 11, color: MUTED }}>{project?.name}</div>
+          </div>
+          <button onClick={onCancel} style={{ marginLeft: 'auto', width: 28, height: 28, borderRadius: 6, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={14} /></button>
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <label style={labelStyle}>Name *</label>
+          <input style={inputStyle} value={name} onChange={e => setName(e.target.value)} placeholder="z.B. Bodenfeuchte Beet Nord" autoFocus />
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <label style={labelStyle}>Typ</label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5 }}>
+            {Object.entries(SENSOR_TYPE_LABELS).map(([t, label]) => (
+              <button key={t} onClick={() => pickType(t)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 9px', borderRadius: 7, border: `1px solid ${type === t ? '#38bdf860' : BORDER}`, background: type === t ? '#38bdf815' : 'transparent', color: type === t ? '#38bdf8' : MUTED, cursor: 'pointer', fontSize: 11, fontFamily: "'Space Grotesk', sans-serif", textAlign: 'left' }}>
+                {SENSOR_TYPE_ICONS[t]} {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
+          <div>
+            <label style={labelStyle}>Einheit</label>
+            <input style={inputStyle} value={unit} onChange={e => setUnit(e.target.value)} />
+          </div>
+          <div>
+            <label style={labelStyle}>Schwelle min</label>
+            <input style={inputStyle} type="number" value={low} onChange={e => setLow(e.target.value)} />
+          </div>
+          <div>
+            <label style={labelStyle}>Schwelle max</label>
+            <input style={inputStyle} type="number" value={high} onChange={e => setHigh(e.target.value)} />
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 14, fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>
+          GPS: {position.lat.toFixed(6)}, {position.lng.toFixed(6)}
+        </div>
+
+        {error && <div style={{ fontSize: 12, color: '#f87171', marginBottom: 10 }}>{error}</div>}
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={handleSave} className="lu-btn-primary"
+            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px 18px', borderRadius: 8, background: A, border: 'none', color: 'var(--luma-on-a)', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: "'Space Grotesk', sans-serif" }}>
+            <Save size={13} /> Sensor speichern
+          </button>
+          <button onClick={onCancel}
+            style={{ padding: '9px 14px', borderRadius: 8, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif" }}>
+            Abbrechen
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 /* ─── MAIN COMPONENT ────────────────────────────────────────────────────── */
 export default function MapPage() {
-  const { projects, jobs, clients, mapFeatures, tasks, createMapFeature, updateMapFeature, deleteMapFeature, updateProject } = useOps()
+  const { projects, jobs, clients, mapFeatures, tasks, pflanzplaene, sensors, createSensor, createMapFeature, updateMapFeature, deleteMapFeature, updateProject } = useOps()
   const { isAdmin } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -912,6 +983,8 @@ export default function MapPage() {
     return map
   }, [upcomingJobs])
 
+  // Karten-Pins brauchen Koordinaten — aber Auswahl/Ordner zeigen ALLE Projekte
+  // aus der Projektdatenbank (Stammdaten), damit nichts „fehlt".
   const mappableProjects = projects.filter(p => p.lat && p.lng)
   const mappableTasks = (tasks || []).filter(t => t.lat && t.lng && t.status !== 'done' && t.status !== 'archive')
 
@@ -919,13 +992,13 @@ export default function MapPage() {
 
   const projectColorById = useMemo(() => {
     const map = {}
-    mappableProjects.forEach((p, i) => { map[p.id] = projectColor(p, i) })
+    projects.forEach((p, i) => { map[p.id] = projectColor(p, i) })
     return map
-  }, [mappableProjects])
+  }, [projects])
 
   const clientGroups = useMemo(() => {
     const groups = {}
-    mappableProjects.forEach((p, i) => {
+    projects.forEach((p, i) => {
       const cid = p.client_id || 'other'
       const cl = (clients || []).find(c => c.id === cid)
       const cname = cl?.name || p.client || 'Sonstige'
@@ -933,7 +1006,28 @@ export default function MapPage() {
       groups[cid].projects.push({ ...p, _idx: i })
     })
     return Object.values(groups)
-  }, [mappableProjects, clients])
+  }, [projects, clients])
+
+  // Verknüpfte Florales™-Pflanzpläne je Feature (pflanzplaene.standort_id = feature.id)
+  const plansByFeature = useMemo(() => {
+    const map = {}
+    ;(pflanzplaene || []).forEach(pp => {
+      if (!pp.standort_id) return
+      if (!map[pp.standort_id]) map[pp.standort_id] = []
+      map[pp.standort_id].push(pp)
+    })
+    return map
+  }, [pflanzplaene])
+
+  // Sensoren mit GPS-Position (Karte) je Projekt
+  const sensorsByProject = useMemo(() => {
+    const map = {}
+    ;(sensors || []).forEach(s => {
+      if (!map[s.project_id]) map[s.project_id] = []
+      map[s.project_id].push(s)
+    })
+    return map
+  }, [sensors])
 
   // Features grouped by project, with search/filter
   const featuresByProject = useMemo(() => {
@@ -967,11 +1061,6 @@ export default function MapPage() {
     }
   }, [location.state, projects])
 
-  useEffect(() => {
-    window._mapNav = (id) => navigate(`/projects/${id}`)
-    return () => { delete window._mapNav }
-  }, [navigate])
-
   // Deep-Link: /map?feature=<id> fliegt zum Feature und öffnet bei Bäumen das Panel
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -986,15 +1075,59 @@ export default function MapPage() {
             return first.length >= 2 ? [first[1], first[0]] : null
           })()
       if (coords) setFlyTarget(coords)
-      if (feat.feature_type === 'tree') setPanelFeatureId(feat.id)
+      openFeature(feat)
     }
     window.history.replaceState(null, '', window.location.pathname)
   }, [mapFeatures.length])
 
+  // Position eines Features (Punkt direkt, sonst Schwerpunkt der Geometrie)
+  function featureLatLng(feat) {
+    const c = geometryCentroid(feat?.geometry)
+    return c ? [c.lat, c.lng] : null
+  }
+
   function focusProject(p) {
     setActiveProject(p.id === activeProject ? null : p.id)
-    if (p.lat && p.lng) setFlyTarget([p.lat, p.lng])
+    if (p.lat && p.lng) {
+      setFlyTarget([p.lat, p.lng])
+    } else {
+      // Projekt ohne Pin: zum ersten kartierten Feature fliegen
+      const firstFeat = mapFeatures.find(f => f.project_id === p.id && f.geometry)
+      const ll = firstFeat && featureLatLng(firstFeat)
+      if (ll) setFlyTarget(ll)
+    }
     if (isMobile) setSidebarOpen(false)
+  }
+
+  // Feature anklicken (Karte oder Sidebar): Panel öffnen UND das Projekt im
+  // Projektordner auswählen/aufklappen, Zeile wird markiert & angescrollt.
+  function openFeature(feat, { fly = false } = {}) {
+    setPanelFeatureId(feat.id)
+    setActiveProject(feat.project_id)
+    const proj = projects.find(pr => pr.id === feat.project_id)
+    const cid = proj?.client_id || 'other'
+    setExpandedClients(prev => { const next = new Set(prev); next.add(cid); return next })
+    if (fly) {
+      const ll = featureLatLng(feat)
+      if (ll) setFlyTarget(ll)
+    }
+  }
+
+  // Ausgewählte Feature-Zeile in der Sidebar sichtbar machen
+  useEffect(() => {
+    if (!panelFeatureId) return
+    const t = setTimeout(() => {
+      document.querySelector(`[data-featrow="${panelFeatureId}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    }, 60)
+    return () => clearTimeout(t)
+  }, [panelFeatureId])
+
+  // Projekt ohne Koordinaten bekommt beim ersten kartierten Feature automatisch
+  // einen Pin (Schwerpunkt) — hält BIOME und Projektdatenbank synchron.
+  function ensureProjectPin(project, geometry) {
+    if (!project || (project.lat && project.lng)) return
+    const c = geometryCentroid(geometry)
+    if (c) updateProject(project.id, { lat: c.lat, lng: c.lng })
   }
 
   function startDraw(project, mode) {
@@ -1017,7 +1150,7 @@ export default function MapPage() {
       setMeasureResult(null)
       return
     }
-    const proj = mappableProjects.find(p => p.id === drawProjectId)
+    const proj = projects.find(p => p.id === drawProjectId)
     if (!proj) {
       setProjectHint(true)
       setTimeout(() => setProjectHint(false), 2500)
@@ -1028,7 +1161,7 @@ export default function MapPage() {
 
   // GPS-Erfassung: Baum direkt an der eigenen Position anlegen
   function captureTreeAtPosition() {
-    const proj = mappableProjects.find(p => p.id === drawProjectId)
+    const proj = projects.find(p => p.id === drawProjectId)
     if (!proj) {
       setProjectHint(true)
       setTimeout(() => setProjectHint(false), 2500)
@@ -1063,6 +1196,7 @@ export default function MapPage() {
       label,
       properties,
     })
+    ensureProjectPin(drawingProject, pendingGeometry)
     setSerialCount(c => c + 1)
     setPendingGeometry(null)  // DrawControl remountet → Zeichnen sofort wieder aktiv
   }
@@ -1110,6 +1244,7 @@ export default function MapPage() {
         label,
         properties,
       })
+      ensureProjectPin(drawingProject, pendingGeometry)
     }
     if (goToFloralis) {
       const area = calcPendingArea()
@@ -1119,18 +1254,35 @@ export default function MapPage() {
     cancelDraw()
   }
 
-  function deleteFeature(id) {
-    if (confirm('Feature löschen?')) deleteMapFeature(id)
+  function deleteFeature(featOrId) {
+    const feat = typeof featOrId === 'object' ? featOrId : mapFeatures.find(f => f.id === featOrId)
+    const id = feat?.id || featOrId
+    const name = feat?.label || feat?.properties?.baumnummer || feat?.feature_type || 'Feature'
+    if (confirm(`„${name}" wirklich löschen?`)) {
+      deleteMapFeature(id)
+      if (panelFeatureId === id) setPanelFeatureId(null)
+      if (editingFeature?.id === id) cancelDraw()
+    }
   }
 
   function onDroneSave(data) {
     createMapFeature({ id: genId(), project_id: droneModal.id, ...data })
+    ensureProjectPin(droneModal, data.geometry)
     setDroneModal(null)
   }
 
   function onOrthoSave(data) {
     createMapFeature({ id: genId(), project_id: orthoModal.id, ...data })
+    ensureProjectPin(orthoModal, data.geometry)
     setOrthoModal(null)
+  }
+
+  // Sensor nach Karten-Klick speichern (Tabelle sensors, mit GPS + Projekt)
+  function onSensorSave(data) {
+    if (!drawingProject) return
+    createSensor({ ...data, project_id: drawingProject.id })
+    ensureProjectPin(drawingProject, pendingGeometry)
+    cancelDraw()
   }
 
   function openEditForm(feat) {
@@ -1141,30 +1293,6 @@ export default function MapPage() {
   }
 
   const tile = TILES[tileLayer]
-
-  // ── Popup HTML helpers ─────────────────────────────────────────────────────
-  function buildPopupHtml(feat, color) {
-    const props = feat.properties || {}
-    const isTree = feat.feature_type === 'tree'
-    const label = feat.label || feat.feature_type
-    const relevantKeys = isTree
-      ? ['baumnummer','baummarke','baumart_deutsch','baumart_latein','stammumfang_cm','bhd_cm','baumhoehe_m','kronendurchmesser_m','vitalitaet','verkehrssicherheit','eps_befall','schutzstatus','schaedlinge','pflanzjahr','letzte_kontrolle','notizen']
-      : Object.keys(props)
-    const rows = relevantKeys
-      .filter(k => props[k] != null && props[k] !== '')
-      .map(k => `<div style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-        <span style="font-size:9px;color:rgba(232,240,245,0.4);font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:.06em;flex-shrink:0;min-width:60px;padding-top:1px">${k.replace(/_/g,' ')}</span>
-        <span style="font-size:11px;color:#e8f0f5;flex:1;word-break:break-word">${props[k]}</span>
-      </div>`).join('')
-    const proj = projects.find(p => p.id === feat.project_id)
-    return `
-      <div style="font-family:'Space Grotesk',sans-serif;min-width:180px;max-width:240px">
-        <div style="font-weight:700;font-size:13px;color:#e8f0f5;margin-bottom:3px;border-left:3px solid ${color};padding-left:8px">${label}</div>
-        <div style="font-size:10px;color:${color};font-family:'Space Mono',monospace;margin-bottom:8px;padding-left:11px">${proj?.name || ''}</div>
-        ${rows ? `<div style="margin-bottom:10px">${rows}</div>` : ''}
-        <a href="/projects/${proj?.id}" onclick="event.preventDefault();window._mapNav&&window._mapNav('${proj?.id}')" style="display:flex;align-items:center;justify-content:center;gap:4px;padding:6px 10px;border-radius:6px;background:${color}22;border:1px solid ${color}44;color:${color};font-size:11px;font-weight:600;text-decoration:none;cursor:pointer">↗ Projektseite</a>
-      </div>`
-  }
 
   // ── Sidebar ────────────────────────────────────────────────────────────────
   const sidebarContent = (
@@ -1235,6 +1363,7 @@ export default function MapPage() {
                       style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 6, border: `1px solid ${on ? layer.color + '60' : BORDER}`, background: on ? layer.color + '15' : 'transparent', color: on ? layer.color : MUTED, cursor: 'pointer', fontSize: 12, width: '100%', textAlign: 'left' }}>
                       <div style={{ width: 8, height: 8, borderRadius: 2, background: layer.color, flexShrink: 0 }} />
                       <span style={{ flex: 1 }}>{layer.label}</span>
+                      {layer.region && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, opacity: 0.55, flexShrink: 0 }}>{layer.region}</span>}
                       <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9 }}>{on ? 'AN' : 'AUS'}</span>
                     </button>
                     {on && layer.desc && (
@@ -1298,24 +1427,33 @@ export default function MapPage() {
                           const modeInfo = FEATURE_MODES.find(m => m.id === feat.feature_type) || {}
                           const featHidden = hiddenFeatures.has(feat.id)
                           const currentOpacity = droneOpacity[feat.id] ?? feat.properties?.opacity ?? 0.8
+                          const linkedPlanCount = (plansByFeature[feat.id] || []).length
+                          const isSelected = panelFeatureId === feat.id
                           return (
                             <div key={feat.id} style={{ marginBottom: isOverlay ? 6 : 1 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                <div className={feat.geometry?.type === 'Point' ? 'lu-option' : undefined}
+                              <div data-featrow={feat.id} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                <div className="lu-option"
                                   onClick={() => {
-                                    if (feat.geometry?.type === 'Point') {
-                                      const [lng, lat] = feat.geometry.coordinates
-                                      setFlyTarget([lat, lng])
-                                      if (feat.feature_type === 'tree') setPanelFeatureId(feat.id)
-                                      if (isMobile) setSidebarOpen(false)
+                                    if (isOverlay) {
+                                      const ll = featureLatLng(feat)
+                                      if (ll) setFlyTarget(ll)
+                                    } else {
+                                      openFeature(feat, { fly: true })
                                     }
+                                    if (isMobile) setSidebarOpen(false)
                                   }}
-                                  style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 5, padding: '3px 4px', borderRadius: 4, fontSize: 11, color: featHidden ? MUTED : FG, opacity: featHidden ? 0.45 : 1, cursor: feat.geometry?.type === 'Point' ? 'pointer' : 'default' }}>
+                                  style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 5, padding: '3px 4px', borderRadius: 4, fontSize: 11, color: featHidden ? MUTED : FG, opacity: featHidden ? 0.45 : 1, cursor: 'pointer', background: isSelected ? `color-mix(in srgb, ${color} 16%, transparent)` : 'transparent', border: `1px solid ${isSelected ? `color-mix(in srgb, ${color} 45%, transparent)` : 'transparent'}` }}>
                                   <span style={{ fontSize: 10, flexShrink: 0 }}>{isDrone ? '🚁' : isOrtho ? '🗺️' : (modeInfo.icon || '●')}</span>
                                   <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {feat.label || modeInfo.label || feat.feature_type}
                                     {feat.properties?.baumnummer ? <span style={{ color: MUTED, marginLeft: 4, fontFamily: "'Space Mono', monospace", fontSize: 9 }}>#{feat.properties.baumnummer}</span> : null}
                                   </span>
+                                  {linkedPlanCount > 0 && (
+                                    <span title={`${linkedPlanCount} Pflanzplan/-pläne in Florales™`}
+                                      style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: '#22c55e', background: '#22c55e18', border: '1px solid #22c55e40', padding: '0 4px', borderRadius: 6, flexShrink: 0 }}>
+                                      🌿{linkedPlanCount}
+                                    </span>
+                                  )}
                                 </div>
                                 <button onClick={() => toggleFeature(feat.id)} title={featHidden ? 'Einblenden' : 'Ausblenden'}
                                   style={{ width: 20, height: 20, borderRadius: 4, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1327,7 +1465,7 @@ export default function MapPage() {
                                     <Pencil size={9} />
                                   </button>
                                 )}
-                                {isAdmin && isOverlay && (
+                                {isAdmin && (
                                   <button onClick={() => deleteFeature(feat.id)} title="Löschen"
                                     style={{ width: 20, height: 20, borderRadius: 4, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <Trash2 size={9} />
@@ -1349,6 +1487,29 @@ export default function MapPage() {
                           )
                         })}
 
+                        {/* Sensoren des Projekts (📡, klick → hinfliegen, Link → Sensorseite) */}
+                        {(sensorsByProject[p.id] || []).map(s => {
+                          const sColor = s.status === 'critical' ? 'var(--luma-danger)' : s.status === 'warning' ? 'var(--luma-warn)' : '#38bdf8'
+                          return (
+                            <div key={`sensor-${s.id}`} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                              <div className="lu-option"
+                                onClick={() => {
+                                  if (s.lat && s.lng) { setFlyTarget([s.lat, s.lng]); if (isMobile) setSidebarOpen(false) }
+                                  else navigate(`/sensors/${s.id}`)
+                                }}
+                                style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 5, padding: '3px 4px', borderRadius: 4, fontSize: 11, color: FG, cursor: 'pointer' }}>
+                                <span style={{ fontSize: 10, flexShrink: 0 }}>📡</span>
+                                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</span>
+                                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: sColor, flexShrink: 0 }}>{s.value}{s.unit}</span>
+                              </div>
+                              <button onClick={() => navigate(`/sensors/${s.id}`)} title="Sensorseite öffnen"
+                                style={{ width: 20, height: 20, borderRadius: 4, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <ExternalLink size={10} />
+                              </button>
+                            </div>
+                          )
+                        })}
+
                         {/* Draw mode selector */}
                         {isAdmin && !drawMode && (
                           <div style={{ marginTop: 4, marginBottom: 6 }}>
@@ -1360,6 +1521,10 @@ export default function MapPage() {
                                   {m.icon} {m.label}
                                 </button>
                               ))}
+                              <button onClick={() => startDraw(p, 'sensor')}
+                                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 7px', borderRadius: 5, border: '1px solid #38bdf840', background: '#38bdf812', color: '#38bdf8', cursor: 'pointer', fontSize: 10, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap' }}>
+                                📡 Sensor
+                              </button>
                               <button onClick={() => setDroneModal(p)}
                                 style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 7px', borderRadius: 5, border: '1px solid #8b5cf640', background: '#8b5cf612', color: '#8b5cf6', cursor: 'pointer', fontSize: 10, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap' }}>
                                 🚁 Drohnenbild
@@ -1442,7 +1607,7 @@ export default function MapPage() {
           {/* Vorschau: gerade gesetzter, noch ungespeicherter Punkt */}
           {drawMode && pendingGeometry?.type === 'Point' && (
             <Marker position={[pendingGeometry.coordinates[1], pendingGeometry.coordinates[0]]}
-              icon={makeTreeIcon('#22c55e', 24)} zIndexOffset={900} />
+              icon={drawMode === 'sensor' ? makeSensorIcon('#38bdf8', 24) : makeTreeIcon('#22c55e', 24)} zIndexOffset={900} />
           )}
 
           {/* Drone image overlays */}
@@ -1506,15 +1671,9 @@ export default function MapPage() {
                       const ll = e.target.getLatLng()
                       updateMapFeature(feat.id, { geometry: { type: 'Point', coordinates: [ll.lng, ll.lat] } })
                     },
-                    // Bäume öffnen das Detailpanel statt eines Mini-Popups
-                    ...(isTree ? { click: () => { if (!editModeRef.current) setPanelFeatureId(feat.id) } } : {}),
-                  }}>
-                  {!isTree && (
-                    <Popup>
-                      <div dangerouslySetInnerHTML={{ __html: buildPopupHtml(feat, color) }} />
-                    </Popup>
-                  )}
-                </Marker>
+                    // Klick öffnet das Detailpanel + wählt das Projekt im Ordner aus
+                    click: () => { if (!editModeRef.current) openFeature(feat) },
+                  }} />
               )
             }
 
@@ -1531,21 +1690,10 @@ export default function MapPage() {
                     try { layer.pm?.enable({ allowSelfIntersection: true }) } catch {}
                   }
                   layer.on('click', (e) => {
-                    if (editModeRef.current) return  // im Bearbeiten-Modus kein Popup
+                    if (editModeRef.current) return  // im Bearbeiten-Modus nicht öffnen
                     L.DomEvent.stopPropagation(e)
-                    let area = 0, perimeter = 0
-                    try {
-                      const ll = layer.getLatLngs ? layer.getLatLngs() : []
-                      if (!isLine) area = geodesicArea(ll)
-                      perimeter = perimeterMeters(ll)
-                    } catch {}
-                    const measureHtml = (area > 0 || perimeter > 0) ? `
-                      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
-                        ${area > 0 ? `<div style="background:rgba(255,255,255,0.06);border-radius:6px;padding:6px 8px"><div style="font-size:9px;color:rgba(232,240,245,0.45);margin-bottom:2px;font-family:'Space Mono',monospace;text-transform:uppercase">Fläche</div><div style="font-size:13px;font-weight:700;color:#e8f0f5">${fmtArea(area)}</div></div>` : ''}
-                        ${perimeter > 0 ? `<div style="background:rgba(255,255,255,0.06);border-radius:6px;padding:6px 8px"><div style="font-size:9px;color:rgba(232,240,245,0.45);margin-bottom:2px;font-family:'Space Mono',monospace;text-transform:uppercase">${isLine ? 'Länge' : 'Umfang'}</div><div style="font-size:13px;font-weight:700;color:#e8f0f5">${fmtLen(perimeter)}</div></div>` : ''}
-                      </div>` : ''
-                    const fullHtml = buildPopupHtml(feat, color).replace('</div>', `${measureHtml}</div>`)
-                    L.popup({ maxWidth: 260 }).setLatLng(e.latlng).setContent(fullHtml).openOn(layer._map)
+                    // Detailpanel öffnen + Projekt im Ordner auswählen (Maße zeigt das Panel)
+                    openFeature(feat)
                   })
                   layer.on('mouseover', () => layer.setStyle({ weight: 3.5, fillOpacity: isLine ? 0 : 0.28 }))
                   layer.on('mouseout', () => layer.setStyle({ weight: 2.5, fillOpacity: isLine ? 0 : 0.18 }))
@@ -1554,10 +1702,37 @@ export default function MapPage() {
             )
           })}
 
+          {/* Sensor-Marker (📡): echte Sensoren mit GPS, Klick → Wert + Sensorseite */}
+          {(sensors || []).filter(s => s.lat && s.lng && !hiddenProjects.has(s.project_id)).map(s => {
+            const sColor = s.status === 'critical' ? '#ef4444' : s.status === 'warning' ? '#f59e0b' : '#38bdf8'
+            const proj = projects.find(p => p.id === s.project_id)
+            return (
+              <Marker key={`sensor-${s.id}`} position={[s.lat, s.lng]} icon={makeSensorIcon(sColor)} zIndexOffset={500}>
+                <Popup>
+                  <div style={{ fontFamily: "'Space Grotesk', sans-serif", minWidth: 170 }}>
+                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: sColor, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 3 }}>
+                      {SENSOR_TYPE_ICONS[s.type] || '📡'} {SENSOR_TYPE_LABELS[s.type] || s.type}
+                    </div>
+                    <div style={{ fontWeight: 600, fontSize: 13, color: '#e8f0f5', marginBottom: 3 }}>{s.name}</div>
+                    <div style={{ fontSize: 22, fontWeight: 300, color: sColor, lineHeight: 1.1, marginBottom: 3 }}>
+                      {s.value}<span style={{ fontSize: 12, color: 'rgba(232,240,245,0.5)' }}>{s.unit}</span>
+                    </div>
+                    {proj && <div style={{ fontSize: 11, color: 'rgba(232,240,245,0.5)', marginBottom: 2 }}>{proj.name}</div>}
+                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: 'rgba(232,240,245,0.4)' }}>{s.lat.toFixed(6)}, {s.lng.toFixed(6)}</div>
+                    <button onClick={() => navigate(`/sensors/${s.id}`)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 8, padding: '5px 10px', borderRadius: 5, background: sColor + '20', border: `1px solid ${sColor}50`, color: sColor, cursor: 'pointer', fontSize: 11, fontFamily: "'Space Grotesk', sans-serif", width: '100%', justifyContent: 'center' }}>
+                      <ExternalLink size={11} /> Sensorseite
+                    </button>
+                  </div>
+                </Popup>
+              </Marker>
+            )
+          })}
+
           {/* Project location markers */}
           {mappableProjects.map((p, i) => {
             if (hiddenProjects.has(p.id)) return null
-            const color = projectColor(p, i)
+            const color = projectColorById[p.id] || projectColor(p, i)
             const isActive = activeProject === p.id
             return (
               <Marker key={p.id} position={[p.lat, p.lng]} icon={makePin(color, isActive ? 20 : 14)}>
@@ -1659,7 +1834,7 @@ export default function MapPage() {
                   title="Projekt für neue Features"
                   style={{ maxWidth: 130, padding: '5px 6px', borderRadius: 6, border: `1px solid ${projectHint ? 'var(--luma-danger)' : BORDER}`, background: 'transparent', color: drawProjectId ? FG : MUTED, fontSize: 11, fontFamily: "'Space Grotesk', sans-serif", outline: 'none', cursor: 'pointer', flexShrink: 0 }}>
                   <option value="">Projekt wählen…</option>
-                  {mappableProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  {[...projects].sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
                 {FEATURE_MODES.map(m => (
                   <button key={m.id} onClick={() => startDrawFromToolbar(m.id)} title={`${m.label} — ${m.desc}`} className="lu-chip"
@@ -1667,6 +1842,10 @@ export default function MapPage() {
                     <span style={{ fontSize: 13 }}>{m.icon}</span>{!isMobile && m.label}
                   </button>
                 ))}
+                <button onClick={() => startDrawFromToolbar('sensor')} title="Sensor — an GPS-Position anlegen, verknüpft mit Sensorseite" className="lu-chip"
+                  style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: '1px solid transparent', background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  <span style={{ fontSize: 13 }}>📡</span>{!isMobile && 'Sensor'}
+                </button>
                 <button onClick={() => setEditMode(v => !v)} title="Bearbeiten: Punkte verschieben, Eckpunkte ziehen"
                   style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: `1px solid ${editMode ? `color-mix(in srgb, ${A} 44%, transparent)` : 'transparent'}`, background: editMode ? A14 : 'transparent', color: editMode ? A : MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
                   <Move size={13} />{!isMobile && 'Bearbeiten'}
@@ -1712,12 +1891,14 @@ export default function MapPage() {
 
         {/* Draw mode indicator banner */}
         {drawMode && !pendingGeometry && (
-          <div style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: SURFACE, border: `1px solid color-mix(in srgb, ${drawMode === 'measure' ? '#38bdf8' : FEATURE_MODES.find(m => m.id === drawMode)?.color || A} 38%, transparent)`, borderRadius: 14, padding: '8px 16px', fontSize: 12, color: FG, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 2px 12px rgba(0,0,0,0.5)', maxWidth: 'calc(100% - 24px)' }}>
+          <div style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: SURFACE, border: `1px solid color-mix(in srgb, ${drawMode === 'measure' || drawMode === 'sensor' ? '#38bdf8' : FEATURE_MODES.find(m => m.id === drawMode)?.color || A} 38%, transparent)`, borderRadius: 14, padding: '8px 16px', fontSize: 12, color: FG, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 2px 12px rgba(0,0,0,0.5)', maxWidth: 'calc(100% - 24px)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span>{drawMode === 'measure' ? '📏' : FEATURE_MODES.find(m => m.id === drawMode)?.icon}</span>
+              <span>{drawMode === 'measure' ? '📏' : drawMode === 'sensor' ? '📡' : FEATURE_MODES.find(m => m.id === drawMode)?.icon}</span>
               <span>
-                {drawMode === 'tree' || drawMode === 'point'
-                  ? 'Auf die Karte tippen, um zu platzieren'
+                {drawMode === 'tree' || drawMode === 'point' || drawMode === 'sensor'
+                  ? drawMode === 'sensor'
+                    ? 'Auf die Karte tippen, um den Sensor zu platzieren'
+                    : 'Auf die Karte tippen, um zu platzieren'
                   : drawMode === 'measure'
                     ? 'Messpunkte setzen — letzten Punkt doppelt antippen zum Abschließen'
                     : drawMode === 'line'
@@ -1730,7 +1911,7 @@ export default function MapPage() {
                 </span>
               )}
             </div>
-            {drawMode !== 'tree' && drawMode !== 'point' && (
+            {drawMode !== 'tree' && drawMode !== 'point' && drawMode !== 'sensor' && (
               <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, marginTop: 4, letterSpacing: '0.04em' }}>
                 Backspace = letzter Punkt zurück · Esc = abbrechen
               </div>
@@ -1790,8 +1971,18 @@ export default function MapPage() {
         />
       )}
 
-      {/* Feature form modal — Vollformular (alle Typen außer Baum-Kurzerfassung) */}
-      {(pendingGeometry || editingFeature) && drawMode && (drawMode !== 'tree' || editingFeature || showFullForm) && (
+      {/* Sensor-Formular nach Karten-Klick */}
+      {drawMode === 'sensor' && pendingGeometry?.type === 'Point' && (
+        <SensorFormModal
+          project={drawingProject}
+          position={{ lat: pendingGeometry.coordinates[1], lng: pendingGeometry.coordinates[0] }}
+          onSave={onSensorSave}
+          onCancel={cancelDraw}
+        />
+      )}
+
+      {/* Feature form modal — Vollformular (alle Typen außer Baum-Kurzerfassung & Sensor) */}
+      {(pendingGeometry || editingFeature) && drawMode && drawMode !== 'sensor' && (drawMode !== 'tree' || editingFeature || showFullForm) && (
         <FeatureForm
           mode={drawMode}
           project={drawingProject}
@@ -1801,10 +1992,11 @@ export default function MapPage() {
           areaM2={calcPendingArea()}
           onSave={onFormSave}
           onCancel={cancelDraw}
+          onDelete={editingFeature ? () => deleteFeature(editingFeature) : null}
         />
       )}
 
-      {/* Baum-Detailpanel */}
+      {/* Feature-Detailpanel (alle Typen: Baum, Beet, Fläche, Punkt, Linie) */}
       {panelFeatureId && (() => {
         const feat = mapFeatures.find(f => f.id === panelFeatureId)
         if (!feat) return null
@@ -1815,9 +2007,24 @@ export default function MapPage() {
             project={proj}
             isMobile={isMobile}
             isAdmin={isAdmin}
+            linkedPlans={plansByFeature[feat.id] || []}
+            onOpenPlan={pp => navigate('/planning', { state: { openPlanId: pp.id } })}
+            onPlanInFlorales={() => {
+              const m = geomMeasures(feat.geometry)
+              navigate('/planning', {
+                state: {
+                  fromMapFeature: {
+                    feature_id: feat.id,
+                    label: feat.label || feat.feature_type,
+                    area_m2: m?.area_m2 || 0,
+                    geometry: feat.geometry,
+                  },
+                },
+              })
+            }}
             onClose={() => setPanelFeatureId(null)}
             onEdit={() => { setPanelFeatureId(null); openEditForm(feat) }}
-            onDelete={() => { if (confirm(`Baum „${feat.label || feat.properties?.baumnummer || ''}“ löschen?`)) { deleteMapFeature(feat.id); setPanelFeatureId(null) } }}
+            onDelete={() => deleteFeature(feat)}
             onUpdateProperties={props => updateMapFeature(feat.id, { properties: props })}
             onGoProject={() => proj && navigate(`/projects/${proj.id}`)}
           />

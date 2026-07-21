@@ -218,6 +218,13 @@ export function OpsProvider({ children }) {
           return prev.map(v => v.id === payload.new.id ? payload.new : v)
         })
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sensors' }, payload => {
+        setSensorsState(prev => {
+          if (payload.eventType === 'DELETE') return prev.filter(s => s.id !== payload.old.id)
+          if (payload.eventType === 'INSERT') return [...prev.filter(s => s.id !== payload.new.id), payload.new]
+          return prev.map(s => s.id === payload.new.id ? payload.new : s)
+        })
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'map_features' }, payload => {
         setMapFeaturesState(prev => {
           if (payload.eventType === 'DELETE') return prev.filter(f => f.id !== payload.old.id)
@@ -423,6 +430,30 @@ export function OpsProvider({ children }) {
         })
       }
     }
+  }
+
+  // Sensor anlegen (z.B. aus BIOME per Karten-Klick — lat/lng = GPS-Position).
+  // Braucht die Migration 20260721 (lat/lng-Spalten), sonst schlägt der DB-Write fehl.
+  function createSensor(data) {
+    const sensor = {
+      value: 0, status: 'ok', unit: '%', threshold_low: 20, threshold_high: 80,
+      ...data,
+      id: data.id || genId(),
+      last_updated: new Date().toISOString(),
+    }
+    setSensorsState(prev => [...prev, sensor])
+    sbUpsert('sensors', [sensor]).catch(dbErr('sensors', 'write'))
+    return sensor
+  }
+
+  function updateSensor(id, changes) {
+    setSensorsState(prev => prev.map(s => s.id === id ? { ...s, ...changes } : s))
+    sbUpdate('sensors', id, changes).catch(dbErr('sensors', 'write'))
+  }
+
+  function deleteSensor(id) {
+    setSensorsState(prev => prev.filter(s => s.id !== id))
+    sbDelete('sensors', id).catch(dbErr('sensors', 'write'))
   }
 
   // ── Projects ─────────────────────────────────────────────────────────────────
@@ -652,7 +683,8 @@ export function OpsProvider({ children }) {
   const people = [...TEAM, ...normalizedFreelancers.filter(f => f.active !== false)]
 
   return (
-    <OpsContext.Provider value={{ jobs: visibleJobs, archivedJobs, recurring, sensors, projects, clients, vehicles, chips, mapFeatures, pflanzplaene, tasks: activeTasks, deletedTasks, boards, people, freelancers: normalizedFreelancers, loading, createJob, updateJob, deleteJob, setJobStatus, archiveJob, restoreJob, createRecurring, deleteRecurring, updateSensorValue, createProject, updateProject, deleteProject, createClient, updateClient, deleteClient, createVehicle, updateVehicle, deleteVehicle, createFreelancer, updateFreelancer, deleteFreelancer, saveChips, createMapFeature, updateMapFeature, deleteMapFeature, createPflanzplan, updatePflanzplan, deletePflanzplan, createTask, updateTask, deleteTask, restoreTask, purgeTask, setTaskStatus, createBoard, updateBoard, deleteBoard }}>
+    <OpsContext.Provider value={{ jobs: visibleJobs, archivedJobs, recurring, sensors, projects, clients, vehicles, chips, mapFeatures, pflanzplaene, tasks: activeTasks, deletedTasks, boards, people, freelancers: normalizedFreelancers, loading, createJob, updateJob, deleteJob, setJobStatus, archiveJob, restoreJob, createRecurring, deleteRecurring, updateSensorValue, createSensor, updateSensor, deleteSensor, createProject, updateProject, deleteProject, createClient, updateClient, deleteClient, createVehicle, updateVehicle, deleteVehicle, createFreelancer, updateFreelancer, deleteFreelancer, saveChips, createMapFeature, updateMapFeature, deleteMapFeature, createPflanzplan, updatePflanzplan, deletePflanzplan, createTask, updateTask, deleteTask, restoreTask, purgeTask, setTaskStatus, createBoard, updateBoard, deleteBoard }}>
+
       {children}
     </OpsContext.Provider>
   )
