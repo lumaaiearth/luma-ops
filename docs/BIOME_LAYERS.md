@@ -21,15 +21,25 @@ verifiziert: GetCapabilities + GetMap in EPSG:3857).
 - **Versiegelung 2021** — Versiegelungsgrad je Block; Potenzialflächen für Entsiegelung.
 
 ### 🌧️ Regen & Überflutung
-- **Regenradar (live)** — DWD, 5-Minuten-Takt, deutschlandweit.
+- **Regenradar (live)** — DWD, 5-Minuten-Takt, deutschlandweit. Nur sichtbar, wenn es gerade regnet.
 - **Niederschlag 24h** — DWD RADOLAN-Summen: wie viel Wasser wirklich fiel (Gieß-Entscheider).
 - **Starkregen 10-jährlich / Extremereignis** — Berliner Starkregengefahrenkarte:
   Wasserstände, wo die Kanalisation überläuft = **Hotspots ohne ausreichende
   Infrastruktur** → genau dort Versickerungsflächen, Mulden, Regengärten anbieten.
+  ⚠️ Detailkarte 1:5.000 — der Dienst liefert erst ab Zoomstufe ~17 Inhalte
+  (nah an einen Block heranzoomen).
 
 ### 🌿 Vegetation & Ökologie
 - **Grünvolumen** — m³ Grün pro m² (Berlin 2020): echtes Grünvolumen statt nur Fläche.
-- **Wälder & Wiesen / Gewässer (EU)** — CORINE 2018, funktioniert auch außerhalb Berlins.
+- **Baumkataster Berlin** — amtliche Straßen- & Anlagenbäume (ab Zoom ~14):
+  perfekt zum Abgleich mit eigenen BIOME-Baumkartierungen.
+
+> **CORINE (EU) entfernt:** Der EEA-discomap-WMS liefert über Deutschland nur
+> leere Kacheln — die nummerierten Layer des Dienstes sind fast ausschließlich
+> Frankreich-Übersee-Gebiete. Die alten Overlays („Versiegelung", „Landnutzung",
+> „Wälder & Wiesen", „Gewässer") haben deshalb nie etwas angezeigt. Ersatz sind
+> die (besseren) Berliner Dienste oben; EU-weite Alternativen bei Bedarf:
+> Copernicus HRL Imperviousness / Tree Cover Density über den Copernicus Data Space.
 
 ## Endpunkte
 
@@ -39,8 +49,8 @@ verifiziert: GetCapabilities + GetMap in EPSG:3857).
 | Starkregengefahrenkarte | `https://gdi.berlin.de/services/wms/ua_srgk` |
 | Versiegelung 2021 | `https://gdi.berlin.de/services/wms/ua_versiegelung_2021` |
 | Grünvolumen 2020 | `https://gdi.berlin.de/services/wms/ua_gruenvolumen_2020` |
+| Baumbestand | `https://gdi.berlin.de/services/wms/baumbestand` (Layer `strassenbaeume,anlagenbaeume`) |
 | DWD Radar/RADOLAN | `https://maps.dwd.de/geoserver/dwd/wms` |
-| CORINE 2018 | `https://copernicus.discomap.eea.europa.eu/arcgis/services/Corine/CLC2018_WM/MapServer/WMSServer` |
 | Sentinel-2 cloudless | `https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/default/g/{z}/{y}/{x}.jpg` |
 
 Alle Dienste sind offene Verwaltungs-/Forschungsdaten (Berlin GDI: dl-de/by-2-0,

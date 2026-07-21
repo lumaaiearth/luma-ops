@@ -1592,11 +1592,15 @@ export default function MapPage() {
             : <TileLayer key={tileLayer} url={tile.url} attribution={tile.attribution} maxNativeZoom={tile.maxNativeZoom} maxZoom={tile.maxZoom} />
           }
 
-          {/* Open data WMS layers */}
+          {/* Open data WMS layers.
+              zIndex 210: immer über der Basiskarte (sonst verdeckt ein Basiskarten-
+              Wechsel die Overlays). maxZoom 22 + maxNativeZoom 19: Leaflet-WMS stoppt
+              sonst bei Zoom 18 und die Ebene verschwindet beim Heranzoomen. */}
           {OPEN_LAYERS.filter(l => activeLayers.has(l.id)).map(layer => (
             <WMSTileLayer key={layer.id} url={layer.wms.url} layers={layer.wms.layers}
               format={layer.wms.format} transparent={layer.wms.transparent} opacity={layer.wms.opacity}
-              version={layer.wms.version || '1.3.0'} attribution={layer.wms.attribution || '© Copernicus/EEA'} />
+              version={layer.wms.version || '1.3.0'} attribution={layer.wms.attribution || ''}
+              zIndex={210} maxZoom={22} maxNativeZoom={19} minZoom={layer.minZoom || 0} />
           ))}
 
           {flyTarget && <FlyTo center={flyTarget} />}
