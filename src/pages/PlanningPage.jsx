@@ -467,10 +467,10 @@ export default function PlanningPage() {
 
       {/* ── SCREEN 2: BEET & PFLANZEN ──────────────────────────────────── */}
       {activeTab === 'beet' && (
-        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
 
           {/* Katalog-Umschalter: Pflanzen | Habitate */}
-          <div style={{ padding: isMobile ? '10px 12px 0' : '12px 24px 0', flexShrink: 0 }}>
+          <div style={{ padding: isMobile ? '10px 12px 0' : '12px 24px 0' }}>
             <div style={{ display: 'inline-flex', gap: 4, background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, padding: 4 }}>
               {[['pflanzen', '🌱 Pflanzen'], ['habitate', '🪵 Habitate']].map(([k, l]) => (
                 <button key={k} onClick={() => setCatalogMode(k)} style={{
@@ -526,7 +526,7 @@ export default function PlanningPage() {
           </div>
 
           {/* Pflanzen-Palette (nach Standort passend, ohne Filter) */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '0 12px 24px' : '0 24px 24px' }}>
+          <div style={{ padding: isMobile ? '0 12px 24px' : '0 24px 24px' }}>
             <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', margin: '2px 0 10px', fontWeight: L ? 700 : 400 }}>
               🌱 Passende Pflanzen ({filtered.length}) — antippen zum Hinzufügen
             </div>
@@ -2878,7 +2878,7 @@ function HabitatCatalog({ habCat, setHabCat, habSearch, setHabSearch, habitatPla
           {habSearch && <button onClick={() => setHabSearch('')} style={{ background: 'none', border: 'none', color: MUTED, cursor: 'pointer', padding: 0 }}><X size={12} /></button>}
         </div>
       </div>
-      <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '0 12px 24px' : '0 24px 24px' }}>
+      <div style={{ padding: isMobile ? '0 12px 24px' : '0 24px 24px' }}>
         {list.length === 0 ? (
           <EmptyState msg="Kein Habitatelement gefunden 🪵" sub="Andere Kategorie oder Suche probieren" />
         ) : (
