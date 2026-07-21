@@ -116,6 +116,25 @@ Angebot & Rechnung (aus Plan generiert, kein Excel mehr)
 
 Damit beantwortet die Plattform genau die vier Bedürfnisse: **Klarheit** (ein Plan, eine Wahrheit), **Planbarkeit** (Kapazitätsampel Monate im Voraus), **gute Ergebnisse** (nichts fällt runter — jeder Pflegegang ist ein Einsatz mit Status), **faire, einfache Angebote** (generiert aus kalibrierten Zahlen).
 
+### 4.1 Planungsprinzip: Volle Tourtage statt Kurzbesuche
+
+Ziel ist maximaler fakturierbarer Anteil je Arbeitstag — lieber **wenige, lange Einsätze** als viele kurze. Die Fixkosten eines Einsatztages (Anfahrt, Rüsten, Koordination, Fahrzeug) fallen pro *Tag* an, nicht pro Stunde: Ein 4-h-Besuch mit 1,5 h Fahrt ist zu ~73 % fakturierbar, ein voller 10-h-Tourtag zu ~85 % — und bringt pro Person 425 € statt 200 € Umsatz. Ein 2-Personen-Tourtag = **17–18 fakturierbare Stunden ≈ 850–900 € Umsatz**.
+
+Konsequenzen für den Gänge-Generator (Kap. 6, Tab „Pläne"):
+- **Mindestgröße je Einsatz:** Kein generierter Pflegegang unter ~6 h Team-Arbeit. Kleinere Bedarfe werden automatisch mit dem nächsten Standort desselben Kunden/Kiezes zu einem **Tourtag** gebündelt (JOPE: 5 Standorte → 2–3 Standorte je Tourtag; BEW: BL+MV+SH kombinierbar).
+- **Frequenz durch Bündelung halten, nicht opfern:** Was biologisch Turnus braucht (Mahd, Bewässerung, Beikraut), bleibt im Turnus — aber als Station eines vollen Tourtags, nie als Einzelanfahrt. Repräsentative Standorte (X13 = JOPE-Büro) behalten ihre Sichtbarkeits-Frequenz.
+- **KPI „Fakturierbare Quote":** je Tourtag und je Monat ausweisen (fakturierbare h ÷ Gesamtstunden inkl. Fahrt). Das macht „lohnt sich" messbar und ist die Steuergröße für die Tourenplanung.
+
+### 4.2 Planungsprinzip: Spezialaufträge nie über das Pflegekontingent
+
+Der Weidendome-Fall (März 2026: ~33 h Teamarbeit am MV als „Pflege" gebucht, Material separat angeboten) zeigt das Muster: Sonderprojekte über das Pflegebudget abzurechnen **zerstört den Pflegeplan doppelt** — das Jahreskontingent ist verbraucht, bevor die Saison beginnt (33 h = ⅓ des MV-Jahresbudgets), und der Plan/Ist-Vergleich wird wertlos, weil Bau- und Pflegestunden vermischt sind. Beim Kunden entsteht „Pflege ist zu teuer", obwohl es gar keine Pflege war.
+
+Die Lösung ist **nicht ablehnen, sondern trennen** — Spezialaufträge sind genau die langen, umsatzstarken Einsätze aus 4.1 und oft die margenstärkste Arbeit:
+- **Regel: Alles außerhalb des Leistungsverzeichnisses ist ein Zusatzauftrag** mit eigenem Kurzangebot (Arbeit + Material zusammen, 3 Zeilen genügen), eigener Angebots-/Rechnungsnummer und eigenem `job_type` (z. B. `installation`/`bau` statt `pflege`). Plan/Ist zählt nur `pflege`-Einsätze gegen den Pflegeplan.
+- **Vertraglich ist das längst gedeckt:** Der AN-57-Kopftext („Alle darüber hinaus notwendigen Einsätze werden … abgestimmt und dann zusätzlich in Rechnung gestellt") und der ALLCURA-Vertrag (§ 3: Zusatzleistungen gegen gesonderte Vergütung) sehen genau das vor. Es ist ein internes Disziplin-Thema, kein Kundenproblem.
+- **Wenn ein Kunde (BEW) die Sammelabrechnung über die Pflege wünscht:** dann als **ausgewiesene Sonderposition** auf derselben Rechnung oder als jährliches „Sondermaßnahmen-Kontingent" (z. B. 30–40 h nach Freigabe Frau Riccio) im Pflege-Angebot — sichtbar getrennt vom Pflegekontingent, nie stillschweigend daraus bedient.
+- Im Datenmodell (Kap. 5): `angebote.typ` (`pflege` | `spezial`) und die bestehenden `jobs.job_type`-Werte reichen dafür aus.
+
 ---
 
 ## 5. Datenmodell (baut auf Bestehendem auf)
@@ -170,6 +189,7 @@ create table pflege_gaenge (
 create table angebote (
   id uuid primary key default gen_random_uuid(),
   client_id text references clients(id),
+  typ text default 'pflege',            -- pflege | spezial (Zusatzaufträge, s. Kap. 4.2)
   titel text, angebotsnummer text,
   zeitraum_von date, zeitraum_bis date,
   stundensatz numeric,
@@ -195,7 +215,7 @@ alter table jobs add column if not exists planned_hours numeric;  -- Soll-h je E
 
 **Neue Seite `PflegePage` mit 4 Tabs:**
 
-1. **Pläne** — je Standort & Jahr der Pflegeplan als Matrix (Aufgaben × Monate, editierbare Stunden — bewusst nah am vertrauten Excel-Layout), plus Kopf mit Jahres-Summe, Umsatz, Kalibrierungsfaktor, Zielbild-Notiz. Button „Pflegegänge generieren": bündelt die Aufgaben-Fenster in konkrete Gänge je KW (Monatsfenster → 1 Gang/Monat; Frühjahrs-/Herbstkur → 2–3 Gänge über das Fenster verteilt statt einer Monster-KW).
+1. **Pläne** — je Standort & Jahr der Pflegeplan als Matrix (Aufgaben × Monate, editierbare Stunden — bewusst nah am vertrauten Excel-Layout), plus Kopf mit Jahres-Summe, Umsatz, Kalibrierungsfaktor, Zielbild-Notiz. Button „Pflegegänge generieren": bündelt die Aufgaben-Fenster in konkrete Gänge je KW (Monatsfenster → 1 Gang/Monat; Frühjahrs-/Herbstkur → 2–3 Gänge über das Fenster verteilt statt einer Monster-KW) und fasst Gänge unter ~6 h mit Nachbar-Standorten desselben Kunden zu vollen Tourtagen zusammen (Prinzip 4.1).
 2. **Kapazität** — Jahresganglinie: Balken „Bedarf h/Monat" (alle Pflegegänge inkl. Fahrtstunden) vs. Linie „verfügbar h/Monat" (aus `hour_rules` der Pflegekräfte + `user_availability`/`user_absences`). Ampel je Monat; darunter die konkreten Lücken: *„KW 15: 34 h Bedarf, 8 h Pflege-Kapazität → 26 h Team/Springer nötig"* mit Ein-Klick-Zuweisung an Malte/Lukas/Robert oder Freelancer (`people`). Damit ist „wenn es die Kraft der beiden übersteigt, muss jemand anders ran" nicht mehr Bauchgefühl, sondern eine Liste Monate im Voraus.
 3. **Plan/Ist** — je Standort: Soll-h vs. gebuchte h (laufendes Jahr), Abweichung in % und €, Ampel; je Aufgabe aufklappbar. Vorschlag „Kalibrierung fürs nächste Jahr: Faktor 1,25" auf Basis der Daten.
 4. **Angebote** — Liste + Generator: Kunde wählen → zieht die aktiven Pflegepläne → erzeugt Angebots-Entwurf mit Leistungsverzeichnis-Positionen je Standort (aus dem Aufgaben-Katalog), Jahresstunden **intern**, nach außen Pauschale mit gewählter Abrechnung (monatlich/Drittel). Export als Text/PDF zum Einfügen ins Rechnungstool (Format wie AN-57: Kopf-Text, Positionen, Fuß-Text — aber mit sauberem Leistungszeitraum).
