@@ -129,6 +129,17 @@ function makeTreeIcon(color, size = 18) {
   })
 }
 
+// Pin für Adress-Suchtreffer (auffällig, kein Feature)
+function makeSearchPinIcon() {
+  return L.divIcon({
+    html: `<div style="font-size:30px;line-height:1;filter:drop-shadow(0 3px 5px rgba(0,0,0,0.55))">📍</div>`,
+    className: '',
+    iconSize: [30, 30],
+    iconAnchor: [15, 28],
+    popupAnchor: [0, -26],
+  })
+}
+
 function makeUserIcon() {
   return L.divIcon({
     html: `<div style="width:16px;height:16px;border-radius:50%;background:#3b82f6;border:3px solid #fff;box-shadow:0 0 0 2px rgba(59,130,246,0.35),0 2px 8px rgba(0,0,0,0.5)"></div>`,
@@ -905,6 +916,14 @@ export default function MapPage() {
   const [serialCount, setSerialCount] = useState(0)          // Bäume in dieser Serie
   const [panelFeatureId, setPanelFeatureId] = useState(null) // geöffnetes Baum-Detailpanel
 
+  // Adress- & Feature-Suche (Lupe in der Toolbar)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [geoQuery, setGeoQuery] = useState('')
+  const [geoResults, setGeoResults] = useState(null)   // null = noch nichts gesucht
+  const [geoLoading, setGeoLoading] = useState(false)
+  const [geoError, setGeoError] = useState(false)
+  const [searchPin, setSearchPin] = useState(null)     // { lat, lng, label } — gefundene Adresse
+
   // Toolbar / Bearbeiten / GPS / Messen
   const [drawProjectId, setDrawProjectId] = useState(null)   // Zielprojekt der Toolbar
   const [projectHint, setProjectHint] = useState(false)      // "erst Projekt wählen"-Hinweis
@@ -1121,6 +1140,79 @@ export default function MapPage() {
     }, 60)
     return () => clearTimeout(t)
   }, [panelFeatureId])
+
+  // ── Suche: Adressen via Photon (OSM-Geocoder, tippfehlertolerant) ─────────
+  // Debounced ab 3 Zeichen; Ergebnis-Bias auf Berlin. Eigene Projekte/Features
+  // werden zusätzlich lokal durchsucht (localSearchMatches).
+  useEffect(() => {
+    if (!searchOpen) return
+    const q = geoQuery.trim()
+    if (q.length < 3) { setGeoResults(null); setGeoLoading(false); setGeoError(false); return }
+    setGeoLoading(true)
+    setGeoError(false)
+    const t = setTimeout(async () => {
+      try {
+        const resp = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=6&lang=de&lat=52.515&lon=13.405`)
+        const data = await resp.json()
+        const addr = (data.features || []).map(f => {
+          const p = f.properties || {}
+          const [lng, lat] = f.geometry?.coordinates || []
+          const title = p.name || [p.street, p.housenumber].filter(Boolean).join(' ') || [p.city, p.country].filter(Boolean).join(', ')
+          const subtitle = [[p.street, p.housenumber].filter(Boolean).join(' '), p.postcode, p.district, p.city]
+            .filter(Boolean).filter(x => x !== title).join(' · ')
+          return { kind: 'address', lat, lng, title, subtitle }
+        }).filter(r => r.lat != null && r.title)
+        setGeoResults(addr)
+      } catch {
+        setGeoResults([])
+        setGeoError(true)
+      } finally {
+        setGeoLoading(false)
+      }
+    }, 350)
+    return () => clearTimeout(t)
+  }, [geoQuery, searchOpen])
+
+  // Lokale Treffer: Projekte (Name, Flächen-Code wie „R95", Ort) + Features
+  const localSearchMatches = useMemo(() => {
+    const q = geoQuery.trim().toLowerCase()
+    if (!searchOpen || q.length < 2) return []
+    const projs = projects
+      .filter(p => (p.name || '').toLowerCase().includes(q) || (p.flaeche_code || '').toLowerCase().includes(q) || (p.location || '').toLowerCase().includes(q))
+      .slice(0, 3).map(p => ({ kind: 'project', project: p }))
+    const feats = mapFeatures
+      .filter(f => f.feature_type !== 'drone_image' && f.feature_type !== 'ortho_tiles')
+      .filter(f => (f.label || '').toLowerCase().includes(q) || (f.properties?.baumnummer || '').toLowerCase().includes(q))
+      .slice(0, 4).map(f => ({ kind: 'feature', feat: f }))
+    return [...projs, ...feats]
+  }, [searchOpen, geoQuery, projects, mapFeatures])
+
+  function closeSearch() {
+    setSearchOpen(false)
+    setGeoResults(null)
+    setGeoLoading(false)
+    setGeoError(false)
+  }
+
+  function pickSearchResult(r) {
+    if (r.kind === 'address') {
+      setSearchPin({ lat: r.lat, lng: r.lng, label: r.title + (r.subtitle ? ` · ${r.subtitle}` : '') })
+      setFlyTarget([r.lat, r.lng])
+    } else if (r.kind === 'project') {
+      const p = r.project
+      setActiveProject(p.id)
+      setExpandedClients(prev => { const next = new Set(prev); next.add(p.client_id || 'other'); return next })
+      if (p.lat && p.lng) setFlyTarget([p.lat, p.lng])
+      else {
+        const firstFeat = mapFeatures.find(f => f.project_id === p.id && f.geometry)
+        const ll = firstFeat && featureLatLng(firstFeat)
+        if (ll) setFlyTarget(ll)
+      }
+    } else if (r.kind === 'feature') {
+      openFeature(r.feat, { fly: true })
+    }
+    closeSearch()
+  }
 
   // Projekt ohne Koordinaten bekommt beim ersten kartierten Feature automatisch
   // einen Pin (Schwerpunkt) — hält BIOME und Projektdatenbank synchron.
@@ -1608,6 +1700,24 @@ export default function MapPage() {
           {/* Eigener Standort (GPS) */}
           <UserLocation userPos={userPos} />
 
+          {/* Suchtreffer-Pin (Adresse) */}
+          {searchPin && (
+            <Marker position={[searchPin.lat, searchPin.lng]} icon={makeSearchPinIcon()} zIndexOffset={1100}>
+              <Popup>
+                <div style={{ fontFamily: "'Space Grotesk', sans-serif", minWidth: 160 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, color: '#e8f0f5', marginBottom: 3 }}>{searchPin.label}</div>
+                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: 'rgba(232,240,245,0.45)', marginBottom: 6 }}>
+                    {searchPin.lat.toFixed(6)}, {searchPin.lng.toFixed(6)}
+                  </div>
+                  <button onClick={() => setSearchPin(null)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 5, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(232,240,245,0.7)', cursor: 'pointer', fontSize: 11, fontFamily: "'Space Grotesk', sans-serif", width: '100%', justifyContent: 'center' }}>
+                    <X size={11} /> Pin entfernen
+                  </button>
+                </div>
+              </Popup>
+            </Marker>
+          )}
+
           {/* Vorschau: gerade gesetzter, noch ungespeicherter Punkt */}
           {drawMode && pendingGeometry?.type === 'Point' && (
             <Marker position={[pendingGeometry.coordinates[1], pendingGeometry.coordinates[0]]}
@@ -1832,6 +1942,19 @@ export default function MapPage() {
         {/* ── Zeichen-Toolbar (schwebend) ── */}
         {!drawMode && (
           <div style={{ position: 'absolute', top: isMobile ? 56 : 12, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, display: 'flex', alignItems: 'center', gap: 4, background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, padding: 4, boxShadow: '0 2px 14px rgba(0,0,0,0.4)', maxWidth: 'calc(100% - 24px)', overflowX: 'auto' }}>
+            {/* Suche: Adresse (OSM-Geocoder), Projekte & Features */}
+            <button onClick={() => searchOpen ? closeSearch() : setSearchOpen(true)}
+              title="Suchen: Adresse, Projekt oder Feature" className="lu-chip"
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: `1px solid ${searchOpen ? `color-mix(in srgb, ${A} 44%, transparent)` : 'transparent'}`, background: searchOpen ? A14 : 'transparent', color: searchOpen ? A : MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
+              <Search size={13} />{!isMobile && !searchOpen && 'Suchen'}
+            </button>
+            {searchOpen && (
+              <input autoFocus value={geoQuery} onChange={e => setGeoQuery(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Escape') closeSearch() }}
+                placeholder="Adresse, Projekt, Feature…"
+                style={{ width: isMobile ? 150 : 240, padding: '6px 8px', borderRadius: 7, border: `1px solid ${BORDER}`, background: 'transparent', color: FG, fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", outline: 'none', flexShrink: 0 }} />
+            )}
+            <div style={{ width: 1, alignSelf: 'stretch', background: BORDER, margin: '2px 2px', flexShrink: 0 }} />
             {isAdmin && (
               <>
                 <select value={drawProjectId || ''} onChange={e => setDrawProjectId(e.target.value || null)}
@@ -1871,6 +1994,73 @@ export default function MapPage() {
                 🌳 Baum hier
               </button>
             )}
+          </div>
+        )}
+
+        {/* Such-Ergebnisse (unter der Toolbar) */}
+        {!drawMode && searchOpen && (geoLoading || geoResults !== null || localSearchMatches.length > 0) && (
+          <div className="lu-fade-in" style={{ position: 'absolute', top: isMobile ? 102 : 58, left: '50%', transform: 'translateX(-50%)', zIndex: 1001, width: 'min(460px, calc(100% - 24px))', maxHeight: '55vh', overflowY: 'auto', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, boxShadow: '0 8px 30px rgba(0,0,0,0.45)' }}>
+            {/* Eigene Projekte & Features zuerst */}
+            {localSearchMatches.map((r, i) => {
+              if (r.kind === 'project') {
+                const p = r.project
+                const color = projectColorById[p.id] || A
+                return (
+                  <button key={`p-${p.id}`} onClick={() => pickSearchResult(r)} className="lu-option"
+                    style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', textAlign: 'left', padding: '9px 12px', border: 'none', borderBottom: `1px solid ${BORDER}`, background: 'transparent', cursor: 'pointer' }}>
+                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: FG, fontFamily: "'Space Grotesk', sans-serif", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {p.name}{p.flaeche_code ? <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color, marginLeft: 6 }}>{p.flaeche_code}</span> : null}
+                      </div>
+                      {p.location && <div style={{ fontSize: 10, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.location}</div>}
+                    </div>
+                    <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: MUTED, flexShrink: 0 }}>PROJEKT</span>
+                  </button>
+                )
+              }
+              const feat = r.feat
+              const modeInfo = FEATURE_MODES.find(m => m.id === feat.feature_type) || {}
+              const proj = projects.find(p => p.id === feat.project_id)
+              return (
+                <button key={`f-${feat.id}`} onClick={() => pickSearchResult(r)} className="lu-option"
+                  style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', textAlign: 'left', padding: '9px 12px', border: 'none', borderBottom: `1px solid ${BORDER}`, background: 'transparent', cursor: 'pointer' }}>
+                  <span style={{ fontSize: 13, flexShrink: 0 }}>{modeInfo.icon || '●'}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: FG, fontFamily: "'Space Grotesk', sans-serif", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {feat.label || modeInfo.label || feat.feature_type}
+                      {feat.properties?.baumnummer ? <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, marginLeft: 6 }}>#{feat.properties.baumnummer}</span> : null}
+                    </div>
+                    {proj && <div style={{ fontSize: 10, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{proj.name}</div>}
+                  </div>
+                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: MUTED, flexShrink: 0 }}>FEATURE</span>
+                </button>
+              )
+            })}
+
+            {/* Adressen (OSM) */}
+            {geoLoading && (
+              <div style={{ padding: '10px 12px', fontSize: 11, color: MUTED, fontFamily: "'Space Mono', monospace" }}>Suche Adresse…</div>
+            )}
+            {!geoLoading && (geoResults || []).map((r, i) => (
+              <button key={`a-${i}`} onClick={() => pickSearchResult(r)} className="lu-option"
+                style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', textAlign: 'left', padding: '9px 12px', border: 'none', borderBottom: `1px solid ${BORDER}`, background: 'transparent', cursor: 'pointer' }}>
+                <span style={{ fontSize: 13, flexShrink: 0 }}>📍</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: FG, fontFamily: "'Space Grotesk', sans-serif", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</div>
+                  {r.subtitle && <div style={{ fontSize: 10, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.subtitle}</div>}
+                </div>
+                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: MUTED, flexShrink: 0 }}>ADRESSE</span>
+              </button>
+            ))}
+            {!geoLoading && geoResults && geoResults.length === 0 && localSearchMatches.length === 0 && (
+              <div style={{ padding: '10px 12px', fontSize: 11, color: MUTED }}>
+                {geoError ? 'Adresssuche nicht erreichbar — Verbindung prüfen.' : 'Nichts gefunden. Tipp: Straße + Hausnummer + Ort.'}
+              </div>
+            )}
+            <div style={{ padding: '5px 12px', fontSize: 8, color: MUTED, fontFamily: "'Space Mono', monospace", opacity: 0.7 }}>
+              Adressen © OpenStreetMap (Photon)
+            </div>
           </div>
         )}
 
