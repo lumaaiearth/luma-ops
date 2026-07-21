@@ -278,18 +278,19 @@ export function EmptyState({ icon: Icon, title, hint, action, style }) {
   )
 }
 
-/** Initialen-Avatar; zeigt ein Profilfoto (src), sonst Initialen auf Farbe */
-export function Avatar({ initials, color = A, size = 22, title, src }) {
+/** Initialen-Avatar; zeigt ein Profilfoto (src), sonst Initialen auf Farbe.
+ *  style überschreibt die Hülle (z.B. Ring/negative Margins in Stapel-Reihen). */
+export function Avatar({ initials, color = A, size = 22, title, src, style }) {
   if (src) {
     return (
-      <div title={title} style={{ width: size, height: size, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: `1.5px solid ${BORDER}`, background: SURFACE }}>
+      <div title={title} style={{ width: size, height: size, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: `1.5px solid ${BORDER}`, background: SURFACE, ...style }}>
         <img src={src} alt={title || initials || ''} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} loading="lazy" />
       </div>
     )
   }
   const textColor = color === A ? 'var(--luma-on-a)' : '#001219'
   return (
-    <div title={title} style={{ width: size, height: size, borderRadius: '50%', background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+    <div title={title} style={{ width: size, height: size, borderRadius: '50%', background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, ...style }}>
       <span style={{ fontFamily: MONO, fontSize: Math.max(7, Math.round(size * 0.36)), color: textColor, fontWeight: 700 }}>{initials}</span>
     </div>
   )

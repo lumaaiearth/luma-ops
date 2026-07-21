@@ -4,9 +4,9 @@ import { useTime } from '../context/TimeContext.jsx'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { A, SURFACE, BORDER, FG, MUTED, CARD, A06, A08, A18, A20, OK, WARN } from '../lib/theme.js'
-import { Modal, ModalActions, EmptyState, DateInput } from '../components/ui.jsx'
+import { Modal, ModalActions, EmptyState, DateInput, Avatar } from '../components/ui.jsx'
 import { TEAM, TASK_TYPES } from '../data/seed.js'
-import { findPerson, allPeople } from '../lib/people.js'
+import { findPerson, allPeople, avatarFor } from '../lib/people.js'
 import { genId, isoToday, addDays, weekStart, getWeekDays } from '../lib/storage.js'
 import { normalizeRule, hasKonto, kontostand, kontoMonthData, yearTargetTotal as ruleYearTarget, hoursFromTimes } from '../lib/hourAccounts.js'
 import { useIsMobile } from '../lib/useBreakpoint.js'
@@ -338,9 +338,7 @@ function TabEintraege() {
                     <td style={{ padding: '8px 12px', borderBottom: `1px solid color-mix(in srgb, ${BORDER} 55%, transparent)`, fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED, whiteSpace: 'nowrap' }}>{e.date}</td>
                     <td style={{ padding: '8px 12px', borderBottom: `1px solid color-mix(in srgb, ${BORDER} 55%, transparent)`, fontSize: 12, color: FG, whiteSpace: 'nowrap' }}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ width: 16, height: 16, borderRadius: '50%', background: u?.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 6, color: '#001219', fontWeight: 700 }}>{u?.initials}</span>
-                        </span>
+                        <Avatar initials={u?.initials} color={u?.color} size={16} src={avatarFor(u?.id)} />
                         {u?.name || e.user_id}
                       </span>
                     </td>
@@ -411,9 +409,7 @@ function PersonCard({ uid, entries, projects, range, rule }) {
     <div style={{ padding: '18px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 14 }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{ width: 38, height: 38, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
-        </div>
+        <Avatar initials={u.initials} color={u.color} size={38} src={avatarFor(u.id)} />
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 15, fontWeight: 500, color: FG }}>{u.name}</div>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED }}>{ROLE_LABELS[u.role] || u.role}</div>
@@ -517,9 +513,7 @@ function KontostandCard({ uid, entries, rule }) {
   return (
     <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-        <div style={{ width: 28, height: 28, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
-        </div>
+        <Avatar initials={u.initials} color={u.color} size={28} src={avatarFor(u.id)} />
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 14, fontWeight: 500, color: FG }}>{u.name}</div>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED }}>
@@ -671,9 +665,7 @@ function PersonenStats() {
             const h = uid === 'malte' ? maltH : lukasH
             return (
               <div key={uid} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 22, height: 22, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 7, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
-                </div>
+                <Avatar initials={u.initials} color={u.color} size={22} src={avatarFor(u.id)} />
                 <span style={{ fontSize: 13, color: FG }}>{u.name}</span>
                 <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 16, fontWeight: 700, color: u.color }}>{h}h</span>
               </div>
@@ -1100,9 +1092,7 @@ function TabAbrechnung() {
                     return (
                       <div key={entry.id} style={{ display: 'flex', gap: 10, fontSize: 12, color: MUTED }}>
                         <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, minWidth: 80 }}>{entry.date}</span>
-                        <span style={{ width: 24, height: 18, borderRadius: '50%', background: user?.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 7, color: '#001219', fontWeight: 700 }}>{user?.initials}</span>
-                        </span>
+                        <Avatar initials={user?.initials} color={user?.color} size={18} src={avatarFor(user?.id)} />
                         <span style={{ color: FG, fontWeight: 500 }}>{entry.hours}h</span>
                         <span style={{ flex: 1 }}>{entry.description}</span>
                       </div>
@@ -1539,9 +1529,7 @@ function TabProjekte() {
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 }}>
           {TEAM.map(u => (
             <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ width: 18, height: 18, borderRadius: '50%', background: u.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 6, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
-              </span>
+              <Avatar initials={u.initials} color={u.color} size={18} src={avatarFor(u.id)} />
               <span style={{ fontSize: 12, color: FG, flex: 1 }}>{u.name}</span>
               <input type="number" min="0" step="0.5" defaultValue={costRates[u.id] ?? ''}
                 placeholder="0"

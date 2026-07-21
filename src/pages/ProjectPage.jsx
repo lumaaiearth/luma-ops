@@ -9,7 +9,8 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { sb } from '../lib/supabase.js'
 import { A, BG, SURFACE, BORDER, FG, MUTED, CARD, A06, A14, A18, OK, WARN, DANGER, INFO } from '../lib/theme.js'
 import { JOB_TYPES, TASK_STATUSES, TASK_PRIORITIES } from '../data/seed.js'
-import { findPerson, peopleForIds } from '../lib/people.js'
+import { findPerson, peopleForIds, avatarFor } from '../lib/people.js'
+import { Avatar } from '../components/ui.jsx'
 import { isoToday, formatDate } from '../lib/storage.js'
 import TaskModal from '../components/TaskModal.jsx'
 
@@ -255,9 +256,7 @@ export default function ProjectPage() {
                       return (
                         <button key={uid} onClick={() => navigate('/team', { state: { focusUser: uid } })}
                           style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, background: `${u.color}18`, border: `1px solid ${u.color}40`, cursor: 'pointer' }}>
-                          <div style={{ width: 20, height: 20, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
-                          </div>
+                          <Avatar initials={u.initials} color={u.color} size={20} src={avatarFor(u.id)} />
                           <span style={{ fontSize: 13, color: u.color }}>{u.name}</span>
                         </button>
                       )
@@ -407,9 +406,7 @@ export default function ProjectPage() {
                       </div>
                       <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                         {workers.map(w => (
-                          <div key={w.id} style={{ width: 24, height: 24, borderRadius: '50%', background: w.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: '#001219', fontWeight: 700 }}>{w.initials}</span>
-                          </div>
+                          <Avatar key={w.id} title={w.name} initials={w.initials} color={w.color} size={24} src={avatarFor(w.id)} />
                         ))}
                       </div>
                       <button onClick={e => { e.stopPropagation(); deleteTask(t.id) }}
@@ -448,9 +445,7 @@ export default function ProjectPage() {
                   </div>
                   <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                     {workers.map(w => (
-                      <div key={w.id} style={{ width: 24, height: 24, borderRadius: '50%', background: w.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: '#001219', fontWeight: 700 }}>{w.initials}</span>
-                      </div>
+                      <Avatar key={w.id} title={w.name} initials={w.initials} color={w.color} size={24} src={avatarFor(w.id)} />
                     ))}
                   </div>
                 </div>

@@ -10,6 +10,8 @@ import { isNativeApp } from '../lib/platform.js'
 import { genId } from '../lib/storage.js'
 import { tgSend } from '../lib/telegram.js'
 import InstallSection from '../components/InstallSection.jsx'
+import { Avatar } from '../components/ui.jsx'
+import { avatarFor } from '../lib/people.js'
 import { Car, Truck, Plus, Trash2, Calendar, ExternalLink, AlertTriangle, Send, Check, RefreshCw, Unlink, FolderOpen, Pencil, X } from 'lucide-react'
 
 const DEFAULT_CHIPS = [
@@ -69,9 +71,13 @@ function TeamIcalRow({ member }) {
   return (
     <div style={{ padding: '12px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-        <div style={{ width: 28, height: 28, borderRadius: '50%', background: `${member.color}22`, border: `2px solid ${member.color}50`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: member.color, fontWeight: 700 }}>{member.initials}</span>
-        </div>
+        {avatarFor(member.id) ? (
+          <Avatar initials={member.initials} size={28} src={avatarFor(member.id)} style={{ border: `2px solid ${member.color}50` }} />
+        ) : (
+          <div style={{ width: 28, height: 28, borderRadius: '50%', background: `${member.color}22`, border: `2px solid ${member.color}50`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: member.color, fontWeight: 700 }}>{member.initials}</span>
+          </div>
+        )}
         <span style={{ fontSize: 13, fontWeight: 500, color: FG }}>{member.name}</span>
         {url && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: A, padding: '1px 6px', background: A06, borderRadius: 8 }}>aktiv</span>}
       </div>
