@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect, lazy, Suspense } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { A, SURFACE, BORDER, FG, MUTED, BG, A14, A20 } from '../lib/theme.js'
 import { useTheme } from '../context/ThemeContext.jsx'
@@ -16,6 +16,9 @@ import {
 import { computePlacement, buildGrid, stateForMonth, growthForMonth, growthBucket, POLLI_GROUPS } from '../lib/beetLayout.js'
 import { shapeMetaFromGeometry } from '../lib/shapeMeta.js'
 import { fetchElevation, siteInfo } from '../lib/siteData.js'
+import ShapeView from '../components/ShapeView.jsx'
+// 3D-Modell-Ansicht (three.js) lazy laden — eigener Chunk.
+const Beet3DPoly = lazy(() => import('../components/Beet3DPoly.jsx'))
 import { plantSprite, SPRITE_PX_PER_M } from '../lib/plantSprites.js'
 
 /* ─── PFLANZPLAN STATUS ─────────────────────────────────────────────────── */
@@ -124,6 +127,7 @@ export default function PlanningPage() {
   // ── Plan
   const [plan, setPlan] = useState([])
   const [activeTab, setActiveTab] = useState('standort')
+  const [beetView, setBeetView] = useState('raster') // 'raster' | '3d' (Modul 2/3 Vorschau)
   const [saveProjectId, setSaveProjectId] = useState('')
   const [savedToProject, setSavedToProject] = useState(false)
   const [sheetPlant, setSheetPlant] = useState(null) // Steckbrief-Sheet
@@ -206,6 +210,9 @@ export default function PlanningPage() {
     })
   }, [licht, wasser, boden, drainage, ph, search, artKeys, onlyHeimisch, onlyRaupen, onlyTagfalter, onlyBienen, onlyNachtfalter, onlyKaefer, onlyVoegel, onlyZier])
 
+  // Kontinuierliche Platzierung für die 3D-Ansicht (Drifts/Höhenschichtung).
+  const plantsWithPlacement = useMemo(() => computePlacement(plan, beetW, beetH), [plan, beetW, beetH])
+
   function addToPlan(plant) {
     setPlan(prev => {
       const ex = prev.find(p => p.id === plant.id)
@@ -232,9 +239,9 @@ export default function PlanningPage() {
     setSheetQty(ex ? ex.count : suggestQty(sheetPlant))
   }, [sheetPlant?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Trifft automatisch eine standort-/filterpassende Pflanzenauswahl für die Fläche.
+  // Trifft automatisch eine standortpassende Pflanzenauswahl für die Freiform.
   function autoFillForArea() {
-    const area = autoArea != null ? autoArea : Math.round(beetArea) || 10
+    const area = shapeMeta?.area_m2 || (autoArea != null ? autoArea : Math.round(beetArea) || 10)
     const usingArtFilter = artKeys.length > 0
     const pool = usingArtFilter ? filtered : filtered.filter(p => ['staude', 'gras', 'einjährig', 'zweijährig'].includes(p.type))
     if (!pool.length) return
@@ -247,7 +254,7 @@ export default function PlanningPage() {
     if (!result.length) return
     if (plan.length && !window.confirm(`Aktuellen Plan (${plan.length} Arten) durch die automatische Auswahl ersetzen?`)) return
     setPlan(result)
-    setActiveTab('plan')
+    // bleibt in Modul 2 → Bepflanzung erscheint direkt in der Freiform
   }
 
   function addHabitat(h) {
@@ -440,12 +447,10 @@ export default function PlanningPage() {
       {activeTab === 'standort' && (
         <StandortScreen
           L={L} shadow={shadow} cardBg={cardBg} isMobile={isMobile}
-          shapeMeta={shapeMeta} fromMapFeature={fromMapFeature} site={site}
-          beetW={beetW} setBeetW={setBeetW} beetH={beetH} setBeetH={setBeetH}
-          beetForm={beetForm} setBeetForm={setBeetForm}
+          shapeMeta={shapeMeta} fromMapFeature={fromMapFeature} site={site} plan={plan}
           licht={licht} setLicht={setLicht} wasser={wasser} setWasser={setWasser}
           boden={boden} setBoden={setBoden} drainage={drainage} setDrainage={setDrainage}
-          ph={ph} setPh={setPh} viewDir={viewDir} setViewDir={setViewDir}
+          ph={ph} setPh={setPh}
           onOpenBiome={() => navigate('/map')}
           onNext={() => setActiveTab('beet')}
         />
@@ -468,123 +473,56 @@ export default function PlanningPage() {
           </div>
 
           {catalogMode === 'pflanzen' && (<>
-          {/* Filter Panel */}
+          {/* Beet-Vorschau (exakte Freiform) + Auto-Auswahl — keine Filter mehr */}
           <div style={{ padding: isMobile ? '0 12px' : '0 24px', flexShrink: 0 }}>
-            <div style={{ background: SURFACE, border: `1.5px solid ${BORDER}`, borderRadius: 12, marginBottom: 12, overflow: 'hidden', boxShadow: L ? '0 1px 4px rgba(0,0,0,0.06)' : 'none' }}>
-
-              {/* Filter header */}
-              <div
-                onClick={() => setFilterPanelOpen(o => !o)}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', cursor: 'pointer', userSelect: 'none' }}>
-                <SlidersHorizontal size={13} color={MUTED} />
-                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: L ? 700 : 400, flex: 1 }}>
-                  Filter {activeFilterCount > 0 && <span style={{ color: A }}>· {activeFilterCount} aktiv</span>}
-                </span>
-                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A }}>
-                  {filtered.length}/{PLANTS.length} Pflanzen
-                </span>
-                {filterPanelOpen ? <ChevronUp size={13} color={MUTED} /> : <ChevronDown size={13} color={MUTED} />}
-              </div>
-
-              {filterPanelOpen && (
-                <div style={{ borderTop: `1px solid ${BORDER}`, padding: '14px 16px', maxHeight: isMobile ? '45vh' : undefined, overflowY: isMobile ? 'auto' : undefined }}>
-                  {/* Standort-Faktoren werden auf Screen 1 gesetzt und hier nur angewandt. */}
-                  {(secCountStandort > 0) && (
-                    <div style={{ fontSize: 11, color: MUTED, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                      <span style={{ color: A, fontWeight: 700 }}>📍 Standort aktiv:</span>
-                      {licht != null && <span>{LICHT_OPTS.find(o => o.value === licht)?.emoji} {LICHT_OPTS.find(o => o.value === licht)?.label}</span>}
-                      {wasser != null && <span>· {WASSER_OPTS.find(o => o.value === wasser)?.label}</span>}
-                      {boden != null && <span>· {BODEN_OPTS.find(o => o.value === boden)?.label}</span>}
-                      <button onClick={() => setActiveTab('standort')} style={{ marginLeft: 'auto', background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 6, padding: '2px 8px', fontSize: 11, cursor: 'pointer' }}>ändern</button>
-                    </div>
-                  )}
-
-                  <FilterSection label="🌿 Art der Pflanze" count={secCountArt} open={openSec.art} onToggle={() => setOpenSec(s => ({ ...s, art: !s.art }))}>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      {ART_OPTS.map(a => {
-                        const on = artKeys.includes(a.key)
-                        return (
-                          <button key={a.key} onClick={() => setArtKeys(k => on ? k.filter(x => x !== a.key) : [...k, a.key])} style={{
-                            padding: '7px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer', fontWeight: on ? 700 : (L ? 500 : 400),
-                            border: on ? `1.5px solid ${A}` : `1px solid ${BORDER}`, background: on ? A14 : 'transparent', color: on ? A : FG,
-                          }}>{a.label}</button>
-                        )
-                      })}
-                    </div>
-                  </FilterSection>
-
-                  <FilterSection label="🐝 Biologische Wertigkeit — welche Arten erreiche ich?" count={secCountBio} open={openSec.bio} onToggle={() => setOpenSec(s => ({ ...s, bio: !s.bio }))}>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <BioToggle label="🐝 Bienen/Hummeln" active={onlyBienen} onClick={() => setOnlyBienen(v => !v)} L={L} isMobile={isMobile} />
-                      <BioToggle label="🦋 Tagfalter" active={onlyTagfalter} onClick={() => setOnlyTagfalter(v => !v)} L={L} isMobile={isMobile} />
-                      <BioToggle label="🌙 Nachtfalter" active={onlyNachtfalter} onClick={() => setOnlyNachtfalter(v => !v)} L={L} isMobile={isMobile} />
-                      <BioToggle label="🪲 Käfer" active={onlyKaefer} onClick={() => setOnlyKaefer(v => !v)} L={L} isMobile={isMobile} />
-                      <BioToggle label="🐦 Vögel" active={onlyVoegel} onClick={() => setOnlyVoegel(v => !v)} L={L} isMobile={isMobile} />
-                      <BioToggle label="🐛 Raupenfutter" active={onlyRaupen} onClick={() => setOnlyRaupen(v => !v)} L={L} isMobile={isMobile} />
-                      <BioToggle label="🏡 Heimisch" active={onlyHeimisch} onClick={() => setOnlyHeimisch(v => !v)} L={L} isMobile={isMobile} />
-                      <BioToggle label="🌸 Zierstauden" active={onlyZier} onClick={() => setOnlyZier(v => !v)} L={L} isMobile={isMobile} />
-                    </div>
-                  </FilterSection>
-
-                  {/* Search */}
-                  <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, background: L ? 'rgba(0,0,0,0.05)' : BG, borderRadius: 8, padding: '8px 12px', border: `1px solid ${BORDER}` }}>
-                    <Search size={13} color={MUTED} />
-                    <input
-                      value={search}
-                      onChange={e => setSearch(e.target.value)}
-                      placeholder="Name, Latein oder Art suchen..."
-                      style={{ background: 'none', border: 'none', outline: 'none', color: FG, fontSize: 13, width: '100%' }}
-                    />
-                    {search && <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', color: MUTED, cursor: 'pointer', padding: 0 }}><X size={12} /></button>}
+            {shapeMeta?.local ? (
+              <div style={{ background: cardBg, borderRadius: 12, padding: 14, boxShadow: shadow, marginBottom: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: L ? 700 : 400, flex: 1 }}>
+                    🗺️ {fromMapFeature?.label || 'Fläche'} · {shapeMeta.area_m2} m²
                   </div>
+                  {[['raster', '🔤 Rasterplan'], ['3d', '🧊 3D-Modelle']].map(([v, lbl]) => (
+                    <button key={v} onClick={() => setBeetView(v)} style={{
+                      padding: '5px 12px', borderRadius: 7, fontSize: 12, cursor: 'pointer', fontWeight: beetView === v ? 700 : 500,
+                      border: beetView === v ? `1.5px solid ${A}` : `1px solid ${BORDER}`, background: beetView === v ? A14 : 'transparent', color: beetView === v ? A : MUTED,
+                    }}>{lbl}</button>
+                  ))}
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* Auto-Auswahl für die Fläche */}
-          <div style={{ padding: isMobile ? '0 12px' : '0 24px', flexShrink: 0 }}>
+                {beetView === '3d' ? (
+                  plan.length === 0
+                    ? <div style={{ height: isMobile ? 240 : 320, display: 'flex', alignItems: 'center', justifyContent: 'center', color: MUTED, fontSize: 13, background: L ? '#f4f7f0' : '#0e1712', borderRadius: 8 }}>Fläche zuerst automatisch füllen oder Pflanzen wählen</div>
+                    : <Suspense fallback={<div style={{ height: isMobile ? 240 : 320, display: 'flex', alignItems: 'center', justifyContent: 'center', color: MUTED, fontSize: 13 }}>🧊 3D-Modelle werden geladen …</div>}>
+                        <Beet3DPoly placement={plantsWithPlacement} beetW={beetW} beetH={beetH} beetForm={beetForm} polygon={shapeMeta.local.points} L={L} shadow={shadow} cardBg={cardBg} />
+                      </Suspense>
+                ) : (
+                  <ShapeView shapeMeta={shapeMeta} plan={plan} height={isMobile ? 240 : 320} L={L} cardBg={cardBg} showCodes showLegend />
+                )}
+              </div>
+            ) : (
+              <div style={{ background: A14, border: `1px solid ${A20}`, borderRadius: 12, padding: '12px 14px', marginBottom: 12, fontSize: 12.5, color: FG }}>
+                Noch keine Fläche definiert — <button onClick={() => setActiveTab('standort')} style={{ background: 'none', border: 'none', color: A, fontWeight: 700, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>zurück zu Start & Standort</button>, um die Freiform in BIOME zu zeichnen.
+              </div>
+            )}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: A14, border: `1px solid ${A20}`, borderRadius: 12, padding: isMobile ? '10px 12px' : '10px 14px', marginBottom: 12 }}>
               <span style={{ fontSize: 18 }}>✨</span>
               <div style={{ flex: 1, minWidth: 170 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: FG }}>Auto-Auswahl für deine Fläche</div>
-                <div style={{ fontSize: 11, color: MUTED }}>Stellt automatisch eine passende Bepflanzung zusammen – nutzt die aktiven Filter{secCountArt ? '' : ' (Stauden/Gräser)'}.</div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: cardBg, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '4px 10px' }}>
-                <input type="number" min={1} max={500} value={effectiveAutoArea}
-                  onChange={e => setAutoArea(Math.max(1, Math.round(+e.target.value) || 1))}
-                  style={{ width: 52, background: 'none', border: 'none', color: FG, fontSize: 15, fontWeight: 700, textAlign: 'right', outline: 'none' }} />
-                <span style={{ fontSize: 12, color: MUTED }}>m²</span>
+                <div style={{ fontSize: 13, fontWeight: 700, color: FG }}>Fläche automatisch bepflanzen</div>
+                <div style={{ fontSize: 11, color: MUTED }}>Wissenschaftlich optimierte Auswahl nach deinen Standortfaktoren aus Schritt 1.</div>
               </div>
               <button onClick={autoFillForArea} disabled={!filtered.length}
                 style={{ display: 'flex', alignItems: 'center', gap: 7, background: filtered.length ? A : BORDER, border: 'none', color: 'var(--luma-on-a)', borderRadius: 8, padding: '9px 16px', cursor: filtered.length ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap' }}>
-                ✨ Auswahl treffen
+                ✨ Automatisch füllen
               </button>
             </div>
           </div>
 
-          {/* Plant Grid / List */}
+          {/* Pflanzen-Palette (nach Standort passend, ohne Filter) */}
           <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '0 12px 24px' : '0 24px 24px' }}>
-            {/* Beet-Vorschau (Rasterplan) über der Liste */}
-            {plan.length > 0 && (
-              <div style={{ marginBottom: 14 }}>
-                <BeetPlaner
-                  plan={plan}
-                  beetW={beetW} setBeetW={setBeetW}
-                  beetH={beetH} setBeetH={setBeetH}
-                  beetForm={beetForm} setBeetForm={setBeetForm}
-                  beetArea={beetArea}
-                  L={L} shadow={shadow} cardBg={cardBg}
-                  onAddMore={() => {}}
-                  onRescale={perM2 => setPlan(prev => prev.length ? assignCounts(prev, beetArea, perM2) : prev)}
-                  label={fromMapFeature?.label}
-                  polygon={shapeMeta?.local?.points || null}
-                  viewDir={viewDir}
-                />
-              </div>
-            )}
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', margin: '2px 0 10px', fontWeight: L ? 700 : 400 }}>
+              🌱 Passende Pflanzen ({filtered.length}) — antippen zum Hinzufügen
+            </div>
             {filtered.length === 0 ? (
-              <EmptyState msg="Keine Pflanzen für diese Kombination 🌵" sub="Probiere andere Filter" />
+              <EmptyState msg="Keine passenden Pflanzen 🌵" sub="Standortfaktoren in Schritt 1 anpassen" />
             ) : isMobile ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {filtered.map(plant => (
@@ -765,6 +703,15 @@ export default function PlanningPage() {
             <div style={{ flex: 1, overflowY: 'auto', paddingTop: 4 }}>
 
               {plan.length > 0 && (<>
+              {/* Freiform mit Bepflanzung — durchgängiger Anker (wie Modul 1 & 2) */}
+              {shapeMeta?.local && (
+                <div style={{ background: L ? '#fff' : SURFACE, borderRadius: 12, padding: 14, boxShadow: shadow, marginBottom: 12 }}>
+                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10, fontWeight: L ? 700 : 400 }}>
+                    🗺️ {fromMapFeature?.label || 'Fläche'} · {shapeMeta.area_m2} m² · Umfang {shapeMeta.perimeter_m} m
+                  </div>
+                  <ShapeView shapeMeta={shapeMeta} plan={plan} height={isMobile ? 240 : 320} L={L} cardBg={cardBg} showCodes showLegend />
+                </div>
+              )}
               {/* Stats */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px,1fr))', gap: 10, marginBottom: 16 }}>
                 <StatCard label="Pflanzen gesamt" value={totalPlants} emoji="🌱" color={A} L={L} shadow={shadow} />
@@ -1151,13 +1098,7 @@ function BloomCalendar({ plan, L, shadow }) {
 // Welcome + Fläche (BIOME-Shape oder manuell) + Standortfaktoren + Blickrichtung.
 // Die Faktoren (licht/wasser/boden/drainage/ph) sind die EINZIGE Quelle und
 // steuern Filter & Auto-Auswahl auf Screen 2.
-const VIEW_DIRS = [
-  { key: 'unten', label: 'unten', vec: { x: 0, y: -1 }, arrow: '↑' },
-  { key: 'oben', label: 'oben', vec: { x: 0, y: 1 }, arrow: '↓' },
-  { key: 'links', label: 'links', vec: { x: 1, y: 0 }, arrow: '→' },
-  { key: 'rechts', label: 'rechts', vec: { x: -1, y: 0 }, arrow: '←' },
-]
-function StandortScreen({ L, shadow, cardBg, isMobile, shapeMeta, fromMapFeature, site, beetW, setBeetW, beetH, setBeetH, beetForm, setBeetForm, licht, setLicht, wasser, setWasser, boden, setBoden, drainage, setDrainage, ph, setPh, viewDir, setViewDir, onOpenBiome, onNext }) {
+function StandortScreen({ L, shadow, cardBg, isMobile, shapeMeta, fromMapFeature, site, plan, licht, setLicht, wasser, setWasser, boden, setBoden, drainage, setDrainage, ph, setPh, onOpenBiome, onNext }) {
   const card = { background: cardBg, borderRadius: 12, padding: '16px 18px', boxShadow: shadow, marginBottom: 14 }
   const hd = { fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12, fontWeight: L ? 700 : 400 }
   const hasShape = !!shapeMeta
@@ -1168,25 +1109,28 @@ function StandortScreen({ L, shadow, cardBg, isMobile, shapeMeta, fromMapFeature
         <div style={{ fontSize: 18, fontWeight: 800, color: FG, marginBottom: 6 }}>🌿 Florales — Pflanzplanung für ökologische Projekte</div>
         <div style={{ fontSize: 13, color: FG, lineHeight: 1.6 }}>
           Florales hilft bei der Zusammenstellung und Planung von Staudenbeeten für ökologische
-          Pflanzprojekte. Definiere deine Fläche und Standortbedingungen — anschließend füllst du das
-          Beet automatisch (wissenschaftlich optimiert) oder wählst die Pflanzen selbst. Am Ende
-          bekommst du eine vollständige Übersicht mit Pflege­hinweisen, Kalkulation und Bestellliste.
+          Pflanzprojekte. Zeichne die exakte Fläche in der BIOME-Karte, lege Standort und
+          gewünschte Pflanzen fest — anschließend planst du die Bepflanzung genau in dieser Form
+          und bekommst eine wissenschaftliche Übersicht mit Pflege, Kalkulation und Bestellliste.
         </div>
       </div>
 
       {/* Fläche */}
       <div style={card}>
-        <div style={hd}>📐 Fläche & Form</div>
+        <div style={hd}>📐 Fläche (Freiform aus BIOME)</div>
         {hasShape ? (
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: A, background: A14, border: `1px solid ${A20}`, borderRadius: 999, padding: '3px 10px' }}>🗺️ {fromMapFeature?.label || 'Fläche'} aus BIOME</span>
-              <button onClick={onOpenBiome} style={{ marginLeft: 'auto', background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, padding: '5px 12px', fontSize: 12, cursor: 'pointer' }}>Neue Fläche zeichnen</button>
+              <button onClick={onOpenBiome} style={{ marginLeft: 'auto', background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, padding: '5px 12px', fontSize: 12, cursor: 'pointer' }}>Andere Fläche zeichnen</button>
+            </div>
+            {/* Die echte Freiform — durchgängiger Anker in allen Modulen */}
+            <div style={{ marginBottom: 12 }}>
+              <ShapeView shapeMeta={shapeMeta} plan={plan || []} height={isMobile ? 220 : 300} L={L} cardBg={cardBg} showCodes />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: 10 }}>
               <Meta label="Fläche" value={`${shapeMeta.area_m2} m²`} L={L} />
               <Meta label="Umfang" value={`${shapeMeta.perimeter_m} m`} L={L} />
-              <Meta label="Maße" value={`${shapeMeta.bbox_w_m}×${shapeMeta.bbox_h_m} m`} L={L} />
               <Meta label="GPS" value={shapeMeta.centroid ? `${shapeMeta.centroid.lat.toFixed(4)}, ${shapeMeta.centroid.lng.toFixed(4)}` : '—'} L={L} />
               <Meta label="Höhe ü. NHN" value={site?.elevation != null ? `${site.elevation} m` : '…'} L={L} />
               <Meta label="Klimazone" value={site?.zone ? `${site.zone} (USDA)` : '…'} L={L} />
@@ -1195,31 +1139,17 @@ function StandortScreen({ L, shadow, cardBg, isMobile, shapeMeta, fromMapFeature
             </div>
           </div>
         ) : (
-          <div>
-            <button onClick={onOpenBiome} style={{ display: 'flex', alignItems: 'center', gap: 8, background: A, border: 'none', color: 'var(--luma-on-a)', borderRadius: 10, padding: '12px 18px', fontSize: 14, fontWeight: 700, cursor: 'pointer', marginBottom: 12 }}>
+          <div style={{ textAlign: 'center', padding: '18px 0' }}>
+            <div style={{ fontSize: 40, marginBottom: 10 }}>🗺️</div>
+            <div style={{ fontSize: 14, color: FG, fontWeight: 700, marginBottom: 6 }}>Zeichne deine Fläche in der Karte</div>
+            <div style={{ fontSize: 12.5, color: MUTED, maxWidth: 460, margin: '0 auto 16px', lineHeight: 1.6 }}>
+              Reale Beete sind selten rechteckig — sie verlaufen entlang von Wegen, Wänden und Kanten.
+              Zeichne die exakte Freiform auf dem Satellitenbild in BIOME; Florales übernimmt Form,
+              Umfang, Fläche, GPS und Standortdaten und plant die Bepflanzung genau darin.
+            </div>
+            <button onClick={onOpenBiome} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: A, border: 'none', color: 'var(--luma-on-a)', borderRadius: 10, padding: '13px 22px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
               🗺️ Fläche in BIOME einzeichnen →
             </button>
-            <div style={{ fontSize: 12, color: MUTED, marginBottom: 12 }}>Empfohlen: Zeichne die exakte Fläche in BIOME — Florales übernimmt Form, Umfang, GPS & Fläche automatisch. Oder gib die Maße manuell ein:</div>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-              <label style={{ flex: 1, minWidth: 90 }}>
-                <div style={{ fontSize: 10, color: MUTED, marginBottom: 4 }}>Breite (m)</div>
-                <input type="number" min={0.5} max={50} step={0.5} value={beetW} onChange={e => setBeetW(+e.target.value)}
-                  style={{ width: '100%', background: L ? 'rgba(0,0,0,0.05)' : BG, border: `1px solid ${BORDER}`, borderRadius: 6, padding: '8px 10px', color: FG, fontSize: 14, fontWeight: 700 }} />
-              </label>
-              <label style={{ flex: 1, minWidth: 90 }}>
-                <div style={{ fontSize: 10, color: MUTED, marginBottom: 4 }}>Tiefe (m)</div>
-                <input type="number" min={0.5} max={50} step={0.5} value={beetH} onChange={e => setBeetH(+e.target.value)}
-                  style={{ width: '100%', background: L ? 'rgba(0,0,0,0.05)' : BG, border: `1px solid ${BORDER}`, borderRadius: 6, padding: '8px 10px', color: FG, fontSize: 14, fontWeight: 700 }} />
-              </label>
-              <div style={{ display: 'flex', gap: 6 }}>
-                {[['rechteck', '▬ Rechteck'], ['oval', '⬭ Oval']].map(([v, l]) => (
-                  <button key={v} onClick={() => setBeetForm(v)} style={{
-                    padding: '9px 12px', borderRadius: 7, fontSize: 12, cursor: 'pointer', fontWeight: beetForm === v ? 700 : 500,
-                    border: beetForm === v ? `1.5px solid ${A}` : `1px solid ${BORDER}`, background: beetForm === v ? A14 : 'transparent', color: beetForm === v ? A : MUTED,
-                  }}>{l}</button>
-                ))}
-              </div>
-            </div>
           </div>
         )}
       </div>
@@ -1258,26 +1188,12 @@ function StandortScreen({ L, shadow, cardBg, isMobile, shapeMeta, fromMapFeature
         </div>
       </div>
 
-      {/* Blickrichtung */}
-      <div style={card}>
-        <div style={hd}>👁️ Blickrichtung der Besucher</div>
-        <div style={{ fontSize: 12, color: MUTED, marginBottom: 10 }}>Von wo betrachtet man das Beet? Hohe Arten kommen nach hinten, flache nach vorne.</div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {VIEW_DIRS.map(d => {
-            const on = viewDir.x === d.vec.x && viewDir.y === d.vec.y
-            return (
-              <button key={d.key} onClick={() => setViewDir(d.vec)} style={{
-                display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: on ? 700 : 500,
-                border: on ? `1.5px solid ${A}` : `1px solid ${BORDER}`, background: on ? A14 : 'transparent', color: on ? A : FG,
-              }}><span style={{ fontSize: 16 }}>{d.arrow}</span> Betrachter {d.label}</button>
-            )
-          })}
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        {!hasShape && <span style={{ fontSize: 12, color: MUTED }}>Zeichne zuerst eine Fläche in BIOME, um fortzufahren.</span>}
+        <button onClick={onNext} disabled={!hasShape} style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', background: hasShape ? A : BORDER, border: 'none', color: hasShape ? 'var(--luma-on-a)' : MUTED, borderRadius: 10, padding: '12px 22px', fontSize: 14, fontWeight: 700, cursor: hasShape ? 'pointer' : 'not-allowed' }}>
+          Weiter zu Beet & Pflanzen →
+        </button>
       </div>
-
-      <button onClick={onNext} style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', background: A, border: 'none', color: 'var(--luma-on-a)', borderRadius: 10, padding: '12px 22px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
-        Weiter zu Beet & Pflanzen →
-      </button>
     </div>
   )
 }
