@@ -1,0 +1,42 @@
+name: MANA Chancen-Recherche
+
+on:
+  schedule:
+    - cron: '0 5 * * 1'   # montags ~07:00 deutscher Zeit (Sommerzeit)
+  workflow_dispatch:
+    inputs:
+      focus:
+        description: 'Zusätzlicher Recherche-Fokus (optional)'
+        required: false
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Anthropic SDK
+        run: npm i --no-save @anthropic-ai/sdk
+
+      - name: Run MANA Chancen research
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          # Solange die Secrets fehlen, still überspringen statt wöchentlich rot fehlzuschlagen
+          if [ -z "$ANTHROPIC_API_KEY" ] || [ -z "$SUPABASE_SERVICE_KEY" ]; then
+            echo "::warning::MANA-Chancen übersprungen — ANTHROPIC_API_KEY/SUPABASE_SERVICE_KEY fehlen (Repo → Settings → Secrets → Actions)."
+            exit 0
+          fi
+          if [ -n "${{ github.event.inputs.focus }}" ]; then
+            node scripts/mana-chancen.mjs --focus="${{ github.event.inputs.focus }}"
+          else
+            node scripts/mana-chancen.mjs
+          fi

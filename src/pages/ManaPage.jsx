@@ -6,10 +6,11 @@
 // direkt in den Claude-Prompt des täglichen Scans fließt.
 // ────────────────────────────────────────────────────────────────
 import { useState, useEffect, useMemo } from 'react'
-import { Radar, ExternalLink, MapPin, Building2, Clock, Search, SlidersHorizontal, Sparkles, CheckSquare } from 'lucide-react'
+import { Radar, ExternalLink, MapPin, Building2, Clock, Search, SlidersHorizontal, Sparkles, CheckSquare, PenLine, Copy, Compass } from 'lucide-react'
 import { A, OK, WARN, DANGER, INFO, MUTED, FG, SURFACE, BORDER } from '../lib/theme.js'
 import { PageHeader, Card, Badge, Button, EmptyState, Tabs, Chips, SectionLabel, Modal, INPUT_STYLE, LABEL_STYLE, MONO, SANS, isoToGerman } from '../components/ui.jsx'
 import { sb, sbUpdate, sbUpsert } from '../lib/supabase.js'
+import { askClaude } from '../lib/ai.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useIsMobile } from '../lib/useIsMobile.js'
 
@@ -108,7 +109,7 @@ export default function ManaPage() {
         isMobile={isMobile}
         active={tab}
         onChange={setTab}
-        tabs={isAdmin ? [['radar', 'Radar'], ['einstellungen', 'Einstellungen']] : [['radar', 'Radar']]}
+        tabs={[['radar', 'Radar'], ['chancen', 'Chancen'], ...(isAdmin ? [['einstellungen', 'Einstellungen']] : [])]}
       />
 
       {tab === 'radar' && (
@@ -176,6 +177,8 @@ export default function ManaPage() {
         </>
       )}
 
+      {tab === 'chancen' && <ChancenTab />}
+
       {tab === 'einstellungen' && isAdmin && <ProfilTab />}
 
       {selected && (
@@ -191,8 +194,32 @@ export default function ManaPage() {
 
 function DetailModal({ row, onClose, onPatch }) {
   const [notizen, setNotizen] = useState(row.notizen || '')
+  const [draft, setDraft] = useState('')
+  const [drafting, setDrafting] = useState(false)
   const eck = row.eckdaten || {}
   const frist = fristInfo(row.frist_angebot)
+
+  // PROMOTE: Claude entwirft ein Interessens-/Begleitschreiben (Versand bleibt beim Menschen)
+  async function makeDraft() {
+    setDrafting(true)
+    try {
+      const { data: prof } = await sb.from('mana_profil').select('firmenprofil').eq('id', 1).single()
+      const text = await askClaude({
+        system: `Du bist MANA, der Akquise-Assistent von LUMA.\n\nFIRMENPROFIL:\n${prof?.firmenprofil || ''}`,
+        prompt: 'Entwirf ein professionelles, prägnantes Interessens-/Begleitschreiben für diese Ausschreibung '
+          + '(deutsch, förmlich aber modern, max. 250 Wörter, mit Betreffzeile). Beziehe passende LUMA-Stärken ein, '
+          + 'erfinde keine Referenzen, Zahlen oder Ansprechpartner.\n\n'
+          + JSON.stringify({
+              titel: row.titel, auftraggeber: row.auftraggeber,
+              ort: [row.ort, row.bundesland].filter(Boolean).join(', '),
+              zusammenfassung: row.zusammenfassung, leistungen: eck.leistungen,
+            }),
+        maxTokens: 1500,
+      })
+      setDraft(text)
+    } catch (e) { window.__lumaToast?.(`Entwurf: ${e.message}`) }
+    setDrafting(false)
+  }
 
   return (
     <Modal eyebrow={`MANA · Score ${row.score ?? '–'}`} eyebrowColor={scoreColor(row.score)} title={row.titel} onClose={onClose} maxWidth={640}>
@@ -270,7 +297,29 @@ function DetailModal({ row, onClose, onPatch }) {
           />
         </div>
 
+        {draft && (
+          <div>
+            <SectionLabel
+              style={{ marginBottom: 6 }}
+              action={
+                <button
+                  onClick={() => { navigator.clipboard?.writeText(draft); window.__lumaToast?.('Entwurf kopiert.') }}
+                  className="lu-chip"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 14, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 11, fontFamily: SANS }}>
+                  <Copy size={11} /> Kopieren
+                </button>
+              }>
+              Anschreiben-Entwurf (Claude) — prüfen, anpassen, dann selbst versenden
+            </SectionLabel>
+            <textarea value={draft} onChange={e => setDraft(e.target.value)} rows={10}
+              style={{ ...INPUT_STYLE, resize: 'vertical', fontSize: 13, lineHeight: 1.5 }} />
+          </div>
+        )}
+
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+          <Button variant="ghost" icon={drafting ? Sparkles : PenLine} onClick={makeDraft} disabled={drafting}>
+            {drafting ? 'Claude schreibt…' : draft ? 'Neu entwerfen' : 'Anschreiben entwerfen'}
+          </Button>
           {row.url && (
             <Button icon={ExternalLink} onClick={() => window.open(row.url, '_blank', 'noopener')}>
               Zur Bekanntmachung
@@ -288,6 +337,108 @@ function MetaField({ label, value, color }) {
     <div>
       <div style={LABEL_STYLE}>{label}</div>
       <div style={{ fontSize: 13, color: color || FG, lineHeight: 1.4 }}>{value}</div>
+    </div>
+  )
+}
+
+// ── Chancen: Leads aus dem wöchentlichen Recherche-Agenten ────────────────────
+const LEAD_TYP = {
+  foerderung: ['Förderung', OK],
+  vorhaben:   ['Vorhaben', INFO],
+  privat:     ['Privat', WARN],
+  sonstiges:  ['Sonstiges', MUTED],
+}
+
+function ChancenTab() {
+  const [leads, setLeads] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState('offen')
+
+  useEffect(() => {
+    let alive = true
+    sb.from('mana_leads').select('*')
+      .order('score', { ascending: false, nullsFirst: false })
+      .then(({ data, error }) => {
+        if (!alive) return
+        if (error) window.__lumaToast?.(`Chancen: ${error.message}`)
+        setLeads(data || [])
+        setLoading(false)
+      })
+    const ch = sb.channel('mana-chancen')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mana_leads' }, payload => {
+        setLeads(prev => {
+          if (payload.eventType === 'DELETE') return prev.filter(l => l.id !== payload.old?.id)
+          const row = payload.new
+          return [...prev.filter(l => l.id !== row.id), row].sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
+        })
+      })
+      .subscribe()
+    return () => { alive = false; sb.removeChannel(ch) }
+  }, [])
+
+  const shown = leads.filter(l => (filter === 'offen' ? l.status !== 'verworfen' : filter === 'alle' ? true : l.status === filter))
+
+  async function setStatus(id, status) {
+    setLeads(prev => prev.map(l => (l.id === id ? { ...l, status } : l)))
+    try { await sbUpdate('mana_leads', id, { status, updated_at: new Date().toISOString() }) }
+    catch (e) { window.__lumaToast?.(`Speichern fehlgeschlagen: ${e.message}`) }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <Chips
+        value={filter} onChange={setFilter}
+        colors={{ offen: A, interessant: A, verworfen: MUTED }}
+        options={[['offen', 'Offen'], ['alle', 'Alle'], ['interessant', 'Interessant'], ['verworfen', 'Verworfen']]}
+      />
+      {loading ? null : shown.length === 0 ? (
+        <EmptyState
+          icon={Compass}
+          title={leads.length === 0 ? 'Noch keine recherchierten Chancen' : 'Keine Treffer für diesen Filter'}
+          hint={leads.length === 0 ? 'Der wöchentliche MANA-Recherche-Agent (Claude + Web-Suche) füllt diese Liste, sobald die GitHub-Secrets hinterlegt sind.' : undefined}
+        />
+      ) : shown.map(l => {
+        const [typLabel, typColor] = LEAD_TYP[l.typ] || LEAD_TYP.sonstiges
+        return (
+          <Card key={l.id} accent={scoreColor(l.score)}>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+              <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 700, lineHeight: 1, color: scoreColor(l.score), minWidth: 40, textAlign: 'center', paddingTop: 2 }}>
+                {l.score ?? '–'}
+                <div style={{ fontSize: 8, fontWeight: 400, color: MUTED, marginTop: 3, letterSpacing: '0.08em' }}>SCORE</div>
+              </div>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 4 }}>
+                  <span style={{ fontSize: 14, fontWeight: 500, color: FG, lineHeight: 1.3 }}>{l.titel}</span>
+                  <Badge color={typColor}>{typLabel}</Badge>
+                  {l.status === 'interessant' && <Badge color={A}>Interessant</Badge>}
+                </div>
+                {l.region && <div style={{ fontFamily: MONO, fontSize: 11, color: MUTED, marginBottom: 5 }}>{l.region}</div>}
+                {l.zusammenfassung && <div style={{ fontSize: 13, color: FG, lineHeight: 1.5, opacity: 0.92 }}>{l.zusammenfassung}</div>}
+                {l.begruendung && (
+                  <div style={{ fontSize: 12.5, color: MUTED, marginTop: 5, display: 'flex', gap: 6 }}>
+                    <Sparkles size={12} color={scoreColor(l.score)} style={{ flexShrink: 0, marginTop: 2 }} />
+                    <span>{l.begruendung}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                  {l.url && (
+                    <Button variant="ghost" icon={ExternalLink} style={{ padding: '5px 12px', fontSize: 12 }}
+                      onClick={() => window.open(l.url, '_blank', 'noopener')}>Quelle</Button>
+                  )}
+                  {l.status !== 'interessant' && (
+                    <Button variant="ghost" style={{ padding: '5px 12px', fontSize: 12, color: A, borderColor: A }}
+                      onClick={() => setStatus(l.id, 'interessant')}>Interessant</Button>
+                  )}
+                  {l.status !== 'verworfen' && (
+                    <Button variant="ghost" style={{ padding: '5px 12px', fontSize: 12 }}
+                      onClick={() => setStatus(l.id, 'verworfen')}>Verwerfen</Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </Card>
+        )
+      })}
     </div>
   )
 }

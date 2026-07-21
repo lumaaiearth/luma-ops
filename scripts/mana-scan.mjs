@@ -197,19 +197,39 @@ async function scoreNotice(anthropic, profil, n) {
 }
 
 // ── Telegram ─────────────────────────────────────────────────────────────────
-async function telegramDigest(hits, day) {
+// Ausschreibungen in Arbeit, deren Frist in den nächsten 5 Tagen abläuft
+async function fristWarnungen() {
+  if (!SERVICE_KEY) return []
+  const now = new Date().toISOString()
+  const in5d = new Date(Date.now() + 5 * 86400e3).toISOString()
+  try {
+    return await sbRest(
+      `mana_ausschreibungen?select=titel,ort,bundesland,frist_angebot,status,url` +
+      `&status=in.(neu,interessant,in_bearbeitung)&frist_angebot=gte.${now}&frist_angebot=lte.${in5d}` +
+      `&order=frist_angebot.asc`,
+    )
+  } catch (e) { log(`⚠ Fristen-Check: ${e.message}`); return [] }
+}
+
+async function telegramDigest(hits, warnungen, day) {
   const token = process.env.TELEGRAM_BOT_TOKEN, chat = process.env.TELEGRAM_CHAT_ID
-  if (!token || !chat || hits.length === 0) return false
-  const lines = hits.slice(0, 10).map(h => {
+  if (!token || !chat || (hits.length === 0 && warnungen.length === 0)) return false
+  const fmt = (h, withScore) => {
     const frist = h.frist_angebot ? ` · Frist ${String(h.frist_angebot).slice(0, 10)}` : ''
     const ort = [h.ort, h.bundesland].filter(Boolean).join(', ')
-    return `▪️ [${h.score}] ${trunc(h.titel, 90)}\n   ${ort}${frist}${h.url ? `\n   ${h.url}` : ''}`
-  })
-  const text = `🌿 MANA · ${hits.length} relevante Ausschreibung${hits.length === 1 ? '' : 'en'} (${day})\n\n${lines.join('\n\n')}`
+    return `▪️ ${withScore ? `[${h.score}] ` : ''}${trunc(h.titel, 90)}\n   ${ort}${frist}${h.url ? `\n   ${h.url}` : ''}`
+  }
+  const parts = []
+  if (hits.length > 0) {
+    parts.push(`🌿 MANA · ${hits.length} relevante Ausschreibung${hits.length === 1 ? '' : 'en'} (${day})\n\n${hits.slice(0, 10).map(h => fmt(h, true)).join('\n\n')}`)
+  }
+  if (warnungen.length > 0) {
+    parts.push(`⏰ Fristen laufen ab (≤ 5 Tage):\n\n${warnungen.slice(0, 8).map(h => fmt(h, false)).join('\n\n')}`)
+  }
   const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chat, text, disable_web_page_preview: true }),
+    body: JSON.stringify({ chat_id: chat, text: parts.join('\n\n———\n\n'), disable_web_page_preview: true }),
   })
   if (!res.ok) log(`⚠ Telegram: ${res.status} ${await res.text()}`)
   return res.ok
@@ -233,7 +253,14 @@ async function main() {
   const seen = await existingIds(candidates.map(n => n.id))
   const fresh = candidates.filter(n => !seen.has(n.id)).slice(0, LIMIT)
   log(`  ${fresh.length} neu (Dedupe: ${candidates.length - fresh.length} bekannt)`)
-  if (fresh.length === 0) { log('Fertig — nichts Neues.'); return }
+  if (fresh.length === 0) {
+    if (!DRY) {
+      const warnungen = await fristWarnungen()
+      if (await telegramDigest([], warnungen, day)) log(`✓ Telegram gesendet (${warnungen.length} Fristen-Warnungen)`)
+    }
+    log('Fertig — nichts Neues.')
+    return
+  }
 
   let anthropic = null
   if (!NO_AI) {
@@ -275,7 +302,8 @@ async function main() {
     }
     log(`✓ ${rows.length} Zeilen nach Supabase geschrieben`)
     const hits = rows.filter(r => (r.score ?? 0) >= (profil.min_score ?? 60)).sort((a, b) => b.score - a.score)
-    if (await telegramDigest(hits, day)) log(`✓ Telegram-Digest gesendet (${hits.length} Treffer)`)
+    const warnungen = await fristWarnungen()
+    if (await telegramDigest(hits, warnungen, day)) log(`✓ Telegram-Digest gesendet (${hits.length} Treffer, ${warnungen.length} Fristen-Warnungen)`)
   } else {
     log(`DRY-RUN — nichts geschrieben (${rows.length} Zeilen vorbereitet)`)
   }

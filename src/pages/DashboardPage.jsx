@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -7,6 +7,7 @@ import { A, SURFACE, BORDER, FG, MUTED, OK, WARN, DANGER, INFO } from '../lib/th
 import { StatCard, EmptyState } from '../components/ui.jsx'
 import { JOB_TYPES, TASK_STATUSES, TASK_PRIORITIES } from '../data/seed.js'
 import { findPerson, peopleForIds } from '../lib/people.js'
+import { sb } from '../lib/supabase.js'
 import { isoToday, addDays, formatDate } from '../lib/storage.js'
 import { AlertTriangle, CheckCircle2, Clock, Repeat, Droplets, Umbrella, Sun as SunIcon, ListTodo, ChevronRight } from 'lucide-react'
 
@@ -197,6 +198,15 @@ export default function DashboardPage() {
   const today = isoToday()
   const tomorrow = addDays(today, 1)
 
+  // MANA: relevante offene Ausschreibungen (Score >= 60, noch nicht bearbeitet)
+  const [manaCount, setManaCount] = useState(null)
+  useEffect(() => {
+    sb.from('mana_ausschreibungen')
+      .select('id', { count: 'exact', head: true })
+      .in('status', ['neu', 'interessant']).gte('score', 60)
+      .then(({ count }) => setManaCount(count ?? 0))
+  }, [])
+
   const todayJobs = jobs.filter(j => j.date === today)
   const tomorrowJobs = jobs.filter(j => j.date === tomorrow)
   const weekJobs = jobs.filter(j => j.date >= today && j.date <= addDays(today, 7))
@@ -319,6 +329,7 @@ export default function DashboardPage() {
         <StatCard label="Meine Einsätze" value={myJobs.length} sub="7 Tage" color={myJobs.length > 0 ? OK : undefined} onClick={() => navigate('/jobs')} />
         <StatCard label="Offene Aufgaben" value={openTasks.length} sub={overdueTasks.length > 0 ? `${overdueTasks.length} überfällig` : `${myOpenTasks.length} für mich`} color={overdueTasks.length > 0 ? DANGER : openTasks.length > 0 ? A : undefined} onClick={() => navigate('/tasks')} />
         <StatCard label="Sensoren" value={`${criticalSensors.length + warningSensors.length}`} sub={criticalSensors.length > 0 ? `${criticalSensors.length} kritisch` : 'alles ok'} color={criticalSensors.length > 0 ? DANGER : warningSensors.length > 0 ? WARN : undefined} onClick={() => navigate('/sensors')} />
+        <StatCard label="MANA™" value={manaCount ?? '–'} sub="relevante Ausschreibungen" color={manaCount > 0 ? A : undefined} onClick={() => navigate('/mana')} />
       </div>
 
       {/* Weather */}

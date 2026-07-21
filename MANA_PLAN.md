@@ -14,10 +14,10 @@ festen Bestandteil in ganz LUMA Ops verankert.
 
 | Modul | Was es tut | Status |
 |---|---|---|
-| **RADAR** | Scannt täglich alle deutschen öffentlichen Ausschreibungen (BKMS), Claude bewertet Passung zu LUMA | ✅ Pipeline gebaut (M1) |
-| **CHANCEN** | Recherche-Agent: Förderprogramme, kommunale Vorhaben, private Leads via Claude + Web-Suche | geplant (M4) |
-| **PROMOTE** | Claude entwirft Outreach: Anschreiben, Angebotstexte, Referenz-One-Pager, Social-Posts — mit Freigabe-Workflow | geplant (M5) |
-| **Plattform-Ebene** | Claude-Proxy (Supabase Edge Function), damit jede LUMA-Ops-Seite KI-Features bekommt | geplant (P1) |
+| **RADAR** | Scannt täglich alle deutschen öffentlichen Ausschreibungen (BKMS), Claude bewertet Passung zu LUMA | ✅ M1+M2 gebaut, Fristen-Warnung + Dashboard-Kachel (M3) |
+| **CHANCEN** | Recherche-Agent: Förderprogramme, kommunale Vorhaben, private Leads via Claude + Web-Suche | ✅ gebaut (`mana-chancen.mjs`, Wochen-Cron, Chancen-Tab) |
+| **PROMOTE** | Claude entwirft Outreach — erster Ausbau: Anschreiben-Entwurf im Radar-Detail (Freigabe/Versand beim Menschen) | ✅ v1 gebaut, Ausbau geplant (M5) |
+| **Plattform-Ebene** | Claude-Proxy (Supabase Edge Function `claude`, deployed) + `src/lib/ai.js` — jede Seite kann KI-Features bekommen | ✅ P1 gebaut, P2-Features geplant |
 
 ---
 
@@ -134,14 +134,18 @@ API-Key darf dort nie liegen. Deshalb:
 
 ## 6. Meilensteine
 
-- **M1 ✅ Radar-Pipeline** — Migration (angewendet), `mana-scan.mjs`,
-  Workflow. *Fehlend zum Scharfschalten: GitHub Secrets (s.u.).*
-- **M2 → App-Oberfläche** `ManaPage.jsx` (Radar + Einstellungen)
-- **M3 → Feinschliff Radar** — Fristen-Warnungen (Telegram X Tage vor
-  Ablauf), Dashboard-Kachel, manueller Scan-Button in der App
-- **M4 → CHANCEN** Recherche-Agent mit Web-Suche + `mana_leads`
-- **M5 → PROMOTE** Entwurfs-Generator + Freigabe-Workflow
-- **P1 → Claude-Proxy** Edge Function + `src/lib/ai.js`
+- **M1 ✅ Radar-Pipeline** — Migration (angewendet), `mana-scan.mjs`, Workflow
+- **M2 ✅ App-Oberfläche** `ManaPage.jsx` (Radar + Chancen + Einstellungen)
+- **M3 ✅ Feinschliff Radar** — Telegram-Fristen-Warnung (≤ 5 Tage),
+  Dashboard-Kachel. *Offen: manueller Scan-Button in der App (braucht
+  GitHub-Token → später mit den APIs).*
+- **M4 ✅ CHANCEN** — `mana-chancen.mjs` (Claude + Web-Suche, montags),
+  Tabelle `mana_leads` (angewendet), Chancen-Tab
+- **M5 ✅(v1) PROMOTE** — Anschreiben-Entwurf im Radar-Detail via Claude-Proxy.
+  Ausbau: Referenz-One-Pager, Social-Posts, eigener Entwürfe-Bereich
+- **P1 ✅ Claude-Proxy** — Edge Function `claude` (deployed, Rollen-Check) +
+  `src/lib/ai.js`. *Fehlend zum Scharfschalten: `ANTHROPIC_API_KEY` als
+  Edge-Function-Secret (Supabase Dashboard → Edge Functions → Secrets).*
 - **P2 → KI-Features** in Aufgaben/Florales/BIOME (inkrementell)
 
 ## 7. Benötigte Secrets (GitHub → Settings → Secrets → Actions)
@@ -152,6 +156,11 @@ API-Key darf dort nie liegen. Deshalb:
 | `SUPABASE_SERVICE_KEY` | DB-Schreibzugriff des Scan-Skripts (service_role) |
 | `TELEGRAM_BOT_TOKEN` | Digest-Nachrichten (Bot existiert bereits, s. SettingsPage) |
 | `TELEGRAM_CHAT_ID` | Ziel-Chat/-Gruppe für Digests |
+
+Zusätzlich für die In-App-KI (Anschreiben-Entwurf u.a.): `ANTHROPIC_API_KEY`
+als **Supabase-Secret** hinterlegen (Dashboard → Edge Functions → Secrets) —
+die Edge Function `claude` ist bereits deployed und meldet bis dahin einen
+verständlichen Hinweis statt zu funktionieren.
 
 ## 8. Verifikation
 
