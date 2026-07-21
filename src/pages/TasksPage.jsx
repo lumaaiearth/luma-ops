@@ -258,7 +258,7 @@ export default function TasksPage() {
             horizontale Scrollleiste immer sichtbar bleibt (vorher wurde das
             Board rechts „abgeschnitten", weil die Leiste unter allen Karten lag). */}
         {activeBoard !== 'trash' && view === 'board' && (
-          <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8, alignItems: 'flex-start', scrollbarWidth: 'thin' }}>
+          <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8, alignItems: 'stretch', minHeight: isMobile ? undefined : 'calc(100vh - 320px)', scrollbarWidth: 'thin' }}>
             {(showArchive ? TASK_STATUSES : BOARD_STATUSES).map(col => {
               const colTasks = sortTasks(filtered.filter(t => t.status === col.id))
               const isOver = dragOver === col.id
@@ -267,7 +267,7 @@ export default function TasksPage() {
                   onDragOver={e => { e.preventDefault(); setDragOver(col.id) }}
                   onDragLeave={() => setDragOver(o => o === col.id ? null : o)}
                   onDrop={e => { e.preventDefault(); if (dragId) setTaskStatus(dragId, col.id); setDragId(null); setDragOver(null) }}
-                  style={{ flex: isMobile ? '0 0 auto' : '1 0 250px', width: isMobile ? 262 : undefined, minWidth: isMobile ? undefined : 250, maxWidth: isMobile ? undefined : 360, background: isOver ? A06 : 'transparent', border: `1px solid ${isOver ? `color-mix(in srgb, ${A} 38%, transparent)` : 'transparent'}`, borderRadius: 10, padding: 4 }}>
+                  style={{ flex: isMobile ? '0 0 auto' : '1 0 250px', width: isMobile ? 262 : undefined, minWidth: isMobile ? undefined : 250, maxWidth: isMobile ? undefined : 360, display: 'flex', flexDirection: 'column', background: isOver ? A06 : 'transparent', border: `1px solid ${isOver ? `color-mix(in srgb, ${A} 38%, transparent)` : 'transparent'}`, borderRadius: 10, padding: 4 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px 10px' }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: col.color }} />
                     <span style={{ fontSize: 13, fontWeight: 600, color: FG }}>{col.label}</span>
@@ -275,7 +275,7 @@ export default function TasksPage() {
                     <button onClick={() => setModal(newTaskDefaults({ status: col.id }))} title="Aufgabe hinzufügen"
                       style={{ background: 'transparent', border: 'none', color: MUTED, cursor: 'pointer', padding: 2, display: 'flex' }}><Plus size={14} /></button>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 40, maxHeight: isMobile ? undefined : 'calc(100vh - 340px)', overflowY: colTasks.length > 0 ? 'auto' : 'visible', paddingRight: 2 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 40, flex: 1, maxHeight: isMobile ? undefined : 'calc(100vh - 340px)', overflowY: colTasks.length > 0 ? 'auto' : 'visible', paddingRight: 2 }}>
                     {colTasks.map(t => (
                       <TaskCard key={t.id} task={t} projects={projects} clients={clients} boards={boards} today={today} navigate={navigate} weatherForecast={weatherForecast}
                         showBoard={activeBoard === 'all' || activeBoard === 'mine' || activeBoard === 'none'}
