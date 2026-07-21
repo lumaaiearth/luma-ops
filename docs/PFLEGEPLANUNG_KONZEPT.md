@@ -16,9 +16,9 @@ Die Analyse der drei Excel-Pflegepläne gegen die reale Kapazität zeigt: **Das 
 
 ---
 
-## 2. Ist-Analyse: Zahlen 2026
+## 2. Ist-Analyse
 
-### 2.1 Geplante Pflegestunden je Standort (aus den Drive-Excel-Plänen)
+### 2.1 Geplante Pflegestunden 2026 je Standort (aus den Drive-Excel-Plänen)
 
 | Standort | Jan | Feb | Mrz | Apr | Mai | Jun | Jul | Aug | Sep | Okt | Nov | Dez | **Jahr** | Umsatz @ 50 €/h |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -47,6 +47,39 @@ Die Analyse der drei Excel-Pflegepläne gegen die reale Kapazität zeigt: **Das 
 4. **Kein Plan/Ist-Regelkreis.** Ist-Stunden liegen verstreut (ALLCURA-Doku-Tab im Excel, 63 Zeiteinträge in der Plattform, Foto-Ordner je Einsatz im Drive). Nichts davon fließt zurück in die Planwerte oder ins nächste Angebot.
 5. **Angebots-Unschärfe.** AN-57 nennt den Leistungszeitraum 20.07.2026–31.12.2027 (≈ 17 Monate), setzt aber 90,25 h an — den Planwert für das **Kalenderjahr** 2026. Solche Unschärfen entstehen zwangsläufig, wenn Angebote händisch aus Jahres-Excel abgeleitet werden, und fallen im Zweifel LUMA auf die Füße.
 6. **Preisniveau ist nicht das Problem.** 50 €/h netto liegt für Berlin im GaLaBau eher am unteren Rand (übliche Verrechnungssätze Helfer/Facharbeiter ca. 45–75 €/h). Der ALLCURA-Vertrag impliziert sogar ~58–69 €/h (1.512 €/26 h bzw. 3.573 €/52 h für 2027). „Zu teuer" ist ein **Darstellungs- und Vertrauensproblem** (großer Stundenblock, wenig sichtbare Gegenleistung), kein Stundensatzproblem.
+
+### 2.3 Wie die Pflege tatsächlich lief: 2024–2026 (aus LUMA_MASTER_Pflegeplan, Pflegekostenübersichten und „Offene Beträge JOPE 2025")
+
+**Ergänzt am 21.07.2026.** Quellen: `LUMA_MASTER_Pflegeplan.xlsx` (Blatt 1_2026_Stundendokumentation, 2_Arbeitsplanung), `Pflegekostenübersicht 2024-2025.xlsx`, `Pflegekostenübersicht der offenen Beträge JOPE 2025.xlsx`, 2025-Zeilen der Pflegepläne 2026.
+
+**2024 — rein reaktiv, Kleinstumfang.** 9 dokumentierte Einsätze im ganzen Jahr, ~46 h, ~2.150 € (H14 37 h, S3 6 h). Kein Plan, kein Turnus; 5 der 9 Einsätze im Dezember (u. a. Natursteinweg-Bau). Nur eine Rechnung vermerkt (RE-1002, 261,80 €, April).
+
+**2025 — erste Pläne entstehen erst im Herbst, Abrechnung als Jahresend-Schock.**
+- Dokumentiert: **~398 h** (JOPE 266,25 h; BEW 131,5 h: MV 84,5 h, BL 47 h; SH/AG/LE 0 h) ≈ 23,5 T€ inkl. Material.
+- Verlauf: Bis Mitte Juli waren erst **~62 h** geleistet (Kostenübersicht Stand 17.07.2025); der Großteil folgte als Herbst-Welle — die 2025-Zeilen der Pflegepläne zeigen fast alles in **KW 44–47** (z. B. S3 28,35 h und R95 26,35 h in einer einzigen KW). Die Plandateien selbst wurden erst **Ende September/Anfang Oktober 2025** angelegt — geplant wurde rückwirkend.
+- Abrechnung: Die JOPE-Rechnungen RE-1065–1069 (Sep–Nov, 8.187,66 €) deckten nur die ursprünglich geschätzten Umfänge. Die tatsächlich geleisteten Mehrstunden — **134 h ≈ 6.657 € + Material, also 47 % des JOPE-Jahresumsatzes** — wurden erst am **23.12.2025** nachfakturiert (RE-1088–1092). Aus Kundensicht: unangekündigte Nachforderungen zum Jahresende. **Das dürfte die eigentliche Quelle des „zu teuer"-Feedbacks sein — nicht der Stundensatz, sondern die Überraschung.**
+
+**2026 (Stand 21.07.) — mehr Volumen, gleiche Muster.** Aus der Stundendokumentation (54 Einsatz-Zeilen, März–Juli):
+
+| Kennzahl | Wert | Interpretation |
+|---|---|---|
+| Geleistete Stunden gesamt | **336,8 h** (JOPE 210,8 / BEW 86 / PP 25,5 / Allcura 14) | Volumen wächst; Verteilung s. u. |
+| Monatsverlauf | Mrz 53,5 / Apr 82,3 / **Mai 18,5** / **Jun 113,8** / Jul 63,3 | Mai-Einbruch, Juni-Aufholjagd — reaktiv statt Turnus |
+| Anteil Kernteam (Malte/Lukas/Robert) | **121 h = 36 %** | „Jemand anders muss ran" passiert längst — ungeplant und unkalkuliert |
+| Pflegekräfte (Jona + Anselm) | 215,8 h in ~4,5 Monaten ≈ 48 h/Monat | Unter dem Soll von 61,8 h/Monat — Mittwochs-Fenster limitiert |
+| Einsätze mit vermerkter Fahrtzeit | 37,75 h (nur wo notiert) | Fahrt-/Rüstzeit real, aber unkalkuliert |
+| **Rechnung an AG 2026 laut Master** | **0,00 € in allen Projektzeilen** | **~15 T€+ erbrachte Leistung unfakturiert** (337 h × 50 € abzgl. interner Anteile); AN-57 (20.07.) versucht das mitten im Jahr rückwirkend zu heilen |
+| Plan vs. Ist Jan–Jul (Beispiele) | H14: 25 h geplant / 43 h Ist (+72 %) · BL: 49 h geplant / 15,5 h Ist (−68 %) · SH: 5 h geplant / 0 h | Weder Über- noch Untererfüllung wird bemerkt oder gesteuert |
+
+**Winter-These bestätigt:** Die Stundendokumentation 2026 beginnt am **06.03.** — Januar/Februar: null Einsätze bei laufender Lohnzahlung (`paid_months` Jan+Feb in der Plattform). Der Master führt entsprechend Stundenschulden: **Jona −67,7 h** Konto (137,2 h geleistet vs. 92,6 h bezahltes Soll + 112,3 h Vorjahresschuld), **Felix 162,5 h offen** (= 16 Arbeitstage) bei 0 h in der Master-Doku. Effektiv wird April–November gearbeitet; Dezember–März erzeugen Lohnkosten ohne verkaufte Leistung, und die Schulden werden in die ohnehin überlastete Saison „abgebummelt".
+
+**Zwei-Wahrheiten-Problem:** Master und Plattform widersprechen sich (Plattform-`hour_rules`: Übertrag Jona 13,26 h / Felix 42,5 h; Master: 112,26 h / 162,5 h; Plattform-Zeiterfassung: 63 Einträge vs. 54 Master-Zeilen; `invoices`-Tabelle: leer). Niemand kann derzeit verlässlich sagen, wer wie viele Stunden schuldet und was fakturiert ist. Genau deshalb gehört die Zeiterfassung an **einen** Ort (Plattform, je Einsatz).
+
+**Randbefund Sicherheit:** Blatt 7_MEETINGS des Masters enthält E-Mail-Zugangsdaten inkl. Klartext-Passwörtern (felix@/jona@luma.earth). Passwörter ändern und aus der Datei löschen — die Datei ist im Team geteilt.
+
+### 2.4 Konsequenz aus der Historie
+
+Die drei Jahre zeigen dasselbe Muster in Eskalationsstufen: **kein Plan (2024) → Plan entsteht rückwirkend, Abrechnungs-Schock im Dezember (2025) → Plan existiert, aber ohne Kapazitäts- und Rechnungs-Anbindung: Mai-Loch, Juni-Feuerwehr, 0 € fakturiert bis Juli (2026).** Nicht die Arbeit ist unwirtschaftlich, sondern: (a) unbezahlte Fahrt-/Rüstzeit, (b) ungeplante teure Kernteam-Einsätze als Feuerwehr, (c) Liquiditätslücke durch Jahresend-Fakturierung, (d) Winter-Lohnkosten ohne verkaufte Leistung. Alle vier sind Planungs- und Prozessprobleme — genau die, die der Regelkreis in Kap. 4 schließt.
 
 ---
 
@@ -196,3 +229,6 @@ Phasen 1–3 sind der Kern („Planung + faires Angebot"), Phase 4 die Kundenbin
 5. **Angebote 2027 als Pauschale:** Nach ALLCURA-Vorbild je Objekt Jahrespauschale mit Leistungsverzeichnis + monatlicher Abrechnung; Stunden nur intern. Zusatzarbeiten explizit nach Aufwand. Nicht den Stundensatz senken — 50 €/h ist bereits unteres Marktniveau, und die ALLCURA-Verträge liegen implizit bei ~58–69 €/h.
 6. **Winter füllen:** Jan–Mrz/Dez sind leer, die Minijob-Stunden laufen trotzdem. Winterleistungen aktiv anbieten (Gehölz-/Obstschnitt, Habitat-/Nistkastenpflege, Werkzeug/Bewässerungswartung) oder Stundenkonten bewusst als Puffer für die Frühjahrsspitze führen (Übertrag existiert ja bereits: 13,26 h / 42,5 h aus 2025).
 7. **AN-57 prüfen:** Leistungszeitraum 07/2026–12/2027 (~17 Monate) vs. 90,25 h (Jahresplanwert 2026) — vor Annahme klären, sonst schenkt LUMA ein halbes Jahr Pflege her.
+8. **Sofort Zwischenrechnungen 2026 stellen:** Laut Master sind bis 21.07. **0 € fakturiert** bei ~337 geleisteten Stunden. Die dokumentierten Stunden je Standort (MV 66,5 h, R95 52 h, S3 47 h, H14 43 h, X13 37 h, …) jetzt abrechnen — nicht im Dezember. Ab dann fester Rhythmus: **monatlich oder quartalsweise**, im Vertrag verankert (ALLCURA macht es mit Dritteln vor). Das beendet sowohl die Liquiditätslücke als auch den „Schock-Effekt", der 2025 das „zu teuer" ausgelöst hat.
+9. **Eine Stunden-Wahrheit herstellen:** Master und Plattform widersprechen sich bei Stundenschulden (Jona 112 h vs. 13 h, Felix 162,5 h vs. 42,5 h). Einmal mit Jona/Felix abstimmen, korrekten Stand in `hour_rules` eintragen, Master-Stundenblatt einfrieren — Zeiterfassung ab sofort nur noch in der Plattform je Einsatz.
+10. **Passwörter aus dem Master entfernen** (Blatt 7_MEETINGS enthält Klartext-Zugangsdaten für felix@/jona@luma.earth) und die Passwörter ändern.
