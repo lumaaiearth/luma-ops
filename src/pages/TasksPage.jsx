@@ -12,7 +12,7 @@ import { isoToday, formatDate } from '../lib/storage.js'
 import TaskModal from '../components/TaskModal.jsx'
 import BoardModal from '../components/BoardModal.jsx'
 import { useBreakpoint } from '../lib/useBreakpoint.js'
-import { Plus, Trash2, LayoutGrid, List as ListIcon, Star, User, CalendarClock, MapPin, Settings2, Layers, CheckSquare, AlertTriangle, RotateCcw } from 'lucide-react'
+import { Plus, Trash2, LayoutGrid, List as ListIcon, ListChecks, Star, User, CalendarClock, MapPin, Settings2, Layers, CheckSquare, AlertTriangle, RotateCcw, Check } from 'lucide-react'
 
 // Aufgabentypen, die im Freien stattfinden → wetterabhängig
 const OUTDOOR_TYPES = ['installation', 'pflege', 'giessen', 'maehen', 'beikraut', 'pflanzung', 'reinigung', 'monitoring']
@@ -228,7 +228,7 @@ export default function TasksPage() {
         {activeBoard !== 'trash' && (
         <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: 2, background: SURFACE, borderRadius: 14, padding: 4, border: `1px solid ${BORDER}` }}>
-            {[['board', 'Board', LayoutGrid], ['list', 'Liste', ListIcon]].map(([id, label, Icon]) => (
+            {[['board', 'Board', LayoutGrid], ['todo', 'ToDo', ListChecks], ['list', 'Liste', ListIcon]].map(([id, label, Icon]) => (
               <button key={id} onClick={() => setView(id)}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 6, border: 'none', background: view === id ? A : 'transparent', color: view === id ? 'var(--luma-on-a)' : MUTED, cursor: 'pointer', fontSize: 13, fontWeight: view === id ? 500 : 400, fontFamily: "'Space Grotesk', sans-serif" }}>
                 <Icon size={14} /> {label}
@@ -289,6 +289,14 @@ export default function TasksPage() {
               )
             })}
           </div>
+        )}
+
+        {/* TODO VIEW — kompakte Checkliste, gruppiert nach Fälligkeit */}
+        {activeBoard !== 'trash' && view === 'todo' && (
+          <TodoList tasks={filtered} boards={boards} today={today} isMobile={isMobile}
+            showBoard={activeBoard === 'all' || activeBoard === 'mine' || activeBoard === 'none'}
+            onOpen={t => setModal({ task: t })}
+            onToggle={t => setTaskStatus(t.id, (t.status === 'done' || t.status === 'archive') ? 'not_started' : 'done')} />
         )}
 
         {/* LIST VIEW */}
@@ -440,6 +448,85 @@ function TaskCard({ task, projects, clients, boards, today, navigate, weatherFor
         {eff && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: eff.color }}>{eff.label}</span>}
         <div style={{ marginLeft: 'auto' }}><People ownerId={task.owner_id} collaborators={task.assigned_users} size={20} /></div>
       </div>
+    </div>
+  )
+}
+
+/* ─── TODO-LISTE — kompakte Abhak-Ansicht, gruppiert nach Fälligkeit ───────── */
+function TodoList({ tasks, boards, today, isMobile, showBoard, onOpen, onToggle }) {
+  if (tasks.length === 0) return <EmptyState title="Keine Aufgaben" hint="Passe die Filter an oder lege eine neue Aufgabe an." />
+
+  const inWeek = (() => {
+    const d = new Date(today + 'T12:00:00')
+    d.setDate(d.getDate() + 7)
+    return d.toISOString().slice(0, 10)
+  })()
+
+  const groups = [
+    { id: 'overdue', label: 'Überfällig',   color: DANGER },
+    { id: 'today',   label: 'Heute',        color: A },
+    { id: 'week',    label: 'Diese Woche',  color: FG },
+    { id: 'later',   label: 'Später',       color: MUTED },
+    { id: 'nodate',  label: 'Ohne Datum',   color: MUTED },
+    { id: 'done',    label: 'Erledigt',     color: OK },
+  ]
+  function groupOf(t) {
+    if (t.status === 'done' || t.status === 'archive') return 'done'
+    if (!t.due_date) return 'nodate'
+    if (t.due_date < today) return 'overdue'
+    if (t.due_date === today) return 'today'
+    if (t.due_date <= inWeek) return 'week'
+    return 'later'
+  }
+  const byGroup = {}
+  sortTasks(tasks).forEach(t => { (byGroup[groupOf(t)] ??= []).push(t) })
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      {groups.map(g => {
+        const list = byGroup[g.id]
+        if (!list?.length) return null
+        return (
+          <div key={g.id}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, padding: '0 2px' }}>
+              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: g.color, letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 700 }}>{g.label}</span>
+              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>{list.length}</span>
+              <div style={{ flex: 1, height: 1, background: BORDER }} />
+            </div>
+            <div style={{ border: `1px solid ${BORDER}`, borderRadius: 10, overflow: 'hidden' }}>
+              {list.map((t, i) => {
+                const prio = P[t.priority]
+                const done = t.status === 'done' || t.status === 'archive'
+                const board = t.board_id ? boards.find(b => b.id === t.board_id) : null
+                const overdue = g.id === 'overdue'
+                return (
+                  <div key={t.id} onClick={() => onOpen(t)} className="lu-option"
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: isMobile ? '10px 10px' : '9px 12px', background: SURFACE, borderTop: i === 0 ? 'none' : `1px solid ${BORDER}`, cursor: 'pointer', opacity: done ? 0.6 : 1 }}>
+                    <button onClick={e => { e.stopPropagation(); onToggle(t) }} title={done ? 'Als offen markieren' : 'Als erledigt markieren'}
+                      style={{ width: 20, height: 20, borderRadius: 6, flexShrink: 0, border: `1.5px solid ${done ? OK : (prio?.color || BORDER)}`, background: done ? OK : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#001219', padding: 0 }}>
+                      {done && <Check size={13} strokeWidth={3} />}
+                    </button>
+                    <span title={prio?.label} style={{ width: 6, height: 6, borderRadius: '50%', background: prio?.color || BORDER, flexShrink: 0 }} />
+                    <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: done ? MUTED : FG, textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
+                    {t.checklist?.length > 0 && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: "'Space Mono', monospace", fontSize: 9, color: t.checklist.every(i2 => i2.done) ? OK : MUTED, flexShrink: 0 }}>
+                        <CheckSquare size={10} />{t.checklist.filter(i2 => i2.done).length}/{t.checklist.length}
+                      </span>
+                    )}
+                    {showBoard && board && !isMobile && (
+                      <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: board.color, flexShrink: 0 }}>{board.emoji} {board.name}</span>
+                    )}
+                    {t.due_date && (
+                      <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: overdue ? DANGER : MUTED, fontWeight: overdue ? 700 : 400, flexShrink: 0 }}>{formatDate(t.due_date)}</span>
+                    )}
+                    {!isMobile && <People ownerId={t.owner_id} collaborators={t.assigned_users} size={18} />}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
