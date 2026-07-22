@@ -51,20 +51,26 @@ function paintGrad(geoIn, hexBase, hexTip) {
 
 // ── Blatt-Primitive: Basis bei y=0, Spitze +y, flach in XY, Normalen gesetzt ──
 // Low-Poly-Blatt mit natürlicherem Umriss: schmale Basis, breiteste Stelle bei
-// ~35 %, fein auslaufende Spitze; sanfte Krümmung über die Länge (z).
+// ~35 %, fein auslaufende Spitze; sanfte Krümmung über die Länge (z) und
+// V-Falz entlang der Mittelrippe (Ränder leicht angehoben → echte Blattrinne,
+// fängt Licht/Schatten statt flach zu wirken).
 const BLADE_SECS = [[0.0, 0.16], [0.35, 0.5], [0.7, 0.34], [1.0, 0.0]]
 function bladeGeo(len, wBase, curve = 0) {
   const pos = []
   const zAt = t => curve * t * t * 1.6
+  const fold = wBase * 0.3 // Rand-Anhebung gegenüber der Mittelrippe
+  // Punkte je Sektion: L (Rand), C (Mittelrippe), R (Rand)
+  const sec = ([t, hw]) => {
+    const y = len * t, zc = zAt(t)
+    return { L: [-wBase * hw, y, zc + fold * hw * 2], C: [0, y, zc], R: [wBase * hw, y, zc + fold * hw * 2] }
+  }
   for (let i = 0; i < BLADE_SECS.length - 1; i++) {
-    const [t0, hw0] = BLADE_SECS[i], [t1, hw1] = BLADE_SECS[i + 1]
-    const y0 = len * t0, y1 = len * t1, z0 = zAt(t0), z1 = zAt(t1)
-    const l0 = -wBase * hw0, r0 = wBase * hw0, l1 = -wBase * hw1, r1 = wBase * hw1
-    if (hw1 === 0) { // auslaufende Spitze → ein Dreieck
-      pos.push(l0, y0, z0, r0, y0, z0, 0, y1, z1)
-    } else {
-      pos.push(l0, y0, z0, r0, y0, z0, r1, y1, z1)
-      pos.push(l0, y0, z0, r1, y1, z1, l1, y1, z1)
+    const a = sec(BLADE_SECS[i]), b = sec(BLADE_SECS[i + 1])
+    if (BLADE_SECS[i + 1][1] === 0) { // auslaufende Spitze → zwei Dreiecke zur Spitze
+      pos.push(...a.L, ...a.C, ...b.C, ...a.C, ...a.R, ...b.C)
+    } else { // zwei Halb-Quads (links/rechts der Mittelrippe)
+      pos.push(...a.L, ...a.C, ...b.C, ...a.L, ...b.C, ...b.L)
+      pos.push(...a.C, ...a.R, ...b.R, ...a.C, ...b.R, ...b.C)
     }
   }
   const g = new THREE.BufferGeometry()

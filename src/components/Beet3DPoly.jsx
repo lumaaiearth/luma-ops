@@ -37,7 +37,13 @@ function shadowTexture() {
 const shadowGeo = new THREE.PlaneGeometry(1, 1); shadowGeo.rotateX(-Math.PI / 2)
 const prefersReducedMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
 
-export default function Beet3DPoly({ placement: placementRaw, beetW, beetH, beetForm, polygon = null, L, shadow, cardBg }) {
+// Kamera-Azimut aus der Sichtachse: viewDir zeigt vom Betrachter ins Beet
+// (x = Ost, y = Nord); die Kamera steht auf der Betrachterseite (z+ = Nord).
+function azimuthFor(viewDir) {
+  return viewDir ? Math.atan2(-viewDir.x, -viewDir.y) : -0.65
+}
+
+export default function Beet3DPoly({ placement: placementRaw, beetW, beetH, beetForm, polygon = null, viewDir = null, L, shadow, cardBg }) {
   // Nur Pflanzen innerhalb der Freiform (Polygon in lokalen Metern 0..beetW/0..beetH)
   const placement = useMemo(
     () => polygon ? placementRaw.filter(p => pointInPoly(p.px, p.py, polygon)) : placementRaw,
@@ -46,7 +52,7 @@ export default function Beet3DPoly({ placement: placementRaw, beetW, beetH, beet
   const wrapRef = useRef(null)
   const mountRef = useRef(null)
   const threeRef = useRef(null)   // { renderer, scene, camera, plantGroup, groundGroup, meshBySpecies }
-  const camRef = useRef({ azimuth: -0.65, polar: 0.95, dist: 0 }) // dist 0 → auto
+  const camRef = useRef({ azimuth: azimuthFor(viewDir), polar: 0.95, dist: 0 }) // dist 0 → auto
   const dragRef = useRef({ on: false, x: 0, y: 0, moved: 0 })
   const [month, setMonth] = useState(6)
   const [playing, setPlaying] = useState(false)
@@ -182,7 +188,7 @@ export default function Beet3DPoly({ placement: placementRaw, beetW, beetH, beet
     t.plantGroup.children.slice().forEach(m => { t.plantGroup.remove(m); m.material?.dispose(); m.dispose?.() })
     t.meshBySpecies.clear()
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), pos = new THREE.Vector3(), scl = new THREE.Vector3()
-    const up = new THREE.Vector3(0, 1, 0)
+    const eul = new THREE.Euler()
     for (const { sp, items } of bySpecies.values()) {
       const geo = speciesGeometry(sp, month)
       const mat = makePlantMaterial(uTimeRef.current, uWindRef.current)
@@ -190,7 +196,13 @@ export default function Beet3DPoly({ placement: placementRaw, beetW, beetH, beet
       items.forEach((p, i) => {
         const s = 0.85 + seededRand(p.seed ?? hashStr(p.id + i)) * 0.3
         pos.set(p.px - beetW / 2, 0, p.py - beetH / 2)
-        q.setFromAxisAngle(up, seededRand((p.seed ?? 1) + 7) * Math.PI * 2)
+        // Freie Drehung + minimale Neigung → Individuen wirken natürlicher
+        eul.set(
+          (seededRand((p.seed ?? 1) + 13) - 0.5) * 0.13,
+          seededRand((p.seed ?? 1) + 7) * Math.PI * 2,
+          (seededRand((p.seed ?? 1) + 17) - 0.5) * 0.13,
+        )
+        q.setFromEuler(eul)
         scl.set(s * gxz, s * growth, s * gxz)
         m4.compose(pos, q, scl)
         mesh.setMatrixAt(i, m4)
@@ -235,6 +247,12 @@ export default function Beet3DPoly({ placement: placementRaw, beetW, beetH, beet
     }
   }
   useEffect(() => { applyFocusAndSelection(); render() }, [group, sel, L]) // eslint-disable-line
+
+  // ── Sichtachse geändert → Kamera auf die Betrachterseite drehen ───────────
+  useEffect(() => {
+    camRef.current.azimuth = azimuthFor(viewDir)
+    render()
+  }, [viewDir?.x, viewDir?.y]) // eslint-disable-line
 
   // ── Jahr-Animation ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -390,7 +408,7 @@ export default function Beet3DPoly({ placement: placementRaw, beetW, beetH, beet
         <div style={{ display: 'flex', gap: 4, marginLeft: 'auto', flexWrap: 'wrap' }}>
           <button onClick={() => { camRef.current.dist = Math.min(60, camRef.current.dist * 1.15); render() }} style={btn} aria-label="Kleiner">−</button>
           <button onClick={() => { camRef.current.dist = Math.max(1.5, camRef.current.dist * 0.87); render() }} style={btn} aria-label="Größer">+</button>
-          <button onClick={() => { camRef.current = { azimuth: -0.65, polar: 0.95, dist: 0 }; render() }} style={btn} aria-label="Ansicht zurücksetzen"><RotateCw size={13} /></button>
+          <button onClick={() => { camRef.current = { azimuth: azimuthFor(viewDir), polar: 0.95, dist: 0 }; render() }} style={btn} aria-label="Ansicht zurücksetzen"><RotateCw size={13} /></button>
           <button onClick={exportPng} style={{ ...btn, display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px' }}><Download size={12} /> PNG</button>
         </div>
       </div>
