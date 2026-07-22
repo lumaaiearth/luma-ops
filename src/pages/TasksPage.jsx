@@ -364,7 +364,7 @@ function People({ ownerId, collaborators, size = 20 }) {
     <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
       {owner && (
         <Avatar title={`Verantwortlich: ${owner.name}`} initials={owner.initials} color={owner.color} size={size + 2} src={avatarFor(owner.id)}
-          style={{ border: `2px solid ${A}`, boxShadow: `0 0 0 1px ${owner.color}` }} />
+          style={{ border: `2px solid ${BORDER}` }} />
       )}
       {others.slice(0, 3).map(u => (
         <Avatar key={u.id} title={u.name} initials={u.initials} color={u.color} size={size} src={avatarFor(u.id)} />
