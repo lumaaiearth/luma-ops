@@ -17,6 +17,10 @@ import { computePlacement, buildGrid, stateForMonth, growthForMonth, growthBucke
 import { shapeMetaFromGeometry } from '../lib/shapeMeta.js'
 import { fetchElevation, siteInfo } from '../lib/siteData.js'
 import ShapeView from '../components/ShapeView.jsx'
+import BioReport from '../components/BioReport.jsx'
+import CarePlanView from '../components/CarePlanView.jsx'
+import { buildBioReport } from '../lib/bioReport.js'
+import { buildCarePlan, fmtDauer } from '../lib/carePlan.js'
 // 3D-Modell-Ansicht (three.js) lazy laden — eigener Chunk.
 const Beet3DPoly = lazy(() => import('../components/Beet3DPoly.jsx'))
 import { plantSprite, SPRITE_PX_PER_M } from '../lib/plantSprites.js'
@@ -807,6 +811,18 @@ export default function PlanningPage() {
                   </div>
                 </div>
               )}
+              {/* Biodiversitäts-Report — Score, Trachtverlauf, geförderte Arten */}
+              <BioReport
+                plan={plan} area_m2={shapeMeta?.area_m2 || beetArea} site={site}
+                candidates={filtered} onAdd={addToPlan}
+                L={L} shadow={shadow} cardBg={cardBg} isMobile={isMobile}
+              />
+              {/* Pflegeplan mit Zeitansätzen — Basis für Pflegeverträge */}
+              <CarePlanView
+                plan={plan} area_m2={shapeMeta?.area_m2 || beetArea} site={site}
+                beetW={beetW} beetH={beetH}
+                L={L} shadow={shadow} cardBg={cardBg} isMobile={isMobile}
+              />
               {/* Blühkalender */}
               <BloomCalendar plan={plan} L={L} shadow={shadow} />
               {/* Trachtkalender — was blüht wann für wen */}
@@ -2675,6 +2691,57 @@ function exportPdf(plan, { label, beetArea, beetW, beetH, habitats = [], site = 
       <td class="center">${Math.round((h.aufwand_h || 0) * h.count * 10) / 10} h</td>
       <td>${h.jahreszeit || '—'}</td>
     </tr>`).join('')
+  // ── Biodiversitäts-Report & Pflegeplan (eigene PDF-Abschnitte) ──
+  const bio = buildBioReport(plan, { area_m2: shapeMeta?.area_m2 || beetArea, site })
+  const care = buildCarePlan(plan, { area_m2: shapeMeta?.area_m2 || beetArea, site, beetW, beetH })
+  const bioSection = bio ? `
+<div class="section-h">Biodiversitäts-Bewertung</div>
+<div class="meta">
+  <div class="meta-item"><strong>${bio.score}/100</strong><span>Ökologischer Wert — ${bio.stufe.label}</span></div>
+  <div class="meta-item"><strong>${bio.kennzahlen.heimischPct} %</strong><span>heimischer Anteil</span></div>
+  <div class="meta-item"><strong>${bio.kennzahlen.spezialisten}</strong><span>Spezialisten-Wildbienen</span></div>
+  <div class="meta-item"><strong>${bio.kennzahlen.raupenArten}</strong><span>Falterarten (Raupenfutter)</span></div>
+</div>
+<table>
+  <thead><tr><th>Bewertungskriterium</th><th class="center">Punkte</th><th>Grundlage</th></tr></thead>
+  <tbody>
+    ${bio.teil.map(t => `<tr><td class="name">${t.label}</td><td class="center">${t.punkte} / ${t.max}</td><td>${t.hinweis}</td></tr>`).join('')}
+    <tr><td class="name" style="font-weight:700;">Gesamt</td><td class="center" style="font-weight:700;">${bio.score} / 100</td><td>${bio.stufe.label}</td></tr>
+  </tbody>
+</table>
+<div class="section-h">Trachtangebot im Jahresverlauf</div>
+<table>
+  <thead><tr><th>Monat</th>${bio.monthly.map(m => `<th class="center">${m.name}</th>`).join('')}</tr></thead>
+  <tbody>
+    <tr><td class="name">Blühende Arten</td>${bio.monthly.map(m => `<td class="center"${m.arten === 0 ? ' style="color:#b91c1c;font-weight:700;"' : ''}>${m.arten}</td>`).join('')}</tr>
+    <tr><td class="name">Pflanzen im Blühaspekt</td>${bio.monthly.map(m => `<td class="center">${m.individuen}</td>`).join('')}</tr>
+  </tbody>
+</table>
+${bio.luecken.length ? `<div class="order-note"><strong>⚠️ Trachtlücken</strong>${bio.luecken.map(l => `${l.name}${l.kritisch ? ' (keine blühende Art)' : ` (nur ${l.arten} Art(en))`}`).join(' · ')}</div>` : ''}
+${bio.spezialistenListe.length ? `<div style="font-size:9pt;color:#333;margin-top:10px;line-height:1.6;"><strong style="color:#052e16;">Geförderte Spezialisten-Wildbienen (${bio.spezialistenListe.length}):</strong> ${bio.spezialistenListe.join(', ')}.</div>` : ''}
+${bio.raupenListe.length ? `<div style="font-size:9pt;color:#333;margin-top:6px;line-height:1.6;"><strong style="color:#052e16;">Falterarten mit Raupenfutter (${bio.raupenListe.length}):</strong> ${bio.raupenListe.join(', ')}.</div>` : ''}
+${bio.empfehlungen.length ? `<div class="section-h">Empfehlungen</div><ol style="font-size:9.5pt;color:#333;line-height:1.6;padding-left:18px;">${bio.empfehlungen.map(e => `<li>${e.text}</li>`).join('')}</ol>` : ''}
+<div style="font-size:8pt;color:#666;margin-top:8px;line-height:1.5;"><strong>Methodik:</strong> ${bio.methodik} Artdaten aus der kuratierten Florales-Datenbank (naturaDB/FloraWeb). Transparentes Punktemodell, kein zertifizierter Standard.</div>
+` : ''
+  const careSection = care ? `
+<div class="section-h">Pflegeplan &amp; Zeitansätze</div>
+<div class="meta">
+  <div class="meta-item"><strong>${fmtDauer(care.regelpflege.stunden)}</strong><span>Regelpflege ab Jahr 3</span></div>
+  <div class="meta-item"><strong>${care.regelpflege.min_pro_m2} min/m²</strong><span>je Jahr</span></div>
+  <div class="meta-item"><strong>${fmtDauer(care.gesamt3jahre.stunden)}</strong><span>Summe Jahr 1–3</span></div>
+</div>
+${care.phasen.map(p => `
+<div style="font-size:10pt;font-weight:700;color:#052e16;margin:12px 0 4px;">${p.label} — ${fmtDauer(p.stunden)} (${p.min_pro_m2} min/m²)</div>
+<div style="font-size:8.5pt;color:#555;margin-bottom:5px;">${p.beschreibung}</div>
+<table>
+  <thead><tr><th>Arbeitsgang</th><th class="center">Monate</th><th class="center">Durchgänge</th><th class="center">Zeit</th></tr></thead>
+  <tbody>${p.tasks.map(t => `<tr><td class="name">${t.label}${t.hinweis ? `<br><span style="font-size:8pt;color:#666;">${t.hinweis}</span>` : ''}</td><td class="center">${t.monate.length > 3 ? `${t.monate[0]}.–${t.monate[t.monate.length - 1]}.` : t.monate.map(m => m + '.').join(' ')}</td><td class="center">${t.durchgaenge}×</td><td class="center">${fmtDauer(t.stunden)}</td></tr>`).join('')}
+  <tr><td colspan="3" style="text-align:right;font-weight:700;">Summe</td><td class="center" style="font-weight:700;">${fmtDauer(p.stunden)}</td></tr></tbody>
+</table>`).join('')}
+<div class="order-note"><strong>🧰 Pflegegrundsätze</strong>${care.hinweise.map(h => '• ' + h).join('<br>')}</div>
+<div style="font-size:8pt;color:#666;margin-top:8px;line-height:1.5;"><strong>Annahmen:</strong> ${care.annahmen} Richtwerte für naturnahe Staudenpflanzungen — im Einzelfall standort- und witterungsabhängig.</div>
+` : ''
+
   const mat = rollupMaterial(habitats)
   const matRows = mat.map(m => `<tr><td>${m.material}</td><td class="center">${m.menge}</td><td class="center">${m.einheit}</td></tr>`).join('')
   const einbauBoxes = habitats.filter(h => h.einbau_schritte?.length).map(h => `
@@ -2817,6 +2884,10 @@ ${(isoImg || rasterImg) ? `
   ${isoImg ? `<figure><img src="${isoImg}" alt="3D-Jahresansicht"><figcaption>Isometrisches Pflanzbild (Hochsommer) — so entwickelt sich das Beet.</figcaption></figure>` : ''}
   ${rasterImg ? `<figure><img src="${rasterImg}" alt="Rasterplan"><figcaption>Pflanzanleitung: jede Zelle = 33×33 cm = eine Pflanze (Code laut Pflanzliste-Farbe).</figcaption></figure>` : ''}
 </div>` : ''}
+
+${bioSection}
+
+${careSection}
 
 <div class="order-note">
   <strong>🌿 Bestellanfrage an Baumschule</strong>
