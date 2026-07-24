@@ -1,0 +1,1406 @@
+{
+  "sites": [
+    {
+      "key": "BL",
+      "project_id": "blankenburg",
+      "objekt": "",
+      "client_id": "bew",
+      "name": "BL (Blankenburg)",
+      "notes": "",
+      "year_total": 93,
+      "weekly_totals": {
+        "12": 4,
+        "14": 15,
+        "19": 11,
+        "23": 9,
+        "28": 10,
+        "32": 9,
+        "36": 10,
+        "41": 9,
+        "45": 16
+      },
+      "tasks": [
+        {
+          "label": "1",
+          "titel": "Entfernung alter Pflanzenteile (Stauden),Beikräutern + Hochbinden von Kletterpflanzen",
+          "weeks": {
+            "14": 3,
+            "19": 3,
+            "23": 3,
+            "28": 3,
+            "32": 3,
+            "36": 3,
+            "41": 3,
+            "45": 3
+          }
+        },
+        {
+          "label": "2",
+          "titel": "Rückschnitt / Trimmen Gehölze",
+          "weeks": {
+            "19": 1,
+            "23": 1,
+            "28": 1,
+            "32": 1,
+            "36": 1,
+            "41": 1,
+            "45": 2
+          }
+        },
+        {
+          "label": "3",
+          "titel": "Düngen (Hornspäne, Brennesseljauche, Grasschnitt etc.)",
+          "weeks": {
+            "14": 2
+          }
+        },
+        {
+          "label": "4",
+          "titel": "Reinigung der Wegeflächen (Laub, Beikräuter entfernen)",
+          "weeks": {
+            "14": 1,
+            "19": 1,
+            "28": 1,
+            "36": 1,
+            "45": 2
+          }
+        },
+        {
+          "label": "5",
+          "titel": "Mahd & Trimmen der Rasenflächen. Wegeflächen erhalten durch Rückschnitt. Sitzflächen freihalten.",
+          "weeks": {
+            "14": 1,
+            "19": 1,
+            "45": 2
+          }
+        },
+        {
+          "label": "7",
+          "titel": "Bewässerung (Per Hand/Flächenregner) Manuelles Wässern von Pflanzflächen und Gehölzen. Regelmäßige Anwuchs- oder Pflegewässerung der Kulturen.",
+          "weeks": {
+            "12": 4,
+            "14": 4,
+            "19": 4,
+            "23": 4,
+            "28": 4,
+            "32": 4,
+            "36": 4,
+            "41": 4,
+            "45": 2
+          }
+        },
+        {
+          "label": "8",
+          "titel": "Abbau von Schläuchen und wasserführenden Teilen und Erinnerung an AG abstellen von Außen-Wasseranschlüssen (Winterfest machen) IBC entleeren",
+          "weeks": {
+            "45": 2
+          }
+        },
+        {
+          "label": "9",
+          "titel": "Anschließen/Kontrolle Bewässerungssystem. Im Frühjahr müssen Bewässerungssysteme angeschlossen und aktiviert werden. Wasserhähne müssen in Absprache mit AG eingschaltet werden.",
+          "weeks": {
+            "14": 2
+          }
+        },
+        {
+          "label": "10",
+          "titel": "Auffüllen von Bewässerungseinheiten (IBC). Entweder durch Kraftwerksleiter oder Pflegekräfte",
+          "weeks": {
+            "14": 2,
+            "19": 1,
+            "23": 1,
+            "28": 1,
+            "32": 1,
+            "36": 1,
+            "41": 1
+          }
+        },
+        {
+          "label": "11",
+          "titel": "Anbringen Kletterhilfen. Nur nach Absprache.",
+          "weeks": {}
+        },
+        {
+          "label": "12",
+          "titel": "Neupflanzungen/Nachpflanzungen. Bei Pflanzenausfall, Absterben, o.ä. ist die Nachpflanzung manchmal notwendig. Die Arten müssen abgestimmt werden.",
+          "weeks": {}
+        },
+        {
+          "label": "13",
+          "titel": "Nach-Mulchen (Bereits gemulchte Flächen müssen nachdem sich die Mulchschicht zersetzt wieder nachgemulcht werden)",
+          "weeks": {}
+        },
+        {
+          "label": "14",
+          "titel": "Überprüfung von Bioreaktoren auf Funktion, Zustand und Kompostreifung",
+          "weeks": {}
+        },
+        {
+          "label": "15",
+          "titel": "Abdecken Bienenweide mit Folie für 12 Monate. Dann Entfernung und Nachsaat Bienenweide.",
+          "weeks": {
+            "45": 2
+          }
+        },
+        {
+          "label": "16",
+          "titel": "Extra-Wässerung bei Hitzeperioden. Beobachtung der Niederschläge - ggf. Extra Bewässerung einplanen wenn notwendig zum Erhalt der Kulturen.",
+          "weeks": {}
+        },
+        {
+          "label": "17",
+          "titel": "Reinigung IBC/Algenentfernung",
+          "weeks": {
+            "45": 1
+          }
+        }
+      ]
+    },
+    {
+      "key": "MV",
+      "project_id": "mv-bew",
+      "objekt": "",
+      "client_id": "bew",
+      "name": "MV (Tiny Forest)",
+      "notes": "",
+      "year_total": 90.25,
+      "weekly_totals": {
+        "14": 18.25,
+        "19": 9.5,
+        "23": 9.5,
+        "28": 9.5,
+        "32": 9.5,
+        "36": 9.5,
+        "41": 9.5,
+        "45": 15
+      },
+      "tasks": [
+        {
+          "label": "1",
+          "titel": "Entfernung alter Pflanzenteile (Stauden),Beikräutern + Hochbinden von Kletterpflanzen",
+          "weeks": {
+            "14": 2,
+            "19": 2,
+            "23": 2,
+            "28": 2,
+            "32": 2,
+            "36": 2,
+            "41": 2,
+            "45": 2
+          }
+        },
+        {
+          "label": "2",
+          "titel": "Rückschnitt / Trimmen Gehölze",
+          "weeks": {
+            "14": 1,
+            "19": 1,
+            "23": 1,
+            "28": 1,
+            "32": 1,
+            "36": 1,
+            "41": 1,
+            "45": 2
+          }
+        },
+        {
+          "label": "3",
+          "titel": "Düngen (Hornspäne, Brennesseljauche, Grasschnitt etc.)",
+          "weeks": {
+            "14": 2
+          }
+        },
+        {
+          "label": "4",
+          "titel": "Reinigung der Wegeflächen (Laub, Beikräuter entfernen)",
+          "weeks": {
+            "14": 1,
+            "19": 1,
+            "23": 1,
+            "28": 1,
+            "32": 1,
+            "36": 1,
+            "41": 1,
+            "45": 2
+          }
+        },
+        {
+          "label": "5",
+          "titel": "Mahd & Trimmen der Rasenflächen. Wegeflächen erhalten durch Rückschnitt. Sitzflächen freihalten.",
+          "weeks": {
+            "14": 4,
+            "19": 4,
+            "23": 4,
+            "28": 4,
+            "32": 4,
+            "36": 4,
+            "41": 4,
+            "45": 2
+          }
+        },
+        {
+          "label": "7",
+          "titel": "Bewässerung (Per Hand/Flächenregner) Manuelles Wässern von Pflanzflächen und Gehölzen. Regelmäßige Anwuchs- oder Pflegewässerung der Kulturen.",
+          "weeks": {
+            "14": 4,
+            "45": 2
+          }
+        },
+        {
+          "label": "8",
+          "titel": "Abbau von Schläuchen und wasserführenden Teilen und Erinnerung an AG abstellen von Außen-Wasseranschlüssen (Winterfest machen) IBC entleeren",
+          "weeks": {
+            "45": 2
+          }
+        },
+        {
+          "label": "9",
+          "titel": "Anschließen/Kontrolle Bewässerungssystem. Im Frühjahr müssen Bewässerungssysteme angeschlossen und aktiviert werden. Wasserhähne müssen in Absprache mit AG eingschaltet werden.",
+          "weeks": {
+            "14": 2,
+            "19": 0.5,
+            "23": 0.5,
+            "28": 0.5,
+            "32": 0.5,
+            "36": 0.5,
+            "41": 0.5
+          }
+        },
+        {
+          "label": "10",
+          "titel": "Auffüllen von Bewässerungseinheiten (IBC). Entweder durch Kraftwerksleiter oder Pflegekräfte",
+          "weeks": {
+            "14": 2,
+            "19": 1,
+            "23": 1,
+            "28": 1,
+            "32": 1,
+            "36": 1,
+            "41": 1
+          }
+        },
+        {
+          "label": "11",
+          "titel": "Anbringen Kletterhilfen. Nur nach Absprache.",
+          "weeks": {}
+        },
+        {
+          "label": "12",
+          "titel": "Neupflanzungen/Nachpflanzungen. Bei Pflanzenausfall, Absterben, o.ä. ist die Nachpflanzung manchmal notwendig. Die Arten müssen abgestimmt werden.",
+          "weeks": {}
+        },
+        {
+          "label": "13",
+          "titel": "Nach-Mulchen (Bereits gemulchte Flächen müssen nachdem sich die Mulchschicht zersetzt wieder nachgemulcht werden)",
+          "weeks": {}
+        },
+        {
+          "label": "14",
+          "titel": "Überprüfung von Bioreaktoren auf Funktion, Zustand und Kompostreifung",
+          "weeks": {
+            "14": 0.25
+          }
+        },
+        {
+          "label": "15",
+          "titel": "Abdecken Bienenweide mit Folie für 12 Monate. Dann Entfernung und Nachsaat Bienenweide.",
+          "weeks": {
+            "45": 2
+          }
+        },
+        {
+          "label": "16",
+          "titel": "Extra-Wässerung bei Hitzeperioden. Beobachtung der Niederschläge - ggf. Extra Bewässerung einplanen wenn notwendig zum Erhalt der Kulturen.",
+          "weeks": {}
+        },
+        {
+          "label": "17",
+          "titel": "Reinigung IBC/Algenentfernung",
+          "weeks": {
+            "45": 1
+          }
+        }
+      ]
+    },
+    {
+      "key": "SH",
+      "project_id": "sh",
+      "objekt": "",
+      "client_id": "bew",
+      "name": "SH (Scharnhorststraße)",
+      "notes": "",
+      "year_total": 7,
+      "weekly_totals": {
+        "15": 5,
+        "45": 2
+      },
+      "tasks": [
+        {
+          "label": "1",
+          "titel": "Entfernung alter Pflanzenteile (Stauden),Beikräutern + Hochbinden von Kletterpflanzen",
+          "weeks": {}
+        },
+        {
+          "label": "2",
+          "titel": "Rückschnitt / Trimmen Gehölze",
+          "weeks": {}
+        },
+        {
+          "label": "3",
+          "titel": "Düngen (Hornspäne, Brennesseljauche, Grasschnitt etc.)",
+          "weeks": {}
+        },
+        {
+          "label": "4",
+          "titel": "Reinigung der Wegeflächen (Laub, Beikräuter entfernen)",
+          "weeks": {}
+        },
+        {
+          "label": "5",
+          "titel": "Mahd & Trimmen der Rasenflächen. Wegeflächen erhalten durch Rückschnitt. Sitzflächen freihalten.",
+          "weeks": {}
+        },
+        {
+          "label": "7",
+          "titel": "Bewässerung (Per Hand/Flächenregner) Manuelles Wässern von Pflanzflächen und Gehölzen. Regelmäßige Anwuchs- oder Pflegewässerung der Kulturen.",
+          "weeks": {}
+        },
+        {
+          "label": "8",
+          "titel": "Abbau von Schläuchen und wasserführenden Teilen und Erinnerung an AG abstellen von Außen-Wasseranschlüssen (Winterfest machen) IBC entleeren",
+          "weeks": {
+            "45": 2
+          }
+        },
+        {
+          "label": "9",
+          "titel": "Anschließen/Kontrolle Bewässerungssystem. Im Frühjahr müssen Bewässerungssysteme angeschlossen und aktiviert werden. Wasserhähne müssen in Absprache mit AG eingschaltet werden.",
+          "weeks": {
+            "15": 1
+          }
+        },
+        {
+          "label": "10",
+          "titel": "Auffüllen von Bewässerungseinheiten (IBC). Entweder durch Kraftwerksleiter oder Pflegekräfte",
+          "weeks": {
+            "15": 3
+          }
+        },
+        {
+          "label": "11",
+          "titel": "Anbringen Kletterhilfen. Nur nach Absprache.",
+          "weeks": {}
+        },
+        {
+          "label": "12",
+          "titel": "Neupflanzungen/Nachpflanzungen. Bei Pflanzenausfall, Absterben, o.ä. ist die Nachpflanzung manchmal notwendig. Die Arten müssen abgestimmt werden.",
+          "weeks": {}
+        },
+        {
+          "label": "13",
+          "titel": "Nach-Mulchen (Bereits gemulchte Flächen müssen nachdem sich die Mulchschicht zersetzt wieder nachgemulcht werden)",
+          "weeks": {}
+        },
+        {
+          "label": "14",
+          "titel": "Überprüfung von Bioreaktoren auf Funktion, Zustand und Kompostreifung",
+          "weeks": {}
+        },
+        {
+          "label": "15",
+          "titel": "Abdecken Bienenweide mit Folie für 12 Monate. Dann Entfernung und Nachsaat Bienenweide.",
+          "weeks": {}
+        },
+        {
+          "label": "16",
+          "titel": "Extra-Wässerung bei Hitzeperioden. Beobachtung der Niederschläge - ggf. Extra Bewässerung einplanen wenn notwendig zum Erhalt der Kulturen.",
+          "weeks": {}
+        },
+        {
+          "label": "17",
+          "titel": "Reinigung IBC/Algenentfernung",
+          "weeks": {
+            "15": 1
+          }
+        },
+        {
+          "label": "18",
+          "titel": "Kontrolle Lehmquelle, reinigung. Kontrolle Vogelkästen = Reinigung.",
+          "weeks": {
+            "15": 2,
+            "32": 2,
+            "46": 3
+          }
+        }
+      ],
+      "validation_b": false,
+      "validation_issues": [
+        "KW 15: weekly_total=5 but task sum=7 (diff 2)",
+        "KW 32: weekly_total=0 but task sum=2 (diff 2)",
+        "KW 46: weekly_total=0 but task sum=3 (diff 3)"
+      ]
+    },
+    {
+      "key": "AG",
+      "project_id": "ag",
+      "objekt": "",
+      "client_id": "bew",
+      "name": "AG",
+      "notes": "",
+      "year_total": 8,
+      "weekly_totals": {
+        "47": 8
+      },
+      "tasks": [
+        {
+          "label": "1",
+          "titel": "Entfernung alter Pflanzenteile (Stauden),Beikräutern + Hochbinden von Kletterpflanzen",
+          "weeks": {}
+        },
+        {
+          "label": "2",
+          "titel": "Rückschnitt / Trimmen Gehölze",
+          "weeks": {}
+        },
+        {
+          "label": "3",
+          "titel": "Düngen (Hornspäne, Brennesseljauche, Grasschnitt etc.)",
+          "weeks": {}
+        },
+        {
+          "label": "4",
+          "titel": "Reinigung der Wegeflächen (Laub, Beikräuter entfernen)",
+          "weeks": {}
+        },
+        {
+          "label": "5",
+          "titel": "Mahd & Trimmen der Rasenflächen. Wegeflächen erhalten durch Rückschnitt. Sitzflächen freihalten.",
+          "weeks": {
+            "47": 8
+          }
+        },
+        {
+          "label": "7",
+          "titel": "Bewässerung (Per Hand/Flächenregner) Manuelles Wässern von Pflanzflächen und Gehölzen. Regelmäßige Anwuchs- oder Pflegewässerung der Kulturen.",
+          "weeks": {}
+        },
+        {
+          "label": "8",
+          "titel": "Abbau von Schläuchen und wasserführenden Teilen und Erinnerung an AG abstellen von Außen-Wasseranschlüssen (Winterfest machen) IBC entleeren",
+          "weeks": {}
+        },
+        {
+          "label": "9",
+          "titel": "Anschließen/Kontrolle Bewässerungssystem. Im Frühjahr müssen Bewässerungssysteme angeschlossen und aktiviert werden. Wasserhähne müssen in Absprache mit AG eingschaltet werden.",
+          "weeks": {}
+        },
+        {
+          "label": "10",
+          "titel": "Auffüllen von Bewässerungseinheiten (IBC). Entweder durch Kraftwerksleiter oder Pflegekräfte",
+          "weeks": {}
+        },
+        {
+          "label": "11",
+          "titel": "Anbringen Kletterhilfen. Nur nach Absprache.",
+          "weeks": {}
+        },
+        {
+          "label": "12",
+          "titel": "Neupflanzungen/Nachpflanzungen. Bei Pflanzenausfall, Absterben, o.ä. ist die Nachpflanzung manchmal notwendig. Die Arten müssen abgestimmt werden.",
+          "weeks": {}
+        },
+        {
+          "label": "13",
+          "titel": "Nach-Mulchen (Bereits gemulchte Flächen müssen nachdem sich die Mulchschicht zersetzt wieder nachgemulcht werden)",
+          "weeks": {}
+        },
+        {
+          "label": "14",
+          "titel": "Überprüfung von Bioreaktoren auf Funktion, Zustand und Kompostreifung",
+          "weeks": {}
+        },
+        {
+          "label": "15",
+          "titel": "Abdecken Bienenweide mit Folie für 12 Monate. Dann Entfernung und Nachsaat Bienenweide.",
+          "weeks": {}
+        },
+        {
+          "label": "16",
+          "titel": "Extra-Wässerung bei Hitzeperioden. Beobachtung der Niederschläge - ggf. Extra Bewässerung einplanen wenn notwendig zum Erhalt der Kulturen.",
+          "weeks": {}
+        },
+        {
+          "label": "17",
+          "titel": "Reinigung IBC/Algenentfernung",
+          "weeks": {}
+        },
+        {
+          "label": "18",
+          "titel": "Kontrolle Lehmquelle, reinigung. Kontrolle Vogelkästen = Reinigung.",
+          "weeks": {}
+        }
+      ]
+    },
+    {
+      "key": "H14",
+      "project_id": "h14",
+      "objekt": "",
+      "client_id": "jope",
+      "name": "H14 (Hermannstraße 14)",
+      "notes": "Hier ist wichtig die Bewässerung anzustellen.",
+      "year_total": 49,
+      "weekly_totals": {
+        "12": 1,
+        "15": 10,
+        "18": 1,
+        "22": 7,
+        "29": 6,
+        "36": 7,
+        "42": 6,
+        "48": 11
+      },
+      "tasks": [
+        {
+          "label": "1 Pflanzen",
+          "titel": "Entfernung alter Pflanzenteile (Stauden),Beikräutern + Hochbinden von Kletterpflanzen",
+          "weeks": {
+            "15": 2,
+            "22": 2,
+            "29": 2,
+            "36": 2,
+            "42": 2,
+            "48": 1
+          }
+        },
+        {
+          "label": "2 Pflanzen",
+          "titel": "Rückschnitt / Trimmen Gehölze",
+          "weeks": {
+            "15": 1,
+            "22": 1,
+            "29": 1,
+            "36": 1,
+            "42": 1,
+            "48": 1
+          }
+        },
+        {
+          "label": "3 Pflanzen",
+          "titel": "Düngen (Hornspäne, Brennesseljauche, Grasschnitt etc.)",
+          "weeks": {
+            "15": 1
+          }
+        },
+        {
+          "label": "4 Pflanzen",
+          "titel": "Reinigung der Wegeflächen (Laub, Beikräuter entfernen)",
+          "weeks": {
+            "12": 1,
+            "15": 1,
+            "18": 1,
+            "22": 1,
+            "29": 1,
+            "36": 1,
+            "42": 1,
+            "48": 1
+          }
+        },
+        {
+          "label": "5 Pflanzen",
+          "titel": "Mahd & Trimmen der Rasenflächen. Wegeflächen erhalten durch Rückschnitt. Sitzflächen freihalten.",
+          "weeks": {
+            "15": 1,
+            "22": 2,
+            "29": 1,
+            "36": 2,
+            "42": 1,
+            "48": 2
+          }
+        },
+        {
+          "label": "7 Bewässerung",
+          "titel": "Bewässerung (Per Hand/Flächenregner) Manuelles Wässern von Pflanzflächen und Gehölzen. Regelmäßige Anwuchs- oder Pflegewässerung der Kulturen. Kontrolle von Bewässerungssystemen.",
+          "weeks": {
+            "15": 1,
+            "22": 1,
+            "29": 1,
+            "36": 1,
+            "42": 1,
+            "48": 1
+          }
+        },
+        {
+          "label": "8 Bewässerung",
+          "titel": "Abbau von Schläuchen und wasserführenden Teilen und Erinnerung an AG abstellen von Außen-Wasseranschlüssen (Winterfest machen) IBC entleeren",
+          "weeks": {
+            "48": 2
+          }
+        },
+        {
+          "label": "9 Bewässerung",
+          "titel": "Anschließen/Kontrolle Bewässerungssystem. Im Frühjahr müssen Bewässerungssysteme angeschlossen und aktiviert werden. Wasserhähne müssen in Absprache mit AG eingschaltet werden.",
+          "weeks": {
+            "15": 1
+          }
+        },
+        {
+          "label": "10 Bewässerung",
+          "titel": "Auffüllen von Bewässerungseinheiten (IBC).",
+          "weeks": {}
+        },
+        {
+          "label": "11 Spezial",
+          "titel": "Dachgarten: Pflege des Dachgartens mit Rückschnitt von Gehölzen, Mulchen, Pflanzenschutz, Düngen, Bodenverbesserung, Entfernung von Beikräutern, Kontrolle und Wartung der Bewässerungsanlage inkl. Frostsicherung und Inbetriebnahme, Nachpflanzungen sowie laufende Pflege von Stauden, Gräsern und Dachabläufen. Kommunikation mit Stakeholdern.",
+          "weeks": {}
+        },
+        {
+          "label": "12 Spezial",
+          "titel": "Neupflanzungen/Nachpflanzungen. Bei Pflanzenausfall, Absterben, o.ä. ist die Nachpflanzung manchmal notwendig. Die Arten müssen abgestimmt werden.",
+          "weeks": {
+            "15": 2,
+            "48": 2
+          }
+        },
+        {
+          "label": "13 Spezial",
+          "titel": "Nach-Mulchen (Bereits gemulchte Flächen müssen nachdem sich die Mulchschicht zersetzt wieder nachgemulcht werden)",
+          "weeks": {}
+        },
+        {
+          "label": "14 Spezial",
+          "titel": "Überprüfung von Bioreaktoren/Fermenter auf Funktion, Zustand und Kompostreifung",
+          "weeks": {
+            "48": 1
+          }
+        },
+        {
+          "label": "15 Spezial",
+          "titel": "Extra-Wässerung bei Hitzeperioden. Beobachtung der Niederschläge - ggf. Extra Bewässerung einplanen wenn notwendig zum Erhalt der Kulturen.",
+          "weeks": {}
+        }
+      ]
+    },
+    {
+      "key": "S3",
+      "project_id": "s3",
+      "objekt": "",
+      "client_id": "jope",
+      "name": "S3 Sickingstraße",
+      "notes": "Zielbild Definition & Objektbeschreibung Die Sickingenstraße 3 ist vielfältig. Die Innenhöfe sind mit Baum/Gehölzen bepflanzt die im Herbst einen starken Rückschnitt brauchen um nicht zuviel Licht aus dem Innenhof zu nehmen. Es muss regelmäßig Beikräuter entfernt werden und vorhandene Stauden haben sich bereits so etabliert, dass man sie Umsetzen und in anderen Teilen des Projektes weitervermehren kann - es muss also nichts zugekauft werden bei Trittschäden oder Hundezerstörungen. Mit dem automatischen Bewässerungssystem ist der Müllplatz und der Dachgarten versorgt. Dort muss bei jedem Pflegegang geprüft werden ob der Wasseranschluss eingeschaltet und alle Komponenten funktionsfähig sind. Das Bewässerungssystem ist vorhanden mit allen Bauteilen aber die fliegen grad irgendwo herum und ich weiss nicht wo. Es müssen aber alle Teile angeschlossen werden und in Betrieb gesetzt werden.",
+      "year_total": 111.2,
+      "weekly_totals": {
+        "15": 32.35,
+        "23": 13.5,
+        "31": 13.5,
+        "38": 13.5,
+        "43": 4,
+        "46": 30.35,
+        "49": 4
+      },
+      "tasks": [
+        {
+          "label": "1 Pflanzen",
+          "titel": "Entfernung alter Pflanzenteile (Stauden),Beikräutern + Hochbinden von Kletterpflanzen",
+          "weeks": {
+            "15": 8,
+            "23": 4,
+            "31": 4,
+            "38": 4,
+            "46": 8
+          }
+        },
+        {
+          "label": "2 Pflanzen",
+          "titel": "Rückschnitt / Trimmen Gehölze",
+          "weeks": {
+            "15": 8,
+            "46": 8
+          }
+        },
+        {
+          "label": "3 Pflanzen",
+          "titel": "Düngen (Hornspäne, Brennesseljauche, Grasschnitt etc.)",
+          "weeks": {
+            "15": 2
+          }
+        },
+        {
+          "label": "4 Pflanzen",
+          "titel": "Reinigung der Wegeflächen (Laub, Beikräuter entfernen) & Alle Dachflächen Beikräuter entfernen",
+          "weeks": {
+            "15": 6,
+            "23": 6,
+            "31": 6,
+            "38": 6,
+            "43": 4,
+            "46": 6,
+            "49": 4
+          }
+        },
+        {
+          "label": "5 Pflanzen",
+          "titel": "Mahd & Trimmen der Rasenflächen. Wegeflächen erhalten durch Rückschnitt. Sitzflächen freihalten.",
+          "weeks": {
+            "15": 3,
+            "23": 3,
+            "31": 3,
+            "38": 3,
+            "46": 3
+          }
+        },
+        {
+          "label": "7 Bewässerung",
+          "titel": "Bewässerung (Per Hand/Flächenregner) Manuelles Wässern von Pflanzflächen und Gehölzen. Regelmäßige Anwuchs- oder Pflegewässerung der Kulturen. Kontrolle von Bewässerungssystemen.",
+          "weeks": {
+            "15": 2,
+            "23": 0.5,
+            "31": 0.5,
+            "38": 0.5,
+            "46": 2
+          }
+        },
+        {
+          "label": "8 Bewässerung",
+          "titel": "Abbau von Schläuchen und wasserführenden Teilen und Erinnerung an AG abstellen von Außen-Wasseranschlüssen (Winterfest machen) IBC entleeren",
+          "weeks": {
+            "46": 2
+          }
+        },
+        {
+          "label": "9 Bewässerung",
+          "titel": "Anschließen/Kontrolle Bewässerungssystem. Im Frühjahr müssen Bewässerungssysteme angeschlossen und aktiviert werden. Wasserhähne müssen in Absprache mit AG eingschaltet werden.",
+          "weeks": {
+            "15": 2
+          }
+        },
+        {
+          "label": "10 Bewässerung",
+          "titel": "Auffüllen von Bewässerungseinheiten (IBC).",
+          "weeks": {}
+        },
+        {
+          "label": "11 Spezial",
+          "titel": "Anbringen Kletterhilfen bzw Hochbinden von Kletterpflanzen",
+          "weeks": {
+            "15": 1,
+            "46": 1
+          }
+        },
+        {
+          "label": "12 Spezial",
+          "titel": "Neupflanzungen/Nachpflanzungen. Bei Pflanzenausfall, Absterben, o.ä. ist die Nachpflanzung manchmal notwendig. Die Arten müssen abgestimmt werden.",
+          "weeks": {}
+        },
+        {
+          "label": "13 Spezial",
+          "titel": "Nach-Mulchen (Bereits gemulchte Flächen müssen nachdem sich die Mulchschicht zersetzt wieder nachgemulcht werden)",
+          "weeks": {}
+        },
+        {
+          "label": "14 Spezial",
+          "titel": "Überprüfung von Bioreaktoren/Fermenter auf Funktion, Zustand und Kompostreifung",
+          "weeks": {
+            "15": 0.35,
+            "46": 0.35
+          }
+        },
+        {
+          "label": "15 Spezial",
+          "titel": "Extra-Wässerung bei Hitzeperioden. Beobachtung der Niederschläge - ggf. Extra Bewässerung einplanen wenn notwendig zum Erhalt der Kulturen.",
+          "weeks": {}
+        }
+      ]
+    },
+    {
+      "key": "R95",
+      "project_id": "r95",
+      "objekt": "",
+      "client_id": "jope",
+      "name": "R95",
+      "notes": "",
+      "year_total": 111.2,
+      "weekly_totals": {
+        "15": 29.35,
+        "23": 13.5,
+        "31": 15.5,
+        "38": 13.5,
+        "46": 39.35
+      },
+      "tasks": [
+        {
+          "label": "1 Pflanzen",
+          "titel": "Entfernung alter Pflanzenteile (Stauden), Beikräutern + Hochbinden von Kletterpflanzen",
+          "weeks": {
+            "15": 6,
+            "23": 4,
+            "31": 4,
+            "38": 4,
+            "46": 12
+          }
+        },
+        {
+          "label": "2 Pflanzen",
+          "titel": "Rückschnitt / Trimmen Gehölze",
+          "weeks": {
+            "15": 4,
+            "46": 6
+          }
+        },
+        {
+          "label": "3 Pflanzen",
+          "titel": "Düngen (Hornspäne, Brennesseljauche, Grasschnitt etc.)",
+          "weeks": {
+            "15": 2
+          }
+        },
+        {
+          "label": "4 Pflanzen",
+          "titel": "Reinigung der Wegeflächen (Laub, Beikräuter entfernen)",
+          "weeks": {
+            "15": 8,
+            "23": 6,
+            "31": 6,
+            "38": 6,
+            "46": 8
+          }
+        },
+        {
+          "label": "5 Pflanzen",
+          "titel": "Mahd & Trimmen der Rasenflächen. Wegeflächen erhalten durch Rückschnitt. Sitzflächen freihalten.",
+          "weeks": {
+            "15": 3,
+            "23": 3,
+            "31": 3,
+            "38": 3,
+            "46": 3
+          }
+        },
+        {
+          "label": "7 Bewässerung",
+          "titel": "Bewässerung (Per Hand/Flächenregner) Manuelles Wässern von Pflanzflächen und Gehölzen. Regelmäßige Anwuchs- oder Pflegewässerung der Kulturen. Kontrolle von Bewässerungssystemen.",
+          "weeks": {
+            "15": 2,
+            "23": 0.5,
+            "31": 0.5,
+            "38": 0.5,
+            "46": 2
+          }
+        },
+        {
+          "label": "8 Bewässerung",
+          "titel": "Abbau von Schläuchen und wasserführenden Teilen und Erinnerung an AG abstellen von Außen-Wasseranschlüssen (Winterfest machen) IBC entleeren",
+          "weeks": {
+            "46": 2
+          }
+        },
+        {
+          "label": "9 Bewässerung",
+          "titel": "Anschließen/Kontrolle Bewässerungssystem. Im Frühjahr müssen Bewässerungssysteme angeschlossen und aktiviert werden. Wasserhähne müssen in Absprache mit AG eingschaltet werden.",
+          "weeks": {
+            "15": 2
+          }
+        },
+        {
+          "label": "10 Bewässerung",
+          "titel": "Auffüllen von Bewässerungseinheiten (IBC).",
+          "weeks": {}
+        },
+        {
+          "label": "11 Spezial",
+          "titel": "Kontrolle Dachgarten Fahrradschuppen",
+          "weeks": {
+            "15": 2,
+            "31": 2,
+            "46": 2
+          }
+        },
+        {
+          "label": "12 Spezial",
+          "titel": "Neupflanzungen/Nachpflanzungen. Bei Pflanzenausfall, Absterben, o.ä. ist die Nachpflanzung manchmal notwendig. Die Arten müssen abgestimmt werden.",
+          "weeks": {
+            "46": 4
+          }
+        },
+        {
+          "label": "13 Spezial",
+          "titel": "Nach-Mulchen (Bereits gemulchte Flächen müssen nachdem sich die Mulchschicht zersetzt wieder nachgemulcht werden)",
+          "weeks": {}
+        },
+        {
+          "label": "14 Spezial",
+          "titel": "Überprüfung von Bioreaktoren/Fermenter auf Funktion, Zustand und Kompostreifung",
+          "weeks": {
+            "15": 0.35,
+            "46": 0.35
+          }
+        },
+        {
+          "label": "15 Spezial",
+          "titel": "Extra-Wässerung bei Hitzeperioden. Beobachtung der Niederschläge - ggf. Extra Bewässerung einplanen wenn notwendig zum Erhalt der Kulturen.",
+          "weeks": {}
+        }
+      ]
+    },
+    {
+      "key": "P15",
+      "project_id": "p15",
+      "objekt": "",
+      "client_id": "jope",
+      "name": "P15 (Putlitzstraße 15)",
+      "notes": "Hier muss darauf geachtet werden, dass es einen Dachgarten gibt, bzw eine Solaranlage für die wir mitverantwortlich sind. Und die Begrünung der Garagen/Stellplatzüberdachungen.",
+      "year_total": 50.5,
+      "weekly_totals": {
+        "15": 16,
+        "23": 5.5,
+        "31": 6.5,
+        "38": 4.5,
+        "43": 2,
+        "46": 14,
+        "49": 2
+      },
+      "tasks": [
+        {
+          "label": "1 Pflanzen",
+          "titel": "Entfernung alter Pflanzenteile (Stauden),Beikräutern + Hochbinden von Kletterpflanzen",
+          "weeks": {
+            "15": 3,
+            "23": 3,
+            "31": 2,
+            "38": 2,
+            "46": 3
+          }
+        },
+        {
+          "label": "2 Pflanzen",
+          "titel": "Rückschnitt / Trimmen Gehölze",
+          "weeks": {
+            "15": 3,
+            "46": 3
+          }
+        },
+        {
+          "label": "3 Pflanzen",
+          "titel": "Düngen (Hornspäne, Brennesseljauche, Grasschnitt etc.) + Kontrolle der Fermenter",
+          "weeks": {
+            "15": 2
+          }
+        },
+        {
+          "label": "4 Pflanzen",
+          "titel": "Reinigung der Wegeflächen (Laub, Beikräuter entfernen)",
+          "weeks": {
+            "15": 2,
+            "23": 2,
+            "31": 2,
+            "38": 2,
+            "43": 2,
+            "46": 2,
+            "49": 2
+          }
+        },
+        {
+          "label": "5 Pflanzen",
+          "titel": "Mahd & Trimmen der Rasenflächen. Wegeflächen erhalten durch Rückschnitt. Sitzflächen freihalten.",
+          "weeks": {}
+        },
+        {
+          "label": "7 Bewässerung",
+          "titel": "Bewässerung (Per Hand/Flächenregner) Manuelles Wässern von Pflanzflächen und Gehölzen. Regelmäßige Anwuchs- oder Pflegewässerung der Kulturen. Kontrolle von Bewässerungssystemen.",
+          "weeks": {
+            "15": 1,
+            "23": 0.5,
+            "31": 0.5,
+            "38": 0.5,
+            "46": 1
+          }
+        },
+        {
+          "label": "8 Bewässerung",
+          "titel": "Abbau von Schläuchen und wasserführenden Teilen und Erinnerung an AG abstellen von Außen-Wasseranschlüssen (Winterfest machen) IBC entleeren",
+          "weeks": {
+            "46": 2
+          }
+        },
+        {
+          "label": "9 Bewässerung",
+          "titel": "Anschließen/Kontrolle Bewässerungssystem. Im Frühjahr müssen Bewässerungssysteme angeschlossen und aktiviert werden. Wasserhähne müssen in Absprache mit AG eingschaltet werden.",
+          "weeks": {
+            "15": 2
+          }
+        },
+        {
+          "label": "10 Bewässerung",
+          "titel": "Auffüllen von Bewässerungseinheiten (IBC).",
+          "weeks": {}
+        },
+        {
+          "label": "11 Spezial",
+          "titel": "Anbringen Kletterhilfen bzw Hochbinden von Kletterpflanzen",
+          "weeks": {
+            "15": 1,
+            "46": 1
+          }
+        },
+        {
+          "label": "12 Spezial",
+          "titel": "Neupflanzungen/Nachpflanzungen. Bei Pflanzenausfall, Absterben, o.ä. ist die Nachpflanzung manchmal notwendig. Die Arten müssen abgestimmt werden.",
+          "weeks": {}
+        },
+        {
+          "label": "13 Spezial",
+          "titel": "Nach-Mulchen (Bereits gemulchte Flächen müssen nachdem sich die Mulchschicht zersetzt wieder nachgemulcht werden)",
+          "weeks": {}
+        },
+        {
+          "label": "14 Spezial",
+          "titel": "Dachgarten: Pflege des Dachgartens mit Rückschnitt. Solaranlage muss freigehalten werden. Reporting bei Auffälligkeiten. Keine Wässerung oder Düngung.",
+          "weeks": {
+            "15": 2,
+            "31": 2,
+            "46": 2
+          }
+        },
+        {
+          "label": "15 Spezial",
+          "titel": "Extra-Wässerung bei Hitzeperioden. Beobachtung der Niederschläge - ggf. Extra Bewässerung einplanen wenn notwendig zum Erhalt der Kulturen.",
+          "weeks": {}
+        }
+      ]
+    },
+    {
+      "key": "X13",
+      "project_id": "e52ve8z3",
+      "objekt": "",
+      "client_id": "jope",
+      "name": "X13 (Kreuzbergstraße 13)",
+      "notes": "Hier in der Kreuzbergstraße ist das Berlin Büro von JOPE, also dem Auftraggeber. Hier ist es wichtig, dass es immer gepflegt aussieht und wir einen sehr guten Eindruck hinterlassen. JOhannes hat letztes Jahr den Wunsch geäußert an diesem Standort mehr Blühstauden zu pflanzen. Die muss ich noch bestellen (Ist noch nciht passiert). Wichtig ist auch hier immer die Wärmepumpen freizuschneiden damit dort nicht reinkommt und den Rasen gepflegt aussehen zu lassen. Den Rasen könnte man vlt. mal düngen und regelmäßig bei Trockenheit gießen. Eine zusätzliche Maßnahme wäre noch die Rundholzbeetbegrenzung hier mal zu installieren. Aber dafür muss erstmal passende Material irgendwo anfallen.",
+      "year_total": 56.2,
+      "weekly_totals": {
+        "15": 15.35,
+        "23": 9,
+        "31": 9,
+        "38": 9,
+        "46": 13.85
+      },
+      "tasks": [
+        {
+          "label": "1 Pflanzen",
+          "titel": "Entfernung alter Pflanzenteile (Stauden),Beikräutern + Hochbinden von Kletterpflanzen",
+          "weeks": {
+            "15": 2,
+            "23": 2,
+            "31": 2,
+            "38": 2,
+            "46": 2
+          }
+        },
+        {
+          "label": "2 Pflanzen",
+          "titel": "Rückschnitt / Trimmen Gehölze",
+          "weeks": {
+            "15": 2,
+            "46": 2
+          }
+        },
+        {
+          "label": "3 Pflanzen",
+          "titel": "Düngen (Hornspäne, Brennesseljauche, Grasschnitt etc.)",
+          "weeks": {
+            "15": 2
+          }
+        },
+        {
+          "label": "4 Pflanzen",
+          "titel": "Reinigung der Wegeflächen (Laub, Beikräuter entfernen) & Alle Dachflächen Beikräuter entfernen",
+          "weeks": {
+            "15": 2,
+            "23": 2,
+            "31": 2,
+            "38": 2,
+            "46": 2
+          }
+        },
+        {
+          "label": "5 Pflanzen",
+          "titel": "Mahd & Trimmen der Rasenflächen. Wegeflächen erhalten durch Rückschnitt. Sitzflächen freihalten.",
+          "weeks": {
+            "15": 3,
+            "23": 3,
+            "31": 3,
+            "38": 3,
+            "46": 3
+          }
+        },
+        {
+          "label": "7 Bewässerung",
+          "titel": "Bewässerung (Per Hand/Flächenregner) Manuelles Wässern von Pflanzflächen und Gehölzen. Regelmäßige Anwuchs- oder Pflegewässerung der Kulturen. Kontrolle von Bewässerungssystemen.",
+          "weeks": {
+            "15": 2,
+            "23": 2,
+            "31": 2,
+            "38": 2,
+            "46": 2
+          }
+        },
+        {
+          "label": "8 Bewässerung",
+          "titel": "Abbau von Schläuchen und wasserführenden Teilen und Erinnerung an AG abstellen von Außen-Wasseranschlüssen (Winterfest machen) IBC entleeren",
+          "weeks": {
+            "46": 0.5
+          }
+        },
+        {
+          "label": "9 Bewässerung",
+          "titel": "Anschließen/Kontrolle Bewässerungssystem. Im Frühjahr müssen Bewässerungssysteme angeschlossen und aktiviert werden. Wasserhähne müssen in Absprache mit AG eingschaltet werden.",
+          "weeks": {
+            "15": 2
+          }
+        },
+        {
+          "label": "10 Bewässerung",
+          "titel": "Auffüllen von Bewässerungseinheiten (IBC).",
+          "weeks": {}
+        },
+        {
+          "label": "11 Spezial",
+          "titel": "Anbringen Kletterhilfen bzw Hochbinden von Kletterpflanzen",
+          "weeks": {}
+        },
+        {
+          "label": "12 Spezial",
+          "titel": "Neupflanzungen/Nachpflanzungen. Bei Pflanzenausfall, Absterben, o.ä. ist die Nachpflanzung manchmal notwendig. Die Arten müssen abgestimmt werden.",
+          "weeks": {
+            "46": 2
+          }
+        },
+        {
+          "label": "13 Spezial",
+          "titel": "Nach-Mulchen (Bereits gemulchte Flächen müssen nachdem sich die Mulchschicht zersetzt wieder nachgemulcht werden)",
+          "weeks": {}
+        },
+        {
+          "label": "14 Spezial",
+          "titel": "Überprüfung von Bioreaktoren/Fermenter auf Funktion, Zustand und Kompostreifung",
+          "weeks": {
+            "15": 0.35,
+            "46": 0.35
+          }
+        },
+        {
+          "label": "15 Spezial",
+          "titel": "Extra-Wässerung bei Hitzeperioden. Beobachtung der Niederschläge - ggf. Extra Bewässerung einplanen wenn notwendig zum Erhalt der Kulturen.",
+          "weeks": {}
+        }
+      ]
+    },
+    {
+      "key": "Seebadstr",
+      "project_id": "allcura-pflege",
+      "objekt": "Seebadstr. 37",
+      "client_id": "allcura",
+      "name": "Seebadstr. 37, 13467 Berlin",
+      "notes": "",
+      "year_total": 26,
+      "weekly_totals": {
+        "26": 2,
+        "30": 3,
+        "34": 2,
+        "38": 3,
+        "43": 8,
+        "48": 4,
+        "52": 4
+      },
+      "tasks": [
+        {
+          "label": "1 Pflanzen",
+          "titel": "Entfernung alter Pflanzenteile (Stauden),Beikräutern + Hochbinden von Kletterpflanzen",
+          "weeks": {}
+        },
+        {
+          "label": "2 Pflanzen",
+          "titel": "Rückschnitt / Trimmen Gehölze",
+          "weeks": {
+            "30": 1,
+            "38": 1,
+            "43": 2
+          }
+        },
+        {
+          "label": "3 Pflanzen",
+          "titel": "Düngen (Hornspäne, Brennesseljauche, Grasschnitt etc.)",
+          "weeks": {}
+        },
+        {
+          "label": "4 Pflanzen",
+          "titel": "Reinigung der Wegeflächen (Laub, Beikräuter entfernen)",
+          "weeks": {
+            "43": 4,
+            "48": 4,
+            "52": 4
+          }
+        },
+        {
+          "label": "5 Pflanzen",
+          "titel": "Mahd & Trimmen der Rasenflächen. Wegeflächen erhalten durch Rückschnitt. Sitzflächen freihalten.",
+          "weeks": {
+            "26": 2,
+            "30": 2,
+            "34": 2,
+            "38": 2,
+            "43": 2
+          }
+        },
+        {
+          "label": "7 Bewässerung",
+          "titel": "Bewässerung (Per Hand/Flächenregner) Manuelles Wässern von Pflanzflächen und Gehölzen. Regelmäßige Anwuchs- oder Pflegewässerung der Kulturen. Kontrolle von Bewässerungssystemen.",
+          "weeks": {}
+        },
+        {
+          "label": "8 Bewässerung",
+          "titel": "Abbau von Schläuchen und wasserführenden Teilen und Erinnerung an AG abstellen von Außen-Wasseranschlüssen (Winterfest machen) IBC entleeren",
+          "weeks": {}
+        },
+        {
+          "label": "9 Bewässerung",
+          "titel": "Anschließen/Kontrolle Bewässerungssystem. Im Frühjahr müssen Bewässerungssysteme angeschlossen und aktiviert werden. Wasserhähne müssen in Absprache mit AG eingschaltet werden.",
+          "weeks": {}
+        },
+        {
+          "label": "10 Bewässerung",
+          "titel": "Auffüllen von Bewässerungseinheiten (IBC).",
+          "weeks": {}
+        },
+        {
+          "label": "11 Spezial",
+          "titel": "Dachgarten: Pflege des Dachgartens mit Rückschnitt von Gehölzen, Mulchen, Pflanzenschutz, Düngen, Bodenverbesserung, Entfernung von Beikräutern, Kontrolle und Wartung der Bewässerungsanlage inkl. Frostsicherung und Inbetriebnahme, Nachpflanzungen sowie laufende Pflege von Stauden, Gräsern und Dachabläufen. Kommunikation mit Stakeholdern.",
+          "weeks": {}
+        },
+        {
+          "label": "12 Spezial",
+          "titel": "Neupflanzungen/Nachpflanzungen. Bei Pflanzenausfall, Absterben, o.ä. ist die Nachpflanzung manchmal notwendig. Die Arten müssen abgestimmt werden.",
+          "weeks": {}
+        },
+        {
+          "label": "13 Spezial",
+          "titel": "Nach-Mulchen (Bereits gemulchte Flächen müssen nachdem sich die Mulchschicht zersetzt wieder nachgemulcht werden)",
+          "weeks": {}
+        },
+        {
+          "label": "14 Spezial",
+          "titel": "Überprüfung von Bioreaktoren/Fermenter auf Funktion, Zustand und Kompostreifung",
+          "weeks": {}
+        },
+        {
+          "label": "15 Spezial",
+          "titel": "Extra-Wässerung bei Hitzeperioden. Beobachtung der Niederschläge - ggf. Extra Bewässerung einplanen wenn notwendig zum Erhalt der Kulturen.",
+          "weeks": {}
+        }
+      ]
+    },
+    {
+      "key": "Roedernstr",
+      "project_id": "allcura-pflege",
+      "objekt": "Roedernstr. 17/19",
+      "client_id": "allcura",
+      "name": "Roedernstr. 17/19. 13467 Berlin",
+      "notes": "",
+      "year_total": 52,
+      "weekly_totals": {
+        "26": 4,
+        "30": 6,
+        "34": 4,
+        "38": 6,
+        "43": 16,
+        "48": 8,
+        "52": 8
+      },
+      "tasks": [
+        {
+          "label": "1 Pflanzen",
+          "titel": "Entfernung alter Pflanzenteile (Stauden),Beikräutern + Hochbinden von Kletterpflanzen",
+          "weeks": {}
+        },
+        {
+          "label": "2 Pflanzen",
+          "titel": "Rückschnitt / Trimmen Gehölze",
+          "weeks": {
+            "30": 2,
+            "38": 2,
+            "43": 4
+          }
+        },
+        {
+          "label": "3 Pflanzen",
+          "titel": "Düngen (Hornspäne, Brennesseljauche, Grasschnitt etc.)",
+          "weeks": {}
+        },
+        {
+          "label": "4 Pflanzen",
+          "titel": "Reinigung der Wegeflächen (Laub, Beikräuter entfernen)",
+          "weeks": {
+            "43": 8,
+            "48": 8,
+            "52": 8
+          }
+        },
+        {
+          "label": "5 Pflanzen",
+          "titel": "Mahd & Trimmen der Rasenflächen. Wegeflächen erhalten durch Rückschnitt. Sitzflächen freihalten.",
+          "weeks": {
+            "26": 4,
+            "30": 4,
+            "34": 4,
+            "38": 4,
+            "43": 4
+          }
+        },
+        {
+          "label": "7 Bewässerung",
+          "titel": "Bewässerung (Per Hand/Flächenregner) Manuelles Wässern von Pflanzflächen und Gehölzen. Regelmäßige Anwuchs- oder Pflegewässerung der Kulturen. Kontrolle von Bewässerungssystemen.",
+          "weeks": {}
+        },
+        {
+          "label": "8 Bewässerung",
+          "titel": "Abbau von Schläuchen und wasserführenden Teilen und Erinnerung an AG abstellen von Außen-Wasseranschlüssen (Winterfest machen) IBC entleeren",
+          "weeks": {}
+        },
+        {
+          "label": "9 Bewässerung",
+          "titel": "Anschließen/Kontrolle Bewässerungssystem. Im Frühjahr müssen Bewässerungssysteme angeschlossen und aktiviert werden. Wasserhähne müssen in Absprache mit AG eingschaltet werden.",
+          "weeks": {}
+        },
+        {
+          "label": "10 Bewässerung",
+          "titel": "Auffüllen von Bewässerungseinheiten (IBC).",
+          "weeks": {}
+        },
+        {
+          "label": "11 Spezial",
+          "titel": "Dachgarten: Pflege des Dachgartens mit Rückschnitt von Gehölzen, Mulchen, Pflanzenschutz, Düngen, Bodenverbesserung, Entfernung von Beikräutern, Kontrolle und Wartung der Bewässerungsanlage inkl. Frostsicherung und Inbetriebnahme, Nachpflanzungen sowie laufende Pflege von Stauden, Gräsern und Dachabläufen. Kommunikation mit Stakeholdern.",
+          "weeks": {}
+        },
+        {
+          "label": "12 Spezial",
+          "titel": "Neupflanzungen/Nachpflanzungen. Bei Pflanzenausfall, Absterben, o.ä. ist die Nachpflanzung manchmal notwendig. Die Arten müssen abgestimmt werden.",
+          "weeks": {}
+        },
+        {
+          "label": "13 Spezial",
+          "titel": "Nach-Mulchen (Bereits gemulchte Flächen müssen nachdem sich die Mulchschicht zersetzt wieder nachgemulcht werden)",
+          "weeks": {}
+        },
+        {
+          "label": "14 Spezial",
+          "titel": "Überprüfung von Bioreaktoren/Fermenter auf Funktion, Zustand und Kompostreifung",
+          "weeks": {}
+        },
+        {
+          "label": "15 Spezial",
+          "titel": "Extra-Wässerung bei Hitzeperioden. Beobachtung der Niederschläge - ggf. Extra Bewässerung einplanen wenn notwendig zum Erhalt der Kulturen.",
+          "weeks": {}
+        }
+      ]
+    }
+  ]
+}

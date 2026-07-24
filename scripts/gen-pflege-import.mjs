@@ -95,8 +95,12 @@ for (const s of data.sites) {
     const jahres = Object.values(t.weeks).reduce((a, b) => a + b, 0)
     return `(${q(key)}, ${q(kurz)}, ${q(t.titel)}, ${q(katFor(t.label, key))}, ${jq(fensterFrom(t.weeks))}, ${jq(t.weeks)}, ${jahres}, ${i})`
   })
-  const gaenge = Object.entries(s.weekly_totals)
-    .map(([kw, h]) => [Number(kw), h])
+  // Wochensummen aus den Aufgaben selbst berechnen statt aus der SUMME-Zeile des
+  // Sheets — die ist bei SH nachweislich fehlerhaft (SUM-Bereich endet vor Zeile 18).
+  const weekly = {}
+  for (const t of s.tasks) for (const [kw, h] of Object.entries(t.weeks)) weekly[kw] = (weekly[kw] || 0) + h
+  const gaenge = Object.entries(weekly)
+    .map(([kw, h]) => [Number(kw), Math.round(h * 100) / 100])
     .sort((a, b) => a[0] - b[0])
     .map(([kw, h]) => {
       const inWeek = s.tasks
