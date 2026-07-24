@@ -10,6 +10,7 @@ import { isNativeApp } from '../lib/platform.js'
 import { genId } from '../lib/storage.js'
 import { tgSend } from '../lib/telegram.js'
 import InstallSection from '../components/InstallSection.jsx'
+import UserManagement from '../components/UserManagement.jsx'
 import { Avatar } from '../components/ui.jsx'
 import { avatarFor } from '../lib/people.js'
 import { Car, Truck, Plus, Trash2, Calendar, ExternalLink, AlertTriangle, Send, Check, RefreshCw, Unlink, FolderOpen, Pencil, X } from 'lucide-react'
@@ -205,6 +206,12 @@ export default function SettingsPage() {
   return (
     <div style={{ padding: 24, maxWidth: 760, margin: '0 auto' }}>
       <h1 style={{ fontSize: 22, fontWeight: 400, color: FG, letterSpacing: '-0.02em', marginBottom: 28 }}>Einstellungen</h1>
+
+      {/* ── Nutzer & Zugriff ── */}
+      <section style={{ marginBottom: 36 }}>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 14 }}>Nutzer &amp; Zugriff</div>
+        <UserManagement />
+      </section>
 
       {/* ── App aufs Handy ── */}
       <section style={{ marginBottom: 36 }}>
