@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { MapContainer, TileLayer, WMSTileLayer, Marker, Popup, useMap, GeoJSON, ImageOverlay, Circle } from 'react-leaflet'
+import { MapContainer, TileLayer, WMSTileLayer, Marker, Popup, useMap, useMapEvents, GeoJSON, ImageOverlay, Circle } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import '@geoman-io/leaflet-geoman-free'
@@ -147,6 +147,20 @@ function makeUserIcon() {
     iconSize: [16, 16],
     iconAnchor: [8, 8],
   })
+}
+
+// 3D-Schatten-Ansicht: deck.gl steckt in einem eigenen Chunk (lazy)
+const Sun3DView = lazy(() => import('../components/Sun3DView.jsx'))
+
+// Merkt sich Kartenmitte/Zoom (für die 3D-Ansicht), ohne Re-Render auszulösen
+function ViewTracker({ viewRef }) {
+  const map = useMapEvents({
+    moveend: () => {
+      const c = map.getCenter()
+      viewRef.current = { lat: c.lat, lng: c.lng, zoom: map.getZoom() }
+    },
+  })
+  return null
 }
 
 function FlyTo({ center }) {
@@ -915,6 +929,10 @@ export default function MapPage() {
   const [quickDraft, setQuickDraft] = useState(null)         // Vorbelegung fürs Vollformular
   const [serialCount, setSerialCount] = useState(0)          // Bäume in dieser Serie
   const [panelFeatureId, setPanelFeatureId] = useState(null) // geöffnetes Baum-Detailpanel
+
+  // 3D-Schatten-Ansicht
+  const [show3D, setShow3D] = useState(false)
+  const viewRef = useRef({ lat: 52.515, lng: 13.405, zoom: 11 })
 
   // Adress- & Feature-Suche (Lupe in der Toolbar)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -1696,6 +1714,7 @@ export default function MapPage() {
           ))}
 
           {flyTarget && <FlyTo center={flyTarget} />}
+          <ViewTracker viewRef={viewRef} />
 
           {/* Eigener Standort (GPS) */}
           <UserLocation userPos={userPos} />
@@ -1984,6 +2003,10 @@ export default function MapPage() {
               style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: '1px solid transparent', background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
               <Ruler size={13} />{!isMobile && 'Messen'}
             </button>
+            <button onClick={() => setShow3D(true)} title="3D-Schatten: Gebäude in 3D mit Sonnenstand-Simulation" className="lu-chip"
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: '1px solid transparent', background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
+              <span style={{ fontSize: 13 }}>☀️</span>{!isMobile && '3D-Schatten'}
+            </button>
             <button onClick={() => setGpsOn(v => !v)} title="Meinen Standort anzeigen (GPS)"
               style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: `1px solid ${gpsOn ? 'rgba(59,130,246,0.5)' : 'transparent'}`, background: gpsOn ? 'rgba(59,130,246,0.14)' : 'transparent', color: gpsOn ? '#3b82f6' : MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
               <LocateFixed size={13} />{!isMobile && 'Standort'}
@@ -2212,6 +2235,8 @@ export default function MapPage() {
                     label: feat.label || feat.feature_type,
                     area_m2: m?.area_m2 || 0,
                     geometry: feat.geometry,
+                    // Licht-Klasse aus der Sonnenanalyse (1/2/3) → Florales-Filter
+                    licht: feat.properties?.sonnenanalyse?.licht || null,
                   },
                 },
               })
@@ -2242,6 +2267,24 @@ export default function MapPage() {
           onSave={onOrthoSave}
           onCancel={() => setOrthoModal(null)}
         />
+      )}
+
+      {/* 3D-Schatten-Ansicht (deck.gl, lazy) */}
+      {show3D && (
+        <Suspense fallback={
+          <div style={{ position: 'absolute', inset: 0, zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.55)' }}>
+            <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '14px 22px', color: FG, fontSize: 13, fontFamily: "'Space Grotesk', sans-serif" }}>
+              Lade 3D-Ansicht…
+            </div>
+          </div>
+        }>
+          <Sun3DView
+            center={viewRef.current}
+            mapFeatures={mapFeatures}
+            projectColorById={projectColorById}
+            onClose={() => setShow3D(false)}
+          />
+        </Suspense>
       )}
     </div>
   )

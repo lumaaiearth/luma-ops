@@ -177,6 +177,8 @@ export default function PlanningPage() {
       const h = Math.round((area_m2 / w) * 10) / 10
       setBeetW(w); setBeetH(h); setActiveTab('standort')
     }
+    // Licht-Klasse aus der BIOME-Sonnenanalyse → Lichtfilter vorbelegen
+    if ([1, 2, 3].includes(state.fromMapFeature.licht)) setLicht(state.fromMapFeature.licht)
     setFromMapFeature(state.fromMapFeature)
   }, [location.state])
 

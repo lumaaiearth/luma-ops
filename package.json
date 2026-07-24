@@ -19,6 +19,9 @@
     "@capacitor/ios": "^8.4.1",
     "@capacitor/splash-screen": "^8.0.1",
     "@capacitor/status-bar": "^8.0.2",
+    "@deck.gl/core": "^9.3.7",
+    "@deck.gl/geo-layers": "^9.3.7",
+    "@deck.gl/layers": "^9.3.7",
     "@geoman-io/leaflet-geoman-free": "^2.19.3",
     "@supabase/supabase-js": "^2.106.2",
     "geotiff": "^3.0.5",
@@ -29,6 +32,7 @@
     "react-leaflet": "^5.0.0",
     "react-router-dom": "^6.28.0",
     "recharts": "^3.8.1",
+    "suncalc": "^2.0.1",
     "three": "^0.185.1"
   },
   "devDependencies": {

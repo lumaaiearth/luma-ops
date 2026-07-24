@@ -3,13 +3,15 @@
 // Fotos (Upload + Beispielbilder), Florales™-Verknüpfung, Aktionen.
 // Desktop: rechte Seite · Mobil: Bottom-Sheet.
 import { useState, useRef } from 'react'
-import { X, Pencil, Trash2, ExternalLink, Camera, Loader, Sprout } from 'lucide-react'
+import { X, Pencil, Trash2, ExternalLink, Camera, Loader, Sprout, Sun, RefreshCw } from 'lucide-react'
 import { A, SURFACE, BORDER, FG, MUTED, OK, WARN, DANGER, A14, A20 } from '../lib/theme.js'
 import { sb } from '../lib/supabase.js'
 import { genId } from '../lib/storage.js'
 import { compressImage } from '../lib/images.js'
 import { geomMeasures, fmtArea, fmtLen, fmtLatLng } from '../lib/geo.js'
 import { examplePhotos } from '../lib/placeholderImages.js'
+import { fetchBuildingsAround } from '../lib/overpass.js'
+import { analyzeSun, SEASONS, LICHT_KLASSEN } from '../lib/solar.js'
 
 const MONO = "'Space Mono', monospace"
 const SANS = "'Space Grotesk', sans-serif"
@@ -163,13 +165,98 @@ function FeaturePhotos({ feature, isAdmin, onUpdateProperties }) {
   )
 }
 
+/* ── Sonnenanalyse: direkte Sonnenstunden je Jahreszeit am Feature-Standort.
+   Gebäude aus OSM (Overpass), Sonnenstand via SunCalc — Ergebnis wird in
+   properties.sonnenanalyse gespeichert und befüllt den Florales™-Lichtfilter. */
+function SunAnalysis({ feature, centroid, isAdmin, onUpdateProperties }) {
+  const [running, setRunning] = useState(false)
+  const [error, setError] = useState(null)
+  const [localResult, setLocalResult] = useState(null)
+  const result = localResult || feature.properties?.sonnenanalyse || null
+
+  async function run() {
+    if (!centroid) return
+    setRunning(true); setError(null)
+    try {
+      const buildings = await fetchBuildingsAround(centroid.lat, centroid.lng, 180)
+      const analysis = analyzeSun(centroid.lat, centroid.lng, buildings)
+      setLocalResult(analysis)
+      if (isAdmin) onUpdateProperties({ ...feature.properties, sonnenanalyse: analysis })
+    } catch (e) {
+      setError(navigator.onLine ? 'Gebäudedaten (OSM) gerade nicht erreichbar — später erneut versuchen.' : 'Offline — Analyse braucht Internet.')
+    } finally {
+      setRunning(false)
+    }
+  }
+
+  if (!centroid) return null
+  const klasse = result ? LICHT_KLASSEN[result.licht] : null
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>☀️ Sonne & Licht</span>
+        {result && (
+          <button type="button" onClick={run} disabled={running} title="Neu berechnen" className="lu-btn-ghost"
+            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 5, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: running ? 'default' : 'pointer', fontSize: 10, fontFamily: SANS }}>
+            <RefreshCw size={10} style={running ? { animation: 'spin 1s linear infinite' } : undefined} /> {running ? 'rechnet…' : 'neu'}
+          </button>
+        )}
+      </div>
+
+      {!result && (
+        <button type="button" onClick={run} disabled={running}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: '9px 10px', borderRadius: 8, background: '#f59e0b15', border: '1px solid #f59e0b40', color: running ? MUTED : '#f59e0b', cursor: running ? 'default' : 'pointer', fontSize: 12, fontWeight: 600, fontFamily: SANS }}>
+          {running ? <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Sun size={13} />}
+          {running ? 'Berechne Sonnenstunden…' : 'Sonnenstunden berechnen'}
+        </button>
+      )}
+
+      {error && <div style={{ fontFamily: MONO, fontSize: 10, color: DANGER, marginTop: 6, lineHeight: 1.5 }}>{error}</div>}
+
+      {result && (
+        <>
+          {klasse && (
+            <div style={{ marginBottom: 8 }}>
+              <Badge color={klasse.color}>{klasse.label}</Badge>
+              <div style={{ fontSize: 10, color: MUTED, marginTop: 4, lineHeight: 1.5 }}>{klasse.hint}</div>
+            </div>
+          )}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+            {SEASONS.map(s => {
+              const v = result.seasons?.[s.key]
+              if (!v) return null
+              const pct = v.possible > 0 ? Math.round((v.sun / v.possible) * 100) : 0
+              return (
+                <div key={s.key} style={{ background: 'color-mix(in srgb, var(--luma-fg) 3%, transparent)', borderRadius: 6, padding: '7px 9px' }}>
+                  <div style={{ fontFamily: MONO, fontSize: 8, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 2 }}>{s.emoji} {s.label}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: FG }}>
+                    {v.sun} h<span style={{ fontSize: 9, color: MUTED, fontWeight: 400 }}> / {v.possible} h möglich</span>
+                  </div>
+                  <div style={{ height: 3, borderRadius: 2, background: 'color-mix(in srgb, var(--luma-fg) 8%, transparent)', marginTop: 4, overflow: 'hidden' }}>
+                    <div style={{ width: `${pct}%`, height: '100%', background: '#f59e0b' }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, marginTop: 6, lineHeight: 1.5 }}>
+            {result.buildings_n} Gebäude (OSM) berücksichtigt · Bäume/Vegetation nicht enthalten
+            {result.on_building ? ' · Punkt liegt auf einem Gebäude (Dach?)' : ''}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 // Bekannte Keys, die bereits strukturiert dargestellt werden
 const KNOWN_KEYS = new Set([
   'photos', 'notizen', 'baumnummer', 'baummarke', 'baumart_deutsch', 'baumart_latein',
   'stammumfang_cm', 'bhd_cm', 'baumhoehe_m', 'kronendurchmesser_m', 'kronenansatz_m',
   'pflanzjahr', 'vitalitaet', 'verkehrssicherheit', 'eps_befall', 'schutzstatus',
   'schaedlinge', 'standorttyp', 'letzte_kontrolle', 'opacity', 'image_url', 'filename',
-  'tiles_url', 'slug', 'minZoom', 'maxZoom', 'tms',
+  'tiles_url', 'slug', 'minZoom', 'maxZoom', 'tms', 'sonnenanalyse',
 ])
 
 export default function FeaturePanel({
@@ -263,6 +350,9 @@ export default function FeaturePanel({
             {extraProps.map(([k, v]) => <Row key={k} k={k.replace(/_/g, ' ')} v={String(v)} />)}
           </div>
         )}
+
+        {/* Sonnenstunden-Analyse (Gebäudeschatten, 4 Jahreszeiten) */}
+        <SunAnalysis feature={feature} centroid={m?.centroid} isAdmin={isAdmin} onUpdateProperties={onUpdateProperties} />
 
         {/* Florales™: verknüpfte Pflanzpläne + Planung starten */}
         {(canFloralis || linkedPlans.length > 0) && (
