@@ -1408,7 +1408,15 @@ export default function MapPage() {
   const sidebarContent = (
     <div style={{ width: isMobile ? '100%' : 268, background: SURFACE, borderRight: isMobile ? 'none' : `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100%' }}>
       <div style={{ padding: '16px 14px 12px', borderBottom: `1px solid ${BORDER}` }}>
-        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 10 }}>BIOME™</div>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, letterSpacing: '0.15em', textTransform: 'uppercase', flex: 1 }}>BIOME™</div>
+          {isMobile && (
+            <button onClick={() => setSidebarOpen(false)} aria-label="Seitenleiste schließen"
+              style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <X size={15} />
+            </button>
+          )}
+        </div>
 
         {/* Tile toggle */}
         <div style={{ display: 'flex', gap: 3, marginBottom: 10, flexWrap: 'wrap' }}>
@@ -2153,18 +2161,20 @@ export default function MapPage() {
           </div>
         )}
 
-        {/* Mobile toggle */}
-        {isMobile && (
-          <button onClick={() => setSidebarOpen(v => !v)}
+        {/* Mobile toggle — bei offener Seitenleiste ausgeblendet (die hat ihr eigenes ✕) */}
+        {isMobile && !sidebarOpen && (
+          <button onClick={() => setSidebarOpen(true)}
             style={{ position: 'absolute', top: 12, left: 12, zIndex: 1000, background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '8px 14px', color: FG, cursor: 'pointer', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
-            {sidebarOpen ? '✕ Schließen' : '☰ Projekte'}
+            ☰ Projekte
           </button>
         )}
       </div>
 
-      {/* Mobile sidebar overlay */}
+      {/* Mobile sidebar overlay — z-index MUSS über Toolbar (1000), Bannern (1001),
+          Leaflet-Controls (1000) und Detailpanel (1200) liegen, sonst ragen deren
+          schwebende Elemente in die Seitenleiste hinein. */}
       {isMobile && sidebarOpen && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 999 }} onClick={() => setSidebarOpen(false)}>
+        <div style={{ position: 'absolute', inset: 0, zIndex: 1300 }} onClick={() => setSidebarOpen(false)}>
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
           <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '80%', maxWidth: 300 }} onClick={e => e.stopPropagation()}>
             {sidebarContent}
