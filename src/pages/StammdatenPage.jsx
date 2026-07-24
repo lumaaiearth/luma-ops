@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useOps } from '../context/OpsContext.jsx'
 import { A, SURFACE, BORDER, FG, MUTED, CARD, A06, A14, A18, A30, WARN, DANGER } from '../lib/theme.js'
-import { Button, EmptyState } from '../components/ui.jsx'
+import { Button, EmptyState, Avatar } from '../components/ui.jsx'
 import { genId } from '../lib/storage.js'
-import { FREELANCER_COLORS, initialsFor } from '../lib/people.js'
+import { FREELANCER_COLORS, initialsFor, avatarFor } from '../lib/people.js'
 import { Plus, Pencil, Trash2, X, Check, MapPin, User, Building2, Phone, Mail, ExternalLink, Users } from 'lucide-react'
 
 const INPUT = {
@@ -479,9 +479,7 @@ export default function StammdatenPage() {
           )}
           {freelancers.map(p => (
             <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 6, borderLeft: `3px solid ${p.color}`, opacity: p.active === false ? 0.55 : 1 }}>
-              <div style={{ width: 34, height: 34, borderRadius: '50%', background: p.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: '#001219', fontWeight: 700 }}>{p.initials}</span>
-              </div>
+              <Avatar initials={p.initials} color={p.color} size={34} src={avatarFor(p.id)} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
                   <span style={{ fontSize: 13, fontWeight: 500, color: FG }}>{p.name}</span>

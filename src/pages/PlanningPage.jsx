@@ -89,6 +89,22 @@ const STEPS = [
   { key: 'beet',     label: 'Beet & Pflanzen',   short: 'Beet',     emoji: '🌿', hint: 'Rasterplan-Vorschau, automatisch füllen oder selbst wählen' },
   { key: 'plan',     label: 'Übersicht & Export', short: 'Export',  emoji: '📋', hint: 'Wissenschaftliche Übersicht, Pflege, PDF & Excel' },
 ]
+
+// Sichtachse: Betrachterposition (Kompass) → Einheitsvektor „vom Betrachter ins
+// Beet" in lokalen Metern (x = Ost, y = Nord). Karte ist Nord-oben.
+const D7 = 0.70710678
+const VIEW_DIRS = [
+  { key: 'N',  label: 'Norden',     vx: 0,   vy: -1 },
+  { key: 'NO', label: 'Nordosten',  vx: -D7, vy: -D7 },
+  { key: 'O',  label: 'Osten',      vx: -1,  vy: 0 },
+  { key: 'SO', label: 'Südosten',   vx: -D7, vy: D7 },
+  { key: 'S',  label: 'Süden',      vx: 0,   vy: 1 },
+  { key: 'SW', label: 'Südwesten',  vx: D7,  vy: D7 },
+  { key: 'W',  label: 'Westen',     vx: 1,   vy: 0 },
+  { key: 'NW', label: 'Nordwesten', vx: D7,  vy: -D7 },
+]
+// 3×3-Kompass (Nord oben, Mitte = Beet)
+const COMPASS_GRID = ['NW', 'N', 'NO', 'W', null, 'O', 'SW', 'S', 'SO']
 const STEP_INDEX = k => Math.max(0, STEPS.findIndex(s => s.key === k))
 
 /* ─── MAIN ──────────────────────────────────────────────────────────────── */
@@ -142,7 +158,8 @@ export default function PlanningPage() {
   const [beetW, setBeetW] = useState(4)
   const [beetH, setBeetH] = useState(2)
   const [beetForm, setBeetForm] = useState('rechteck') // 'rechteck'|'oval'
-  const [viewDir, setViewDir] = useState({ x: 0, y: -1 }) // Blickrichtung der Besucher → Höhenschichtung
+  const [viewDir, setViewDir] = useState({ x: 0, y: 1 }) // Sichtachse: vom Betrachter ins Beet (Default: Blick von Süden) → Höhenschichtung
+  const [cluster, setCluster] = useState(0.5)             // Verteilung: 0 gemischt … 1 starke Art-Drifts
   const [fromMapFeature, setFromMapFeature] = useState(null)
   const [shapeMeta, setShapeMeta] = useState(null)   // aus BIOME-Shape abgeleitet
   const [site, setSite] = useState(null)             // Höhe/Klimazone/Region/Pflegehinweis
@@ -222,7 +239,10 @@ export default function PlanningPage() {
   }, [licht, wasser, boden, drainage, ph, search, artKeys, onlyHeimisch, onlyRaupen, onlyTagfalter, onlyBienen, onlyNachtfalter, onlyKaefer, onlyVoegel, onlyZier])
 
   // Kontinuierliche Platzierung für die 3D-Ansicht (Drifts/Höhenschichtung).
-  const plantsWithPlacement = useMemo(() => computePlacement(plan, beetW, beetH), [plan, beetW, beetH])
+  const plantsWithPlacement = useMemo(
+    () => computePlacement(plan, beetW, beetH, { cluster, viewDir }),
+    [plan, beetW, beetH, cluster, viewDir]
+  )
 
   function addToPlan(plant) {
     setPlan(prev => {
@@ -459,6 +479,7 @@ export default function PlanningPage() {
         <StandortScreen
           L={L} shadow={shadow} cardBg={cardBg} isMobile={isMobile}
           shapeMeta={shapeMeta} fromMapFeature={fromMapFeature} site={site} plan={plan}
+          viewDir={viewDir} cluster={cluster}
           licht={licht} setLicht={setLicht} wasser={wasser} setWasser={setWasser}
           boden={boden} setBoden={setBoden} drainage={drainage} setDrainage={setDrainage}
           ph={ph} setPh={setPh}
@@ -469,10 +490,10 @@ export default function PlanningPage() {
 
       {/* ── SCREEN 2: BEET & PFLANZEN ──────────────────────────────────── */}
       {activeTab === 'beet' && (
-        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
 
           {/* Katalog-Umschalter: Pflanzen | Habitate */}
-          <div style={{ padding: isMobile ? '10px 12px 0' : '12px 24px 0', flexShrink: 0 }}>
+          <div style={{ padding: isMobile ? '10px 12px 0' : '12px 24px 0' }}>
             <div style={{ display: 'inline-flex', gap: 4, background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, padding: 4 }}>
               {[['pflanzen', '🌱 Pflanzen'], ['habitate', '🪵 Habitate']].map(([k, l]) => (
                 <button key={k} onClick={() => setCatalogMode(k)} style={{
@@ -503,10 +524,49 @@ export default function PlanningPage() {
                   plan.length === 0
                     ? <div style={{ height: isMobile ? 240 : 320, display: 'flex', alignItems: 'center', justifyContent: 'center', color: MUTED, fontSize: 13, background: L ? '#f4f7f0' : '#0e1712', borderRadius: 8 }}>Fläche zuerst automatisch füllen oder Pflanzen wählen</div>
                     : <Suspense fallback={<div style={{ height: isMobile ? 240 : 320, display: 'flex', alignItems: 'center', justifyContent: 'center', color: MUTED, fontSize: 13 }}>🧊 3D-Modelle werden geladen …</div>}>
-                        <Beet3DPoly placement={plantsWithPlacement} beetW={beetW} beetH={beetH} beetForm={beetForm} polygon={shapeMeta.local.points} L={L} shadow={shadow} cardBg={cardBg} />
+                        <Beet3DPoly placement={plantsWithPlacement} beetW={beetW} beetH={beetH} beetForm={beetForm} polygon={shapeMeta.local.points} viewDir={viewDir} L={L} shadow={shadow} cardBg={cardBg} />
                       </Suspense>
                 ) : (
-                  <ShapeView shapeMeta={shapeMeta} plan={plan} height={isMobile ? 240 : 320} L={L} cardBg={cardBg} showCodes showLegend />
+                  <ShapeView shapeMeta={shapeMeta} plan={plan} height={isMobile ? 240 : 320} L={L} cardBg={cardBg} showCodes showLegend viewDir={viewDir} cluster={cluster} />
+                )}
+                {/* Verteilung (Cluster-Regler) + Sichtachse (Kompass) */}
+                {plan.length > 0 && (
+                  <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'stretch', marginTop: 12, paddingTop: 12, borderTop: `1px solid ${BORDER}` }}>
+                    <div style={{ flex: 1, minWidth: 210 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: FG, marginBottom: 6 }}>
+                        🎲 Verteilung der Arten — <span style={{ color: A }}>{cluster < 0.34 ? 'wild gemischt' : cluster < 0.67 ? 'natürliche Drifts' : 'starke Gruppen'}</span>
+                      </div>
+                      <input
+                        type="range" min={0} max={100} value={Math.round(cluster * 100)}
+                        onChange={e => setCluster(Number(e.target.value) / 100)}
+                        style={{ width: '100%', accentColor: A }}
+                        aria-label="Verteilung der Arten: gemischt bis gruppiert"
+                      />
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: MUTED }}>
+                        <span>gemischt</span><span>Drifts</span><span>Gruppen</span>
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: FG, marginBottom: 6 }}>
+                        👁️ Sichtachse — Blick von <span style={{ color: A }}>{VIEW_DIRS.find(d => d.vx === viewDir.x && d.vy === viewDir.y)?.label || 'Süden'}</span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 30px)', gridTemplateRows: 'repeat(3, 30px)', gap: 3 }}>
+                        {COMPASS_GRID.map((key, i) => {
+                          if (!key) return <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>🌿</div>
+                          const d = VIEW_DIRS.find(x => x.key === key)
+                          const act = viewDir.x === d.vx && viewDir.y === d.vy
+                          return (
+                            <button key={key} onClick={() => setViewDir({ x: d.vx, y: d.vy })} title={`Blick von ${d.label}`} aria-label={`Blick von ${d.label}`} style={{
+                              borderRadius: 7, fontSize: 10, fontWeight: act ? 800 : 500, cursor: 'pointer',
+                              border: act ? `1.5px solid ${A}` : `1px solid ${BORDER}`,
+                              background: act ? A14 : 'transparent', color: act ? A : MUTED, padding: 0,
+                            }}>{key}</button>
+                          )
+                        })}
+                      </div>
+                      <div style={{ fontSize: 10, color: MUTED, marginTop: 4 }}>Hohe Arten wandern nach hinten</div>
+                    </div>
+                  </div>
                 )}
               </div>
             ) : (
@@ -528,7 +588,7 @@ export default function PlanningPage() {
           </div>
 
           {/* Pflanzen-Palette (nach Standort passend, ohne Filter) */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '0 12px 24px' : '0 24px 24px' }}>
+          <div style={{ padding: isMobile ? '0 12px 24px' : '0 24px 24px' }}>
             <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', margin: '2px 0 10px', fontWeight: L ? 700 : 400 }}>
               🌱 Passende Pflanzen ({filtered.length}) — antippen zum Hinzufügen
             </div>
@@ -720,7 +780,7 @@ export default function PlanningPage() {
                   <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10, fontWeight: L ? 700 : 400 }}>
                     🗺️ {fromMapFeature?.label || 'Fläche'} · {shapeMeta.area_m2} m² · Umfang {shapeMeta.perimeter_m} m
                   </div>
-                  <ShapeView shapeMeta={shapeMeta} plan={plan} height={isMobile ? 240 : 320} L={L} cardBg={cardBg} showCodes showLegend />
+                  <ShapeView shapeMeta={shapeMeta} plan={plan} height={isMobile ? 240 : 320} L={L} cardBg={cardBg} showCodes showLegend viewDir={viewDir} cluster={cluster} />
                 </div>
               )}
               {/* Stats */}
@@ -793,7 +853,7 @@ export default function PlanningPage() {
               {/* Export */}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button onClick={() => {
-                  exportPdf(plan, { label: fromMapFeature?.label, beetArea, beetW, beetH, habitats: habitatPlan, site, shapeMeta })
+                  exportPdf(plan, { label: fromMapFeature?.label, beetArea, beetW, beetH, habitats: habitatPlan, site, shapeMeta, viewDir, cluster })
                   if (savedPlanId) updatePflanzplan(savedPlanId, { status: 'pdf_erstellt' })
                 }} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#052e16', border: 'none', color: '#fff', borderRadius: 8, padding: '9px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
                   <Download size={13} /> Plan-PDF
@@ -1109,7 +1169,7 @@ function BloomCalendar({ plan, L, shadow }) {
 // Welcome + Fläche (BIOME-Shape oder manuell) + Standortfaktoren + Blickrichtung.
 // Die Faktoren (licht/wasser/boden/drainage/ph) sind die EINZIGE Quelle und
 // steuern Filter & Auto-Auswahl auf Screen 2.
-function StandortScreen({ L, shadow, cardBg, isMobile, shapeMeta, fromMapFeature, site, plan, licht, setLicht, wasser, setWasser, boden, setBoden, drainage, setDrainage, ph, setPh, onOpenBiome, onNext }) {
+function StandortScreen({ L, shadow, cardBg, isMobile, shapeMeta, fromMapFeature, site, plan, viewDir, cluster, licht, setLicht, wasser, setWasser, boden, setBoden, drainage, setDrainage, ph, setPh, onOpenBiome, onNext }) {
   const card = { background: cardBg, borderRadius: 12, padding: '16px 18px', boxShadow: shadow, marginBottom: 14 }
   const hd = { fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12, fontWeight: L ? 700 : 400 }
   const hasShape = !!shapeMeta
@@ -1137,7 +1197,7 @@ function StandortScreen({ L, shadow, cardBg, isMobile, shapeMeta, fromMapFeature
             </div>
             {/* Die echte Freiform — durchgängiger Anker in allen Modulen */}
             <div style={{ marginBottom: 12 }}>
-              <ShapeView shapeMeta={shapeMeta} plan={plan || []} height={isMobile ? 220 : 300} L={L} cardBg={cardBg} showCodes />
+              <ShapeView shapeMeta={shapeMeta} plan={plan || []} height={isMobile ? 220 : 300} L={L} cardBg={cardBg} showCodes viewDir={viewDir} cluster={cluster} />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: 10 }}>
               <Meta label="Fläche" value={`${shapeMeta.area_m2} m²`} L={L} />
@@ -2551,9 +2611,9 @@ function renderIsoSnapshot(plan, beetW = 6, beetH = 4, month = 7) {
   } catch { return null }
 }
 // Offscreen-Schnappschuss des Rasterplans (Vierecke + Codes) als dataURL.
-function renderRasterSnapshot(plan, beetW = 6, beetH = 4, cellCm = 33) {
+function renderRasterSnapshot(plan, beetW = 6, beetH = 4, cellCm = 33, gridOpts = {}) {
   try {
-    const g = buildGrid(plan, beetW, beetH, cellCm)
+    const g = buildGrid(plan, beetW, beetH, cellCm, gridOpts)
     if (!g.legend.length) return null
     const by = new Map(g.legend.map(l => [l.id, l]))
     const cell = Math.max(16, Math.min(40, Math.floor(900 / g.cols)))
@@ -2577,9 +2637,9 @@ function renderRasterSnapshot(plan, beetW = 6, beetH = 4, cellCm = 33) {
   } catch { return null }
 }
 
-function exportPdf(plan, { label, beetArea, beetW, beetH, habitats = [], site = null, shapeMeta = null } = {}) {
+function exportPdf(plan, { label, beetArea, beetW, beetH, habitats = [], site = null, shapeMeta = null, viewDir = null, cluster = 0.5 } = {}) {
   const isoImg = renderIsoSnapshot(plan, beetW || 6, beetH || 4, 7)
-  const rasterImg = renderRasterSnapshot(plan, beetW || 6, beetH || 4, 33)
+  const rasterImg = renderRasterSnapshot(plan, beetW || 6, beetH || 4, 33, { polygon: shapeMeta?.local?.points || null, viewDir, cluster })
   const total = plan.reduce((s, p) => s + p.count, 0)
   const date = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
   const planTitle = label || `Pflanzplan ${beetW ? `${beetW}m × ${beetH}m` : ''}`
@@ -2880,7 +2940,7 @@ function HabitatCatalog({ habCat, setHabCat, habSearch, setHabSearch, habitatPla
           {habSearch && <button onClick={() => setHabSearch('')} style={{ background: 'none', border: 'none', color: MUTED, cursor: 'pointer', padding: 0 }}><X size={12} /></button>}
         </div>
       </div>
-      <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '0 12px 24px' : '0 24px 24px' }}>
+      <div style={{ padding: isMobile ? '0 12px 24px' : '0 24px 24px' }}>
         {list.length === 0 ? (
           <EmptyState msg="Kein Habitatelement gefunden 🪵" sub="Andere Kategorie oder Suche probieren" />
         ) : (

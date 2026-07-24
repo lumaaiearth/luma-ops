@@ -5,9 +5,9 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { useWeather } from '../context/WeatherContext.jsx'
 import { getWeatherForDate, STATUS_COLOR } from '../lib/weather.js'
 import { A, SURFACE, BORDER, FG, MUTED, BG, A06, OK, DANGER } from '../lib/theme.js'
-import { Button, EmptyState } from '../components/ui.jsx'
+import { Avatar, Button, EmptyState } from '../components/ui.jsx'
 import { TASK_STATUSES, TASK_PRIORITIES, TASK_EFFORTS, TASK_TYPES } from '../data/seed.js'
-import { findPerson, peopleForIds } from '../lib/people.js'
+import { findPerson, peopleForIds, avatarFor } from '../lib/people.js'
 import { isoToday, formatDate } from '../lib/storage.js'
 import TaskModal from '../components/TaskModal.jsx'
 import BoardModal from '../components/BoardModal.jsx'
@@ -190,9 +190,8 @@ export default function TasksPage() {
             {boardMembers.length > 0 && (
               <div style={{ display: 'flex', gap: -4 }}>
                 {boardMembers.map((u, i) => (
-                  <div key={u.id} title={u.name} style={{ width: 26, height: 26, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${BG}`, marginLeft: i === 0 ? 0 : -8 }}>
-                    <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
-                  </div>
+                  <Avatar key={u.id} title={u.name} initials={u.initials} color={u.color} size={26} src={avatarFor(u.id)}
+                    style={{ border: `2px solid ${BG}`, marginLeft: i === 0 ? 0 : -8 }} />
                 ))}
               </div>
             )}
@@ -364,14 +363,11 @@ function People({ ownerId, collaborators, size = 20 }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
       {owner && (
-        <div title={`Verantwortlich: ${owner.name}`} style={{ width: size + 2, height: size + 2, borderRadius: '50%', background: owner.color, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${A}`, boxShadow: `0 0 0 1px ${owner.color}` }}>
-          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: size <= 20 ? 7 : 8, color: '#001219', fontWeight: 700 }}>{owner.initials}</span>
-        </div>
+        <Avatar title={`Verantwortlich: ${owner.name}`} initials={owner.initials} color={owner.color} size={size + 2} src={avatarFor(owner.id)}
+          style={{ border: `2px solid ${BORDER}` }} />
       )}
       {others.slice(0, 3).map(u => (
-        <div key={u.id} title={u.name} style={{ width: size, height: size, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: size <= 20 ? 7 : 8, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
-        </div>
+        <Avatar key={u.id} title={u.name} initials={u.initials} color={u.color} size={size} src={avatarFor(u.id)} />
       ))}
       {others.length > 3 && <div style={{ width: size, height: size, borderRadius: '50%', background: BORDER, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: MUTED }}>+{others.length - 3}</div>}
     </div>

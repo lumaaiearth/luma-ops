@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { sb } from '../lib/supabase.js'
 import { A, SURFACE, BORDER, FG, MUTED, A08, A20 } from '../lib/theme.js'
 import { Avatar } from '../components/ui.jsx'
+import { avatarFor } from '../lib/people.js'
 import { TEAM, JOB_TYPES } from '../data/seed.js'
 import { isoToday, addDays, formatDate } from '../lib/storage.js'
 import { Phone, Mail } from 'lucide-react'
@@ -182,7 +183,7 @@ export default function TeamPage() {
             return (
               <div key={p.id} className="lu-card" style={{ padding: '14px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, borderTop: `3px solid ${p.color}` }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                  <Avatar initials={p.initials} color={p.color} size={32} title={p.name} />
+                  <Avatar initials={p.initials} color={p.color} size={32} title={p.name} src={avatarFor(p.id)} />
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 500, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
                     <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{p.firma || 'Freelancer'}</div>
@@ -221,9 +222,7 @@ export default function TeamPage() {
               {g.members.map(id => {
                 const u = TEAM.find(t => t.id === id)
                 return u ? (
-                  <div key={id} title={u.name} style={{ width: 24, height: 24, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
-                  </div>
+                  <Avatar key={id} title={u.name} initials={u.initials} color={u.color} size={24} src={avatarFor(u.id)} />
                 ) : null
               })}
             </div>

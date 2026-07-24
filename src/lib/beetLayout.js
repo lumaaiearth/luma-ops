@@ -60,7 +60,12 @@ export function plantRole(p) {
 // ── Kontinuierliche Platzierung (Drifts, Höhenstaffelung, Kollisionsschutz) ──
 // px/py in Metern; _r = Radius (halbe Ausbreitung) in Metern. Von Drift-Karte
 // UND isometrischer Ansicht genutzt → 2D-Plan und 3D zeigen dasselbe Beet.
-export function computePlacement(plan, beetW, beetH) {
+// opts.cluster: 0 = Arten gleichmäßig mischen … 1 = starke Art-Drifts
+//   (0.5 = bisheriges Verhalten).
+// opts.viewDir: {x,y} Einheitsvektor „vom Betrachter ins Beet" (lokale Meter,
+//   y = Nord) → hohe Arten wandern vom Betrachter weg. Default: Blick von Nord.
+export function computePlacement(plan, beetW, beetH, opts = {}) {
+  const { cluster = 0.5, viewDir = null } = opts
   const margin = Math.min(0.15, beetW * 0.03, beetH * 0.03)
   const heights = plan.map(p => p.hoehe?.[1] ?? 50)
   const hMin = Math.min(...heights, 20), hMax = Math.max(...heights, 100), hSpan = Math.max(1, hMax - hMin)
@@ -74,11 +79,15 @@ export function computePlacement(plan, beetW, beetH) {
     }
   })
   items.sort((a, b) => b.r - a.r)
+  // Anziehung gleicher Arten: 0.5 → 10 (bisher); 0 → abstoßend (mischen); 1 → stark
+  const sameW = cluster * 36 - 8
+  const vx = viewDir ? viewDir.x : 0, vy = viewDir ? viewDir.y : -1
+  const depthScale = Math.max(beetW, beetH)
   const placed = []
   for (const it of items) {
     const tallNorm = (it.h - hMin) / hSpan
-    const bandCy = margin + it.r + Math.max(0.01, beetH - 2 * margin - 2 * it.r) * (0.12 + (1 - tallNorm) * 0.72)
-    let best = { px: beetW / 2, py: bandCy }, bestScore = -Infinity
+    const targetDepth = 0.14 + tallNorm * 0.72 // hoch → tief im Beet (weit weg vom Betrachter)
+    let best = { px: beetW / 2, py: beetH / 2 }, bestScore = -Infinity
     for (let t = 0; t < 18; t++) {
       const s = (it.seed + t * 101) >>> 0
       const cx = margin + it.r + seededRand(s) * Math.max(0.01, beetW - 2 * margin - 2 * it.r)
@@ -89,7 +98,8 @@ export function computePlacement(plan, beetW, beetH) {
         minClear = Math.min(minClear, d - (q._r + it.r) * gap)
         if (q.id === it.plant.id) sameNear = Math.max(sameNear, 1 / (1 + d * 5))
       }
-      const score = (minClear >= 0 ? 60 : minClear * 30) + sameNear * 10 - Math.abs(cy - bandCy) * 7 + seededRand(s + 2) * 0.3
+      const dep = 0.5 + (cx / beetW - 0.5) * vx + (cy / beetH - 0.5) * vy
+      const score = (minClear >= 0 ? 60 : minClear * 30) + sameNear * sameW - Math.abs(dep - targetDepth) * depthScale * 7 + seededRand(s + 2) * 0.3
       if (score > bestScore) { bestScore = score; best = { px: cx, py: cy } }
     }
     placed.push({ ...it.plant, px: best.px, py: best.py, _r: it.r, seed: it.seed })
@@ -106,8 +116,10 @@ export function computePlacement(plan, beetW, beetH) {
 //   nur Zellen INNERHALB des Umrisses werden gefüllt (exakte Beetform).
 // opts.viewDir: {x,y} Einheitsvektor „vom Betrachter ins Beet" → Höhenschichtung
 //   (hohe Arten hinten/weiter weg, flache vorne). Default: Betrachter unten.
+// opts.cluster: 0 = Arten gleichmäßig mischen … 1 = wenige große Drifts
+//   (0.5 = bisheriges Verhalten).
 export function buildGrid(plan, beetW, beetH, cellCm, opts = {}) {
-  const { polygon = null, viewDir = null } = opts
+  const { polygon = null, viewDir = null, cluster = 0.5 } = opts
   const cols = Math.max(1, Math.round(beetW * 100 / cellCm))
   const rows = Math.max(1, Math.round(beetH * 100 / cellCm))
   const nCells = cols * rows
@@ -142,11 +154,14 @@ export function buildGrid(plan, beetW, beetH, cellCm, opts = {}) {
   quota.sort((a, b) => b.p.count - a.p.count)
 
   // Drift-Zentren je Art per Rejection-Sampling nahe der Ziel-Tiefe (=Höhenrang).
-  const rnd = mulberry(hashStr('raster|' + species.map(s => s.id).join(',') + '|' + cols + 'x' + rows + '|' + vx + ',' + vy))
+  // mix: wie stark unterhalb von cluster=0.5 gemischt wird (0 = gar nicht).
+  const mix = Math.max(0, 1 - cluster * 2)
+  const rnd = mulberry(hashStr('raster|' + species.map(s => s.id).join(',') + '|' + cols + 'x' + rows + '|' + vx + ',' + vy + '|c' + cluster.toFixed(2)))
   const centers = new Map()
   quota.forEach(({ p, n, h }) => {
     const target = (h - hMin) / hSpan          // 0 flach … 1 hoch → Ziel-Tiefe
-    const k = Math.max(1, Math.min(6, Math.round(Math.sqrt(n) / 1.6)))
+    // Viele kleine Zentren beim Mischen, wenige große bei starkem Clustern
+    const k = Math.max(1, Math.min(9, Math.round((Math.sqrt(n) / 1.6) * (1.7 - 1.4 * cluster))))
     const cs = []
     for (let attempt = 0; attempt < k * 40 && cs.length < k; attempt++) {
       const vi = valid[Math.floor(rnd() * valid.length)]
@@ -161,6 +176,10 @@ export function buildGrid(plan, beetW, beetH, cellCm, opts = {}) {
   // Strafe → kompakte Drifts in Höhenbändern. Nur Innen-Zellen.
   const remaining = new Map(quota.map(q => [q.p.id, q.n]))
   const tgt = new Map(quota.map(q => [q.p.id, (q.h - hMin) / hSpan]))
+  // Misch-Rauschen: bei cluster < 0.5 überstimmt Zufall zunehmend die Drift-
+  // Distanz → Salz-und-Pfeffer-Mischung. Höhenschichtung bleibt (abgeschwächt).
+  const noiseAmp = 0.35 + mix * mix * (cols + rows) * 0.7
+  const depthW = cols * 0.5 * (1 - mix * 0.5)
   const pairs = []
   for (const idx of valid) {
     const col = idx % cols, row = Math.floor(idx / cols), cx = col + 0.5, cy = row + 0.5
@@ -168,7 +187,7 @@ export function buildGrid(plan, beetW, beetH, cellCm, opts = {}) {
     for (const { p } of quota) {
       let d = Infinity
       for (const [ccx, ccy] of centers.get(p.id)) d = Math.min(d, Math.hypot(ccx - cx, ccy - cy))
-      pairs.push({ idx, id: p.id, d: d + Math.abs(dep - tgt.get(p.id)) * cols * 0.5 + rnd() * 0.35 })
+      pairs.push({ idx, id: p.id, d: d + Math.abs(dep - tgt.get(p.id)) * depthW + rnd() * noiseAmp })
     }
   }
   pairs.sort((a, b) => a.d - b.d)

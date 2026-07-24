@@ -42,6 +42,24 @@ export function setFreelancerRegistry(rows) {
   freelancerRegistry = (rows || []).map((r, i) => normalizePerson(r, i))
 }
 
+// Profilfotos: user_profile verknüpft Login-Konten über team_id mit den
+// Personen-ids (Kern-Team wie 'malte', theoretisch auch Freelancer-ids).
+let avatarRegistry = {}
+
+/** Wird vom AuthContext befüllt, sobald die Profile geladen sind */
+export function setAvatarRegistry(profiles) {
+  const map = {}
+  for (const p of profiles || []) {
+    if (p.team_id && p.avatar_url) map[p.team_id] = p.avatar_url
+  }
+  avatarRegistry = map
+}
+
+/** Profilfoto-URL einer Person, sonst null (→ Initialen-Fallback im Avatar) */
+export function avatarFor(id) {
+  return (id && avatarRegistry[id]) || null
+}
+
 /** Alle auswählbaren Personen: Kern-Team + aktive Freelancer */
 export function allPeople() {
   return [...TEAM, ...freelancerRegistry.filter(f => f.active !== false)]

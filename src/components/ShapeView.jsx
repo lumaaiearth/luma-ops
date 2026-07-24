@@ -14,7 +14,7 @@ function pickTextColor(hex) {
 }
 
 // shapeMeta.local = { points:[[x,y]…] (Meter), w, h }
-export default function ShapeView({ shapeMeta, plan = [], cellCm = 33, height = 300, L = true, showCodes = true, showLegend = false, cardBg = '#fff' }) {
+export default function ShapeView({ shapeMeta, plan = [], cellCm = 33, height = 300, L = true, showCodes = true, showLegend = false, cardBg = '#fff', viewDir = null, cluster = 0.5 }) {
   const canvasRef = useRef(null)
   const wrapRef = useRef(null)
   const local = shapeMeta?.local
@@ -22,8 +22,8 @@ export default function ShapeView({ shapeMeta, plan = [], cellCm = 33, height = 
   const bw = local?.w || 1, bh = local?.h || 1
 
   const grid = useMemo(
-    () => (poly && plan.length) ? buildGrid(plan, bw, bh, cellCm, { polygon: poly }) : null,
-    [poly, plan, bw, bh, cellCm]
+    () => (poly && plan.length) ? buildGrid(plan, bw, bh, cellCm, { polygon: poly, viewDir, cluster }) : null,
+    [poly, plan, bw, bh, cellCm, viewDir, cluster]
   )
   const codeById = useMemo(() => grid ? new Map(grid.legend.map(l => [l.id, l])) : null, [grid])
 

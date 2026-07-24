@@ -4,9 +4,9 @@ import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useWeather } from '../context/WeatherContext.jsx'
 import { A, SURFACE, BORDER, FG, MUTED, OK, WARN, DANGER, INFO } from '../lib/theme.js'
-import { StatCard, EmptyState } from '../components/ui.jsx'
+import { StatCard, EmptyState, Avatar } from '../components/ui.jsx'
 import { JOB_TYPES, TASK_STATUSES, TASK_PRIORITIES } from '../data/seed.js'
-import { findPerson, peopleForIds } from '../lib/people.js'
+import { findPerson, peopleForIds, avatarFor } from '../lib/people.js'
 import { sb } from '../lib/supabase.js'
 import { isoToday, addDays, formatDate } from '../lib/storage.js'
 import { AlertTriangle, CheckCircle2, Clock, Repeat, Droplets, Umbrella, Sun as SunIcon, ListTodo, ChevronRight } from 'lucide-react'
@@ -269,9 +269,7 @@ export default function DashboardPage() {
                   </div>
                   <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
                     {assignees.slice(0, 4).map(u => (
-                      <div key={u.id} title={u.name} style={{ width: 22, height: 22, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
-                      </div>
+                      <Avatar key={u.id} title={u.name} initials={u.initials} color={u.color} size={22} src={avatarFor(u.id)} />
                     ))}
                   </div>
                 </div>
@@ -362,9 +360,7 @@ export default function DashboardPage() {
                         </div>
                         <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
                           {assignees.slice(0, 3).map(u => (
-                            <div key={u.id} title={u.name} style={{ width: 20, height: 20, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 7, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
-                            </div>
+                            <Avatar key={u.id} title={u.name} initials={u.initials} color={u.color} size={20} src={avatarFor(u.id)} />
                           ))}
                           {assignees.length > 3 && <div style={{ width: 20, height: 20, borderRadius: '50%', background: BORDER, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: MUTED }}>+{assignees.length - 3}</div>}
                         </div>
@@ -395,9 +391,7 @@ export default function DashboardPage() {
                       </div>
                       <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                         {assignees.slice(0, 4).map(u => (
-                          <div key={u.id} title={u.name} style={{ width: 22, height: 22, borderRadius: '50%', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: '#001219', fontWeight: 700 }}>{u.initials}</span>
-                          </div>
+                          <Avatar key={u.id} title={u.name} initials={u.initials} color={u.color} size={22} src={avatarFor(u.id)} />
                         ))}
                         {assignees.length > 4 && <div style={{ width: 22, height: 22, borderRadius: '50%', background: BORDER, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: MUTED }}>+{assignees.length - 4}</div>}
                       </div>
