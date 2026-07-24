@@ -11,6 +11,7 @@ import { compressImage } from '../lib/images.js'
 import { geomMeasures, fmtArea, fmtLen, fmtLatLng } from '../lib/geo.js'
 import { examplePhotos } from '../lib/placeholderImages.js'
 import { fetchBuildingsAround } from '../lib/overpass.js'
+import { fetchAlkisBuildings, fetchBerlinTrees, isInBerlin, radiusBbox } from '../lib/berlinGeo.js'
 import { analyzeSun, SEASONS, LICHT_KLASSEN } from '../lib/solar.js'
 
 const MONO = "'Space Mono', monospace"
@@ -178,12 +179,22 @@ function SunAnalysis({ feature, centroid, isAdmin, onUpdateProperties }) {
     if (!centroid) return
     setRunning(true); setError(null)
     try {
-      const buildings = await fetchBuildingsAround(centroid.lat, centroid.lng, 180)
-      const analysis = analyzeSun(centroid.lat, centroid.lng, buildings)
+      // In Berlin: amtliche ALKIS-Gebäude + Baumkataster; sonst OSM (ohne Bäume)
+      const berlin = isInBerlin(centroid.lat, centroid.lng)
+      const bbox = radiusBbox(centroid.lat, centroid.lng, 180)
+      let buildings, trees = [], source = 'osm'
+      if (berlin) {
+        try {
+          ;[buildings, trees] = await Promise.all([fetchAlkisBuildings(...bbox), fetchBerlinTrees(...bbox)])
+          source = 'alkis'
+        } catch { /* GDI down → OSM-Fallback */ }
+      }
+      if (!buildings) buildings = await fetchBuildingsAround(centroid.lat, centroid.lng, 180)
+      const analysis = analyzeSun(centroid.lat, centroid.lng, buildings, trees, { source })
       setLocalResult(analysis)
       if (isAdmin) onUpdateProperties({ ...feature.properties, sonnenanalyse: analysis })
     } catch (e) {
-      setError(navigator.onLine ? 'Gebäudedaten (OSM) gerade nicht erreichbar — später erneut versuchen.' : 'Offline — Analyse braucht Internet.')
+      setError(navigator.onLine ? 'Gebäudedaten gerade nicht erreichbar — später erneut versuchen.' : 'Offline — Analyse braucht Internet.')
     } finally {
       setRunning(false)
     }
@@ -233,6 +244,9 @@ function SunAnalysis({ feature, centroid, isAdmin, onUpdateProperties }) {
                   <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: FG }}>
                     {v.sun} h<span style={{ fontSize: 9, color: MUTED, fontWeight: 400 }}> / {v.possible} h möglich</span>
                   </div>
+                  {v.kwh != null && (
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, marginTop: 1 }}>≈ {v.kwh} kWh/m² <span style={{ opacity: 0.7 }}>(klarer Tag)</span></div>
+                  )}
                   <div style={{ height: 3, borderRadius: 2, background: 'color-mix(in srgb, var(--luma-fg) 8%, transparent)', marginTop: 4, overflow: 'hidden' }}>
                     <div style={{ width: `${pct}%`, height: '100%', background: '#f59e0b' }} />
                   </div>
@@ -241,7 +255,8 @@ function SunAnalysis({ feature, centroid, isAdmin, onUpdateProperties }) {
             })}
           </div>
           <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, marginTop: 6, lineHeight: 1.5 }}>
-            {result.buildings_n} Gebäude (OSM) berücksichtigt · Bäume/Vegetation nicht enthalten
+            {result.buildings_n} Gebäude ({result.source === 'alkis' ? 'amtlich/ALKIS' : 'OSM'})
+            {result.trees_n != null ? ` · ${result.trees_n} Bäume (Baumkataster, saisonaler Laub-Faktor)` : ' · Bäume nicht enthalten'}
             {result.on_building ? ' · Punkt liegt auf einem Gebäude (Dach?)' : ''}
           </div>
         </>
