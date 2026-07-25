@@ -7,19 +7,21 @@
 // ────────────────────────────────────────────────────────────────
 import { useState, useEffect, useMemo } from 'react'
 import {
-  Sprout, Scale, FileText, Plus, Copy, Trash2, Check,
-  ChevronDown, ChevronRight, AlertTriangle,
+  Sprout, Scale, FileText, Plus, Copy, Trash2, Check, Pencil,
+  ChevronDown, ChevronRight, AlertTriangle, CalendarPlus, RotateCcw, RefreshCw,
 } from 'lucide-react'
 import { sb } from '../lib/supabase.js'
 import { useOps } from '../context/OpsContext.jsx'
 import { useTime } from '../context/TimeContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useIsMobile } from '../lib/useIsMobile.js'
+import { allPeople } from '../lib/people.js'
 import { A, BORDER, FG, MUTED, SURFACE, OK, WARN, DANGER, INFO } from '../lib/theme.js'
 import {
-  PageHeader, Tabs, Card, StatCard, Badge, Button, EmptyState, SectionLabel,
-  Modal, ModalActions, INPUT_STYLE, LABEL_STYLE, MONO, SANS,
+  PageHeader, Tabs, Chips, Card, StatCard, Badge, Button, EmptyState, SectionLabel,
+  Modal, ModalActions, DateInput, INPUT_STYLE, LABEL_STYLE, MONO, SANS,
 } from '../components/ui.jsx'
+import { PFLEGE_KATALOG } from '../data/pflegeKatalog.js'
 
 const MONATE = ['Jan', 'Feb', 'Mrz', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
 // KW→Monat wie in den Excel-Plänen/Import (Jan KW1–5 … Dez KW49–53)
@@ -36,6 +38,28 @@ function isoWeek(date = new Date()) {
 
 const STATUS_COLORS = { entwurf: MUTED, aktiv: OK, abgeschlossen: INFO }
 const OFFER_STATUS = { entwurf: MUTED, versendet: INFO, angenommen: OK, abgelehnt: DANGER }
+const GANG_STATUS = { geplant: MUTED, terminiert: INFO, erledigt: OK, entfallen: DANGER }
+const seasonOf = (kw) => (kw >= 10 && kw <= 18 ? 'Frühjahrspflege' : kw <= 39 ? 'Sommerpflege' : kw <= 49 ? 'Herbstpflege' : 'Winter')
+
+/** KW→h einer Aufgabe aus ihren Saisonfenstern erzeugen (erste KW des Monats;
+    Turnus: einmalig | monatlich | 2x_monat (zusätzlich Monatsmitte) | quartal (jeder 3.) | nach_bedarf (0 h)) */
+function wochenFromFenster(fenster) {
+  const w = {}
+  const add = (kw, h) => { if (h > 0) w[kw] = round2((w[kw] || 0) + h) }
+  for (const f of fenster || []) {
+    const h = Number(f.stunden_pro_gang || 0)
+    const von = Number(f.von_monat || 1), bis = Number(f.bis_monat || f.von_monat || 1)
+    if (f.turnus === 'nach_bedarf') continue
+    const step = f.turnus === 'quartal' ? 3 : 1
+    for (let m = von; m <= bis; m += step) {
+      const [a, b] = MONTH_KWS[m - 1]
+      add(a, h)
+      if (f.turnus === '2x_monat') add(Math.floor((a + b) / 2), h)
+      if (f.turnus === 'einmalig') break
+    }
+  }
+  return w
+}
 const round2 = (n) => Math.round(n * 100) / 100
 const eur = (n) => `${(n ?? 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
 const hrs = (n) => `${round2(n ?? 0).toLocaleString('de-DE')} h`
@@ -70,7 +94,7 @@ function monthSums(wochen) {
 
 export default function PflegePage() {
   const isMobile = useIsMobile()
-  const { projects, clients } = useOps()
+  const { projects, clients, jobs, createJob } = useOps()
   const { entries, hourRules, rates } = useTime()
   const { isAdmin } = useAuth()
 
@@ -82,6 +106,8 @@ export default function PflegePage() {
   const [loading, setLoading] = useState(true)
   const [jahr, setJahr] = useState(2026)
   const [offerModal, setOfferModal] = useState(false)
+  const [gangModal, setGangModal] = useState(null)      // Gang, der terminiert wird
+  const [aufgabeModal, setAufgabeModal] = useState(null) // { plan, aufgabe|null }
 
   async function loadAll() {
     try {
@@ -126,7 +152,87 @@ export default function PflegePage() {
       .then(({ error }) => { if (error) dbErr('pflege_plaene')(error) })
   }
 
-  const TABS = [['plaene', 'Pläne'], ['kapazitaet', 'Kapazität'], ['planist', 'Plan/Ist'], ...(isAdmin ? [['angebote', 'Angebote']] : [])]
+  function updateGang(id, changes) {
+    setGaenge((prev) => prev.map((g) => (g.id === id ? { ...g, ...changes } : g)))
+    sb.from('pflege_gaenge').update(changes).eq('id', id)
+      .then(({ error }) => { if (error) dbErr('pflege_gaenge')(error) })
+  }
+
+  // Gang terminieren → echter Einsatz (job) mit Soll-Stunden, Gang verlinkt.
+  // Erledigt/abgesagt wird der Gang danach automatisch per DB-Trigger.
+  function terminierenGang(gang, { date, assigned_users }) {
+    const plan = plaene.find((p) => p.id === gang.plan_id)
+    if (!plan || !date) return
+    const aufgabenText = (gang.aufgaben || []).map((a) => `– ${a.titel} (${a.stunden} h)`).join('\n')
+    const job = createJob({
+      project_id: plan.project_id, title: gang.titel || `Pflegegang KW ${gang.kw}`,
+      job_type: 'pflege', date, date_end: null, start_time: '08:00', end_time: null,
+      duration: 'full', assigned_users, vehicle_id: null, vehicle_ids: [], tools: [],
+      notes: `Pflegegang KW ${gang.kw}${plan.objekt ? ` · ${plan.objekt}` : ''}\n${aufgabenText}`,
+      location: null, color: null, status: 'planned',
+      planned_hours: round2(Number(gang.soll_stunden || 0) + Number(gang.fahrt_stunden || 0)),
+    })
+    updateGang(gang.id, { job_id: job.id, status: 'terminiert' })
+    setGangModal(null)
+  }
+
+  // Aufgabe anlegen/ändern: wochen + jahres_stunden aus den Fenstern ableiten
+  async function saveAufgabe(plan, aufgabe, values) {
+    const wochen = wochenFromFenster(values.fenster)
+    const jahres = round2(Object.values(wochen).reduce((s, h) => s + h, 0))
+    const row = { ...values, wochen, jahres_stunden: jahres }
+    if (aufgabe) {
+      const { error } = await sb.from('pflege_aufgaben').update(row).eq('id', aufgabe.id)
+      if (error) return dbErr('pflege_aufgaben')(error)
+      setAufgaben((prev) => prev.map((a) => (a.id === aufgabe.id ? { ...a, ...row } : a)))
+    } else {
+      const sort = (aufgabenByPlan[plan.id] || []).length
+      const { data, error } = await sb.from('pflege_aufgaben')
+        .insert({ ...row, plan_id: plan.id, sort_order: sort }).select().single()
+      if (error) return dbErr('pflege_aufgaben')(error)
+      setAufgaben((prev) => [...prev, data])
+    }
+    setAufgabeModal(null)
+  }
+
+  async function deleteAufgabe(aufgabe) {
+    if (!window.confirm(`Aufgabe „${aufgabe.titel}" löschen?`)) return
+    const { error } = await sb.from('pflege_aufgaben').delete().eq('id', aufgabe.id)
+    if (error) return dbErr('pflege_aufgaben')(error)
+    setAufgaben((prev) => prev.filter((a) => a.id !== aufgabe.id))
+  }
+
+  // Geplante Gänge eines Plans aus den Aufgaben neu erzeugen.
+  // Terminierte/erledigte/entfallene Gänge (und ihre KWs) bleiben unberührt.
+  async function regenerateGaenge(plan) {
+    const kept = (gaengeByPlan[plan.id] || []).filter((g) => g.status !== 'geplant')
+    const keptKws = new Set(kept.map((g) => g.kw))
+    const del = await sb.from('pflege_gaenge').delete().eq('plan_id', plan.id).eq('status', 'geplant')
+    if (del.error) return dbErr('pflege_gaenge')(del.error)
+    const weekly = {}, perKw = {}
+    for (const a of aufgabenByPlan[plan.id] || []) {
+      for (const [kw, h] of Object.entries(a.wochen || {})) {
+        if (!h) continue
+        weekly[kw] = round2((weekly[kw] || 0) + Number(h))
+        ;(perKw[kw] = perKw[kw] || []).push({ titel: a.titel.slice(0, 60), stunden: Number(h) })
+      }
+    }
+    const rows = Object.entries(weekly)
+      .filter(([kw]) => !keptKws.has(Number(kw)))
+      .map(([kw, h]) => ({
+        plan_id: plan.id, jahr: plan.jahr, kw: Number(kw),
+        titel: `${seasonOf(Number(kw))} (KW ${kw})`, aufgaben: perKw[kw], soll_stunden: h,
+      }))
+    if (rows.length) {
+      const ins = await sb.from('pflege_gaenge').insert(rows).select()
+      if (ins.error) return dbErr('pflege_gaenge')(ins.error)
+      setGaenge((prev) => [...prev.filter((g) => g.plan_id !== plan.id || g.status !== 'geplant'), ...ins.data])
+    } else {
+      setGaenge((prev) => prev.filter((g) => g.plan_id !== plan.id || g.status !== 'geplant'))
+    }
+  }
+
+  const TABS = [['plaene', 'Pläne'], ['gaenge', 'Gänge'], ['kapazitaet', 'Kapazität'], ['planist', 'Plan/Ist'], ...(isAdmin ? [['angebote', 'Angebote']] : [])]
 
   return (
     <div>
@@ -147,9 +253,10 @@ export default function PflegePage() {
         <EmptyState icon={Sprout} title={`Keine Pflegepläne für ${jahr}`} hint="Import: node scripts/gen-pflege-import.mjs → supabase/seed/pflegeplaene_2026_import.sql" />
       ) : (
         <>
-          {tab === 'plaene' && <TabPlaene isMobile={isMobile} plans={yearPlans} {...{ aufgabenByPlan, gaengeByPlan, planLabel, planClientId, planHours, clientById, updatePlan }} />}
+          {tab === 'plaene' && <TabPlaene isMobile={isMobile} plans={yearPlans} {...{ aufgabenByPlan, gaengeByPlan, planLabel, planClientId, planHours, clientById, updatePlan, regenerateGaenge, deleteAufgabe, onEditAufgabe: (plan, aufgabe) => setAufgabeModal({ plan, aufgabe }) }} />}
+          {tab === 'gaenge' && <TabGaenge plans={yearPlans} {...{ jahr, gaengeByPlan, planLabel, updateGang, jobs, onTerminieren: setGangModal }} />}
           {tab === 'kapazitaet' && <TabKapazitaet plans={yearPlans} {...{ gaengeByPlan, hourRules, planLabel }} />}
-          {tab === 'planist' && <TabPlanIst plans={yearPlans} {...{ jahr, entries, gaengeByPlan, planLabel, planHours, projById, updatePlan }} />}
+          {tab === 'planist' && <TabPlanIst plans={yearPlans} {...{ jahr, entries, jobs, gaengeByPlan, planLabel, planHours, projById, updatePlan }} />}
           {tab === 'angebote' && isAdmin && (
             <TabAngebote {...{ offers, setOffers, plaene, jahr, clients, clientById, rates, planLabel, planClientId, planHours, aufgabenByPlan, projById, onNew: () => setOfferModal(true) }} />
           )}
@@ -162,13 +269,227 @@ export default function PflegePage() {
           {...{ plaene, jahr, clients, rates, planLabel, planClientId, planHours, aufgabenByPlan }}
         />
       )}
+      {gangModal && (
+        <TerminModal gang={gangModal} label={planLabel(plaene.find((p) => p.id === gangModal.plan_id) || {})}
+          onClose={() => setGangModal(null)} onSubmit={(v) => terminierenGang(gangModal, v)} />
+      )}
+      {aufgabeModal && (
+        <AufgabeModal plan={aufgabeModal.plan} aufgabe={aufgabeModal.aufgabe}
+          onClose={() => setAufgabeModal(null)} onSave={saveAufgabe} />
+      )}
     </div>
+  )
+}
+
+/* ─── Tab: Gänge (Terminierung & Statuspflege) ────────────────── */
+
+function TabGaenge({ plans, jahr, gaengeByPlan, planLabel, updateGang, jobs, onTerminieren }) {
+  const [filter, setFilter] = useState('faellig')
+  const curKW = jahr === new Date().getFullYear() ? isoWeek() : jahr < new Date().getFullYear() ? 53 : 0
+  const jobById = useMemo(() => Object.fromEntries((jobs || []).map((j) => [j.id, j])), [jobs])
+
+  const all = plans.flatMap((p) => (gaengeByPlan[p.id] || []).map((g) => ({ ...g, planRef: p })))
+    .sort((a, b) => a.kw - b.kw || planLabel(a.planRef).localeCompare(planLabel(b.planRef)))
+  const isFaellig = (g) => g.status === 'geplant' && g.kw <= curKW + 2
+  const rows = all.filter((g) =>
+    filter === 'alle' ? true : filter === 'faellig' ? isFaellig(g) : g.status === filter)
+  const overdue = all.filter((g) => g.status === 'geplant' && g.kw < curKW)
+
+  function bulk(status) {
+    if (!window.confirm(`${overdue.length} überfällige Gänge auf „${status}" setzen?`)) return
+    overdue.forEach((g) => updateGang(g.id, { status }))
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <Chips
+          options={[['faellig', `Fällig (${all.filter(isFaellig).length})`], ['geplant', 'Geplant'], ['terminiert', 'Terminiert'], ['erledigt', 'Erledigt'], ['entfallen', 'Entfallen'], ['alle', 'Alle']]}
+          value={filter} onChange={setFilter} />
+        {overdue.length > 0 && (
+          <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
+            <Button variant="ghost" onClick={() => bulk('erledigt')}>Überfällige → erledigt</Button>
+            <Button variant="ghost" onClick={() => bulk('entfallen')}>Überfällige → entfallen</Button>
+          </div>
+        )}
+      </div>
+      {!rows.length && <EmptyState icon={CalendarPlus} title="Keine Gänge in dieser Ansicht" />}
+      {rows.map((g) => {
+        const job = g.job_id ? jobById[g.job_id] : null
+        const late = g.status === 'geplant' && g.kw < curKW
+        return (
+          <Card key={g.id} accent={late ? DANGER : GANG_STATUS[g.status]}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <Badge color={late ? DANGER : MUTED}>KW {g.kw}</Badge>
+              <div style={{ fontSize: 13, fontWeight: 500, color: FG, flex: 1, minWidth: 160 }}>
+                {planLabel(g.planRef)}
+                <span style={{ fontFamily: MONO, fontSize: 11, color: MUTED, marginLeft: 8 }}>{g.titel}</span>
+              </div>
+              <Badge color={GANG_STATUS[g.status]}>{late ? 'überfällig' : g.status}</Badge>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: FG }} title="vor Ort + Fahrt">
+                {hrs(Number(g.soll_stunden) + Number(g.fahrt_stunden || 0))}
+              </div>
+            </div>
+            {job && (
+              <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, marginTop: 6 }}>
+                Einsatz: {job.date ? new Date(job.date + 'T00:00:00').toLocaleDateString('de-DE') : '—'} · {(job.assigned_users || []).join(', ') || 'ohne Crew'} · Status {job.status}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+              {g.status === 'geplant' && (
+                <>
+                  <Button icon={CalendarPlus} onClick={() => onTerminieren(g)}>Terminieren</Button>
+                  <Button variant="ghost" icon={Check} onClick={() => updateGang(g.id, { status: 'erledigt' })}>Erledigt</Button>
+                  <Button variant="ghost" onClick={() => updateGang(g.id, { status: 'entfallen' })}>Entfallen</Button>
+                </>
+              )}
+              {g.status === 'terminiert' && (
+                <>
+                  <Button variant="ghost" icon={Check} onClick={() => updateGang(g.id, { status: 'erledigt' })}>Erledigt</Button>
+                  <Button variant="ghost" icon={RotateCcw} onClick={() => updateGang(g.id, { status: 'geplant', job_id: null })}>Verknüpfung lösen</Button>
+                </>
+              )}
+              {(g.status === 'erledigt' || g.status === 'entfallen') && (
+                <Button variant="ghost" icon={RotateCcw} onClick={() => updateGang(g.id, { status: 'geplant' })}>Zurücksetzen</Button>
+              )}
+            </div>
+          </Card>
+        )
+      })}
+    </div>
+  )
+}
+
+/* ─── Modal: Gang terminieren ─────────────────────────────────── */
+
+function TerminModal({ gang, label, onClose, onSubmit }) {
+  const [date, setDate] = useState('')
+  const [crew, setCrew] = useState([])
+  const people = allPeople()
+
+  return (
+    <Modal eyebrow="Pflegegang terminieren" title={`${label} · KW ${gang.kw}`} onClose={onClose} maxWidth={480}>
+      <form onSubmit={(e) => { e.preventDefault(); if (date) onSubmit({ date, assigned_users: crew }) }}
+        style={{ padding: '18px 24px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ fontFamily: MONO, fontSize: 11, color: MUTED }}>
+          {hrs(Number(gang.soll_stunden))} vor Ort + {hrs(Number(gang.fahrt_stunden || 0))} Fahrt
+          {(gang.aufgaben || []).length > 0 && ` · ${(gang.aufgaben || []).length} Aufgaben (landen in den Einsatz-Notizen)`}
+        </div>
+        <div>
+          <label style={LABEL_STYLE}>Datum</label>
+          <DateInput value={date} onChange={setDate} required />
+        </div>
+        <div>
+          <label style={LABEL_STYLE}>Crew</label>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {people.map((p) => {
+              const on = crew.includes(p.id)
+              return (
+                <button key={p.id} type="button" onClick={() => setCrew((prev) => on ? prev.filter((x) => x !== p.id) : [...prev, p.id])}
+                  className="lu-chip"
+                  style={{ padding: '5px 12px', borderRadius: 20, border: `1px solid ${on ? (p.color || A) : BORDER}`, background: on ? `color-mix(in srgb, ${p.color || A} 14%, transparent)` : 'transparent', color: on ? FG : MUTED, cursor: 'pointer', fontSize: 12, fontFamily: SANS }}>
+                  {p.name}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+        <ModalActions onCancel={onClose} submitLabel="Einsatz anlegen" />
+      </form>
+    </Modal>
+  )
+}
+
+/* ─── Modal: Aufgabe anlegen/bearbeiten ───────────────────────── */
+
+const TURNUS_OPTIONS = [['einmalig', '1×'], ['monatlich', 'monatlich'], ['2x_monat', '2× im Monat'], ['quartal', 'quartalsweise'], ['nach_bedarf', 'nach Bedarf (0 h)']]
+
+function AufgabeModal({ plan, aufgabe, onClose, onSave }) {
+  const [katalogKey, setKatalogKey] = useState(aufgabe?.katalog_key || '')
+  const [titel, setTitel] = useState(aufgabe?.titel || '')
+  const [beschreibung, setBeschreibung] = useState(aufgabe?.beschreibung || '')
+  const [kategorie, setKategorie] = useState(aufgabe?.kategorie || 'pflanzen')
+  const [fenster, setFenster] = useState(aufgabe?.fenster?.length ? aufgabe.fenster : [{ von_monat: 4, bis_monat: 10, turnus: 'monatlich', stunden_pro_gang: 1 }])
+
+  function pickKatalog(key) {
+    setKatalogKey(key)
+    const k = PFLEGE_KATALOG.find((x) => x.key === key)
+    if (k) { setTitel(k.titel); setBeschreibung(k.beschreibung); setKategorie(k.kategorie) }
+  }
+  const setF = (i, changes) => setFenster((prev) => prev.map((f, j) => (j === i ? { ...f, ...changes } : f)))
+  const vorschau = wochenFromFenster(fenster)
+  const jahresH = round2(Object.values(vorschau).reduce((s, h) => s + h, 0))
+
+  return (
+    <Modal eyebrow={aufgabe ? 'Aufgabe bearbeiten' : 'Aufgabe hinzufügen'} title={titel || 'Neue Aufgabe'} onClose={onClose} maxWidth={560}>
+      <form onSubmit={(e) => { e.preventDefault(); if (titel.trim()) onSave(plan, aufgabe, { katalog_key: katalogKey || null, titel: titel.trim(), beschreibung, kategorie, fenster }) }}
+        style={{ padding: '18px 24px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div>
+          <label style={LABEL_STYLE}>Aus dem Katalog (optional)</label>
+          <select value={katalogKey} onChange={(e) => pickKatalog(e.target.value)} style={INPUT_STYLE}>
+            <option value="">— freie Position —</option>
+            {PFLEGE_KATALOG.map((k) => <option key={k.key} value={k.key}>{k.titel}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={LABEL_STYLE}>Titel</label>
+          <input value={titel} onChange={(e) => setTitel(e.target.value)} required style={INPUT_STYLE} />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px', gap: 12 }}>
+          <div>
+            <label style={LABEL_STYLE}>Beschreibung</label>
+            <input value={beschreibung} onChange={(e) => setBeschreibung(e.target.value)} style={INPUT_STYLE} />
+          </div>
+          <div>
+            <label style={LABEL_STYLE}>Kategorie</label>
+            <select value={kategorie} onChange={(e) => setKategorie(e.target.value)} style={INPUT_STYLE}>
+              <option value="pflanzen">Pflanzen</option>
+              <option value="bewaesserung">Bewässerung</option>
+              <option value="spezial">Spezial</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <SectionLabel style={{ marginBottom: 8 }}>Saisonfenster</SectionLabel>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {fenster.map((f, i) => (
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 70px 30px', gap: 6, alignItems: 'center' }}>
+                <select value={f.von_monat} onChange={(e) => setF(i, { von_monat: Number(e.target.value) })} style={{ ...INPUT_STYLE, padding: '7px 8px', fontSize: 12 }}>
+                  {MONATE.map((m, j) => <option key={m} value={j + 1}>{m}</option>)}
+                </select>
+                <select value={f.bis_monat} onChange={(e) => setF(i, { bis_monat: Number(e.target.value) })} style={{ ...INPUT_STYLE, padding: '7px 8px', fontSize: 12 }}>
+                  {MONATE.map((m, j) => <option key={m} value={j + 1}>{m}</option>)}
+                </select>
+                <select value={f.turnus} onChange={(e) => setF(i, { turnus: e.target.value })} style={{ ...INPUT_STYLE, padding: '7px 8px', fontSize: 12 }}>
+                  {TURNUS_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+                <input type="number" step="0.25" min="0" value={f.stunden_pro_gang}
+                  onChange={(e) => setF(i, { stunden_pro_gang: Number(e.target.value) })}
+                  style={{ ...INPUT_STYLE, padding: '7px 8px', fontSize: 12, textAlign: 'right' }} title="Stunden je Gang" />
+                <button type="button" onClick={() => setFenster((prev) => prev.filter((_, j) => j !== i))}
+                  style={{ background: 'transparent', border: 'none', color: MUTED, cursor: 'pointer', padding: 4 }} title="Fenster entfernen">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+          <Button type="button" variant="ghost" icon={Plus} style={{ marginTop: 8 }}
+            onClick={() => setFenster((prev) => [...prev, { von_monat: 4, bis_monat: 4, turnus: 'einmalig', stunden_pro_gang: 1 }])}>
+            Fenster hinzufügen
+          </Button>
+        </div>
+        <div style={{ fontFamily: MONO, fontSize: 11, color: MUTED }}>
+          ergibt {jahresH.toLocaleString('de-DE')} h/Jahr in {Object.keys(vorschau).length} Gängen — danach „Gänge neu generieren" im Plan
+        </div>
+        <ModalActions onCancel={onClose} submitLabel="Speichern" />
+      </form>
+    </Modal>
   )
 }
 
 /* ─── Tab: Pläne ──────────────────────────────────────────────── */
 
-function TabPlaene({ isMobile, plans, aufgabenByPlan, gaengeByPlan, planLabel, planClientId, planHours, clientById, updatePlan }) {
+function TabPlaene({ isMobile, plans, aufgabenByPlan, gaengeByPlan, planLabel, planClientId, planHours, clientById, updatePlan, regenerateGaenge, deleteAufgabe, onEditAufgabe }) {
   const [open, setOpen] = useState(null)
   const totalH = plans.reduce((s, p) => s + planHours(p), 0)
   const allGaenge = plans.flatMap((p) => gaengeByPlan[p.id] || [])
@@ -190,7 +511,7 @@ function TabPlaene({ isMobile, plans, aufgabenByPlan, gaengeByPlan, planLabel, p
       </div>
 
       {plans.map((p) => {
-        const tasks = (aufgabenByPlan[p.id] || []).filter((a) => Number(a.jahres_stunden) > 0)
+        const tasks = aufgabenByPlan[p.id] || []
         const client = clientById[planClientId(p)]
         const isOpen = open === p.id
         return (
@@ -212,13 +533,15 @@ function TabPlaene({ isMobile, plans, aufgabenByPlan, gaengeByPlan, planLabel, p
                         <th style={{ ...LABEL_STYLE, marginBottom: 0, textAlign: 'left', padding: '6px 8px 6px 0', position: 'sticky', left: 0, background: SURFACE }}>Aufgabe</th>
                         {MONATE.map((m) => <th key={m} style={{ ...LABEL_STYLE, marginBottom: 0, padding: '6px 4px', textAlign: 'right' }}>{m}</th>)}
                         <th style={{ ...LABEL_STYLE, marginBottom: 0, padding: '6px 0 6px 10px', textAlign: 'right' }}>Jahr</th>
+                        <th />
                       </tr>
                     </thead>
                     <tbody>
                       {tasks.map((a) => {
                         const sums = monthSums(a.wochen)
+                        const leer = Number(a.jahres_stunden) === 0
                         return (
-                          <tr key={a.id} style={{ borderTop: `1px solid ${BORDER}` }}>
+                          <tr key={a.id} style={{ borderTop: `1px solid ${BORDER}`, opacity: leer ? 0.45 : 1 }}>
                             <td style={{ padding: '7px 8px 7px 0', fontSize: 12, color: FG, maxWidth: 260, position: 'sticky', left: 0, background: SURFACE }} title={a.beschreibung || a.titel}>
                               {a.titel}
                               <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, marginTop: 2 }}>{fensterText(a.fenster)}</div>
@@ -229,6 +552,16 @@ function TabPlaene({ isMobile, plans, aufgabenByPlan, gaengeByPlan, planLabel, p
                               </td>
                             ))}
                             <td style={{ padding: '7px 0 7px 10px', textAlign: 'right', fontFamily: MONO, fontSize: 11, color: FG, fontWeight: 700 }}>{round2(Number(a.jahres_stunden)).toLocaleString('de-DE')}</td>
+                            <td style={{ padding: '7px 0 7px 8px', whiteSpace: 'nowrap' }}>
+                              <button type="button" onClick={() => onEditAufgabe(p, a)} title="Aufgabe bearbeiten"
+                                style={{ background: 'transparent', border: 'none', color: MUTED, cursor: 'pointer', padding: 2 }}>
+                                <Pencil size={12} />
+                              </button>
+                              <button type="button" onClick={() => deleteAufgabe(a)} title="Aufgabe löschen"
+                                style={{ background: 'transparent', border: 'none', color: MUTED, cursor: 'pointer', padding: 2 }}>
+                                <Trash2 size={12} />
+                              </button>
+                            </td>
                           </tr>
                         )
                       })}
@@ -245,6 +578,11 @@ function TabPlaene({ isMobile, plans, aufgabenByPlan, gaengeByPlan, planLabel, p
                       <Badge color={p.status === s ? STATUS_COLORS[s] : MUTED}>{s}</Badge>
                     </span>
                   ))}
+                  <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+                    <Button variant="ghost" icon={Plus} onClick={() => onEditAufgabe(p, null)}>Aufgabe</Button>
+                    <Button variant="ghost" icon={RefreshCw} title="Geplante Gänge aus den Aufgaben neu erzeugen (terminierte/erledigte bleiben)"
+                      onClick={() => regenerateGaenge(p)}>Gänge neu generieren</Button>
+                  </div>
                 </div>
               </div>
             )}
@@ -327,8 +665,37 @@ function TabKapazitaet({ plans, gaengeByPlan, hourRules }) {
 
 /* ─── Tab: Plan/Ist ───────────────────────────────────────────── */
 
-function TabPlanIst({ plans, jahr, entries, gaengeByPlan, planLabel, planHours, projById, updatePlan }) {
+function TabPlanIst({ plans, jahr, entries, jobs, gaengeByPlan, planLabel, planHours, projById, updatePlan }) {
   const curKW = jahr === new Date().getFullYear() ? isoWeek() : jahr < new Date().getFullYear() ? 53 : 0
+  const [copied, setCopied] = useState(null)
+
+  // Leistungsnachweis (Phase 4): erledigte Pflege-Einsätze des Jahres als Text
+  // für den Kunden — Datum, Titel, Stunden (gebucht, sonst Soll), Summe.
+  function nachweisText(projectId, label) {
+    const done = (jobs || [])
+      .filter((j) => j.project_id === projectId && j.job_type === 'pflege' && j.status === 'done' && (j.date || '').startsWith(String(jahr)))
+      .sort((a, b) => (a.date < b.date ? -1 : 1))
+    const lines = [`Leistungsnachweis Pflege — ${label}`,
+      `Zeitraum: 01.01.${jahr} – ${new Date().toLocaleDateString('de-DE')}`, '']
+    let sum = 0
+    for (const j of done) {
+      const booked = (entries || []).filter((e) => e.job_id === j.id).reduce((s, e) => s + Number(e.hours || 0), 0)
+      const h = booked || Number(j.planned_hours || 0)
+      sum += h
+      lines.push(`• ${new Date(j.date + 'T00:00:00').toLocaleDateString('de-DE')} — ${j.title} — ${round2(h).toLocaleString('de-DE')} h`)
+    }
+    if (!done.length) lines.push('(Noch keine erledigten Pflege-Einsätze im System.)')
+    lines.push('', `Summe: ${round2(sum).toLocaleString('de-DE')} h`)
+    return lines.join('\n')
+  }
+
+  async function copyNachweis(projectId, label) {
+    try {
+      await navigator.clipboard.writeText(nachweisText(projectId, label))
+      setCopied(projectId)
+      setTimeout(() => setCopied(null), 2500)
+    } catch { window.__lumaToast?.('⚠️ Kopieren fehlgeschlagen') }
+  }
 
   // Ist je Projekt aus der Zeiterfassung (alle Buchungen des Jahres auf das Projekt)
   const istByProject = useMemo(() => {
@@ -374,13 +741,20 @@ function TabPlanIst({ plans, jahr, entries, gaengeByPlan, planLabel, planHours, 
                   <div style={{ fontFamily: MONO, fontSize: 14, color: FG }}>{v}</div>
                 </div>
               ))}
-              {faktor !== null && (
-                <Button variant="ghost" icon={Scale} style={{ marginLeft: 'auto', alignSelf: 'flex-end' }}
-                  title="Ist/Soll-Faktor als Kalibrierung für Folgeangebote in den Plan schreiben"
-                  onClick={() => ps.forEach((p) => updatePlan(p.id, { kalib_faktor: round2(faktor) }))}>
-                  Faktor übernehmen
+              <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', alignSelf: 'flex-end' }}>
+                <Button variant="ghost" icon={copied === projectId ? Check : Copy}
+                  title="Erledigte Pflege-Einsätze des Jahres als Text für den Kunden kopieren"
+                  onClick={() => copyNachweis(projectId, label)}>
+                  {copied === projectId ? 'Kopiert' : 'Leistungsnachweis'}
                 </Button>
-              )}
+                {faktor !== null && (
+                  <Button variant="ghost" icon={Scale}
+                    title="Ist/Soll-Faktor als Kalibrierung für Folgeangebote in den Plan schreiben"
+                    onClick={() => ps.forEach((p) => updatePlan(p.id, { kalib_faktor: round2(faktor) }))}>
+                    Faktor übernehmen
+                  </Button>
+                )}
+              </div>
             </div>
           </Card>
         )
