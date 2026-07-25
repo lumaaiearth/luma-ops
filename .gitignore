@@ -3,3 +3,6 @@ dist/
 .env
 .env.local
 *.local
+
+# LoD2-Kachel-Downloads (Zwischenspeicher des Patch-Generators)
+scripts/.lod2-cache/

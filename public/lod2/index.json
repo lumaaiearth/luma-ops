@@ -1,0 +1,58 @@
+[
+ {
+  "name": "r95",
+  "lat": 52.5728569,
+  "lng": 13.3728409,
+  "radius": 350,
+  "file": "r95.json"
+ },
+ {
+  "name": "blankenburg",
+  "lat": 52.5939,
+  "lng": 13.4534,
+  "radius": 350,
+  "file": "blankenburg.json"
+ },
+ {
+  "name": "h14",
+  "lat": 52.4843,
+  "lng": 13.4243,
+  "radius": 350,
+  "file": "h14.json"
+ },
+ {
+  "name": "htw",
+  "lat": 52.4929,
+  "lng": 13.5265,
+  "radius": 350,
+  "file": "htw.json"
+ },
+ {
+  "name": "k28",
+  "lat": 52.4786,
+  "lng": 13.4281,
+  "radius": 350,
+  "file": "k28.json"
+ },
+ {
+  "name": "langen-enden",
+  "lat": 52.3961,
+  "lng": 13.4058,
+  "radius": 350,
+  "file": "langen-enden.json"
+ },
+ {
+  "name": "mv-bew",
+  "lat": 52.5993,
+  "lng": 13.3565,
+  "radius": 350,
+  "file": "mv-bew.json"
+ },
+ {
+  "name": "preussenpark",
+  "lat": 52.4925,
+  "lng": 13.3131,
+  "radius": 350,
+  "file": "preussenpark.json"
+ }
+]

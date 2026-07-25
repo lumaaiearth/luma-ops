@@ -79,11 +79,88 @@ export function prepareShaders(lat, lng, buildings = [], trees = []) {
   return { buildings: preppedB, trees: preppedT, onBuilding }
 }
 
+/* ── LoD2-Mesh: echte Dach-/Wandflächen als Verschatter ───────────────────
+   Patch-Format siehe scripts/lod2-patch.mjs — Flächen in [lng, lat, z_rel],
+   z relativ zum Bodenniveau des jeweiligen Gebäudes (Berlin ≈ eben). */
+function planeOf(pts) {
+  // Newell-Normale (robust für leicht unebene Polygone)
+  let nx = 0, ny = 0, nz = 0
+  for (let i = 0; i < pts.length; i++) {
+    const [x1, y1, z1] = pts[i], [x2, y2, z2] = pts[(i + 1) % pts.length]
+    nx += (y1 - y2) * (z1 + z2)
+    ny += (z1 - z2) * (x1 + x2)
+    nz += (x1 - x2) * (y1 + y2)
+  }
+  const len = Math.hypot(nx, ny, nz)
+  if (len < 1e-9) return null
+  nx /= len; ny /= len; nz /= len
+  const [x0, y0, z0] = pts[0]
+  return { nx, ny, nz, pd: -(nx * x0 + ny * y0 + nz * z0) }
+}
+
+// Punkt-in-Polygon in der dominanten Projektionsebene der Flächennormale
+function pipOnPlane(p, pts, plane) {
+  const ax = Math.abs(plane.nx), ay = Math.abs(plane.ny), az = Math.abs(plane.nz)
+  const [i, j] = az >= ax && az >= ay ? [0, 1] : ax >= ay ? [1, 2] : [0, 2]
+  let inside = false
+  for (let a = 0, b = pts.length - 1; a < pts.length; b = a++) {
+    const pa = pts[a], pb = pts[b]
+    if ((pa[j] > p[j]) !== (pb[j] > p[j]) && p[i] < ((pb[i] - pa[i]) * (p[j] - pa[j])) / (pb[j] - pa[j]) + pa[i]) inside = !inside
+  }
+  return inside
+}
+
+export function prepareLod2(lat, lng, patch) {
+  const proj = toLocal(lat, lng)
+  const faces = []
+  let onBuilding = false
+  for (const b of patch.buildings || []) {
+    const localFaces = []
+    let contains = false
+    for (const f of b.faces) {
+      const pts = f.pts.map(([lo, la, z]) => { const [x, y] = proj([lo, la]); return [x, y, z] })
+      if (f.t === 'g') {
+        // Steht der Beobachtungspunkt im Gebäudegrundriss? → Gebäude ausnehmen
+        if (!contains && pointInRing([0, 0], pts.map(([x, y]) => [x, y]))) contains = true
+        continue // Bodenflächen verschatten nicht
+      }
+      let minD = Infinity, maxZ = -Infinity
+      for (const [x, y, z] of pts) { const d = Math.hypot(x, y); if (d < minD) minD = d; if (z > maxZ) maxZ = z }
+      if (minD > MAX_DIST + 30 || maxZ <= OBSERVER_H) continue
+      const plane = planeOf(pts)
+      if (plane) localFaces.push({ pts, plane })
+    }
+    if (contains) { onBuilding = true; continue }
+    faces.push(...localFaces)
+  }
+  return { faces, onBuilding }
+}
+
+// 3D-Strahl (Beobachter → Sonne) gegen die Mesh-Flächen
+function meshShaded(faces, bearing, altitude) {
+  const cosA = Math.cos(altitude)
+  const dx = Math.sin(bearing) * cosA, dy = Math.cos(bearing) * cosA, dz = Math.sin(altitude)
+  const oz = OBSERVER_H
+  const tMax = (MAX_DIST + 30) / Math.max(cosA, 0.05)
+  for (const f of faces) {
+    const { nx, ny, nz, pd } = f.plane
+    const den = nx * dx + ny * dy + nz * dz
+    if (Math.abs(den) < 1e-9) continue
+    const t = -(nz * oz + pd) / den
+    if (t < 0.01 || t > tMax) continue
+    const p = [t * dx, t * dy, oz + t * dz]
+    if (pipOnPlane(p, f.pts, f.plane)) return true
+  }
+  return false
+}
+
 // Was verdeckt die Sonne? → null | 'building' | 'tree'
 function shadeType(prep, bearing, altitude) {
   const dx = Math.sin(bearing), dy = Math.cos(bearing)
   const tanAlt = Math.tan(altitude)
-  for (const b of prep.buildings) {
+  if (prep.meshFaces) {
+    if (meshShaded(prep.meshFaces, bearing, altitude)) return 'building'
+  } else for (const b of prep.buildings) {
     const relevant = (b.h - OBSERVER_H) / tanAlt
     if (relevant <= 0) continue
     for (let i = 0; i < b.ring.length; i++) {
@@ -137,9 +214,18 @@ export function sunHoursForDate(lat, lng, prep, date, treeTransparency = 0) {
   return { sun: r1(sun * f), possible: r1(possible * f), kwh: r2(wh * f / 1000), kwh_possible: r2(whPossible * f / 1000) }
 }
 
-// Komplette Analyse: 4 Stichtage + Licht-Klasse (Florales: 1/2/3)
+// Komplette Analyse: 4 Stichtage + Licht-Klasse (Florales: 1/2/3).
+// Mit meta.lod2Patch rechnet die Verschattung gegen die echten LoD2-Dach-/
+// Wandflächen statt gegen Höhen-Prismen (buildings wird dann ignoriert).
 export function analyzeSun(lat, lng, buildings, trees = [], meta = {}) {
-  const prep = prepareShaders(lat, lng, buildings, trees)
+  const prep = prepareShaders(lat, lng, meta.lod2Patch ? [] : buildings, trees)
+  let buildingsN = prep.buildings.length
+  if (meta.lod2Patch) {
+    const mesh = prepareLod2(lat, lng, meta.lod2Patch)
+    prep.meshFaces = mesh.faces
+    prep.onBuilding = prep.onBuilding || mesh.onBuilding
+    buildingsN = (meta.lod2Patch.buildings || []).length
+  }
   const year = new Date().getFullYear()
   const seasons = {}
   for (const s of SEASONS) {
@@ -151,9 +237,10 @@ export function analyzeSun(lat, lng, buildings, trees = [], meta = {}) {
     seasons,
     licht,
     on_building: prep.onBuilding,
-    buildings_n: prep.buildings.length,
+    buildings_n: buildingsN,
+    faces_n: prep.meshFaces ? prep.meshFaces.length : undefined,
     trees_n: prep.trees.length,
-    source: meta.source || 'osm',
+    source: meta.lod2Patch ? 'lod2' : (meta.source || 'osm'),
     computed_at: new Date().toISOString(),
   }
 }

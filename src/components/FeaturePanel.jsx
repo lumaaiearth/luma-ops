@@ -12,6 +12,7 @@ import { geomMeasures, fmtArea, fmtLen, fmtLatLng } from '../lib/geo.js'
 import { examplePhotos } from '../lib/placeholderImages.js'
 import { fetchBuildingsAround } from '../lib/overpass.js'
 import { fetchAlkisBuildings, fetchBerlinTrees, isInBerlin, radiusBbox } from '../lib/berlinGeo.js'
+import { findLod2Patch } from '../lib/lod2.js'
 import { analyzeSun, SEASONS, LICHT_KLASSEN } from '../lib/solar.js'
 
 const MONO = "'Space Mono', monospace"
@@ -179,18 +180,23 @@ function SunAnalysis({ feature, centroid, isAdmin, onUpdateProperties }) {
     if (!centroid) return
     setRunning(true); setError(null)
     try {
-      // In Berlin: amtliche ALKIS-Gebäude + Baumkataster; sonst OSM (ohne Bäume)
+      // Beste verfügbare Quelle: LoD2-Dachmodell (Projektgebiete) > ALKIS > OSM;
+      // Bäume kommen in Berlin immer aus dem Baumkataster dazu.
       const berlin = isInBerlin(centroid.lat, centroid.lng)
       const bbox = radiusBbox(centroid.lat, centroid.lng, 180)
-      let buildings, trees = [], source = 'osm'
+      let buildings = [], trees = [], source = 'osm'
+      const lod2Patch = await findLod2Patch(centroid.lat, centroid.lng).catch(() => null)
       if (berlin) {
         try {
-          ;[buildings, trees] = await Promise.all([fetchAlkisBuildings(...bbox), fetchBerlinTrees(...bbox)])
-          source = 'alkis'
+          const jobs = [fetchBerlinTrees(...bbox)]
+          if (!lod2Patch) jobs.push(fetchAlkisBuildings(...bbox))
+          const [t, b] = await Promise.all(jobs)
+          trees = t
+          if (b) { buildings = b; source = 'alkis' }
         } catch { /* GDI down → OSM-Fallback */ }
       }
-      if (!buildings) buildings = await fetchBuildingsAround(centroid.lat, centroid.lng, 180)
-      const analysis = analyzeSun(centroid.lat, centroid.lng, buildings, trees, { source })
+      if (!lod2Patch && !buildings.length) buildings = await fetchBuildingsAround(centroid.lat, centroid.lng, 180)
+      const analysis = analyzeSun(centroid.lat, centroid.lng, buildings, trees, { source, lod2Patch })
       setLocalResult(analysis)
       if (isAdmin) onUpdateProperties({ ...feature.properties, sonnenanalyse: analysis })
     } catch (e) {
@@ -255,7 +261,9 @@ function SunAnalysis({ feature, centroid, isAdmin, onUpdateProperties }) {
             })}
           </div>
           <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, marginTop: 6, lineHeight: 1.5 }}>
-            {result.buildings_n} Gebäude ({result.source === 'alkis' ? 'amtlich/ALKIS' : 'OSM'})
+            {result.source === 'lod2'
+              ? `${result.buildings_n} Gebäude (LoD2-Dachmodell, amtlich)`
+              : `${result.buildings_n} Gebäude (${result.source === 'alkis' ? 'amtlich/ALKIS' : 'OSM'})`}
             {result.trees_n != null ? ` · ${result.trees_n} Bäume (Baumkataster, saisonaler Laub-Faktor)` : ' · Bäume nicht enthalten'}
             {result.on_building ? ' · Punkt liegt auf einem Gebäude (Dach?)' : ''}
           </div>

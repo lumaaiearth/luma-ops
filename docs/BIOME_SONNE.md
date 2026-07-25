@@ -63,10 +63,32 @@ Sonnenstand:
 - Tooltips: Gebäudehöhe bzw. Baumart/Höhe/Krone
 - Rechte Maustaste/2 Finger: Ansicht drehen & neigen
 
+## LoD2-Dachformen (amtliches 3D-Stadtmodell)
+
+Für die Projektgebiete liegen **echte Dachgeometrien** aus dem Berliner
+LoD2-Stadtmodell bei (Lizenz dl-de/zero): `public/lod2/<gebiet>.json`,
+erzeugt mit `node scripts/lod2-patch.mjs --name <slug> --lat … --lng …`
+(lädt die CityGML-Kacheln vom offiziellen ATOM-Feed, filtert auf 350 m
+Umkreis, konvertiert UTM33→WGS84 — Genauigkeit < 1 mm, gegen pyproj
+verifiziert).
+
+Wo ein Patch existiert, gilt automatisch:
+- **Sonnenanalyse** rechnet den Sonnenstrahl gegen die echten Dach- und
+  Wandflächen (3D-Ray-Casting) statt gegen Höhen-Prismen. Effekt real
+  messbar: Schrägdächer verschatten zur Traufe hin weniger — am
+  R95-Testpunkt z.B. 6,0 statt 5,7 h Sommersonne (kippte die Licht-Klasse).
+- **3D-Ansicht** rendert die Dachformen (Dächer terrakotta, Wände hell)
+  mit echtem Schattenwurf; außerhalb des Patches weiterhin Prismen.
+
+Neues Projektgebiet? Einfach den Generator mit den Projektkoordinaten
+laufen lassen und committen — die App findet den Patch über
+`public/lod2/index.json` von selbst.
+
 ## Weitere Ausbaustufen (bei Bedarf)
 
-1. **LoD2-Dachformen** (CityGML → 3D-Tiles-Preprocessing) — Sattel-/Walmdächer
-   verschatten minimal anders als die hier genutzte Traufhöhe.
-2. **Wetterkorrigierte Jahressummen**: Klarhimmel-Potenzial × DWD-Bewölkungs-
+1. **Wetterkorrigierte Jahressummen**: Klarhimmel-Potenzial × DWD-Bewölkungs-
    statistik → reale kWh/m²/Jahr, kombinierbar mit Bodenfeuchte-Sensoren für
    Bewässerungsprognosen.
+2. **LoD2 stadtweit** statt Projekt-Patches (CityGML → 3D-Tiles-Pipeline +
+   eigenes Hosting) — nur nötig, wenn Analysen regelmäßig außerhalb der
+   Projektgebiete gebraucht werden.

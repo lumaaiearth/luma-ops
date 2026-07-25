@@ -12,6 +12,7 @@ import { X, Sun, Loader } from 'lucide-react'
 import { SURFACE, BORDER, FG, MUTED, A, A14 } from '../lib/theme.js'
 import { fetchBuildingsBbox } from '../lib/overpass.js'
 import { fetchAlkisBuildings, fetchBerlinTrees, isInBerlin } from '../lib/berlinGeo.js'
+import { findLod2Patch } from '../lib/lod2.js'
 
 const MONO = "'Space Mono', monospace"
 const SANS = "'Space Grotesk', sans-serif"
@@ -39,6 +40,7 @@ export default function Sun3DView({ center, mapFeatures = [], projectColorById =
   const deckRef = useRef(null)
   const [buildings, setBuildings] = useState(null)
   const [trees, setTrees] = useState([])
+  const [lod2, setLod2] = useState(null)      // LoD2-Patch (amtliche Dachformen), falls vorhanden
   const [dataSource, setDataSource] = useState('osm')
   const [error, setError] = useState(null)
   const [dateKey, setDateKey] = useState('heute')
@@ -71,6 +73,8 @@ export default function Sun3DView({ center, mapFeatures = [], projectColorById =
     const dLat = HALF_M / 111320
     const dLng = HALF_M / (111320 * Math.cos(lat * Math.PI / 180))
     const bbox = [lat - dLat, lng - dLng, lat + dLat, lng + dLng]
+    // Amtliche Dachformen, falls für dieses Gebiet ein LoD2-Patch existiert
+    findLod2Patch(lat, lng, -120).then(setLod2).catch(() => setLod2(null))
     try {
       if (isInBerlin(lat, lng)) {
         try {
@@ -87,14 +91,38 @@ export default function Sun3DView({ center, mapFeatures = [], projectColorById =
   }, [lat, lng])
   useEffect(() => { load() }, [load])
 
-  const buildingGeojson = useMemo(() => buildings && ({
-    type: 'FeatureCollection',
-    features: buildings.map(b => ({
-      type: 'Feature',
-      geometry: { type: 'Polygon', coordinates: [[...b.ring, b.ring[0]]] },
-      properties: { height: b.height, est: !b.hasHeightTag },
-    })),
-  }), [buildings])
+  // Prismen (ALKIS/OSM) — im LoD2-Gebiet ausgeblendet, dort rendert das Dachmodell
+  const buildingGeojson = useMemo(() => {
+    if (!buildings) return null
+    let list = buildings
+    if (lod2) {
+      const kx = 111320 * Math.cos(lod2.center.lat * Math.PI / 180)
+      const inPatch = ring => {
+        const [lo, la] = ring[0]
+        return Math.hypot((lo - lod2.center.lng) * kx, (la - lod2.center.lat) * 111320) < (lod2.radius || 350) - 15
+      }
+      list = buildings.filter(b => !inPatch(b.ring))
+    }
+    return {
+      type: 'FeatureCollection',
+      features: list.map(b => ({
+        type: 'Feature',
+        geometry: { type: 'Polygon', coordinates: [[...b.ring, b.ring[0]]] },
+        properties: { height: b.height, est: !b.hasHeightTag },
+      })),
+    }
+  }, [buildings, lod2])
+
+  // LoD2-Dach-/Wandflächen als echte 3D-Polygone
+  const lod2Faces = useMemo(() => {
+    if (!lod2) return null
+    const out = []
+    for (const b of lod2.buildings) for (const f of b.faces) {
+      if (f.t === 'g') continue
+      out.push({ poly: f.pts, roof: f.t === 'r' })
+    }
+    return out
+  }, [lod2])
 
   // Baumkronen als 10-Eck-Zylinder (werfen im Licht-Effekt echte Schatten)
   const treeColumns = useMemo(() => trees.map(t => {
@@ -175,6 +203,16 @@ export default function Sun3DView({ center, mapFeatures = [], projectColorById =
         pickable: true,
         material: { ambient: 0.45, diffuse: 0.65, shininess: 18, specularColor: [30, 30, 30] },
       }),
+      // LoD2: amtliche Dach- & Wandflächen als echte 3D-Polygone (mit Schatten)
+      lod2Faces && new SolidPolygonLayer({
+        id: 'lod2',
+        data: lod2Faces,
+        _full3d: true,
+        extruded: false,
+        getPolygon: d => d.poly,
+        getFillColor: d => (d.roof ? [186, 108, 86, 255] : [223, 223, 227, 255]),
+        material: { ambient: 0.45, diffuse: 0.65, shininess: 16, specularColor: [25, 25, 25] },
+      }),
       // Bäume (Baumkataster): Kronenzylinder werfen echte Schatten
       showTrees && treeColumns.length > 0 && new SolidPolygonLayer({
         id: 'trees',
@@ -204,7 +242,7 @@ export default function Sun3DView({ center, mapFeatures = [], projectColorById =
     effect.shadowColor = [0, 0, 25, sunUp ? 0.42 : 0]
 
     deck.setProps({ layers, effects: [effect] })
-  }, [buildingGeojson, featureGeojson, treeColumns, showTrees, date, sunUp, showMap, lat, lng])
+  }, [buildingGeojson, lod2Faces, featureGeojson, treeColumns, showTrees, date, sunUp, showMap, lat, lng])
 
   const chip = (active) => ({
     padding: '5px 10px', borderRadius: 7, fontSize: 11, fontFamily: SANS, cursor: 'pointer', whiteSpace: 'nowrap',
@@ -275,7 +313,7 @@ export default function Sun3DView({ center, mapFeatures = [], projectColorById =
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 5, fontFamily: MONO, fontSize: 9, color: MUTED, flexWrap: 'wrap' }}>
           <span>↑ {sunTimes.sunrise ? sunTimes.sunrise.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '—'} · ↓ {sunTimes.sunset ? sunTimes.sunset.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '—'}</span>
           <span>{sunUp ? `Sonnenhöhe ${(sunPos.altitude * 180 / Math.PI).toFixed(0)}°` : 'Sonne unter dem Horizont'}</span>
-          <span>{dataSource === 'alkis' ? 'Daten: ALKIS + Baumkataster Berlin' : 'Daten: OSM (Höhen z.T. geschätzt)'}</span>
+          <span>{lod2 ? `Daten: LoD2-Dachmodell (${lod2.buildings.length} Geb.) + Baumkataster` : dataSource === 'alkis' ? 'Daten: ALKIS + Baumkataster Berlin' : 'Daten: OSM (Höhen z.T. geschätzt)'}</span>
         </div>
       </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
