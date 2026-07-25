@@ -37,6 +37,7 @@ const SensorPage       = lazy(() => import('./pages/SensorPage.jsx'))
 const ExplorePage      = lazy(() => import('./pages/ExplorePage.jsx'))
 const EinsaetzePage    = lazy(() => import('./pages/EinsaetzePage.jsx'))
 const ManaPage         = lazy(() => import('./pages/ManaPage.jsx'))
+const PflegePage       = lazy(() => import('./pages/PflegePage.jsx'))
 
 // Alte Einzelrouten (/calendar, /wochenplan, /jobs) leiten auf den Einsätze-Hub
 // um — Query-Parameter (z.B. ?open=<id>, ?date=…) bleiben dabei erhalten.
@@ -126,6 +127,7 @@ function AppRoutes() {
       <Route path="/wochenplan" element={<RedirectToHub view="wochenplan" />} />
       <Route path="/jobs" element={<RedirectToHub view="liste" />} />
       <Route path="/tasks" element={<Protected><TasksPage /></Protected>} />
+      <Route path="/pflege" element={<Protected><PflegePage /></Protected>} />
       <Route path="/mana" element={<Protected><ManaPage /></Protected>} />
       <Route path="/sensors" element={<Protected><SensorsPage /></Protected>} />
       <Route path="/sensors/:id" element={<Protected><SensorPage /></Protected>} />
