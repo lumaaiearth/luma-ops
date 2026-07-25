@@ -2,12 +2,16 @@
 // Pflegeaufwand ab (Stunden/Jahr, Kosten, Monatskalender). Grundlage für
 // Pflegeverträge, Ausschreibungen und die Nachkalkulation.
 //
-// Zeitansätze: Richtwerte für naturnahe Staudenpflanzungen/Staudenmisch-
-// pflanzungen. Der etablierte Bestand (ab Jahr 3) liegt erfahrungsgemäß bei
-// ca. 2–6 min/m² und Jahr; die Anwuchsjahre deutlich darüber. Die Werte hier
-// werden aus der konkreten Planzusammensetzung moduliert (Bodendecker-Anteil,
-// Pflanzdichte, Gräser-/Gehölzanteil, Standort) — sie sind Kalkulationshilfen,
-// keine garantierten Aufwände.
+// Zeitansätze — publizierte Referenzwerte für Staudenpflanzungen:
+//   • Bund Deutscher Staudengärtner (BdS): gut geplante Staudenmischungen
+//     5–10 min/m² und Jahr im etablierten Bestand.
+//   • Pflegeaufzeichnungen Schau- und Sichtungsgarten Hermannshof: reale
+//     Spannbreite 1,9 min/m²/Jahr (Schattenpflanzungen) bis 17,5 min/m²/Jahr
+//     (aufwendige Schmuckpflanzungen) — der Pflanzungstyp entscheidet.
+// Die Anwuchsjahre liegen deutlich darüber. Die Werte hier werden aus der
+// konkreten Planzusammensetzung moduliert (Bodendecker-Anteil, Pflanzdichte,
+// Gräser-/Gehölzanteil, Standort) — Kalkulationshilfen, keine garantierten
+// Aufwände.
 
 const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
 
@@ -138,6 +142,6 @@ export function buildCarePlan(plan = [], {
       remontierPct: Math.round(remontierAnteil * 100),
       gehoelzStueck, bestandTrocken, regionTrocken,
     },
-    annahmen: `Zeitansätze für naturnahe Staudenpflanzungen, moduliert nach Bodendecker-Anteil (${Math.round(bodendeckerAnteil * 100)} %), Pflanzdichte (${r1(dichte)}/m²) und Standort. Stundensatz ${stundensatz} €/h netto.`,
+    annahmen: `Zeitansätze für naturnahe Staudenpflanzungen, moduliert nach Bodendecker-Anteil (${Math.round(bodendeckerAnteil * 100)} %), Pflanzdichte (${r1(dichte)}/m²) und Standort. Stundensatz ${stundensatz} €/h netto. Referenz für den etablierten Bestand: 5–10 min/m² und Jahr (Bund Deutscher Staudengärtner); reale Spannbreite je nach Pflanzungstyp 1,9–17,5 min/m² (Pflegeaufzeichnungen Hermannshof).`,
   }
 }
