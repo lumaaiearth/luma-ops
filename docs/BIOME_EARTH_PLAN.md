@@ -1,6 +1,6 @@
 # BIOME™ Earth — Plan: eigenständige App auf Google-Earth-Niveau
 
-Stand: 2026-07-29 · Zielbild, Architektur und Phasenplan, um BIOME von einem
+Stand: 2026-07-29 (Umsetzungsstand nachgeführt) · Zielbild, Architektur und Phasenplan, um BIOME von einem
 Karten-Tab in eine eigenständige Geo-Plattform für Klimaanpassung zu entwickeln
 — „Google Earth für Verwaltungen und Grünflächen-Profis", mit echten
 Klimadaten statt nur Globus.
@@ -33,6 +33,11 @@ PWA), die drei Dinge auf Earth-Niveau kann und vier Dinge, die Earth nicht kann:
 | Sensoren mit GPS + Verlauf | ✅ produktiv (Hardware folgt) |
 | Suche (Adresse/Projekt/Feature) | ✅ produktiv |
 | LoD2-/Heatmap-Pipeline als Skripte | ✅ produktiv |
+| `/earth`-Route (Vollbild ohne Ops-Chrome) | ✅ produktiv |
+| Klima-Steckbrief mit Kartenausschnitt (druckbar) | ✅ produktiv |
+| Kunden-Klimadashboard `/klima` (Scope, Punktwolke, IDW-Fläche, CSV) | ✅ produktiv |
+| Alarmregeln je Sensor (Schwellen ↑↓, Telegram, Aufgabe) | ✅ produktiv |
+| Sonnenanalyse als Mehrpunkt-Stichprobe über die Fläche | ✅ produktiv |
 
 ## 3 · Architektur-Entscheidungen
 
@@ -46,6 +51,33 @@ entsteht durch **einen** WebGL-Canvas:
   LUMA-Optik — Vektorkacheln z.B. OpenFreeMap/Protomaps, kostenlos).
 - Leaflet bleibt bis zum Abschluss der Migration parallel lauffähig
   (Feature-Flag), damit nie ein kaputter Stand deployt wird.
+
+### 3.1a Evaluation MapLibre (Juli 2026) — Ergebnis: noch nicht migrieren
+
+Der Umstieg wurde bewertet, bevor Code entsteht. Die Zahlen aus dem heutigen
+Stand:
+
+| Punkt | Befund |
+|---|---|
+| Leaflet-Oberfläche | 4 Dateien mit `react-leaflet`, ~37 Komponenten-Instanzen (Marker, TileLayer/WMSTileLayer, GeoJSON, ImageOverlay, Popup/Tooltip), 4 Stellen mit `useMap`/`useMapEvents` |
+| Zeichnen | `@geoman-io/leaflet-geoman-free`, 6 Aufrufe inkl. `Draw[shape]._removeLastVertex()` für „letzten Punkt zurück" |
+| WMS | `WMSTileLayer` deckt heute 12 amtliche Dienste ab; MapLibre hat kein WMS-Primitiv (Raster-Source mit selbst gebauter GetMap-URL nötig, inkl. BBOX-Achsenreihenfolge EPSG:4326) |
+| Layerdefinitionen | `biomeLayers.js` ist bereits renderer-neutral — migriert sich mit |
+| deck.gl | schon in Benutzung (3D), `@deck.gl/mapbox` wäre der Klebstoff |
+
+**Bewertung.** Der Gewinn (ein Canvas, Neigen/Rotieren, Terrain) betrifft das
+Erlebnis, nicht die Aussagekraft. Der Preis ist konkret: Zeichnen komplett neu
+(Geoman hat kein Gegenstück gleicher Reife — Kandidaten wären terra-draw oder
+mapbox-gl-draw), WMS-Anbindung von Hand, alle Popups/Tooltips neu, und das
+Ganze an der Stelle, an der die App produktiv genutzt wird.
+
+**Entscheidung.** Migration bleibt P1, aber nach den Verwaltungs-Modulen. Bis
+dahin gilt: (a) keine neue Leaflet-spezifische Logik in Komponenten, die
+später wandern — Geometrie- und Datenlogik gehört in `src/lib/*` (so gebaut:
+`geo.js`, `idw.js`, `mapSnapshot.js`, `solar.js`, `sensorAlarm.js` sind
+renderer-frei und laufen im Node-Test); (b) der Prototyp startet als eigene
+Route neben `/map`, nicht als Umbau — damit ist jederzeit vergleichbar, ob das
+Ergebnis wirklich besser ist.
 
 ### 3.2 Eigene App
 - **Stufe 1 (sofort, 0 Aufwand-Risiko):** eigene Route `/earth` als
@@ -90,15 +122,19 @@ entsteht durch **einen** WebGL-Canvas:
 
 ## 5 · Verwaltungs-Module (der eigentliche Mehrwert)
 
-1. **Klima-Report je Fläche** (P1): ein Klick → PDF/Link mit Sonnenstunden,
-   Heatmap-Ausschnitt, Starkregen-Betroffenheit, Versiegelung, Baumbestand,
-   Empfehlungen (Florales-Auswahl). Zielgruppe: Bezirksämter, WoBauGes.
-2. **Starkregen-Check** (P1): Flächen automatisch gegen die
-   Starkregengefahrenkarte prüfen → Ampel je Feature + Maßnahmenvorschlag
-   (Mulde, Versickerung); Sturmschaden-Doku: Foto + Pin + Kategorie in 10 s
-   (Offline-Queue existiert).
-3. **Sensor-Live-Kacheln** (P2): Sensorwerte als Karten-Badges mit
-   Sparkline, Schwellwert-Alarme → Aufgabe (existiert) + Telegram (existiert).
+1. **Klima-Report je Fläche** ✅ umgesetzt (`ClimateReport.jsx`): druckbarer
+   Steckbrief mit Sonnenstunden, Hitze/PET, Versiegelung, Grünvolumen,
+   Starkregen, Empfehlungen, Quellenangabe — inklusive Luftbild der Fläche
+   mit Umriss und Übersichtskarte, damit der Ausdruck ohne App verständlich
+   ist. Offen: PDF-Versand/Link statt Browser-Druck.
+2. **Starkregen-Check** ✅ umgesetzt (`starkregen.js`): Ampel je Fläche gegen
+   die Starkregengefahrenkarte, Ergebnis am Objekt gespeichert; Ausfall des
+   Dienstes wird als „unbekannt" gezeigt statt fälschlich als grün.
+   Offen: Maßnahmenvorschlag (Mulde/Versickerung) und Sturmschaden-Doku.
+3. **Sensor-Live-Kacheln** (P2): Sensorwerte als Karten-Badges mit Sparkline.
+   Alarmteil ✅ umgesetzt (`sensorAlarm.js`): Warn-/Kritisch-Schwellen nach
+   oben und unten je Sensor, Hysterese, Ruhezeit, Flatterschutz, Ziel-Gruppe
+   in Telegram, Aufgabe im wählbaren Bereich.
 4. **Hitze-Monitoring** (P2): DWD-Vorhersage + Wärmeinsel-Layer → „Gieß-
    Prioritätenliste" der eigenen Flächen an Hitzetagen.
 5. **Mandanten-Ansicht** (P3): Verwaltung sieht nur ihre Flächen/Reports
@@ -107,16 +143,20 @@ entsteht durch **einen** WebGL-Canvas:
 ## 6 · Solar-Roadmap (Heatmap ist da — Ausbau)
 
 - ✅ Sommer-Heatmap (21.6., 4-m-Raster, LoD2 + Bäume, Gebäude maskiert)
-- P1: alle 4 Stichtage vorrechnen + Umschalter in der Zeitleiste; Legende
-  (Farbskala → Stunden) im Layer-Panel
-- P1: Heatmap in der 3D-Ansicht auf den Boden projizieren
+- ✅ alle 4 Stichtage vorgerechnet + Jahreszeit-Umschalter, Legende im
+  Layer-Panel
+- ✅ Heatmap in der 3D-Ansicht auf den Boden projiziert
+- ✅ Sonnenanalyse als Mehrpunkt-Stichprobe über große Flächen (min/Median/max
+  je Jahreszeit) statt nur am Schwerpunkt
 - P2: kWh/m²-Variante + GeoTIFF-Export (für GIS-Abteilungen der Ämter)
 - P2: „Was-wäre-wenn": Baum pflanzen/fällen → Heatmap-Delta live
 
 ## 7 · 3D-Qualität (bekannte Punkte)
 
-- Bäume: aktuell volle Kronenzylinder ab Boden → Stamm + angehobene Krone
-  (zwei Meshes), Kugel-/Kegelkronen nach `art_gruppe` (Laub/Nadel)
+- Bäume: ✅ Stamm + angehobene Krone als zwei Meshes, Kugel-/Kegelform nach
+  `art_gruppe` (Laub/Nadel); Kronenansatz aus einer gemeinsamen Quelle
+  (`crownBase` in `solar.js`), damit Schattenrechnung und Darstellung
+  dasselbe Modell benutzen
 - LoD2-Nahtstelle: Prisma/Dachmodell-Dopplung an der Patch-Grenze ✅ behoben
 - Dachüberstände/Gauben: LoD2 bildet sie ab, Innenring-Flächen (Löcher)
   werden noch als eigene Fläche gerendert → Ring-Zuordnung im Patch-Generator
@@ -128,8 +168,8 @@ entsteht durch **einen** WebGL-Canvas:
 
 | Phase | Inhalt | Aufwand |
 |---|---|---|
-| **P0 — sofort** | `/earth`-Route als Standalone-PWA (eigenes Fenster), Heatmap-Layer ✅, 3D-Fixes | 1–2 Tage |
-| **P1 — Earth-Gerüst** | MapLibre-Canvas + deck.gl interleaved, Rail-UI, Omnibox, Zeitleiste, Klima-Report, Starkregen-Check, 4-Jahreszeiten-Heatmaps | 2–3 Wochen |
+| **P0 — sofort** ✅ | `/earth`-Route als Standalone-PWA (eigenes Fenster), Heatmap-Layer, 3D-Fixes | erledigt |
+| **P1 — Earth-Gerüst** | Klima-Report ✅, Starkregen-Check ✅, 4-Jahreszeiten-Heatmaps ✅ · offen: MapLibre-Canvas + deck.gl interleaved, Rail-UI, Omnibox, Zeitleiste | 2–3 Wochen |
 | **P2 — Tiefe** | Sensor-Live-Kacheln, Hitze-Monitoring, kWh/GeoTIFF, Was-wäre-wenn-Bäume, 3D-Baumformen, Terrain | 3–4 Wochen |
 | **P3 — Produkt** | Subdomain/Branding „BIOME Earth", Mandanten für Ämter, Automations-Pipeline (GitHub Action) | 2–3 Wochen |
 
