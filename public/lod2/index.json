@@ -4,55 +4,119 @@
   "lat": 52.5728569,
   "lng": 13.3728409,
   "radius": 350,
-  "file": "r95.json"
+  "file": "r95.json",
+  "heatmap": "r95-sonne.png",
+  "bounds": [
+   52.56980264200503,
+   13.367815400423844,
+   52.575911157994966,
+   13.377866399576156
+  ],
+  "heatmap_max_h": 16.5
  },
  {
   "name": "blankenburg",
   "lat": 52.5939,
   "lng": 13.4534,
   "radius": 350,
-  "file": "blankenburg.json"
+  "file": "blankenburg.json",
+  "heatmap": "blankenburg-sonne.png",
+  "bounds": [
+   52.59084574200503,
+   13.448372087191059,
+   52.596954257994966,
+   13.458427912808942
+  ],
+  "heatmap_max_h": 16.666666666666668
  },
  {
   "name": "h14",
   "lat": 52.4843,
   "lng": 13.4243,
   "radius": 350,
-  "file": "h14.json"
+  "file": "h14.json",
+  "heatmap": "h14-sonne.png",
+  "bounds": [
+   52.48124574200503,
+   13.41928462343197,
+   52.487354257994966,
+   13.42931537656803
+  ],
+  "heatmap_max_h": 16.5
  },
  {
   "name": "htw",
   "lat": 52.4929,
   "lng": 13.5265,
   "radius": 350,
-  "file": "htw.json"
+  "file": "htw.json",
+  "heatmap": "htw-sonne.png",
+  "bounds": [
+   52.48984574200503,
+   13.521483642672644,
+   52.49595425799497,
+   13.531516357327357
+  ],
+  "heatmap_max_h": 16.5
  },
  {
   "name": "k28",
   "lat": 52.4786,
   "lng": 13.4281,
   "radius": 350,
-  "file": "k28.json"
+  "file": "k28.json",
+  "heatmap": "k28-sonne.png",
+  "bounds": [
+   52.47554574200503,
+   13.423085273196582,
+   52.48165425799497,
+   13.433114726803419
+  ],
+  "heatmap_max_h": 16.5
  },
  {
   "name": "langen-enden",
   "lat": 52.3961,
   "lng": 13.4058,
   "radius": 350,
-  "file": "langen-enden.json"
+  "file": "langen-enden.json",
+  "heatmap": "langen-enden-sonne.png",
+  "bounds": [
+   52.39304574200503,
+   13.400794653326516,
+   52.399154257994965,
+   13.410805346673483
+  ],
+  "heatmap_max_h": 16.5
  },
  {
   "name": "mv-bew",
   "lat": 52.5993,
   "lng": 13.3565,
   "radius": 350,
-  "file": "mv-bew.json"
+  "file": "mv-bew.json",
+  "heatmap": "mv-bew-sonne.png",
+  "bounds": [
+   52.59624574200503,
+   13.351471467433353,
+   52.60235425799497,
+   13.361528532566648
+  ],
+  "heatmap_max_h": 16.666666666666668
  },
  {
   "name": "preussenpark",
   "lat": 52.4925,
   "lng": 13.3131,
   "radius": 350,
-  "file": "preussenpark.json"
+  "file": "preussenpark.json",
+  "heatmap": "preussenpark-sonne.png",
+  "bounds": [
+   52.48944574200503,
+   13.308083688300368,
+   52.49555425799497,
+   13.318116311699633
+  ],
+  "heatmap_max_h": 16.5
  }
 ]

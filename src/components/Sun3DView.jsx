@@ -97,9 +97,11 @@ export default function Sun3DView({ center, mapFeatures = [], projectColorById =
     let list = buildings
     if (lod2) {
       const kx = 111320 * Math.cos(lod2.center.lat * Math.PI / 180)
+      // Patch enthält Gebäude bis Radius + 40 m → Prismen bis dorthin ausblenden,
+      // sonst stehen an der Naht Prisma UND Dachmodell doppelt übereinander
       const inPatch = ring => {
         const [lo, la] = ring[0]
-        return Math.hypot((lo - lod2.center.lng) * kx, (la - lod2.center.lat) * 111320) < (lod2.radius || 350) - 15
+        return Math.hypot((lo - lod2.center.lng) * kx, (la - lod2.center.lat) * 111320) < (lod2.radius || 350) + 40
       }
       list = buildings.filter(b => !inPatch(b.ring))
     }
