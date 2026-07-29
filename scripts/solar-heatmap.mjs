@@ -3,8 +3,9 @@
 // Sommer-Sonnenstunden (21.6.) auf einem 4-m-Raster und schreibt sie als
 // PNG-Overlay nach public/lod2/<name>-sonne.png (+ Bounds im Index).
 //
-//   node scripts/solar-heatmap.mjs --name r95            (ein Gebiet)
-//   node scripts/solar-heatmap.mjs --all                 (alle Patches)
+//   node scripts/solar-heatmap.mjs --name r95            (ein Gebiet, alle Jahreszeiten)
+//   node scripts/solar-heatmap.mjs --all                 (alle Patches, alle Jahreszeiten)
+//   … --season sommer                                    (nur ein Stichtag)
 //
 // Verfahren: Schatten-Mapping — pro 10-Minuten-Sonnenstand werden alle
 // LoD2-Dach-/Wandflächen und Baumkronen (Baumkataster) entlang der Sonnen-
@@ -24,6 +25,14 @@ const OUT_DIR = join(ROOT, 'public', 'lod2')
 const CELL = 4          // Rasterzelle (m)
 const STEP_MIN = 10
 const OBSERVER_H = 0.5
+
+// Stichtage + Laub-Durchlässigkeit der Baumkronen (wie src/lib/solar.js)
+const SEASONS = [
+  { key: 'fruehling', month: 2, day: 21, treeTransparency: 0.55 },
+  { key: 'sommer', month: 5, day: 21, treeTransparency: 0.0 },
+  { key: 'herbst', month: 8, day: 23, treeTransparency: 0.15 },
+  { key: 'winter', month: 11, day: 21, treeTransparency: 0.6 },
+]
 
 const args = {}
 for (let i = 2; i < process.argv.length; i++) {
@@ -155,75 +164,86 @@ async function heatmapFor(name) {
 
   const W = Math.ceil((2 * R) / CELL), H = W
   const originX = -R, originY = -R
-  const shadeCount = new Uint16Array(W * H)
-  const stamp = new Uint8Array(W * H)
-
-  // Sonnenschritte 21.6.
-  const year = new Date().getFullYear()
-  const day = new Date(year, 5, 21, 12)
-  const times = SunCalc.getTimes(day, clat, clng)
-  const steps = []
-  for (let ts = times.sunrise.getTime(); ts <= times.sunset.getTime(); ts += STEP_MIN * 60_000) {
-    const pos = SunCalc.getPosition(new Date(ts), clat, clng)
-    if (pos.altitude > 0.005) steps.push(pos)
-  }
-
-  for (const pos of steps) {
-    stamp.fill(0)
-    const bearing = pos.azimuth + Math.PI
-    const bx = Math.sin(bearing), by = Math.cos(bearing)
-    const perH = 1 / Math.tan(pos.altitude)        // Schattenlänge pro Meter Höhe
-    // Gebäudeflächen: Vertices entlang der Sonnenrichtung auf Beobachterhöhe projizieren
-    for (const pts of faces) {
-      const proj = pts.map(([x, y, z]) => {
-        const d = Math.max(0, z - OBSERVER_H) * perH
-        return [x - bx * d, y - by * d]
-      })
-      // Schattenpolygon = Hülle aus Originalgrundriss + projizierten Punkten:
-      // für Wand-/Dachflächen genügt Original+Projektion als ein Polygonzug
-      stampPolygon(stamp, W, H, originX, originY, [...pts.map(([x, y]) => [x, y]), ...proj.reverse()], 1)
-    }
-    // Baumkronen: Kreis auf Kronenmitte projiziert (Sommer = opak)
-    for (const t of trees) {
-      const zMid = (t.top + t.base) / 2
-      const d = Math.max(0, zMid - OBSERVER_H) * perH
-      const stretch = (t.top - t.base) / 2 * perH  // Kronen-Höhe verlängert den Schatten
-      stampCircle(stamp, W, H, originX, originY, t.x - bx * d, t.y - by * d, t.r + stretch * 0.5, 1)
-      stampCircle(stamp, W, H, originX, originY, t.x - bx * (d - stretch), t.y - by * (d - stretch), t.r, 1)
-      stampCircle(stamp, W, H, originX, originY, t.x - bx * (d + stretch), t.y - by * (d + stretch), t.r, 1)
-    }
-    for (let i = 0; i < stamp.length; i++) shadeCount[i] += stamp[i]
-  }
+  const stampB = new Uint8Array(W * H)
+  const stampT = new Uint8Array(W * H)
 
   // Gebäudezellen maskieren (transparent — dort steht das Haus)
   const mask = new Uint8Array(W * H)
   for (const g of grounds) stampPolygon(mask, W, H, originX, originY, g.map(([x, y]) => [x, y]), 1)
 
-  const maxHours = steps.length * STEP_MIN / 60
-  const rgba = Buffer.alloc(W * H * 4)
-  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
-    const idx = j * W + i
-    // PNG: Zeile 0 = Norden → Raster-j spiegeln
-    const src = (H - 1 - j) * W + i
-    const px = idx * 4
-    if (mask[src]) { rgba[px + 3] = 0; continue }
-    const hours = (steps.length - shadeCount[src]) * STEP_MIN / 60
-    const [r, g, b] = colorFor(hours, maxHours)
-    rgba[px] = r; rgba[px + 1] = g; rgba[px + 2] = b; rgba[px + 3] = 205
+  const year = new Date().getFullYear()
+  const seasonList = args.season ? SEASONS.filter(s => s.key === args.season) : SEASONS
+  const written = {}, maxima = {}
+
+  for (const season of seasonList) {
+    const day = new Date(year, season.month, season.day, 12)
+    const times = SunCalc.getTimes(day, clat, clng)
+    const steps = []
+    for (let ts = times.sunrise.getTime(); ts <= times.sunset.getTime(); ts += STEP_MIN * 60_000) {
+      const pos = SunCalc.getPosition(new Date(ts), clat, clng)
+      if (pos.altitude > 0.005) steps.push(pos)
+    }
+
+    // Beschattung akkumulieren: Gebäude voll, Bäume mit Laub-Durchlässigkeit
+    const shade = new Float32Array(W * H)
+    for (const pos of steps) {
+      stampB.fill(0); stampT.fill(0)
+      const bearing = pos.azimuth + Math.PI
+      const bx = Math.sin(bearing), by = Math.cos(bearing)
+      const perH = 1 / Math.tan(pos.altitude)        // Schattenlänge pro Meter Höhe
+      // Gebäudeflächen: Vertices entlang der Sonnenrichtung auf Beobachterhöhe projizieren
+      for (const pts of faces) {
+        const proj = pts.map(([x, y, z]) => {
+          const d = Math.max(0, z - OBSERVER_H) * perH
+          return [x - bx * d, y - by * d]
+        })
+        stampPolygon(stampB, W, H, originX, originY, [...pts.map(([x, y]) => [x, y]), ...proj.reverse()], 1)
+      }
+      // Baumkronen: projizierte Kreise über die Kronenhöhe
+      for (const t of trees) {
+        const zMid = (t.top + t.base) / 2
+        const d = Math.max(0, zMid - OBSERVER_H) * perH
+        const stretch = (t.top - t.base) / 2 * perH
+        stampCircle(stampT, W, H, originX, originY, t.x - bx * d, t.y - by * d, t.r + stretch * 0.5, 1)
+        stampCircle(stampT, W, H, originX, originY, t.x - bx * (d - stretch), t.y - by * (d - stretch), t.r, 1)
+        stampCircle(stampT, W, H, originX, originY, t.x - bx * (d + stretch), t.y - by * (d + stretch), t.r, 1)
+      }
+      const treeShade = 1 - season.treeTransparency
+      for (let i = 0; i < shade.length; i++) {
+        if (stampB[i]) shade[i] += 1
+        else if (stampT[i]) shade[i] += treeShade
+      }
+    }
+
+    const maxHours = steps.length * STEP_MIN / 60
+    const rgba = Buffer.alloc(W * H * 4)
+    for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+      const idx = j * W + i
+      const src = (H - 1 - j) * W + i // PNG: Zeile 0 = Norden
+      const px = idx * 4
+      if (mask[src]) { rgba[px + 3] = 0; continue }
+      const hours = (steps.length - shade[src]) * STEP_MIN / 60
+      const [r, g, b] = colorFor(hours, maxHours)
+      rgba[px] = r; rgba[px + 1] = g; rgba[px + 2] = b; rgba[px + 3] = 205
+    }
+    const file = `${name}-sonne-${season.key}.png`
+    writePng(join(OUT_DIR, file), W, H, rgba)
+    written[season.key] = file
+    maxima[season.key] = Math.round(maxHours * 10) / 10
   }
-  writePng(join(OUT_DIR, `${name}-sonne.png`), W, H, rgba)
 
   // Index um Heatmap-Infos ergänzen
   const idxFile = join(OUT_DIR, 'index.json')
   const idx = JSON.parse(readFileSync(idxFile, 'utf-8'))
   const e = idx.find(x => x.name === name)
   if (e) {
-    e.heatmap = `${name}-sonne.png`
+    e.heatmaps = { ...(e.heatmaps || {}), ...written }
+    e.heatmap_max = { ...(e.heatmap_max || {}), ...maxima }
+    e.heatmap = e.heatmaps.sommer || e.heatmap // Abwärtskompatibilität
     e.bounds = [clat - R / ky, clng - R / kx, clat + R / ky, clng + R / kx] // [S,W,N,E]
-    e.heatmap_max_h = maxHours
   }
   writeFileSync(idxFile, JSON.stringify(idx, null, 1))
-  console.log(`  ${name}: ${W}×${H} Zellen · ${steps.length} Sonnenschritte · ${faces.length} Flächen · ${trees.length} Bäume ✓`)
+  console.log(`  ${name}: ${W}×${H} Zellen · ${Object.keys(written).join('/')} · ${faces.length} Flächen · ${trees.length} Bäume ✓`)
 }
 
 const idx = JSON.parse(readFileSync(join(OUT_DIR, 'index.json'), 'utf-8'))

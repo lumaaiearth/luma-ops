@@ -14,6 +14,7 @@ import { fetchBuildingsAround } from '../lib/overpass.js'
 import { fetchAlkisBuildings, fetchBerlinTrees, isInBerlin, radiusBbox } from '../lib/berlinGeo.js'
 import { findLod2Patch } from '../lib/lod2.js'
 import { analyzeSun, SEASONS, LICHT_KLASSEN } from '../lib/solar.js'
+import { checkStarkregen, SZENARIEN, AMPEL } from '../lib/starkregen.js'
 
 const MONO = "'Space Mono', monospace"
 const SANS = "'Space Grotesk', sans-serif"
@@ -273,13 +274,87 @@ function SunAnalysis({ feature, centroid, isAdmin, onUpdateProperties }) {
   )
 }
 
+/* ── Starkregen-Check: Ampel gegen die Berliner Starkregengefahrenkarte.
+   Ergebnis wird in properties.starkregen gespeichert (wie Sonnenanalyse). */
+function RainCheck({ feature, centroid, isAdmin, onUpdateProperties }) {
+  const [running, setRunning] = useState(false)
+  const [error, setError] = useState(null)
+  const [localResult, setLocalResult] = useState(null)
+  const result = localResult || feature.properties?.starkregen || null
+
+  async function run() {
+    if (!centroid) return
+    setRunning(true); setError(null)
+    try {
+      const res = await checkStarkregen(centroid.lat, centroid.lng)
+      setLocalResult(res)
+      if (isAdmin) onUpdateProperties({ ...feature.properties, starkregen: res })
+    } catch {
+      setError(navigator.onLine ? 'Starkregengefahrenkarte gerade nicht erreichbar.' : 'Offline — Prüfung braucht Internet.')
+    } finally {
+      setRunning(false)
+    }
+  }
+
+  if (!centroid || !isInBerlin(centroid.lat, centroid.lng)) return null
+  const ampel = result ? AMPEL[result.ampel] : null
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>🌧️ Starkregen-Check</span>
+        {result && (
+          <button type="button" onClick={run} disabled={running} title="Neu prüfen" className="lu-btn-ghost"
+            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 5, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: running ? 'default' : 'pointer', fontSize: 10, fontFamily: SANS }}>
+            <RefreshCw size={10} style={running ? { animation: 'spin 1s linear infinite' } : undefined} /> {running ? 'prüft…' : 'neu'}
+          </button>
+        )}
+      </div>
+
+      {!result && (
+        <button type="button" onClick={run} disabled={running}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: '9px 10px', borderRadius: 8, background: '#38bdf815', border: '1px solid #38bdf840', color: running ? MUTED : '#38bdf8', cursor: running ? 'default' : 'pointer', fontSize: 12, fontWeight: 600, fontFamily: SANS }}>
+          {running ? <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> : '🌧️'}
+          {running ? 'Prüfe Überflutungsgefahr…' : 'Überflutungsgefahr prüfen'}
+        </button>
+      )}
+      {error && <div style={{ fontFamily: MONO, fontSize: 10, color: DANGER, marginTop: 6 }}>{error}</div>}
+
+      {result && ampel && (
+        <>
+          <div style={{ marginBottom: 6 }}>
+            <Badge color={ampel.color}>{ampel.label}</Badge>
+            <div style={{ fontSize: 10, color: MUTED, marginTop: 4, lineHeight: 1.5 }}>{ampel.hint}</div>
+          </div>
+          {result.modellgebiet && SZENARIEN.map(s => {
+            const v = result.szenarien?.[s.key]
+            if (!v) return null
+            return (
+              <div key={s.key} style={{ display: 'flex', gap: 8, fontSize: 11, padding: '3px 0' }}>
+                <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED, minWidth: 118, paddingTop: 1 }}>{s.label}</span>
+                <span style={{ color: FG, flex: 1 }}>
+                  {v.anteil_pct > 0 ? `${v.anteil_pct}% des Umfelds betroffen` : 'Umfeld frei'}
+                  {v.klasse ? ` · am Punkt: ${v.klasse}` : ''}
+                </span>
+              </div>
+            )
+          })}
+          <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, marginTop: 4, lineHeight: 1.5 }}>
+            Starkregengefahrenkarte Berlin · 120-m-Umfeld um den Flächenschwerpunkt
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 // Bekannte Keys, die bereits strukturiert dargestellt werden
 const KNOWN_KEYS = new Set([
   'photos', 'notizen', 'baumnummer', 'baummarke', 'baumart_deutsch', 'baumart_latein',
   'stammumfang_cm', 'bhd_cm', 'baumhoehe_m', 'kronendurchmesser_m', 'kronenansatz_m',
   'pflanzjahr', 'vitalitaet', 'verkehrssicherheit', 'eps_befall', 'schutzstatus',
   'schaedlinge', 'standorttyp', 'letzte_kontrolle', 'opacity', 'image_url', 'filename',
-  'tiles_url', 'slug', 'minZoom', 'maxZoom', 'tms', 'sonnenanalyse',
+  'tiles_url', 'slug', 'minZoom', 'maxZoom', 'tms', 'sonnenanalyse', 'starkregen',
 ])
 
 export default function FeaturePanel({
@@ -376,6 +451,9 @@ export default function FeaturePanel({
 
         {/* Sonnenstunden-Analyse (Gebäudeschatten, 4 Jahreszeiten) */}
         <SunAnalysis feature={feature} centroid={m?.centroid} isAdmin={isAdmin} onUpdateProperties={onUpdateProperties} />
+
+        {/* Starkregen-Check (Berliner Gefahrenkarte, Ampel) */}
+        <RainCheck feature={feature} centroid={m?.centroid} isAdmin={isAdmin} onUpdateProperties={onUpdateProperties} />
 
         {/* Florales™: verknüpfte Pflanzpläne + Planung starten */}
         {(canFloralis || linkedPlans.length > 0) && (

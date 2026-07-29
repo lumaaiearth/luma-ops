@@ -5,14 +5,26 @@
   "lng": 13.3728409,
   "radius": 350,
   "file": "r95.json",
-  "heatmap": "r95-sonne.png",
+  "heatmap": "r95-sonne-sommer.png",
   "bounds": [
    52.56980264200503,
    13.367815400423844,
    52.575911157994966,
    13.377866399576156
   ],
-  "heatmap_max_h": 16.5
+  "heatmap_max_h": 16.5,
+  "heatmaps": {
+   "fruehling": "r95-sonne-fruehling.png",
+   "sommer": "r95-sonne-sommer.png",
+   "herbst": "r95-sonne-herbst.png",
+   "winter": "r95-sonne-winter.png"
+  },
+  "heatmap_max": {
+   "fruehling": 12,
+   "sommer": 16.5,
+   "herbst": 12,
+   "winter": 7.3
+  }
  },
  {
   "name": "blankenburg",
@@ -20,14 +32,26 @@
   "lng": 13.4534,
   "radius": 350,
   "file": "blankenburg.json",
-  "heatmap": "blankenburg-sonne.png",
+  "heatmap": "blankenburg-sonne-sommer.png",
   "bounds": [
    52.59084574200503,
    13.448372087191059,
    52.596954257994966,
    13.458427912808942
   ],
-  "heatmap_max_h": 16.666666666666668
+  "heatmap_max_h": 16.666666666666668,
+  "heatmaps": {
+   "fruehling": "blankenburg-sonne-fruehling.png",
+   "sommer": "blankenburg-sonne-sommer.png",
+   "herbst": "blankenburg-sonne-herbst.png",
+   "winter": "blankenburg-sonne-winter.png"
+  },
+  "heatmap_max": {
+   "fruehling": 12,
+   "sommer": 16.7,
+   "herbst": 12,
+   "winter": 7.3
+  }
  },
  {
   "name": "h14",
@@ -35,14 +59,26 @@
   "lng": 13.4243,
   "radius": 350,
   "file": "h14.json",
-  "heatmap": "h14-sonne.png",
+  "heatmap": "h14-sonne-sommer.png",
   "bounds": [
    52.48124574200503,
    13.41928462343197,
    52.487354257994966,
    13.42931537656803
   ],
-  "heatmap_max_h": 16.5
+  "heatmap_max_h": 16.5,
+  "heatmaps": {
+   "fruehling": "h14-sonne-fruehling.png",
+   "sommer": "h14-sonne-sommer.png",
+   "herbst": "h14-sonne-herbst.png",
+   "winter": "h14-sonne-winter.png"
+  },
+  "heatmap_max": {
+   "fruehling": 12,
+   "sommer": 16.5,
+   "herbst": 12,
+   "winter": 7.3
+  }
  },
  {
   "name": "htw",
@@ -50,14 +86,26 @@
   "lng": 13.5265,
   "radius": 350,
   "file": "htw.json",
-  "heatmap": "htw-sonne.png",
+  "heatmap": "htw-sonne-sommer.png",
   "bounds": [
    52.48984574200503,
    13.521483642672644,
    52.49595425799497,
    13.531516357327357
   ],
-  "heatmap_max_h": 16.5
+  "heatmap_max_h": 16.5,
+  "heatmaps": {
+   "fruehling": "htw-sonne-fruehling.png",
+   "sommer": "htw-sonne-sommer.png",
+   "herbst": "htw-sonne-herbst.png",
+   "winter": "htw-sonne-winter.png"
+  },
+  "heatmap_max": {
+   "fruehling": 12,
+   "sommer": 16.5,
+   "herbst": 12,
+   "winter": 7.3
+  }
  },
  {
   "name": "k28",
@@ -65,14 +113,26 @@
   "lng": 13.4281,
   "radius": 350,
   "file": "k28.json",
-  "heatmap": "k28-sonne.png",
+  "heatmap": "k28-sonne-sommer.png",
   "bounds": [
    52.47554574200503,
    13.423085273196582,
    52.48165425799497,
    13.433114726803419
   ],
-  "heatmap_max_h": 16.5
+  "heatmap_max_h": 16.5,
+  "heatmaps": {
+   "fruehling": "k28-sonne-fruehling.png",
+   "sommer": "k28-sonne-sommer.png",
+   "herbst": "k28-sonne-herbst.png",
+   "winter": "k28-sonne-winter.png"
+  },
+  "heatmap_max": {
+   "fruehling": 12,
+   "sommer": 16.5,
+   "herbst": 12,
+   "winter": 7.3
+  }
  },
  {
   "name": "langen-enden",
@@ -80,14 +140,26 @@
   "lng": 13.4058,
   "radius": 350,
   "file": "langen-enden.json",
-  "heatmap": "langen-enden-sonne.png",
+  "heatmap": "langen-enden-sonne-sommer.png",
   "bounds": [
    52.39304574200503,
    13.400794653326516,
    52.399154257994965,
    13.410805346673483
   ],
-  "heatmap_max_h": 16.5
+  "heatmap_max_h": 16.5,
+  "heatmaps": {
+   "fruehling": "langen-enden-sonne-fruehling.png",
+   "sommer": "langen-enden-sonne-sommer.png",
+   "herbst": "langen-enden-sonne-herbst.png",
+   "winter": "langen-enden-sonne-winter.png"
+  },
+  "heatmap_max": {
+   "fruehling": 12,
+   "sommer": 16.5,
+   "herbst": 12,
+   "winter": 7.3
+  }
  },
  {
   "name": "mv-bew",
@@ -95,14 +167,26 @@
   "lng": 13.3565,
   "radius": 350,
   "file": "mv-bew.json",
-  "heatmap": "mv-bew-sonne.png",
+  "heatmap": "mv-bew-sonne-sommer.png",
   "bounds": [
    52.59624574200503,
    13.351471467433353,
    52.60235425799497,
    13.361528532566648
   ],
-  "heatmap_max_h": 16.666666666666668
+  "heatmap_max_h": 16.666666666666668,
+  "heatmaps": {
+   "fruehling": "mv-bew-sonne-fruehling.png",
+   "sommer": "mv-bew-sonne-sommer.png",
+   "herbst": "mv-bew-sonne-herbst.png",
+   "winter": "mv-bew-sonne-winter.png"
+  },
+  "heatmap_max": {
+   "fruehling": 12,
+   "sommer": 16.7,
+   "herbst": 12,
+   "winter": 7.3
+  }
  },
  {
   "name": "preussenpark",
@@ -110,13 +194,25 @@
   "lng": 13.3131,
   "radius": 350,
   "file": "preussenpark.json",
-  "heatmap": "preussenpark-sonne.png",
+  "heatmap": "preussenpark-sonne-sommer.png",
   "bounds": [
    52.48944574200503,
    13.308083688300368,
    52.49555425799497,
    13.318116311699633
   ],
-  "heatmap_max_h": 16.5
+  "heatmap_max_h": 16.5,
+  "heatmaps": {
+   "fruehling": "preussenpark-sonne-fruehling.png",
+   "sommer": "preussenpark-sonne-sommer.png",
+   "herbst": "preussenpark-sonne-herbst.png",
+   "winter": "preussenpark-sonne-winter.png"
+  },
+  "heatmap_max": {
+   "fruehling": 12,
+   "sommer": 16.5,
+   "herbst": 12,
+   "winter": 7.3
+  }
  }
 ]

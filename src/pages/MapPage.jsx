@@ -936,6 +936,7 @@ export default function MapPage() {
 
   // LoD2-/Heatmap-Index (Projektgebiete mit Dachmodell + Sonnen-Raster)
   const [lod2Index, setLod2Index] = useState([])
+  const [heatmapSeason, setHeatmapSeason] = useState('sommer')
   useEffect(() => {
     fetch('/lod2/index.json').then(r => (r.ok ? r.json() : [])).then(setLod2Index).catch(() => {})
   }, [])
@@ -1502,6 +1503,24 @@ export default function MapPage() {
                     {on && layer.desc && (
                       <div style={{ fontSize: 10, color: MUTED, padding: '3px 10px 4px 25px', lineHeight: 1.4 }}>{layer.desc}</div>
                     )}
+                    {/* Sonnen-Heatmap: Jahreszeiten-Umschalter + Legende */}
+                    {on && layer.id === 'sonnen_heatmap' && (
+                      <div style={{ padding: '2px 10px 8px 25px' }}>
+                        <div style={{ display: 'flex', gap: 3, marginBottom: 7, flexWrap: 'wrap' }}>
+                          {[['fruehling', '🌱 21.3.'], ['sommer', '☀️ 21.6.'], ['herbst', '🍂 23.9.'], ['winter', '❄️ 21.12.']].map(([k, l]) => (
+                            <button key={k} onClick={() => setHeatmapSeason(k)}
+                              style={{ padding: '3px 7px', borderRadius: 8, border: `1px solid ${heatmapSeason === k ? '#fbbf2460' : BORDER}`, background: heatmapSeason === k ? '#fbbf2415' : 'transparent', color: heatmapSeason === k ? '#fbbf24' : MUTED, cursor: 'pointer', fontSize: 10, fontFamily: "'Space Grotesk', sans-serif" }}>
+                              {l}
+                            </button>
+                          ))}
+                        </div>
+                        <div style={{ height: 8, borderRadius: 4, background: 'linear-gradient(to right, rgb(23,42,84) 0%, rgb(43,92,138) 25%, rgb(56,140,118) 45%, rgb(124,179,66) 65%, rgb(222,200,49) 82%, rgb(255,236,120) 100%)' }} />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'Space Mono', monospace", fontSize: 8, color: MUTED, marginTop: 3 }}>
+                          <span>0 h Sonne</span>
+                          <span>{lod2Index[0]?.heatmap_max?.[heatmapSeason] ? `${lod2Index[0].heatmap_max[heatmapSeason]} h (max.)` : 'volle Sonne'}</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )
               })}
@@ -1738,8 +1757,8 @@ export default function MapPage() {
 
           {/* Sonnen-Heatmaps: vorberechnete Raster (scripts/solar-heatmap.mjs)
               je Projektgebiet, aus LoD2-Dachmodell + Baumkataster */}
-          {activeLayers.has('sonnen_heatmap') && lod2Index.filter(e => e.heatmap && e.bounds).map(e => (
-            <ImageOverlay key={`heat-${e.name}`} url={`/lod2/${e.heatmap}`}
+          {activeLayers.has('sonnen_heatmap') && lod2Index.filter(e => (e.heatmaps?.[heatmapSeason] || e.heatmap) && e.bounds).map(e => (
+            <ImageOverlay key={`heat-${e.name}-${heatmapSeason}`} url={`/lod2/${e.heatmaps?.[heatmapSeason] || e.heatmap}`}
               bounds={[[e.bounds[0], e.bounds[1]], [e.bounds[2], e.bounds[3]]]}
               opacity={0.78} zIndex={230} />
           ))}
