@@ -15,7 +15,7 @@ import { examplePhotos } from '../lib/placeholderImages.js'
 import { fetchBuildingsAround } from '../lib/overpass.js'
 import { fetchAlkisBuildings, fetchBerlinTrees, isInBerlin, radiusBbox } from '../lib/berlinGeo.js'
 import { findLod2Patch } from '../lib/lod2.js'
-import { analyzeSun, SEASONS, LICHT_KLASSEN } from '../lib/solar.js'
+import { analyzeSunAsync, SEASONS, LICHT_KLASSEN } from '../lib/solar.js'
 import { checkStarkregen, SZENARIEN, AMPEL } from '../lib/starkregen.js'
 
 const MONO = "'Space Mono', monospace"
@@ -216,7 +216,7 @@ function SunAnalysis({ feature, centroid, canCapture, onUpdateProperties }) {
         } catch { /* GDI down → OSM-Fallback */ }
       }
       if (!lod2Patch && !buildings.length) buildings = await fetchBuildingsAround(centroid.lat, centroid.lng, 180)
-      const analysis = analyzeSun(centroid.lat, centroid.lng, buildings, trees, { source, lod2Patch })
+      const analysis = await analyzeSunAsync(centroid.lat, centroid.lng, buildings, trees, { source, lod2Patch })
       setLocalResult(analysis)
       if (canCapture) onUpdateProperties({ sonnenanalyse: analysis })
     } catch (e) {
@@ -281,6 +281,7 @@ function SunAnalysis({ feature, centroid, canCapture, onUpdateProperties }) {
             })}
           </div>
           <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, marginTop: 6, lineHeight: 1.5 }}>
+            {result.computed_at && <>Berechnet am {new Date(result.computed_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} · </>}
             {result.source === 'lod2'
               ? `${result.buildings_n} Gebäude (LoD2-Dachmodell, amtlich)`
               : `${result.buildings_n} Gebäude (${result.source === 'alkis' ? 'amtlich/ALKIS' : 'OSM'})`}
@@ -359,6 +360,7 @@ function RainCheck({ feature, centroid, canCapture, onUpdateProperties }) {
             )
           })}
           <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, marginTop: 4, lineHeight: 1.5 }}>
+            {result.computed_at && <>Geprüft am {new Date(result.computed_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} · </>}
             Starkregengefahrenkarte Berlin · 120-m-Umfeld um den Flächenschwerpunkt
           </div>
         </>

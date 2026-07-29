@@ -150,13 +150,20 @@ export default function Sun3DView({ center, mapFeatures = [], projectColorById =
   // LoD2-Dach-/Wandflächen als echte 3D-Polygone
   const lod2Faces = useMemo(() => {
     if (!lod2) return null
+    // Nur Gebäude im sichtbaren Umkreis rendern — große Patches haben bis zu
+    // 16.000 Flächen, die mit Shadow-Mapping ein Handy in die Knie zwingen.
+    const kx = 111320 * Math.cos(lat * Math.PI / 180)
     const out = []
-    for (const b of lod2.buildings) for (const f of b.faces) {
-      if (f.t === 'g') continue
-      out.push({ poly: f.pts, roof: f.t === 'r' })
+    for (const b of lod2.buildings) {
+      const p0 = b.faces[0]?.pts?.[0]
+      if (p0 && Math.hypot((p0[0] - lng) * kx, (p0[1] - lat) * 111320) > HALF_M) continue
+      for (const f of b.faces) {
+        if (f.t === 'g') continue
+        out.push({ poly: f.pts, roof: f.t === 'r' })
+      }
     }
     return out
-  }, [lod2])
+  }, [lod2, lat, lng])
 
   // Bäume: Stamm (extrudiertes Sechseck vom Boden bis Kronenansatz) +
   // Krone (instanziertes Ellipsoid). Vorher war jeder Baum ein voller Zylinder

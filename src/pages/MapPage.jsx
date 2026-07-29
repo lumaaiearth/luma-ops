@@ -182,7 +182,7 @@ function DrawControl({ mode, onFeatureDrawn, onCancel, onLiveMeasure }) {
     if (!map || !mode) return
 
     const isPoint = mode === 'tree' || mode === 'point' || mode === 'sensor'
-    const isLine = mode === 'line' || mode === 'measure'
+    const isLine = mode === 'line' || mode === 'measure'   // 'measure_area' → Polygon
     const shapeName = isPoint ? 'Marker' : isLine ? 'Line' : 'Polygon'
 
     if (isPoint) {
@@ -496,11 +496,21 @@ async function extractGeoTiffBounds(file) {
 }
 
 async function uploadDroneImage(projectId, file) {
-  const ext = file.name.split('.').pop().toLowerCase()
+  let ext = file.name.split('.').pop().toLowerCase()
   const mimeMap = { tif: 'image/tiff', tiff: 'image/tiff', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' }
-  const contentType = file.type || mimeMap[ext] || 'application/octet-stream'
+  let contentType = file.type || mimeMap[ext] || 'application/octet-stream'
+  let payload = file
+  // Normale Bilder auf 4096 px begrenzen — Handykameras/Drohnen liefern sonst
+  // 20-MB-Dateien, die jedes Öffnen der Karte über Mobilfunk lahmlegen.
+  if (!/tif/.test(ext) && file.type.startsWith('image/')) {
+    try {
+      payload = await compressImage(file, 4096, 0.85)
+      contentType = 'image/jpeg'
+      ext = 'jpg'
+    } catch { /* Original hochladen */ }
+  }
   const path = `${projectId}/${genId()}.${ext}`
-  const { error } = await sb.storage.from('drone-images').upload(path, file, { contentType, upsert: false })
+  const { error } = await sb.storage.from('drone-images').upload(path, payload, { contentType, upsert: false })
   if (error) throw error
   const { data } = sb.storage.from('drone-images').getPublicUrl(path)
   return data.publicUrl
@@ -974,7 +984,8 @@ export default function MapPage() {
   const [editMode, setEditMode] = useState(false)            // Geometrien verschieben/editieren
   const [gpsOn, setGpsOn] = useState(false)
   const [userPos, setUserPos] = useState(null)               // { lat, lng, accuracy }
-  const [measureResult, setMeasureResult] = useState(null)   // { length }
+  const [measureResult, setMeasureResult] = useState(null)   // { length } | { area, perimeter }
+  const [measureMenu, setMeasureMenu] = useState(false)
   const [liveMeasure, setLiveMeasure] = useState(null)       // { length, area } während des Zeichnens
   const featureLayers = useRef(new Map())                    // featureId -> Leaflet-Layer (für Edit-Modus)
   const editModeRef = useRef(false)
@@ -1279,9 +1290,10 @@ export default function MapPage() {
 
   // Toolbar-Einstieg: Zeichnen mit dem in der Toolbar gewählten Projekt
   function startDrawFromToolbar(mode) {
-    if (mode === 'measure') {
+    if (mode === 'measure' || mode === 'measure_area') {
       setDrawingProject(null)
-      setDrawMode('measure')
+      setPanelFeatureId(null)
+      setDrawMode(mode)
       setPendingGeometry(null)
       setEditMode(false)
       setMeasureResult(null)
@@ -1345,6 +1357,12 @@ export default function MapPage() {
       cancelDraw()
       return
     }
+    if (drawMode === 'measure_area') {
+      const m = geomMeasures(geometry)
+      setMeasureResult({ area: m?.area_m2 || 0, perimeter: m?.perimeter_m || 0 })
+      cancelDraw()
+      return
+    }
     setPendingGeometry(geometry)
   }
 
@@ -1352,8 +1370,17 @@ export default function MapPage() {
   function saveEditedGeometry(featId, layer) {
     try {
       const geometry = layer.toGeoJSON().geometry
-      updateMapFeature(featId, { geometry })
+      updateMapFeature(featId, { geometry, properties: withoutAnalysen(featId) })
     } catch { /* Layer nicht serialisierbar */ }
+  }
+
+  // Sonnen-/Starkregen-Ergebnisse hängen am Standort — nach dem Verschieben
+  // sind sie ungültig und müssen neu berechnet werden.
+  function withoutAnalysen(featId) {
+    const props = mapFeatures.find(f => f.id === featId)?.properties || {}
+    if (!props.sonnenanalyse && !props.starkregen) return props
+    const { sonnenanalyse, starkregen, ...rest } = props
+    return rest
   }
 
   function calcPendingArea() {
@@ -1673,7 +1700,7 @@ export default function MapPage() {
                                 style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 5, padding: '3px 4px', borderRadius: 4, fontSize: 11, color: FG, cursor: 'pointer' }}>
                                 <span style={{ fontSize: 10, flexShrink: 0 }}>📡</span>
                                 <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</span>
-                                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: sColor, flexShrink: 0 }}>{s.value}{s.unit}</span>
+                                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: s.value == null ? MUTED : sColor, flexShrink: 0 }}>{s.value == null ? '—' : `${s.value}${s.unit}`}</span>
                               </div>
                               <button onClick={() => navigate(`/sensors/${s.id}`)} title="Sensorseite öffnen"
                                 style={{ width: 20, height: 20, borderRadius: 4, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1873,7 +1900,10 @@ export default function MapPage() {
                   eventHandlers={{
                     dragend: e => {
                       const ll = e.target.getLatLng()
-                      updateMapFeature(feat.id, { geometry: { type: 'Point', coordinates: [ll.lng, ll.lat] } })
+                      updateMapFeature(feat.id, {
+                        geometry: { type: 'Point', coordinates: [ll.lng, ll.lat] },
+                        properties: withoutAnalysen(feat.id),
+                      })
                     },
                     // Klick öffnet das Detailpanel + wählt das Projekt im Ordner aus
                     click: () => { if (!editModeRef.current) openFeature(feat) },
@@ -1919,7 +1949,9 @@ export default function MapPage() {
                     </div>
                     <div style={{ fontWeight: 600, fontSize: 13, color: '#e8f0f5', marginBottom: 3 }}>{s.name}</div>
                     <div style={{ fontSize: 22, fontWeight: 300, color: sColor, lineHeight: 1.1, marginBottom: 3 }}>
-                      {s.value}<span style={{ fontSize: 12, color: 'rgba(232,240,245,0.5)' }}>{s.unit}</span>
+                      {s.value == null
+                        ? <span style={{ fontSize: 12, color: 'rgba(232,240,245,0.55)' }}>noch keine Messung</span>
+                        : <>{s.value}<span style={{ fontSize: 12, color: 'rgba(232,240,245,0.5)' }}>{s.unit}</span></>}
                     </div>
                     {proj && <div style={{ fontSize: 11, color: 'rgba(232,240,245,0.5)', marginBottom: 2 }}>{proj.name}</div>}
                     <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: 'rgba(232,240,245,0.4)' }}>{s.lat.toFixed(6)}, {s.lng.toFixed(6)}</div>
@@ -2070,10 +2102,28 @@ export default function MapPage() {
                 <div style={{ width: 1, alignSelf: 'stretch', background: BORDER, margin: '2px 2px', flexShrink: 0 }} />
               </>
             )}
-            <button onClick={() => startDrawFromToolbar('measure')} title="Strecke messen (wird nicht gespeichert)" className="lu-chip"
-              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: '1px solid transparent', background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
-              <Ruler size={13} />{!isMobile && 'Messen'}
-            </button>
+            {/* Messen: Strecke ODER Fläche (nichts davon wird gespeichert) */}
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <button onClick={() => setMeasureMenu(v => !v)} title="Messen: Strecke oder Fläche" className="lu-chip"
+                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: `1px solid ${measureMenu ? BORDER : 'transparent'}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap' }}>
+                <Ruler size={13} />{!isMobile && 'Messen'}
+              </button>
+              {measureMenu && (
+                <div className="lu-fade-in" style={{ position: 'absolute', top: '100%', left: 0, marginTop: 6, zIndex: 1002, background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, padding: 4, boxShadow: '0 8px 26px rgba(0,0,0,0.45)', minWidth: 168 }}>
+                  {[['measure', '📏', 'Strecke', 'Punkte setzen, doppelt tippen'],
+                    ['measure_area', '📐', 'Fläche', 'Eckpunkte setzen, Ring schließen']].map(([mode, icon, label, hint]) => (
+                    <button key={mode} onClick={() => { setMeasureMenu(false); startDrawFromToolbar(mode) }} className="lu-option"
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', padding: '7px 9px', borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer' }}>
+                      <span style={{ fontSize: 14 }}>{icon}</span>
+                      <span style={{ flex: 1 }}>
+                        <span style={{ display: 'block', fontSize: 12, color: FG, fontFamily: "'Space Grotesk', sans-serif" }}>{label}</span>
+                        <span style={{ display: 'block', fontFamily: "'Space Mono', monospace", fontSize: 8.5, color: MUTED }}>{hint}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <button onClick={() => setShow3D(true)} title="3D-Schatten: Gebäude in 3D mit Sonnenstand-Simulation" className="lu-chip"
               style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: '1px solid transparent', background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
               <span style={{ fontSize: 13 }}>☀️</span>{!isMobile && '3D-Schatten'}
@@ -2179,9 +2229,9 @@ export default function MapPage() {
 
         {/* Draw mode indicator banner */}
         {drawMode && !pendingGeometry && (
-          <div style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: SURFACE, border: `1px solid color-mix(in srgb, ${drawMode === 'measure' || drawMode === 'sensor' ? '#38bdf8' : FEATURE_MODES.find(m => m.id === drawMode)?.color || A} 38%, transparent)`, borderRadius: 14, padding: '8px 16px', fontSize: 12, color: FG, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 2px 12px rgba(0,0,0,0.5)', maxWidth: 'calc(100% - 24px)' }}>
+          <div style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: SURFACE, border: `1px solid color-mix(in srgb, ${drawMode === 'measure' || drawMode === 'measure_area' || drawMode === 'sensor' ? '#38bdf8' : FEATURE_MODES.find(m => m.id === drawMode)?.color || A} 38%, transparent)`, borderRadius: 14, padding: '8px 16px', fontSize: 12, color: FG, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 2px 12px rgba(0,0,0,0.5)', maxWidth: 'calc(100% - 24px)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span>{drawMode === 'measure' ? '📏' : drawMode === 'sensor' ? '📡' : FEATURE_MODES.find(m => m.id === drawMode)?.icon}</span>
+              <span>{drawMode === 'measure' ? '📏' : drawMode === 'measure_area' ? '📐' : drawMode === 'sensor' ? '📡' : FEATURE_MODES.find(m => m.id === drawMode)?.icon}</span>
               <span>
                 {drawMode === 'tree' || drawMode === 'point' || drawMode === 'sensor'
                   ? drawMode === 'sensor'
@@ -2189,6 +2239,8 @@ export default function MapPage() {
                     : 'Auf die Karte tippen, um zu platzieren'
                   : drawMode === 'measure'
                     ? 'Messpunkte setzen — letzten Punkt doppelt antippen zum Abschließen'
+                  : drawMode === 'measure_area'
+                    ? 'Eckpunkte der Fläche setzen — ersten Punkt antippen zum Schließen'
                     : drawMode === 'line'
                       ? 'Punkte setzen — letzten Punkt doppelt antippen zum Abschließen'
                       : 'Eckpunkte setzen — ersten Punkt antippen oder Doppelklick zum Abschließen'}
@@ -2211,11 +2263,24 @@ export default function MapPage() {
         {measureResult && !drawMode && (
           <div className="lu-fade-in" style={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: SURFACE, border: '1px solid rgba(56,189,248,0.4)', borderRadius: 10, padding: '10px 16px', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', gap: 12 }}>
             <Ruler size={15} color="#38bdf8" />
-            <div>
-              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Gemessene Strecke</div>
-              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 18, fontWeight: 700, color: '#38bdf8', lineHeight: 1.2 }}>{fmtLen(measureResult.length)}</div>
-            </div>
-            <button onClick={() => startDrawFromToolbar('measure')} className="lu-btn-ghost" title="Erneut messen"
+            {measureResult.area != null ? (
+              <>
+                <div>
+                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Gemessene Fläche</div>
+                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 18, fontWeight: 700, color: '#38bdf8', lineHeight: 1.2 }}>{fmtArea(measureResult.area)}</div>
+                </div>
+                <div>
+                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Umfang</div>
+                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 18, fontWeight: 700, color: FG, lineHeight: 1.2 }}>{fmtLen(measureResult.perimeter)}</div>
+                </div>
+              </>
+            ) : (
+              <div>
+                <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Gemessene Strecke</div>
+                <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 18, fontWeight: 700, color: '#38bdf8', lineHeight: 1.2 }}>{fmtLen(measureResult.length)}</div>
+              </div>
+            )}
+            <button onClick={() => startDrawFromToolbar(measureResult.area != null ? 'measure_area' : 'measure')} className="lu-btn-ghost" title="Erneut messen"
               style={{ padding: '5px 10px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 11 }}>
               Erneut
             </button>

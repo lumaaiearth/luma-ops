@@ -435,11 +435,13 @@ export function OpsProvider({ children }) {
   // Sensor anlegen (z.B. aus BIOME per Karten-Klick — lat/lng = GPS-Position).
   // Braucht die Migration 20260721 (lat/lng-Spalten), sonst schlägt der DB-Write fehl.
   function createSensor(data) {
+    // Bewusst OHNE Startwert: ein frisch gesetzter Sensor hat noch nicht
+    // gemessen — „0 %" sah aus wie eine echte (alarmierende) Messung.
     const sensor = {
-      value: 0, status: 'ok', unit: '%', threshold_low: 20, threshold_high: 80,
+      value: null, status: 'ok', unit: '%', threshold_low: 20, threshold_high: 80,
       ...data,
       id: data.id || genId(),
-      last_updated: new Date().toISOString(),
+      last_updated: null,
     }
     setSensorsState(prev => [...prev, sensor])
     sbUpsert('sensors', [sensor]).catch(dbErr('sensors', 'write'))

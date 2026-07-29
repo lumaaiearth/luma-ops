@@ -225,6 +225,40 @@ export function sunHoursForDate(lat, lng, prep, date, treeTransparency = 0) {
   return { sun: r1(sun * f), possible: r1(possible * f), kwh: r2(wh * f / 1000), kwh_possible: r2(whPossible * f / 1000) }
 }
 
+// Kurz den Hauptthread freigeben, damit die Oberfläche während der Berechnung
+// reagiert (auf dem Handy summieren sich die Stichtage sonst zu ~1 s Blockade).
+const atmen = () => new Promise(r => setTimeout(r, 0))
+
+// Asynchrone Variante von analyzeSun: identisches Ergebnis, aber die vier
+// Stichtage werden nacheinander mit Atempausen gerechnet.
+export async function analyzeSunAsync(lat, lng, buildings, trees = [], meta = {}) {
+  const prep = prepareShaders(lat, lng, meta.lod2Patch ? [] : buildings, trees)
+  let buildingsN = prep.buildings.length
+  if (meta.lod2Patch) {
+    const mesh = prepareLod2(lat, lng, meta.lod2Patch)
+    prep.meshFaces = mesh.faces
+    prep.onBuilding = prep.onBuilding || mesh.onBuilding
+    buildingsN = (meta.lod2Patch.buildings || []).length
+  }
+  const year = new Date().getFullYear()
+  const seasons = {}
+  for (const s of SEASONS) {
+    await atmen()
+    seasons[s.key] = sunHoursForDate(lat, lng, prep, new Date(year, s.month, s.day, 12), s.treeTransparency)
+  }
+  const sommer = seasons.sommer.sun
+  return {
+    seasons,
+    licht: sommer >= 6 ? 1 : sommer >= 3 ? 2 : 3,
+    on_building: prep.onBuilding,
+    buildings_n: buildingsN,
+    faces_n: prep.meshFaces ? prep.meshFaces.length : undefined,
+    trees_n: prep.trees.length,
+    source: meta.lod2Patch ? 'lod2' : (meta.source || 'osm'),
+    computed_at: new Date().toISOString(),
+  }
+}
+
 // Komplette Analyse: 4 Stichtage + Licht-Klasse (Florales: 1/2/3).
 // Mit meta.lod2Patch rechnet die Verschattung gegen die echten LoD2-Dach-/
 // Wandflächen statt gegen Höhen-Prismen (buildings wird dann ignoriert).

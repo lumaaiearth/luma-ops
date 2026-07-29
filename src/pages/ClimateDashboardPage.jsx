@@ -251,7 +251,7 @@ export default function ClimateDashboardPage() {
     const out = {}
     for (const s of metricSensors) {
       const list = readings[s.id]
-      out[s.id] = list?.length ? list[list.length - 1].value : Number(s.value)
+      out[s.id] = list?.length ? list[list.length - 1].value : (s.value == null ? null : Number(s.value))
     }
     return out
   }, [metricSensors, readings])
