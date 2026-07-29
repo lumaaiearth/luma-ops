@@ -8,6 +8,7 @@ import { geomMeasures, fmtArea, fmtLen, fmtLatLng } from '../lib/geo.js'
 import { SEASONS, LICHT_KLASSEN } from '../lib/solar.js'
 import { AMPEL as REGEN_AMPEL, SZENARIEN } from '../lib/starkregen.js'
 import { fetchKlimaProfil, empfehlungen } from '../lib/klimaProfil.js'
+import { renderMapSnapshot } from '../lib/mapSnapshot.js'
 
 const MONO = "'Space Mono', monospace"
 const SANS = "'Space Grotesk', sans-serif"
@@ -48,10 +49,13 @@ function Zeile({ k, v }) {
   )
 }
 
+const CARTO_LIGHT = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'
+
 export default function ClimateReport({ feature, project, heatmapEntry, onClose }) {
   const [klima, setKlima] = useState(null)
   const [loading, setLoading] = useState(true)
   const [fehler, setFehler] = useState(null)
+  const [karten, setKarten] = useState(null)   // { luftbild, lage } — je dataUrl
   const abortRef = useRef(null)
 
   const p = feature?.properties || {}
@@ -70,6 +74,25 @@ export default function ClimateReport({ feature, project, heatmapEntry, onClose 
       .finally(() => setLoading(false))
     return () => ctrl.abort()
   }, [c?.lat, c?.lng]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Kartenausschnitte aus Kacheln zusammensetzen: ein Luftbild der Fläche und
+  // eine Übersicht, wo sie in der Stadt liegt. Ohne die beiden ist ein
+  // ausgedruckter Steckbrief für Außenstehende nicht verortbar.
+  useEffect(() => {
+    if (!feature?.geometry) return
+    const ctrl = new AbortController()
+    let lebt = true
+    Promise.all([
+      renderMapSnapshot(feature.geometry, { width: 620, height: 360, signal: ctrl.signal }),
+      renderMapSnapshot(feature.geometry, {
+        width: 300, height: 200, url: CARTO_LIGHT, maxZoom: 13, minZoom: 13,
+        padding: 20, scaleBar: false, markerUnterPx: 22, fill: 'rgba(8,170,86,0.45)', signal: ctrl.signal,
+      }),
+    ])
+      .then(([luftbild, lage]) => { if (lebt) setKarten({ luftbild, lage }) })
+      .catch(() => { if (lebt) setKarten({ luftbild: null, lage: null }) })
+    return () => { lebt = false; ctrl.abort() }
+  }, [feature?.id, feature?.geometry]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!feature) return null
 
@@ -128,6 +151,33 @@ export default function ClimateReport({ feature, project, heatmapEntry, onClose 
               </div>
             </div>
           </header>
+
+          {/* Lage — Luftbild + Übersichtskarte */}
+          {feature.geometry && (
+            <div style={{ marginBottom: 20, breakInside: 'avoid' }}>
+              {karten ? (karten.luftbild || karten.lage) && (
+                <>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                    {karten.luftbild && (
+                      <img src={karten.luftbild.dataUrl} alt={`Luftbild ${feature.label || 'der Fläche'}`}
+                        style={{ flex: '1 1 380px', minWidth: 0, maxWidth: '100%', borderRadius: 8, border: `1px solid ${LINE}`, display: 'block' }} />
+                    )}
+                    {karten.lage && (
+                      <img src={karten.lage.dataUrl} alt="Lage im Stadtgebiet"
+                        style={{ width: 205, borderRadius: 8, border: `1px solid ${LINE}`, display: 'block' }} />
+                    )}
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 8.5, color: SOFT, marginTop: 4 }}>
+                    Luftbild: Esri World Imagery · Übersicht: OpenStreetMap / CARTO · grüner Umriss = betrachtete Fläche
+                  </div>
+                </>
+              ) : (
+                <div className="lu-report-noprint" style={{ height: 120, borderRadius: 8, border: `1px dashed ${LINE}`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: SOFT, fontSize: 12, fontFamily: SANS }}>
+                  <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> Kartenausschnitt wird geladen…
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Kernaussage */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8, marginBottom: 22 }}>
@@ -261,7 +311,8 @@ export default function ClimateReport({ feature, project, heatmapEntry, onClose 
           {/* Fuß */}
           <footer style={{ borderTop: `1px solid ${LINE}`, paddingTop: 10, marginTop: 8, fontFamily: MONO, fontSize: 8.5, color: SOFT, lineHeight: 1.7 }}>
             <div><b>Quellen:</b> Umweltatlas Berlin / Geodateninfrastruktur Berlin (Klimaanalyse 2022, Versiegelung 2021,
-              Grünvolumen 2020, Starkregengefahrenkarte, ALKIS-Gebäude, Baumkataster, 3D-Gebäudemodell LoD2) — Lizenz dl-de/by-2-0 bzw. dl-de/zero-2-0.</div>
+              Grünvolumen 2020, Starkregengefahrenkarte, ALKIS-Gebäude, Baumkataster, 3D-Gebäudemodell LoD2) — Lizenz dl-de/by-2-0 bzw. dl-de/zero-2-0.
+              Kartenbilder: Luftbild &copy; Esri World Imagery, Übersichtskarte &copy; OpenStreetMap-Mitwirkende / CARTO.</div>
             <div><b>Methodik Sonne:</b> Sonnenstand nach NOAA-Algorithmus, Verschattung durch amtliche Gebäudegeometrien
               und Baumkronen (saisonaler Laubzustand), Zeitschritt 10 Minuten, Bezugshöhe 0,5 m über Grund.
               Strahlungswerte sind Klarhimmel-Potenziale ohne Bewölkung; reale Jahreswerte liegen niedriger.</div>
