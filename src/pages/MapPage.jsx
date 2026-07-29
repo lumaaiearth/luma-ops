@@ -1415,7 +1415,16 @@ export default function MapPage() {
     <div style={{ width: isMobile ? '100%' : 268, background: SURFACE, borderRight: isMobile ? 'none' : `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100%' }}>
       <div style={{ padding: '16px 14px 12px', borderBottom: `1px solid ${BORDER}` }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
-          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, letterSpacing: '0.15em', textTransform: 'uppercase', flex: 1 }}>BIOME™</div>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, letterSpacing: '0.15em', textTransform: 'uppercase', flex: 1 }}>
+            BIOME™{location.pathname === '/earth' ? ' EARTH' : ''}
+          </div>
+          {!isMobile && location.pathname !== '/earth' && (
+            <button onClick={() => window.open('/earth', 'biome_earth', 'popup=yes,width=1500,height=950')}
+              title="BIOME Earth — als eigenes Fenster öffnen" aria-label="BIOME Earth öffnen"
+              style={{ width: 26, height: 26, borderRadius: 7, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <ExternalLink size={12} />
+            </button>
+          )}
           {isMobile && (
             <button onClick={() => setSidebarOpen(false)} aria-label="Seitenleiste schließen"
               style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
