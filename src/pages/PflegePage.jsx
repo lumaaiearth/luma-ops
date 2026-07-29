@@ -8,7 +8,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
   Sprout, Scale, FileText, Plus, Copy, Trash2, Check, Pencil,
-  ChevronDown, ChevronRight, AlertTriangle, CalendarPlus, RotateCcw, RefreshCw,
+  ChevronDown, ChevronRight, AlertTriangle, CalendarPlus, RotateCcw, RefreshCw, Printer,
 } from 'lucide-react'
 import { sb } from '../lib/supabase.js'
 import { useOps } from '../context/OpsContext.jsx'
@@ -22,6 +22,8 @@ import {
   Modal, ModalActions, DateInput, INPUT_STYLE, LABEL_STYLE, MONO, SANS,
 } from '../components/ui.jsx'
 import { PFLEGE_KATALOG } from '../data/pflegeKatalog.js'
+import { normalisiereZeiteintraege, buildLeistungsnachweis } from '../lib/leistungsnachweis.js'
+import { druckeLeistungsnachweis } from '../lib/printNachweis.js'
 
 const MONATE = ['Jan', 'Feb', 'Mrz', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
 // KW→Monat wie in den Excel-Plänen/Import (Jan KW1–5 … Dez KW49–53)
@@ -697,6 +699,27 @@ function TabPlanIst({ plans, jahr, entries, jobs, gaengeByPlan, planLabel, planH
     } catch { window.__lumaToast?.('⚠️ Kopieren fehlgeschlagen') }
   }
 
+  // Kundentauglicher Leistungsnachweis als PDF — Grundlage ist die
+  // Zeiterfassung (time_entries), nicht der Job-Status. Damit enthält der
+  // Nachweis auch die Einsätze, die vor Ort gebucht, aber nie als Job
+  // „erledigt“ geklickt wurden — sonst bliebe er in der Praxis leer.
+  function pdfNachweis(projectId, label, ps) {
+    const nachweis = buildLeistungsnachweis({
+      leistungen: normalisiereZeiteintraege(
+        (entries || []).filter((e) => e.project_id === projectId)),
+      projekte: [{ id: projectId, name: label, location: projById[projectId]?.location || '' }],
+      plaene: ps.map((p) => ({
+        project_id: projectId, jahr: Number(p.jahr), soll_stunden: planHours(p),
+      })),
+      jahr,
+    })
+    const ok = druckeLeistungsnachweis(nachweis, {
+      kundeName: projById[projectId]?.client || '',
+      titel: `Leistungsnachweis ${jahr}`,
+    })
+    if (!ok) window.__lumaToast?.('⚠️ Pop-up-Blocker verhindert die Druckansicht')
+  }
+
   // Ist je Projekt aus der Zeiterfassung (alle Buchungen des Jahres auf das Projekt)
   const istByProject = useMemo(() => {
     const m = {}
@@ -746,6 +769,11 @@ function TabPlanIst({ plans, jahr, entries, jobs, gaengeByPlan, planLabel, planH
                   title="Erledigte Pflege-Einsätze des Jahres als Text für den Kunden kopieren"
                   onClick={() => copyNachweis(projectId, label)}>
                   {copied === projectId ? 'Kopiert' : 'Leistungsnachweis'}
+                </Button>
+                <Button variant="ghost" icon={Printer}
+                  title="Leistungsnachweis aus der Zeiterfassung als PDF für den Kunden erzeugen"
+                  onClick={() => pdfNachweis(projectId, label, ps)}>
+                  PDF
                 </Button>
                 {faktor !== null && (
                   <Button variant="ghost" icon={Scale}
