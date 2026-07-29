@@ -93,6 +93,11 @@ begin
 end;
 $$;
 
+-- Supabase vergibt EXECUTE per Default an PUBLIC — damit wäre die Funktion
+-- auch für `anon` über /rest/v1/rpc/… aufrufbar. Der is_admin()-Check würde
+-- sie zwar abweisen, aber ein nicht angemeldeter Aufruf hat hier nichts zu
+-- suchen. Erst entziehen, dann gezielt gewähren.
+REVOKE EXECUTE ON FUNCTION public.admin_set_client_org(text, uuid, boolean) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_set_client_org(text, uuid, boolean) TO authenticated;
 
 -- ── 3) Rollenprüfung ───────────────────────────────────────────────────
@@ -104,6 +109,7 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public'
   );
 $$;
 
+REVOKE EXECUTE ON FUNCTION public.is_kunde() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.is_kunde() TO authenticated;
 
 -- ── 4) Bereinigte Kunden-Views ─────────────────────────────────────────
@@ -229,4 +235,5 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public' AS $$
   ORDER BY c.name;
 $$;
 
+REVOKE EXECUTE ON FUNCTION public.admin_list_client_orgs() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_list_client_orgs() TO authenticated;
