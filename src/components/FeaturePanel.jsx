@@ -3,17 +3,20 @@
 // Fotos (Upload + Beispielbilder), Florales™-Verknüpfung, Aktionen.
 // Desktop: rechte Seite · Mobil: Bottom-Sheet.
 import { useState, useRef } from 'react'
-import { X, Pencil, Trash2, ExternalLink, Camera, Loader, Sprout, Sun, RefreshCw } from 'lucide-react'
+import { X, Pencil, Trash2, ExternalLink, Camera, Loader, Sprout, Sun, RefreshCw, FileText } from 'lucide-react'
 import { A, SURFACE, BORDER, FG, MUTED, OK, WARN, DANGER, A14, A20 } from '../lib/theme.js'
 import { sb } from '../lib/supabase.js'
 import { genId } from '../lib/storage.js'
 import { compressImage } from '../lib/images.js'
+import { queueUpload } from '../lib/uploadQueue.js'
+import { isNetworkError } from '../lib/outbox.js'
 import { geomMeasures, fmtArea, fmtLen, fmtLatLng } from '../lib/geo.js'
 import { examplePhotos } from '../lib/placeholderImages.js'
 import { fetchBuildingsAround } from '../lib/overpass.js'
 import { fetchAlkisBuildings, fetchBerlinTrees, isInBerlin, radiusBbox } from '../lib/berlinGeo.js'
 import { findLod2Patch } from '../lib/lod2.js'
-import { analyzeSun, SEASONS, LICHT_KLASSEN } from '../lib/solar.js'
+import { analyzeSunAsync, SEASONS, LICHT_KLASSEN } from '../lib/solar.js'
+import { checkStarkregen, SZENARIEN, AMPEL } from '../lib/starkregen.js'
 
 const MONO = "'Space Mono', monospace"
 const SANS = "'Space Grotesk', sans-serif"
@@ -66,14 +69,18 @@ function Stat({ label, value, unit }) {
 
 /* ── Fotos: gespeichert in feature.properties.photos = [{id, url}] ──
    Ohne eigene Fotos werden generierte Beispielbilder angezeigt. */
-function FeaturePhotos({ feature, isAdmin, onUpdateProperties }) {
+function FeaturePhotos({ feature, isAdmin, canCapture, onUpdateProperties }) {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState(null)
   const [lightbox, setLightbox] = useState(null)
+  const [pending, setPending] = useState([])   // offline eingereihte Fotos (lokale Blob-URLs)
   const fileRef = useRef()
   const photos = feature.properties?.photos || []
-  const shown = photos.length > 0 ? photos : examplePhotos(feature)
-  const usingExamples = photos.length === 0
+  // Bereits synchronisierte Warteschlangen-Fotos ausblenden
+  const stillPending = pending.filter(p => !photos.some(x => x.id === p.id))
+  const real = [...photos, ...stillPending.map(p => ({ ...p, _pending: true }))]
+  const shown = real.length > 0 ? real : examplePhotos(feature)
+  const usingExamples = real.length === 0
 
   // Bestehende Baum-Fotos liegen unter tree-<id>/ — dabei bleiben; alles andere unter feature-<id>/
   const storagePrefix = feature.feature_type === 'tree' ? `tree-${feature.id}` : `feature-${feature.id}`
@@ -83,6 +90,7 @@ function FeaturePhotos({ feature, isAdmin, onUpdateProperties }) {
     setUploading(true); setError(null)
     const added = []
     let lastErr = null
+    let queued = 0
     for (const file of Array.from(files)) {
       if (!file.type.startsWith('image/')) continue
       const photoId = genId()
@@ -95,22 +103,31 @@ function FeaturePhotos({ feature, isAdmin, onUpdateProperties }) {
         const { data } = sb.storage.from('job-photos').getPublicUrl(path)
         added.push({ id: photoId, url: data.publicUrl })
       } catch (e) {
-        lastErr = e
+        // Ohne Netz: Foto NICHT verwerfen, sondern in die Offline-Warteschlange
+        // legen (wie bei Einsatz-/Aufgabenfotos) — sonst ist die Aufnahme weg.
+        if (isNetworkError(e) || !navigator.onLine) {
+          try {
+            await queueUpload({ id: photoId, photoId, featureId: feature.id, bucket: 'job-photos', path, contentType: 'image/jpeg', blob })
+            setPending(prev => [...prev, { id: photoId, url: URL.createObjectURL(blob) }])
+            queued++
+          } catch { lastErr = e }
+        } else {
+          lastErr = e
+        }
       }
     }
+    if (queued > 0) setError(null)
     if (lastErr) {
-      setError(navigator.onLine
-        ? `Upload fehlgeschlagen: ${lastErr.message || lastErr.error || 'unbekannter Fehler'}`
-        : 'Offline — bitte später erneut versuchen')
+      setError(`Upload fehlgeschlagen: ${lastErr.message || lastErr.error || 'unbekannter Fehler'}`)
     }
-    if (added.length) onUpdateProperties({ ...feature.properties, photos: [...photos, ...added] })
+    if (added.length) onUpdateProperties({ photos: [...photos, ...added] })
     setUploading(false)
   }
 
   async function handleDelete(photo) {
     if (photo.example) { setLightbox(null); return }
     try { await sb.storage.from('job-photos').remove([`${storagePrefix}/${photo.id}.jpg`]) } catch { /* Storage-Rest ist unkritisch */ }
-    onUpdateProperties({ ...feature.properties, photos: photos.filter(p => p.id !== photo.id) })
+    onUpdateProperties({ photos: photos.filter(p => p.id !== photo.id) })
     setLightbox(null)
   }
 
@@ -118,9 +135,9 @@ function FeaturePhotos({ feature, isAdmin, onUpdateProperties }) {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
         <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-          Fotos {photos.length > 0 && `(${photos.length})`}
+          Fotos {real.length > 0 && `(${real.length})`}{stillPending.length > 0 && ' · ' + stillPending.length + ' wartet'}
         </span>
-        {isAdmin && (
+        {canCapture && (
           <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="lu-btn-ghost"
             style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 5, border: `1px solid ${BORDER}`, background: 'transparent', color: uploading ? MUTED : A, cursor: uploading ? 'default' : 'pointer', fontSize: 11, fontFamily: SANS }}>
             {uploading ? <Loader size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Camera size={12} />}
@@ -138,12 +155,15 @@ function FeaturePhotos({ feature, isAdmin, onUpdateProperties }) {
             {p.example && (
               <span style={{ position: 'absolute', bottom: 3, left: 3, fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: '0.06em', color: '#fff', background: 'rgba(0,0,0,0.55)', borderRadius: 4, padding: '1px 5px' }}>BEISPIEL</span>
             )}
+            {p._pending && (
+              <span style={{ position: 'absolute', bottom: 3, left: 3, fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: '0.06em', color: '#001219', background: WARN, borderRadius: 4, padding: '1px 5px' }}>WARTET</span>
+            )}
           </div>
         ))}
       </div>
       {usingExamples && (
         <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, marginTop: 6, lineHeight: 1.5 }}>
-          Noch keine eigenen Fotos — Beispielbilder werden angezeigt.{isAdmin ? ' Über „Foto" eigene Bilder hochladen.' : ''}
+          Noch keine eigenen Fotos — Beispielbilder werden angezeigt.{canCapture ? ' Über „Foto" eigene Bilder hochladen.' : ''}
         </div>
       )}
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
@@ -170,7 +190,7 @@ function FeaturePhotos({ feature, isAdmin, onUpdateProperties }) {
 /* ── Sonnenanalyse: direkte Sonnenstunden je Jahreszeit am Feature-Standort.
    Gebäude aus OSM (Overpass), Sonnenstand via SunCalc — Ergebnis wird in
    properties.sonnenanalyse gespeichert und befüllt den Florales™-Lichtfilter. */
-function SunAnalysis({ feature, centroid, isAdmin, onUpdateProperties }) {
+function SunAnalysis({ feature, centroid, canCapture, onUpdateProperties }) {
   const [running, setRunning] = useState(false)
   const [error, setError] = useState(null)
   const [localResult, setLocalResult] = useState(null)
@@ -196,9 +216,9 @@ function SunAnalysis({ feature, centroid, isAdmin, onUpdateProperties }) {
         } catch { /* GDI down → OSM-Fallback */ }
       }
       if (!lod2Patch && !buildings.length) buildings = await fetchBuildingsAround(centroid.lat, centroid.lng, 180)
-      const analysis = analyzeSun(centroid.lat, centroid.lng, buildings, trees, { source, lod2Patch })
+      const analysis = await analyzeSunAsync(centroid.lat, centroid.lng, buildings, trees, { source, lod2Patch })
       setLocalResult(analysis)
-      if (isAdmin) onUpdateProperties({ ...feature.properties, sonnenanalyse: analysis })
+      if (canCapture) onUpdateProperties({ sonnenanalyse: analysis })
     } catch (e) {
       setError(navigator.onLine ? 'Gebäudedaten gerade nicht erreichbar — später erneut versuchen.' : 'Offline — Analyse braucht Internet.')
     } finally {
@@ -261,11 +281,88 @@ function SunAnalysis({ feature, centroid, isAdmin, onUpdateProperties }) {
             })}
           </div>
           <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, marginTop: 6, lineHeight: 1.5 }}>
+            {result.computed_at && <>Berechnet am {new Date(result.computed_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} · </>}
+            {['bed', 'area'].includes(feature.feature_type) && <>gilt für den Flächenschwerpunkt (nicht die ganze Fläche) · </>}
             {result.source === 'lod2'
               ? `${result.buildings_n} Gebäude (LoD2-Dachmodell, amtlich)`
               : `${result.buildings_n} Gebäude (${result.source === 'alkis' ? 'amtlich/ALKIS' : 'OSM'})`}
             {result.trees_n != null ? ` · ${result.trees_n} Bäume (Baumkataster, saisonaler Laub-Faktor)` : ' · Bäume nicht enthalten'}
             {result.on_building ? ' · Punkt liegt auf einem Gebäude (Dach?)' : ''}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+/* ── Starkregen-Check: Ampel gegen die Berliner Starkregengefahrenkarte.
+   Ergebnis wird in properties.starkregen gespeichert (wie Sonnenanalyse). */
+function RainCheck({ feature, centroid, canCapture, onUpdateProperties }) {
+  const [running, setRunning] = useState(false)
+  const [error, setError] = useState(null)
+  const [localResult, setLocalResult] = useState(null)
+  const result = localResult || feature.properties?.starkregen || null
+
+  async function run() {
+    if (!centroid) return
+    setRunning(true); setError(null)
+    try {
+      const res = await checkStarkregen(centroid.lat, centroid.lng)
+      setLocalResult(res)
+      if (canCapture) onUpdateProperties({ starkregen: res })
+    } catch {
+      setError(navigator.onLine ? 'Starkregengefahrenkarte gerade nicht erreichbar.' : 'Offline — Prüfung braucht Internet.')
+    } finally {
+      setRunning(false)
+    }
+  }
+
+  if (!centroid || !isInBerlin(centroid.lat, centroid.lng)) return null
+  const ampel = result ? AMPEL[result.ampel] : null
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>🌧️ Starkregen-Check</span>
+        {result && (
+          <button type="button" onClick={run} disabled={running} title="Neu prüfen" className="lu-btn-ghost"
+            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 5, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: running ? 'default' : 'pointer', fontSize: 10, fontFamily: SANS }}>
+            <RefreshCw size={10} style={running ? { animation: 'spin 1s linear infinite' } : undefined} /> {running ? 'prüft…' : 'neu'}
+          </button>
+        )}
+      </div>
+
+      {!result && (
+        <button type="button" onClick={run} disabled={running}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: '9px 10px', borderRadius: 8, background: '#38bdf815', border: '1px solid #38bdf840', color: running ? MUTED : '#38bdf8', cursor: running ? 'default' : 'pointer', fontSize: 12, fontWeight: 600, fontFamily: SANS }}>
+          {running ? <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> : '🌧️'}
+          {running ? 'Prüfe Überflutungsgefahr…' : 'Überflutungsgefahr prüfen'}
+        </button>
+      )}
+      {error && <div style={{ fontFamily: MONO, fontSize: 10, color: DANGER, marginTop: 6 }}>{error}</div>}
+
+      {result && ampel && (
+        <>
+          <div style={{ marginBottom: 6 }}>
+            <Badge color={ampel.color}>{ampel.label}</Badge>
+            <div style={{ fontSize: 10, color: MUTED, marginTop: 4, lineHeight: 1.5 }}>{ampel.hint}</div>
+          </div>
+          {result.modellgebiet && SZENARIEN.map(s => {
+            const v = result.szenarien?.[s.key]
+            if (!v) return null
+            return (
+              <div key={s.key} style={{ display: 'flex', gap: 8, fontSize: 11, padding: '3px 0' }}>
+                <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED, minWidth: 118, paddingTop: 1 }}>{s.label}</span>
+                <span style={{ color: FG, flex: 1 }}>
+                  {v.anteil_pct > 0 ? `${v.anteil_pct}% des Umfelds betroffen` : 'Umfeld frei'}
+                  {v.klasse ? ` · am Punkt: ${v.klasse}` : ''}
+                </span>
+              </div>
+            )
+          })}
+          <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, marginTop: 4, lineHeight: 1.5 }}>
+            {result.computed_at && <>Geprüft am {new Date(result.computed_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} · </>}
+            Starkregengefahrenkarte Berlin · 120-m-Umfeld um den Flächenschwerpunkt
           </div>
         </>
       )}
@@ -279,13 +376,13 @@ const KNOWN_KEYS = new Set([
   'stammumfang_cm', 'bhd_cm', 'baumhoehe_m', 'kronendurchmesser_m', 'kronenansatz_m',
   'pflanzjahr', 'vitalitaet', 'verkehrssicherheit', 'eps_befall', 'schutzstatus',
   'schaedlinge', 'standorttyp', 'letzte_kontrolle', 'opacity', 'image_url', 'filename',
-  'tiles_url', 'slug', 'minZoom', 'maxZoom', 'tms', 'sonnenanalyse',
+  'tiles_url', 'slug', 'minZoom', 'maxZoom', 'tms', 'sonnenanalyse', 'starkregen',
 ])
 
 export default function FeaturePanel({
-  feature, project, isMobile, isAdmin,
+  feature, project, isMobile, isAdmin, canCapture = false,
   onClose, onEdit, onDelete, onUpdateProperties, onGoProject,
-  linkedPlans = [], onOpenPlan, onPlanInFlorales,
+  linkedPlans = [], onOpenPlan, onPlanInFlorales, onReport,
 }) {
   if (!feature) return null
   const p = feature.properties || {}
@@ -375,7 +472,18 @@ export default function FeaturePanel({
         )}
 
         {/* Sonnenstunden-Analyse (Gebäudeschatten, 4 Jahreszeiten) */}
-        <SunAnalysis feature={feature} centroid={m?.centroid} isAdmin={isAdmin} onUpdateProperties={onUpdateProperties} />
+        <SunAnalysis feature={feature} centroid={m?.centroid} canCapture={canCapture} onUpdateProperties={onUpdateProperties} />
+
+        {/* Starkregen-Check (Berliner Gefahrenkarte, Ampel) */}
+        <RainCheck feature={feature} centroid={m?.centroid} canCapture={canCapture} onUpdateProperties={onUpdateProperties} />
+
+        {/* Klima-Steckbrief: fasst alle Analysen druckfähig zusammen */}
+        {onReport && m?.centroid && (
+          <button onClick={onReport}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, width: '100%', padding: '10px', borderRadius: 8, background: A14, border: `1px solid ${A20}`, color: A, cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: SANS }}>
+            <FileText size={14} /> Klima-Steckbrief öffnen
+          </button>
+        )}
 
         {/* Florales™: verknüpfte Pflanzpläne + Planung starten */}
         {(canFloralis || linkedPlans.length > 0) && (
@@ -391,7 +499,7 @@ export default function FeaturePanel({
                 <span style={{ fontFamily: MONO, fontSize: 9, color: A }}>{PLAN_STATUS_LABELS[pp.status] || pp.status} · {pp.positionen?.length || 0} Arten</span>
               </button>
             ))}
-            {canFloralis && isAdmin && (
+            {canFloralis && canCapture && (
               <button onClick={onPlanInFlorales}
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: '8px 10px', borderRadius: 8, background: '#22c55e18', border: '1px solid #22c55e40', color: '#22c55e', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: SANS }}>
                 🌿 {linkedPlans.length > 0 ? 'Neu in Florales planen' : 'In Florales planen'} →
@@ -401,12 +509,12 @@ export default function FeaturePanel({
         )}
 
         {/* Fotos */}
-        <FeaturePhotos feature={feature} isAdmin={isAdmin} onUpdateProperties={onUpdateProperties} />
+        <FeaturePhotos feature={feature} isAdmin={isAdmin} canCapture={canCapture} onUpdateProperties={onUpdateProperties} />
       </div>
 
       {/* Aktionen */}
       <div style={{ display: 'flex', gap: 6, padding: '10px 16px', borderTop: `1px solid ${BORDER}`, flexShrink: 0, paddingBottom: isMobile ? 'calc(10px + env(safe-area-inset-bottom))' : 10 }}>
-        {isAdmin && (
+        {canCapture && (
           <button onClick={onEdit} className="lu-btn-ghost"
             style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '8px 10px', borderRadius: 7, border: `1px solid ${BORDER}`, background: 'transparent', color: FG, cursor: 'pointer', fontSize: 12, fontFamily: SANS }}>
             <Pencil size={12} /> Bearbeiten

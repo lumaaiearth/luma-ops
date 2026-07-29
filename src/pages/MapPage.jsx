@@ -151,6 +151,8 @@ function makeUserIcon() {
 
 // 3D-Schatten-Ansicht: deck.gl steckt in einem eigenen Chunk (lazy)
 const Sun3DView = lazy(() => import('../components/Sun3DView.jsx'))
+// Klima-Steckbrief (Druckansicht) — erst bei Bedarf laden
+const ClimateReport = lazy(() => import('../components/ClimateReport.jsx'))
 
 // Merkt sich Kartenmitte/Zoom (für die 3D-Ansicht), ohne Re-Render auszulösen
 function ViewTracker({ viewRef }) {
@@ -180,7 +182,7 @@ function DrawControl({ mode, onFeatureDrawn, onCancel, onLiveMeasure }) {
     if (!map || !mode) return
 
     const isPoint = mode === 'tree' || mode === 'point' || mode === 'sensor'
-    const isLine = mode === 'line' || mode === 'measure'
+    const isLine = mode === 'line' || mode === 'measure'   // 'measure_area' → Polygon
     const shapeName = isPoint ? 'Marker' : isLine ? 'Line' : 'Polygon'
 
     if (isPoint) {
@@ -460,7 +462,7 @@ function FeatureForm({ mode, project, color, existingFeature, draft, onSave, onC
             Abbrechen
           </button>
           {existingFeature && onDelete && (
-            <button onClick={onDelete} title="Feature löschen" className="lu-btn-danger"
+            <button onClick={onDelete} title="Objekt löschen" className="lu-btn-danger"
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '9px 12px', borderRadius: 8, background: 'transparent', border: '1px solid color-mix(in srgb, var(--luma-danger) 40%, transparent)', color: 'var(--luma-danger)', cursor: 'pointer' }}>
               <Trash2 size={13} />
             </button>
@@ -494,11 +496,21 @@ async function extractGeoTiffBounds(file) {
 }
 
 async function uploadDroneImage(projectId, file) {
-  const ext = file.name.split('.').pop().toLowerCase()
+  let ext = file.name.split('.').pop().toLowerCase()
   const mimeMap = { tif: 'image/tiff', tiff: 'image/tiff', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' }
-  const contentType = file.type || mimeMap[ext] || 'application/octet-stream'
+  let contentType = file.type || mimeMap[ext] || 'application/octet-stream'
+  let payload = file
+  // Normale Bilder auf 4096 px begrenzen — Handykameras/Drohnen liefern sonst
+  // 20-MB-Dateien, die jedes Öffnen der Karte über Mobilfunk lahmlegen.
+  if (!/tif/.test(ext) && file.type.startsWith('image/')) {
+    try {
+      payload = await compressImage(file, 4096, 0.85)
+      contentType = 'image/jpeg'
+      ext = 'jpg'
+    } catch { /* Original hochladen */ }
+  }
   const path = `${projectId}/${genId()}.${ext}`
-  const { error } = await sb.storage.from('drone-images').upload(path, file, { contentType, upsert: false })
+  const { error } = await sb.storage.from('drone-images').upload(path, payload, { contentType, upsert: false })
   if (error) throw error
   const { data } = sb.storage.from('drone-images').getPublicUrl(path)
   return data.publicUrl
@@ -896,7 +908,11 @@ function SensorFormModal({ project, position, onSave, onCancel }) {
 /* ─── MAIN COMPONENT ────────────────────────────────────────────────────── */
 export default function MapPage() {
   const { projects, jobs, clients, mapFeatures, tasks, pflanzplaene, sensors, createSensor, createMapFeature, updateMapFeature, deleteMapFeature, updateProject } = useOps()
-  const { isAdmin } = useAuth()
+  // Rechte: Erfassen (Features, Fotos, Sensoren, Analysen) dürfen alle internen
+  // Nutzer — dafür ist die mobile Serien-Erfassung gebaut, und die RLS erlaubt es
+  // (Policy is_internal()). Löschen und Geometrien verschieben bleibt Admin-Sache.
+  const { isAdmin, isMitarbeiter } = useAuth()
+  const canCapture = isMitarbeiter
   const navigate = useNavigate()
   const location = useLocation()
   const today = isoToday()
@@ -934,6 +950,29 @@ export default function MapPage() {
   const [show3D, setShow3D] = useState(false)
   const viewRef = useRef({ lat: 52.515, lng: 13.405, zoom: 11 })
 
+  // LoD2-/Heatmap-Index (Projektgebiete mit Dachmodell + Sonnen-Raster)
+  const [lod2Index, setLod2Index] = useState([])
+  const [heatmapSeason, setHeatmapSeason] = useState('sommer')
+  const [reportFeatureId, setReportFeatureId] = useState(null)  // offener Klima-Steckbrief
+  // Kacheln, die der Dienst nicht liefert — sonst meldet die Ebene „AN",
+  // obwohl gar nichts ankommt
+  const [layerIssues, setLayerIssues] = useState({})
+
+  // Tageslänge des gewählten Stichtags — für die Heatmap-Legende. Nimmt das
+  // Gebiet, das gerade im Blick ist (sonst stimmte die Skala nur zufällig).
+  const heatmapMax = useMemo(() => {
+    if (!lod2Index.length) return null
+    const v = viewRef.current
+    const near = lod2Index.find(e => {
+      const kx = 111320 * Math.cos(e.lat * Math.PI / 180)
+      return Math.hypot((v.lng - e.lng) * kx, (v.lat - e.lat) * 111320) < (e.radius || 350) + 900
+    }) || lod2Index[0]
+    return near?.heatmap_max?.[heatmapSeason] ?? null
+  }, [lod2Index, heatmapSeason, flyTarget])
+  useEffect(() => {
+    fetch('/lod2/index.json').then(r => (r.ok ? r.json() : [])).then(setLod2Index).catch(() => {})
+  }, [])
+
   // Adress- & Feature-Suche (Lupe in der Toolbar)
   const [searchOpen, setSearchOpen] = useState(false)
   const [geoQuery, setGeoQuery] = useState('')
@@ -948,7 +987,8 @@ export default function MapPage() {
   const [editMode, setEditMode] = useState(false)            // Geometrien verschieben/editieren
   const [gpsOn, setGpsOn] = useState(false)
   const [userPos, setUserPos] = useState(null)               // { lat, lng, accuracy }
-  const [measureResult, setMeasureResult] = useState(null)   // { length }
+  const [measureResult, setMeasureResult] = useState(null)   // { length } | { area, perimeter }
+  const [measureMenu, setMeasureMenu] = useState(false)
   const [liveMeasure, setLiveMeasure] = useState(null)       // { length, area } während des Zeichnens
   const featureLayers = useRef(new Map())                    // featureId -> Leaflet-Layer (für Edit-Modus)
   const editModeRef = useRef(false)
@@ -1004,6 +1044,7 @@ export default function MapPage() {
   }
   function toggleLayer(id) {
     setActiveLayers(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next })
+    setLayerIssues(prev => (prev[id] ? { ...prev, [id]: false } : prev))
   }
 
   const upcomingJobs = useMemo(() => {
@@ -1067,19 +1108,52 @@ export default function MapPage() {
   }, [sensors])
 
   // Features grouped by project, with search/filter
+  // Suchindex einmal je Feature aufbauen — vorher wurde bei JEDEM Tastendruck
+  // JSON.stringify über alle Properties aller Features gelegt.
+  const searchIndex = useMemo(() => {
+    const idx = new Map()
+    for (const f of mapFeatures) {
+      const props = f.properties || {}
+      const teile = [f.label, f.feature_type]
+      for (const [k, v] of Object.entries(props)) {
+        if (k === 'photos' || k === 'sonnenanalyse' || k === 'starkregen') continue
+        if (v != null && typeof v !== 'object') teile.push(String(v))
+      }
+      idx.set(f.id, teile.join(' ').toLowerCase())
+    }
+    return idx
+  }, [mapFeatures])
+
+  const passtZumFilter = useCallback(f => {
+    const q = searchQuery.trim().toLowerCase()
+    if (q && !(searchIndex.get(f.id) || '').includes(q)) return false
+    if (typeFilter && f.feature_type !== typeFilter && f.feature_type !== 'drone_image' && f.feature_type !== 'ortho_tiles') return false
+    return true
+  }, [searchQuery, typeFilter, searchIndex])
+
   const featuresByProject = useMemo(() => {
     const map = {}
     mapFeatures.forEach(f => {
-      const q = searchQuery.toLowerCase()
-      const matchesSearch = !q || (f.label || '').toLowerCase().includes(q) ||
-        JSON.stringify(f.properties || {}).toLowerCase().includes(q)
-      const matchesType = !typeFilter || f.feature_type === typeFilter || f.feature_type === 'drone_image' || f.feature_type === 'ortho_tiles'
-      if (!matchesSearch || !matchesType) return
+      if (!passtZumFilter(f)) return
       if (!map[f.project_id]) map[f.project_id] = []
       map[f.project_id].push(f)
     })
     return map
-  }, [mapFeatures, searchQuery, typeFilter])
+  }, [mapFeatures, passtZumFilter])
+
+  // Wie viele Objekte sind gerade NICHT auf der Karte zu sehen (Filter oder
+  // manuell ausgeblendet)? Ohne diesen Hinweis sucht man Flächen, die man
+  // selbst versteckt hat.
+  const versteckt = useMemo(() => mapFeatures.filter(f =>
+    !passtZumFilter(f) || hiddenFeatures.has(f.id) || hiddenProjects.has(f.project_id)
+  ).length, [mapFeatures, passtZumFilter, hiddenFeatures, hiddenProjects])
+
+  const resetFilter = useCallback(() => {
+    setSearchQuery('')
+    setTypeFilter(null)
+    setHiddenFeatures(new Set())
+    setHiddenProjects(new Set())
+  }, [])
 
   useEffect(() => {
     const focusId = location.state?.focusProjectId
@@ -1241,6 +1315,7 @@ export default function MapPage() {
   }
 
   function startDraw(project, mode) {
+    setPanelFeatureId(null)   // Detailpanel würde das Erfassungs-Formular verdecken
     setDrawingProject(project)
     if (project?.id) setDrawProjectId(project.id)
     setDrawMode(mode)
@@ -1252,9 +1327,10 @@ export default function MapPage() {
 
   // Toolbar-Einstieg: Zeichnen mit dem in der Toolbar gewählten Projekt
   function startDrawFromToolbar(mode) {
-    if (mode === 'measure') {
+    if (mode === 'measure' || mode === 'measure_area') {
       setDrawingProject(null)
-      setDrawMode('measure')
+      setPanelFeatureId(null)
+      setDrawMode(mode)
       setPendingGeometry(null)
       setEditMode(false)
       setMeasureResult(null)
@@ -1278,6 +1354,7 @@ export default function MapPage() {
       return
     }
     if (!userPos) return
+    setPanelFeatureId(null)
     setDrawingProject(proj)
     setDrawMode('tree')
     setEditMode(false)
@@ -1317,6 +1394,12 @@ export default function MapPage() {
       cancelDraw()
       return
     }
+    if (drawMode === 'measure_area') {
+      const m = geomMeasures(geometry)
+      setMeasureResult({ area: m?.area_m2 || 0, perimeter: m?.perimeter_m || 0 })
+      cancelDraw()
+      return
+    }
     setPendingGeometry(geometry)
   }
 
@@ -1324,8 +1407,17 @@ export default function MapPage() {
   function saveEditedGeometry(featId, layer) {
     try {
       const geometry = layer.toGeoJSON().geometry
-      updateMapFeature(featId, { geometry })
+      updateMapFeature(featId, { geometry, properties: withoutAnalysen(featId) })
     } catch { /* Layer nicht serialisierbar */ }
+  }
+
+  // Sonnen-/Starkregen-Ergebnisse hängen am Standort — nach dem Verschieben
+  // sind sie ungültig und müssen neu berechnet werden.
+  function withoutAnalysen(featId) {
+    const props = mapFeatures.find(f => f.id === featId)?.properties || {}
+    if (!props.sonnenanalyse && !props.starkregen) return props
+    const { sonnenanalyse, starkregen, ...rest } = props
+    return rest
   }
 
   function calcPendingArea() {
@@ -1409,7 +1501,16 @@ export default function MapPage() {
     <div style={{ width: isMobile ? '100%' : 268, background: SURFACE, borderRight: isMobile ? 'none' : `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100%' }}>
       <div style={{ padding: '16px 14px 12px', borderBottom: `1px solid ${BORDER}` }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
-          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, letterSpacing: '0.15em', textTransform: 'uppercase', flex: 1 }}>BIOME™</div>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, letterSpacing: '0.15em', textTransform: 'uppercase', flex: 1 }}>
+            BIOME™{location.pathname === '/earth' ? ' EARTH' : ''}
+          </div>
+          {!isMobile && location.pathname !== '/earth' && (
+            <button onClick={() => window.open('/earth', 'biome_earth', 'popup=yes,width=1500,height=950')}
+              title="BIOME Earth — als eigenes Fenster öffnen" aria-label="BIOME Earth öffnen"
+              style={{ width: 26, height: 26, borderRadius: 7, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <ExternalLink size={12} />
+            </button>
+          )}
           {isMobile && (
             <button onClick={() => setSidebarOpen(false)} aria-label="Seitenleiste schließen"
               style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -1448,7 +1549,7 @@ export default function MapPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 6, border: `1px solid ${BORDER}`, background: 'rgba(255,255,255,0.03)', marginBottom: 7 }}>
           <Search size={12} color={MUTED} />
           <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Suche in Features..."
+            placeholder="Bäume, Beete, Flächen suchen…"
             style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: FG, fontSize: 12, fontFamily: "'Space Grotesk', sans-serif" }} />
           {searchQuery && <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', color: MUTED, cursor: 'pointer', padding: 0, display: 'flex' }}><X size={11} /></button>}
         </div>
@@ -1482,10 +1583,35 @@ export default function MapPage() {
                       <div style={{ width: 8, height: 8, borderRadius: 2, background: layer.color, flexShrink: 0 }} />
                       <span style={{ flex: 1 }}>{layer.label}</span>
                       {layer.region && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, opacity: 0.55, flexShrink: 0 }}>{layer.region}</span>}
-                      <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9 }}>{on ? 'AN' : 'AUS'}</span>
+                      <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: on && layerIssues[layer.id] ? 'var(--luma-warn)' : undefined }}>
+                        {on ? (layerIssues[layer.id] ? 'FEHLER' : 'AN') : 'AUS'}
+                      </span>
                     </button>
+                    {on && layerIssues[layer.id] && (
+                      <div style={{ fontSize: 10, color: 'var(--luma-warn)', padding: '3px 10px 4px 25px', lineHeight: 1.4 }}>
+                        Der Dienst liefert gerade keine Kacheln{layer.minZoom ? ` — evtl. zu weit herausgezoomt (ab Stufe ${layer.minZoom} sichtbar)` : ''}.
+                      </div>
+                    )}
                     {on && layer.desc && (
                       <div style={{ fontSize: 10, color: MUTED, padding: '3px 10px 4px 25px', lineHeight: 1.4 }}>{layer.desc}</div>
+                    )}
+                    {/* Sonnen-Heatmap: Jahreszeiten-Umschalter + Legende */}
+                    {on && layer.id === 'sonnen_heatmap' && (
+                      <div style={{ padding: '2px 10px 8px 25px' }}>
+                        <div style={{ display: 'flex', gap: 3, marginBottom: 7, flexWrap: 'wrap' }}>
+                          {[['fruehling', '🌱 21.3.'], ['sommer', '☀️ 21.6.'], ['herbst', '🍂 23.9.'], ['winter', '❄️ 21.12.']].map(([k, l]) => (
+                            <button key={k} onClick={() => setHeatmapSeason(k)}
+                              style={{ padding: '3px 7px', borderRadius: 8, border: `1px solid ${heatmapSeason === k ? '#fbbf2460' : BORDER}`, background: heatmapSeason === k ? '#fbbf2415' : 'transparent', color: heatmapSeason === k ? '#fbbf24' : MUTED, cursor: 'pointer', fontSize: 10, fontFamily: "'Space Grotesk', sans-serif" }}>
+                              {l}
+                            </button>
+                          ))}
+                        </div>
+                        <div style={{ height: 8, borderRadius: 4, background: 'linear-gradient(to right, rgb(23,42,84) 0%, rgb(43,92,138) 25%, rgb(56,140,118) 45%, rgb(124,179,66) 65%, rgb(222,200,49) 82%, rgb(255,236,120) 100%)' }} />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'Space Mono', monospace", fontSize: 8, color: MUTED, marginTop: 3 }}>
+                          <span>0 h Sonne</span>
+                          <span>{heatmapMax ? `${heatmapMax} h Tageslänge` : 'volle Sonne'}</span>
+                        </div>
+                      </div>
                     )}
                   </div>
                 )
@@ -1560,7 +1686,7 @@ export default function MapPage() {
                                     }
                                     if (isMobile) setSidebarOpen(false)
                                   }}
-                                  style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 5, padding: '3px 4px', borderRadius: 4, fontSize: 11, color: featHidden ? MUTED : FG, opacity: featHidden ? 0.45 : 1, cursor: 'pointer', background: isSelected ? `color-mix(in srgb, ${color} 16%, transparent)` : 'transparent', border: `1px solid ${isSelected ? `color-mix(in srgb, ${color} 45%, transparent)` : 'transparent'}` }}>
+                                  style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 5, padding: '7px 5px', borderRadius: 5, fontSize: 11, minWidth: 0, color: featHidden ? MUTED : FG, opacity: featHidden ? 0.45 : 1, cursor: 'pointer', background: isSelected ? `color-mix(in srgb, ${color} 16%, transparent)` : 'transparent', border: `1px solid ${isSelected ? `color-mix(in srgb, ${color} 45%, transparent)` : 'transparent'}` }}>
                                   <span style={{ fontSize: 10, flexShrink: 0 }}>{isDrone ? '🚁' : isOrtho ? '🗺️' : (modeInfo.icon || '●')}</span>
                                   <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {feat.label || modeInfo.label || feat.feature_type}
@@ -1574,19 +1700,20 @@ export default function MapPage() {
                                   )}
                                 </div>
                                 <button onClick={() => toggleFeature(feat.id)} title={featHidden ? 'Einblenden' : 'Ausblenden'}
-                                  style={{ width: 20, height: 20, borderRadius: 4, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                  {featHidden ? <EyeOff size={10} /> : <Eye size={10} />}
+                                  style={{ width: 30, height: 30, borderRadius: 6, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                  {featHidden ? <EyeOff size={12} /> : <Eye size={12} />}
                                 </button>
-                                {isAdmin && !isOverlay && (
+                                {canCapture && !isOverlay && (
                                   <button onClick={() => openEditForm(feat)} title="Bearbeiten"
-                                    style={{ width: 20, height: 20, borderRadius: 4, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Pencil size={9} />
+                                    style={{ width: 30, height: 30, borderRadius: 6, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <Pencil size={12} />
                                   </button>
                                 )}
+                                {/* Löschen bewusst abgesetzt — saß direkt neben „Ausblenden" */}
                                 {isAdmin && (
                                   <button onClick={() => deleteFeature(feat.id)} title="Löschen"
-                                    style={{ width: 20, height: 20, borderRadius: 4, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Trash2 size={9} />
+                                    style={{ width: 30, height: 30, marginLeft: 6, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <Trash2 size={12} />
                                   </button>
                                 )}
                               </div>
@@ -1615,10 +1742,10 @@ export default function MapPage() {
                                   if (s.lat && s.lng) { setFlyTarget([s.lat, s.lng]); if (isMobile) setSidebarOpen(false) }
                                   else navigate(`/sensors/${s.id}`)
                                 }}
-                                style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 5, padding: '3px 4px', borderRadius: 4, fontSize: 11, color: FG, cursor: 'pointer' }}>
+                                style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 5, padding: '7px 5px', borderRadius: 5, fontSize: 11, minWidth: 0, color: FG, cursor: 'pointer' }}>
                                 <span style={{ fontSize: 10, flexShrink: 0 }}>📡</span>
                                 <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</span>
-                                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: sColor, flexShrink: 0 }}>{s.value}{s.unit}</span>
+                                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: s.value == null ? MUTED : sColor, flexShrink: 0 }}>{s.value == null ? '—' : `${s.value}${s.unit}`}</span>
                               </div>
                               <button onClick={() => navigate(`/sensors/${s.id}`)} title="Sensorseite öffnen"
                                 style={{ width: 20, height: 20, borderRadius: 4, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1629,7 +1756,7 @@ export default function MapPage() {
                         })}
 
                         {/* Draw mode selector */}
-                        {isAdmin && !drawMode && (
+                        {canCapture && !drawMode && (
                           <div style={{ marginTop: 4, marginBottom: 6 }}>
                             <div style={{ fontSize: 9, color: MUTED, fontFamily: "'Space Mono', monospace", textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 4 }}>Erfassen</div>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
@@ -1714,11 +1841,23 @@ export default function MapPage() {
               zIndex 210: immer über der Basiskarte (sonst verdeckt ein Basiskarten-
               Wechsel die Overlays). maxZoom 22 + maxNativeZoom 19: Leaflet-WMS stoppt
               sonst bei Zoom 18 und die Ebene verschwindet beim Heranzoomen. */}
-          {OPEN_LAYERS.filter(l => activeLayers.has(l.id)).map(layer => (
+          {OPEN_LAYERS.filter(l => l.wms && activeLayers.has(l.id)).map(layer => (
             <WMSTileLayer key={layer.id} url={layer.wms.url} layers={layer.wms.layers}
               format={layer.wms.format} transparent={layer.wms.transparent} opacity={layer.wms.opacity}
               version={layer.wms.version || '1.3.0'} attribution={layer.wms.attribution || ''}
-              zIndex={210} maxZoom={22} maxNativeZoom={19} minZoom={layer.minZoom || 0} />
+              zIndex={210} maxZoom={22} maxNativeZoom={19} minZoom={layer.minZoom || 0}
+              eventHandlers={{
+                tileerror: () => setLayerIssues(prev => (prev[layer.id] ? prev : { ...prev, [layer.id]: true })),
+                load: () => setLayerIssues(prev => (prev[layer.id] ? { ...prev, [layer.id]: false } : prev)),
+              }} />
+          ))}
+
+          {/* Sonnen-Heatmaps: vorberechnete Raster (scripts/solar-heatmap.mjs)
+              je Projektgebiet, aus LoD2-Dachmodell + Baumkataster */}
+          {activeLayers.has('sonnen_heatmap') && lod2Index.filter(e => (e.heatmaps?.[heatmapSeason] || e.heatmap) && e.bounds).map(e => (
+            <ImageOverlay key={`heat-${e.name}-${heatmapSeason}`} url={`/lod2/${e.heatmaps?.[heatmapSeason] || e.heatmap}`}
+              bounds={[[e.bounds[0], e.bounds[1]], [e.bounds[2], e.bounds[3]]]}
+              opacity={0.78} zIndex={230} />
           ))}
 
           {flyTarget && <FlyTo center={flyTarget} />}
@@ -1792,9 +1931,7 @@ export default function MapPage() {
           {mapFeatures.map(feat => {
             if (feat.feature_type === 'drone_image' || feat.feature_type === 'ortho_tiles') return null
             if (hiddenProjects.has(feat.project_id) || hiddenFeatures.has(feat.id)) return null
-            if (typeFilter && feat.feature_type !== typeFilter) return null
-            const q = searchQuery.toLowerCase()
-            if (q && !(feat.label || '').toLowerCase().includes(q) && !JSON.stringify(feat.properties || {}).toLowerCase().includes(q)) return null
+            if (!passtZumFilter(feat)) return null
 
             const color = projectColorById[feat.project_id] || A
             const geom = feat.geometry
@@ -1810,7 +1947,10 @@ export default function MapPage() {
                   eventHandlers={{
                     dragend: e => {
                       const ll = e.target.getLatLng()
-                      updateMapFeature(feat.id, { geometry: { type: 'Point', coordinates: [ll.lng, ll.lat] } })
+                      updateMapFeature(feat.id, {
+                        geometry: { type: 'Point', coordinates: [ll.lng, ll.lat] },
+                        properties: withoutAnalysen(feat.id),
+                      })
                     },
                     // Klick öffnet das Detailpanel + wählt das Projekt im Ordner aus
                     click: () => { if (!editModeRef.current) openFeature(feat) },
@@ -1856,7 +1996,9 @@ export default function MapPage() {
                     </div>
                     <div style={{ fontWeight: 600, fontSize: 13, color: '#e8f0f5', marginBottom: 3 }}>{s.name}</div>
                     <div style={{ fontSize: 22, fontWeight: 300, color: sColor, lineHeight: 1.1, marginBottom: 3 }}>
-                      {s.value}<span style={{ fontSize: 12, color: 'rgba(232,240,245,0.5)' }}>{s.unit}</span>
+                      {s.value == null
+                        ? <span style={{ fontSize: 12, color: 'rgba(232,240,245,0.55)' }}>noch keine Messung</span>
+                        : <>{s.value}<span style={{ fontSize: 12, color: 'rgba(232,240,245,0.5)' }}>{s.unit}</span></>}
                     </div>
                     {proj && <div style={{ fontSize: 11, color: 'rgba(232,240,245,0.5)', marginBottom: 2 }}>{proj.name}</div>}
                     <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: 'rgba(232,240,245,0.4)' }}>{s.lat.toFixed(6)}, {s.lng.toFixed(6)}</div>
@@ -1884,7 +2026,7 @@ export default function MapPage() {
                     <div style={{ fontSize: 11, color: 'rgba(232,240,245,0.5)', marginBottom: 4 }}>{p.location}</div>
                     {mapFeatures.filter(f => f.project_id === p.id).length > 0 && (
                       <div style={{ fontSize: 10, color, fontFamily: "'Space Mono', monospace" }}>
-                        {mapFeatures.filter(f => f.project_id === p.id).length} Features kartiert
+                        {mapFeatures.filter(f => f.project_id === p.id).length} Objekte kartiert
                       </div>
                     )}
                     {(jobsByProject[p.id] || []).length > 0 && (
@@ -1966,7 +2108,17 @@ export default function MapPage() {
 
         {/* ── Zeichen-Toolbar (schwebend) ── */}
         {!drawMode && (
-          <div style={{ position: 'absolute', top: isMobile ? 56 : 12, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, display: 'flex', alignItems: 'center', gap: 4, background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, padding: 4, boxShadow: '0 2px 14px rgba(0,0,0,0.4)', maxWidth: 'calc(100% - 24px)', overflowX: 'auto' }}>
+          <div style={{
+            position: 'absolute', top: isMobile ? 56 : 12,
+            // Bei offenem Detailpanel (Desktop: 330 px rechts) die Toolbar-Mitte
+            // mitverschieben, sonst liegt ihr rechtes Ende unter dem Panel
+            left: !isMobile && panelFeatureId ? 'calc(50% - 171px)' : '50%',
+            transform: 'translateX(-50%)', transition: 'left .18s ease',
+            zIndex: 1000, display: 'flex', alignItems: 'center', gap: 4, background: SURFACE,
+            border: `1px solid ${BORDER}`, borderRadius: 10, padding: 4,
+            boxShadow: '0 2px 14px rgba(0,0,0,0.4)',
+            maxWidth: !isMobile && panelFeatureId ? 'calc(100% - 380px)' : 'calc(100% - 24px)', overflowX: 'auto',
+          }}>
             {/* Suche: Adresse (OSM-Geocoder), Projekte & Features */}
             <button onClick={() => searchOpen ? closeSearch() : setSearchOpen(true)}
               title="Suchen: Adresse, Projekt oder Feature" className="lu-chip"
@@ -1980,10 +2132,10 @@ export default function MapPage() {
                 style={{ width: isMobile ? 150 : 240, padding: '6px 8px', borderRadius: 7, border: `1px solid ${BORDER}`, background: 'transparent', color: FG, fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", outline: 'none', flexShrink: 0 }} />
             )}
             <div style={{ width: 1, alignSelf: 'stretch', background: BORDER, margin: '2px 2px', flexShrink: 0 }} />
-            {isAdmin && (
+            {canCapture && (
               <>
                 <select value={drawProjectId || ''} onChange={e => setDrawProjectId(e.target.value || null)}
-                  title="Projekt für neue Features"
+                  title="Projekt für neue Objekte"
                   style={{ maxWidth: 130, padding: '5px 6px', borderRadius: 6, border: `1px solid ${projectHint ? 'var(--luma-danger)' : BORDER}`, background: 'transparent', color: drawProjectId ? FG : MUTED, fontSize: 11, fontFamily: "'Space Grotesk', sans-serif", outline: 'none', cursor: 'pointer', flexShrink: 0 }}>
                   <option value="">Projekt wählen…</option>
                   {[...projects].sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -1998,17 +2150,37 @@ export default function MapPage() {
                   style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: '1px solid transparent', background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
                   <span style={{ fontSize: 13 }}>📡</span>{!isMobile && 'Sensor'}
                 </button>
-                <button onClick={() => setEditMode(v => !v)} title="Bearbeiten: Punkte verschieben, Eckpunkte ziehen"
+                {/* Geometrien verschieben bleibt Admin-Sache — versehentliches
+                    Ziehen würde bestehende Flächen verfälschen */}
+                {isAdmin && <button onClick={() => setEditMode(v => !v)} title="Bearbeiten: Punkte verschieben, Eckpunkte ziehen"
                   style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: `1px solid ${editMode ? `color-mix(in srgb, ${A} 44%, transparent)` : 'transparent'}`, background: editMode ? A14 : 'transparent', color: editMode ? A : MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
                   <Move size={13} />{!isMobile && 'Bearbeiten'}
-                </button>
+                </button>}
                 <div style={{ width: 1, alignSelf: 'stretch', background: BORDER, margin: '2px 2px', flexShrink: 0 }} />
               </>
             )}
-            <button onClick={() => startDrawFromToolbar('measure')} title="Strecke messen (wird nicht gespeichert)" className="lu-chip"
-              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: '1px solid transparent', background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
-              <Ruler size={13} />{!isMobile && 'Messen'}
-            </button>
+            {/* Messen: Strecke ODER Fläche (nichts davon wird gespeichert) */}
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <button onClick={() => setMeasureMenu(v => !v)} title="Messen: Strecke oder Fläche" className="lu-chip"
+                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: `1px solid ${measureMenu ? BORDER : 'transparent'}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap' }}>
+                <Ruler size={13} />{!isMobile && 'Messen'}
+              </button>
+              {measureMenu && (
+                <div className="lu-fade-in" style={{ position: 'absolute', top: '100%', left: 0, marginTop: 6, zIndex: 1002, background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, padding: 4, boxShadow: '0 8px 26px rgba(0,0,0,0.45)', minWidth: 168 }}>
+                  {[['measure', '📏', 'Strecke', 'Punkte setzen, doppelt tippen'],
+                    ['measure_area', '📐', 'Fläche', 'Eckpunkte setzen, Ring schließen']].map(([mode, icon, label, hint]) => (
+                    <button key={mode} onClick={() => { setMeasureMenu(false); startDrawFromToolbar(mode) }} className="lu-option"
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', padding: '7px 9px', borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer' }}>
+                      <span style={{ fontSize: 14 }}>{icon}</span>
+                      <span style={{ flex: 1 }}>
+                        <span style={{ display: 'block', fontSize: 12, color: FG, fontFamily: "'Space Grotesk', sans-serif" }}>{label}</span>
+                        <span style={{ display: 'block', fontFamily: "'Space Mono', monospace", fontSize: 8.5, color: MUTED }}>{hint}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <button onClick={() => setShow3D(true)} title="3D-Schatten: Gebäude in 3D mit Sonnenstand-Simulation" className="lu-chip"
               style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: '1px solid transparent', background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
               <span style={{ fontSize: 13 }}>☀️</span>{!isMobile && '3D-Schatten'}
@@ -2017,7 +2189,7 @@ export default function MapPage() {
               style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: `1px solid ${gpsOn ? 'rgba(59,130,246,0.5)' : 'transparent'}`, background: gpsOn ? 'rgba(59,130,246,0.14)' : 'transparent', color: gpsOn ? '#3b82f6' : MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
               <LocateFixed size={13} />{!isMobile && 'Standort'}
             </button>
-            {isAdmin && gpsOn && userPos && (
+            {canCapture && gpsOn && userPos && (
               <button onClick={captureTreeAtPosition} title="Baum an meiner aktuellen GPS-Position erfassen"
                 style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 7, border: '1px solid #22c55e50', background: '#22c55e18', color: '#22c55e', cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0, fontWeight: 600 }}>
                 🌳 Baum hier
@@ -2093,6 +2265,20 @@ export default function MapPage() {
           </div>
         )}
 
+        {/* Filter-Hinweis: sonst sucht man Features, die man selbst versteckt hat */}
+        {!drawMode && versteckt > 0 && (
+          <div className="lu-fade-in" style={{ position: 'absolute', top: isMobile ? 102 : 58, right: 12, zIndex: 1001, display: 'flex', alignItems: 'center', gap: 8, background: SURFACE, border: `1px solid color-mix(in srgb, var(--luma-warn) 45%, transparent)`, borderRadius: 10, padding: '6px 10px', boxShadow: '0 2px 12px rgba(0,0,0,0.4)' }}>
+            <EyeOff size={12} color="var(--luma-warn)" />
+            <span style={{ fontSize: 11.5, color: FG, fontFamily: "'Space Grotesk', sans-serif" }}>
+              {versteckt} {versteckt === 1 ? 'Objekt' : 'Objekte'} ausgeblendet
+            </span>
+            <button onClick={resetFilter} className="lu-btn-ghost"
+              style={{ padding: '3px 9px', borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 11, fontFamily: "'Space Grotesk', sans-serif" }}>
+              Alle zeigen
+            </button>
+          </div>
+        )}
+
         {/* Projekt-Hinweis */}
         {projectHint && (
           <div className="lu-fade-in" style={{ position: 'absolute', top: isMobile ? 104 : 58, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: 'color-mix(in srgb, var(--luma-danger) 15%, var(--luma-card))', border: '1px solid color-mix(in srgb, var(--luma-danger) 45%, transparent)', borderRadius: 8, padding: '6px 14px', fontSize: 12, color: 'var(--luma-danger)', fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 2px 12px rgba(0,0,0,0.4)' }}>
@@ -2114,9 +2300,9 @@ export default function MapPage() {
 
         {/* Draw mode indicator banner */}
         {drawMode && !pendingGeometry && (
-          <div style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: SURFACE, border: `1px solid color-mix(in srgb, ${drawMode === 'measure' || drawMode === 'sensor' ? '#38bdf8' : FEATURE_MODES.find(m => m.id === drawMode)?.color || A} 38%, transparent)`, borderRadius: 14, padding: '8px 16px', fontSize: 12, color: FG, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 2px 12px rgba(0,0,0,0.5)', maxWidth: 'calc(100% - 24px)' }}>
+          <div style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: SURFACE, border: `1px solid color-mix(in srgb, ${drawMode === 'measure' || drawMode === 'measure_area' || drawMode === 'sensor' ? '#38bdf8' : FEATURE_MODES.find(m => m.id === drawMode)?.color || A} 38%, transparent)`, borderRadius: 14, padding: '8px 16px', fontSize: 12, color: FG, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 2px 12px rgba(0,0,0,0.5)', maxWidth: 'calc(100% - 24px)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span>{drawMode === 'measure' ? '📏' : drawMode === 'sensor' ? '📡' : FEATURE_MODES.find(m => m.id === drawMode)?.icon}</span>
+              <span>{drawMode === 'measure' ? '📏' : drawMode === 'measure_area' ? '📐' : drawMode === 'sensor' ? '📡' : FEATURE_MODES.find(m => m.id === drawMode)?.icon}</span>
               <span>
                 {drawMode === 'tree' || drawMode === 'point' || drawMode === 'sensor'
                   ? drawMode === 'sensor'
@@ -2124,6 +2310,8 @@ export default function MapPage() {
                     : 'Auf die Karte tippen, um zu platzieren'
                   : drawMode === 'measure'
                     ? 'Messpunkte setzen — letzten Punkt doppelt antippen zum Abschließen'
+                  : drawMode === 'measure_area'
+                    ? 'Eckpunkte der Fläche setzen — ersten Punkt antippen zum Schließen'
                     : drawMode === 'line'
                       ? 'Punkte setzen — letzten Punkt doppelt antippen zum Abschließen'
                       : 'Eckpunkte setzen — ersten Punkt antippen oder Doppelklick zum Abschließen'}
@@ -2146,11 +2334,24 @@ export default function MapPage() {
         {measureResult && !drawMode && (
           <div className="lu-fade-in" style={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: SURFACE, border: '1px solid rgba(56,189,248,0.4)', borderRadius: 10, padding: '10px 16px', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', gap: 12 }}>
             <Ruler size={15} color="#38bdf8" />
-            <div>
-              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Gemessene Strecke</div>
-              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 18, fontWeight: 700, color: '#38bdf8', lineHeight: 1.2 }}>{fmtLen(measureResult.length)}</div>
-            </div>
-            <button onClick={() => startDrawFromToolbar('measure')} className="lu-btn-ghost" title="Erneut messen"
+            {measureResult.area != null ? (
+              <>
+                <div>
+                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Gemessene Fläche</div>
+                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 18, fontWeight: 700, color: '#38bdf8', lineHeight: 1.2 }}>{fmtArea(measureResult.area)}</div>
+                </div>
+                <div>
+                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Umfang</div>
+                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 18, fontWeight: 700, color: FG, lineHeight: 1.2 }}>{fmtLen(measureResult.perimeter)}</div>
+                </div>
+              </>
+            ) : (
+              <div>
+                <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Gemessene Strecke</div>
+                <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 18, fontWeight: 700, color: '#38bdf8', lineHeight: 1.2 }}>{fmtLen(measureResult.length)}</div>
+              </div>
+            )}
+            <button onClick={() => startDrawFromToolbar(measureResult.area != null ? 'measure_area' : 'measure')} className="lu-btn-ghost" title="Erneut messen"
               style={{ padding: '5px 10px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 11 }}>
               Erneut
             </button>
@@ -2232,6 +2433,7 @@ export default function MapPage() {
             project={proj}
             isMobile={isMobile}
             isAdmin={isAdmin}
+            canCapture={canCapture}
             linkedPlans={plansByFeature[feat.id] || []}
             onOpenPlan={pp => navigate('/planning', { state: { openPlanId: pp.id } })}
             onPlanInFlorales={() => {
@@ -2249,10 +2451,17 @@ export default function MapPage() {
                 },
               })
             }}
+            onReport={() => setReportFeatureId(feat.id)}
             onClose={() => setPanelFeatureId(null)}
             onEdit={() => { setPanelFeatureId(null); openEditForm(feat) }}
             onDelete={() => deleteFeature(feat)}
-            onUpdateProperties={props => updateMapFeature(feat.id, { properties: props })}
+            // Teil-Patch immer gegen den AKTUELLEN Stand mergen — sonst
+            // überschreibt eine spät fertige Analyse zwischenzeitlich
+            // hinzugefügte Fotos (und umgekehrt).
+            onUpdateProperties={patch => {
+              const current = mapFeatures.find(f => f.id === feat.id)?.properties || {}
+              updateMapFeature(feat.id, { properties: { ...current, ...patch } })
+            }}
             onGoProject={() => proj && navigate(`/projects/${proj.id}`)}
           />
         )
@@ -2276,6 +2485,28 @@ export default function MapPage() {
           onCancel={() => setOrthoModal(null)}
         />
       )}
+
+      {/* Klima-Steckbrief (Druckansicht, lazy) */}
+      {reportFeatureId && (() => {
+        const feat = mapFeatures.find(f => f.id === reportFeatureId)
+        if (!feat) return null
+        const c = geometryCentroid(feat.geometry)
+        // Heatmap-Ausschnitt des Gebiets, in dem die Fläche liegt
+        const entry = c && lod2Index.find(e => {
+          const kx = 111320 * Math.cos(e.lat * Math.PI / 180)
+          return Math.hypot((c.lng - e.lng) * kx, (c.lat - e.lat) * 111320) < (e.radius || 350)
+        })
+        return (
+          <Suspense fallback={null}>
+            <ClimateReport
+              feature={feat}
+              project={projects.find(p => p.id === feat.project_id)}
+              heatmapEntry={entry || null}
+              onClose={() => setReportFeatureId(null)}
+            />
+          </Suspense>
+        )
+      })()}
 
       {/* 3D-Schatten-Ansicht (deck.gl, lazy) */}
       {show3D && (

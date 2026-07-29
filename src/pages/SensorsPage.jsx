@@ -30,7 +30,8 @@ export default function SensorsPage() {
     const interval = setInterval(() => {
       sensors.forEach(s => {
         const delta = (Math.random() - 0.48) * 3
-        const newVal = Math.max(0, Math.min(100, Math.round((s.value + delta) * 10) / 10))
+        const basis = s.value == null ? 45 : s.value   // Sensor ohne Messung: plausibel starten
+        const newVal = Math.max(0, Math.min(100, Math.round((basis + delta) * 10) / 10))
         updateSensorValue(s.id, newVal)
       })
       setLastRefresh(new Date())
@@ -106,10 +107,12 @@ export default function SensorsPage() {
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 24, fontWeight: 300, color: statusColor, lineHeight: 1 }}>{s.value}<span style={{ fontSize: 12, color: MUTED }}>{s.unit}</span></div>
+                      <div style={{ fontSize: 24, fontWeight: 300, color: s.value == null ? MUTED : statusColor, lineHeight: 1 }}>
+                        {s.value == null ? <span style={{ fontSize: 12 }}>noch keine Messung</span> : <>{s.value}<span style={{ fontSize: 12, color: MUTED }}>{s.unit}</span></>}
+                      </div>
                     </div>
                   </div>
-                  <GaugeBar value={s.value} low={s.threshold_low} high={s.threshold_high} color={statusColor} />
+                  <GaugeBar value={s.value ?? 0} low={s.threshold_low} high={s.threshold_high} color={s.value == null ? BORDER : statusColor} />
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED }}>Min: {s.threshold_low}{s.unit}</div>
                     <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED }}>Max: {s.threshold_high}{s.unit}</div>
