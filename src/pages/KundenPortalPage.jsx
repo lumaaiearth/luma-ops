@@ -7,6 +7,7 @@ import {
   anteilVonJahr, sollBisKW, MONATE_KURZ,
 } from '../lib/leistungsnachweis.js'
 import { druckeLeistungsnachweis } from '../lib/printNachweis.js'
+import { beispielFotosFlaeche } from '../lib/placeholderImages.js'
 import {
   Leaf, MapPin, FileText, LogOut, CheckCircle2, Clock, Sprout,
   Printer, CalendarDays, Camera, ChevronDown, Info,
@@ -412,9 +413,9 @@ function ObjektKarte({ objekt: o, offen, onToggle, anteilJahr, erwartet }) {
             </div>
           )}
 
-          {o.fotos.length > 0 && (
-            <div style={{ marginTop: 18 }}>
-              <SectionTitle>Fotodokumentation</SectionTitle>
+          <div style={{ marginTop: 18 }}>
+            <SectionTitle>Fotodokumentation</SectionTitle>
+            {o.fotos.length > 0 ? (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
                 {o.fotos.map((f, i) => (
                   <a key={i} href={f.url} target="_blank" rel="noreferrer"
@@ -425,8 +426,25 @@ function ObjektKarte({ objekt: o, offen, onToggle, anteilJahr, erwartet }) {
                   </a>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              // Platzhalter, solange keine Einsatzfotos vorliegen. Erkennbar
+              // generiert und beschriftet — ein Bild, das wie ein echtes Foto
+              // aussieht, wäre auf einem Leistungsnachweis ein falscher Beleg.
+              <>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                  {beispielFotosFlaeche().map(f => (
+                    <img key={f.id} src={f.url} alt="" aria-hidden="true"
+                      style={{ width: 104, height: 78, objectFit: 'cover', borderRadius: 7, border: `1px dashed ${BORDER}`, display: 'block', opacity: 0.55 }} />
+                  ))}
+                </div>
+                <div style={{ fontSize: 11.5, color: MUTED, marginTop: 8, lineHeight: 1.5 }}>
+                  Für diese Fläche liegen noch keine Einsatzfotos vor. Ihr LUMA-Team
+                  dokumentiert die Pflegegänge künftig mit Bildern — sie erscheinen
+                  dann automatisch an dieser Stelle.
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>
