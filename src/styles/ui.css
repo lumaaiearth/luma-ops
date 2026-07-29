@@ -1,18 +1,32 @@
 /* ────────────────────────────────────────────────────────────────
    LUMA Ops — globale UI-Schicht
-   Design-Tokens + Interaktions-Feedback (Hover/Fokus/Active),
-   das Inline-Styles nicht leisten können.
+
+   Aufbau:
+     1. Design-Tokens (Skalen: Typo, Abstand, Radius, Elevation)
+     2. Basis & Barrierefreiheit
+     3. Primitives (Karten, Panels, Tabellen, Navigation, Buttons)
+
+   Regeln, die diese Schicht durchsetzt:
+     · Radius, Schriftgröße und Abstand kommen aus einer Skala —
+       keine frei erfundenen Werte mehr in Inline-Styles.
+     · Mono-Schrift NUR für echte Daten (Zahlen, Zeiten, IDs, Codes).
+       Labels und Fließtext laufen in der Sans (lesbarer, ruhiger).
+     · Farbe trägt Bedeutung: Akzent = Aktion/Auswahl,
+       Semantik-Tokens = Status. Sonst neutrale Flächen.
    ──────────────────────────────────────────────────────────────── */
 
 :root {
-  /* Fallbacks — ThemeContext überschreibt diese Werte pro Theme */
-  --luma-a:       #09BE60;
-  --luma-bg:      #070d12;
-  --luma-surface: #0e1c26;
-  --luma-card:    #0e1c26;
-  --luma-border:  rgba(255, 255, 255, 0.12);
-  --luma-fg:      #f0f7fc;
-  --luma-muted:   rgba(240, 247, 252, 0.58);
+  /* ── Farb-Fallbacks — ThemeContext überschreibt diese pro Theme ── */
+  --luma-a:         #09BE60;
+  --luma-bg:        #070d12;
+  --luma-surface:   #0e1c26;
+  --luma-surface-2: #142633;   /* eingelassen: Tabellenkopf, Hover-Zeile, Inset */
+  --luma-card:      #0e1c26;
+  --luma-border:    rgba(255, 255, 255, 0.12);
+  --luma-border-strong: rgba(255, 255, 255, 0.2);
+  --luma-fg:        #f0f7fc;
+  --luma-muted:     rgba(240, 247, 252, 0.58);
+  --luma-faint:     rgba(240, 247, 252, 0.38);
 
   /* Semantische Statusfarben (pro Theme überschreibbar) */
   --luma-ok:      #22EAA7;
@@ -20,17 +34,66 @@
   --luma-danger:  #EF4444;
   --luma-info:    #6EA8C0;
 
-  /* Geometrie & Motion */
-  --lu-radius:    14px;
-  --lu-radius-sm: 8px;
-  --lu-shadow:    0 1px 2px rgba(0, 0, 0, 0.18);
-  --lu-ease:      cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  /* ── Schrift ── */
+  --lu-font-sans: 'Space Grotesk', system-ui, sans-serif;
+  --lu-font-mono: 'Space Mono', ui-monospace, monospace;
+
+  /* Typo-Skala — 9 Stufen statt 27 frei gewählter Größen.
+     Dichte „Enterprise"-Basis: Tabellen-/Zeilentext auf 13px. */
+  --lu-text-2xs:  10px;   /* Mono-Mikrodaten, Badges */
+  --lu-text-xs:   11px;   /* Metazeile, Spaltenköpfe */
+  --lu-text-sm:   12px;   /* Sekundärtext, Labels */
+  --lu-text-base: 13px;   /* Standard: Zeilen, Fließtext */
+  --lu-text-md:   14px;   /* Formularfelder, betonter Text */
+  --lu-text-lg:   16px;   /* Karten-/Panel-Titel */
+  --lu-text-xl:   20px;   /* Seitentitel mobil */
+  --lu-text-2xl:  24px;   /* Seitentitel */
+  --lu-text-3xl:  30px;   /* Kennzahlen */
+
+  /* ── Abstand: 4px-Raster ── */
+  --lu-s1: 4px;
+  --lu-s2: 8px;
+  --lu-s3: 12px;
+  --lu-s4: 16px;
+  --lu-s5: 20px;
+  --lu-s6: 24px;
+  --lu-s7: 32px;
+  --lu-s8: 40px;
+
+  /* ── Radius: 4 Stufen (vorher 19 verschiedene Werte) ── */
+  --lu-radius-sm:   6px;    /* Badges, Chips, kleine Controls */
+  --lu-radius-md:   8px;    /* Karten, Inputs, Buttons */
+  --lu-radius-lg:   10px;   /* Panels */
+  --lu-radius-xl:   14px;   /* Modals */
+  --lu-radius-pill: 999px;
+  --lu-radius:      var(--lu-radius-md);   /* Alias für .lu-card */
+
+  /* ── Elevation (pro Theme überschrieben) ── */
+  --lu-elev-1: 0 1px 2px rgba(0, 0, 0, 0.24);
+  --lu-elev-2: 0 4px 12px rgba(0, 0, 0, 0.32);
+  --lu-elev-3: 0 24px 64px rgba(0, 0, 0, 0.5);
+  --lu-shadow: var(--lu-elev-1);   /* Alias, Altbestand */
+
+  /* ── Motion ── */
+  --lu-ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --lu-fast: 0.12s;
+  --lu-base: 0.15s;
+
+  /* Zeilenhöhe für Tabellen/Listen — eine Zahl, damit Listen ruhig „rasten" */
+  --lu-row-h: 40px;
 }
 
-/* ── Basis ── */
+/* ═══════════════════════════════════════════════════════════════
+   2. Basis
+   ═══════════════════════════════════════════════════════════════ */
+
 body {
   background: var(--luma-bg);
   color: var(--luma-fg);
+  font-family: var(--lu-font-sans);
+  font-size: var(--lu-text-base);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 /* Nur die Karte zoomt, nicht die Seite: Doppeltipp-Zoom aus (touch-action),
@@ -62,6 +125,13 @@ select option {
   color: var(--luma-fg);
 }
 
+/* Ziffern in Tabellen/Kennzahlen untereinander ausrichten */
+.lu-num, .lu-mono {
+  font-family: var(--lu-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
 /* ── Fokus: sichtbarer Tastatur-Fokus überall.
       !important nötig, weil viele Inputs inline `outline: none` setzen. ── */
 :focus { outline: none; }
@@ -73,35 +143,124 @@ select option {
 
 /* ── Grund-Feedback für alle nativen Controls (auch ohne Refactor der Seiten) ── */
 button {
-  transition: background 0.15s var(--lu-ease), color 0.15s var(--lu-ease),
-              border-color 0.15s var(--lu-ease), opacity 0.15s var(--lu-ease),
+  transition: background var(--lu-base) var(--lu-ease), color var(--lu-base) var(--lu-ease),
+              border-color var(--lu-base) var(--lu-ease), opacity var(--lu-base) var(--lu-ease),
               transform 0.1s var(--lu-ease);
 }
 button:not(:disabled):active { transform: scale(0.98); }
 button:disabled { cursor: not-allowed; }
 
 input, textarea, select {
-  transition: border-color 0.15s var(--lu-ease), background 0.15s var(--lu-ease);
+  transition: border-color var(--lu-base) var(--lu-ease), background var(--lu-base) var(--lu-ease),
+              box-shadow var(--lu-base) var(--lu-ease);
+}
+input:focus, textarea:focus, select:focus {
+  border-color: color-mix(in srgb, var(--luma-a) 55%, var(--luma-border)) !important;
 }
 
-a { transition: color 0.15s var(--lu-ease), background 0.15s var(--lu-ease); }
+a { transition: color var(--lu-base) var(--lu-ease), background var(--lu-base) var(--lu-ease); }
 
-/* ── Karten: weich gerundete „Fenster" mit sanfter Elevation ── */
+/* ═══════════════════════════════════════════════════════════════
+   3. Primitives
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Karten ── */
 .lu-card {
   border-radius: var(--lu-radius) !important;
-  box-shadow: var(--lu-shadow);
-  transition: border-color 0.15s var(--lu-ease), background 0.15s var(--lu-ease),
-              transform 0.15s var(--lu-ease), box-shadow 0.15s var(--lu-ease);
+  box-shadow: var(--lu-elev-1);
+  transition: border-color var(--lu-base) var(--lu-ease), background var(--lu-base) var(--lu-ease),
+              box-shadow var(--lu-base) var(--lu-ease);
 }
 .lu-clickable { cursor: pointer; }
 .lu-clickable:hover {
-  border-color: color-mix(in srgb, var(--luma-a) 45%, var(--luma-border)) !important;
-  background: color-mix(in srgb, var(--luma-a) 4%, var(--luma-surface)) !important;
+  border-color: var(--luma-border-strong) !important;
+  background: var(--luma-surface-2) !important;
+  box-shadow: var(--lu-elev-2);
+}
+
+/* ── Panel: Karte mit Kopfzeile, Inhalt randlos (für Tabellen & Listen) ── */
+.lu-panel {
+  background: var(--luma-surface);
+  border: 1px solid var(--luma-border);
+  border-radius: var(--lu-radius-lg);
+  box-shadow: var(--lu-elev-1);
+  overflow: hidden;
+}
+.lu-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lu-s3);
+  padding: var(--lu-s3) var(--lu-s4);
+  border-bottom: 1px solid var(--luma-border);
+  background: var(--luma-surface-2);
+  min-height: 44px;
+}
+.lu-panel-title {
+  font-size: var(--lu-text-base);
+  font-weight: 600;
+  color: var(--luma-fg);
+  letter-spacing: -0.01em;
+}
+
+/* ── Datentabelle: dichte Zeilen, Haarlinien statt Abstände ── */
+.lu-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--lu-text-base);
+}
+.lu-table th {
+  text-align: left;
+  font-family: var(--lu-font-sans);
+  font-size: var(--lu-text-xs);
+  font-weight: 500;
+  color: var(--luma-muted);
+  padding: var(--lu-s2) var(--lu-s4);
+  background: var(--luma-surface-2);
+  border-bottom: 1px solid var(--luma-border);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.lu-table td {
+  padding: 0 var(--lu-s4);
+  height: var(--lu-row-h);
+  color: var(--luma-fg);
+  border-bottom: 1px solid color-mix(in srgb, var(--luma-border) 55%, transparent);
+  vertical-align: middle;
+}
+.lu-table tbody tr:last-child td { border-bottom: none; }
+.lu-table tbody tr.lu-row-click { cursor: pointer; }
+.lu-table tbody tr.lu-row-click:hover td { background: var(--luma-surface-2); }
+/* Zeile mit Statusmarkierung an der linken Kante */
+.lu-table td.lu-cell-num { text-align: right; font-family: var(--lu-font-mono); font-variant-numeric: tabular-nums; }
+.lu-table td.lu-cell-mute { color: var(--luma-muted); }
+
+/* ── Listenzeile (mobil / wenn eine Tabelle zu breit wäre) ── */
+.lu-row {
+  display: flex;
+  align-items: center;
+  gap: var(--lu-s3);
+  padding: var(--lu-s3) var(--lu-s4);
+  border-bottom: 1px solid color-mix(in srgb, var(--luma-border) 55%, transparent);
+  transition: background var(--lu-fast) var(--lu-ease);
+}
+.lu-row:last-child { border-bottom: none; }
+.lu-row-click { cursor: pointer; }
+.lu-row-click:hover { background: var(--luma-surface-2); }
+
+/* ── Abschnittslabel: Sans, Sentence Case (vorher Mono-Uppercase-Wüste) ── */
+.lu-section-label {
+  font-size: var(--lu-text-xs);
+  font-weight: 600;
+  color: var(--luma-muted);
+  letter-spacing: 0.01em;
 }
 
 /* ── Sidebar-Navigation ── */
 .lu-nav {
-  transition: background 0.15s var(--lu-ease), color 0.15s var(--lu-ease);
+  transition: background var(--lu-base) var(--lu-ease), color var(--lu-base) var(--lu-ease);
 }
 .lu-nav:hover:not(.active) {
   color: var(--luma-fg) !important;
@@ -113,7 +272,7 @@ a { transition: color 0.15s var(--lu-ease), background 0.15s var(--lu-ease); }
 
 /* ── Icon-Rail (Desktop-Navigation) ── */
 .lu-rail-link {
-  transition: background 0.15s var(--lu-ease), color 0.15s var(--lu-ease), transform 0.1s var(--lu-ease);
+  transition: background var(--lu-base) var(--lu-ease), color var(--lu-base) var(--lu-ease), transform 0.1s var(--lu-ease);
 }
 .lu-rail-link:hover:not(.active) {
   color: var(--luma-fg) !important;
@@ -126,31 +285,31 @@ a { transition: color 0.15s var(--lu-ease), background 0.15s var(--lu-ease); }
 .lu-tip:hover::after {
   content: attr(data-tip);
   position: absolute;
-  left: calc(100% + 12px);
+  left: calc(100% + var(--lu-s3));
   top: 50%;
   transform: translateY(-50%);
   background: var(--luma-card);
   border: 1px solid var(--luma-border);
   color: var(--luma-fg);
-  padding: 5px 12px;
-  border-radius: 9px;
-  font-size: 12px;
-  font-family: 'Space Grotesk', sans-serif;
+  padding: 5px var(--lu-s3);
+  border-radius: var(--lu-radius-sm);
+  font-size: var(--lu-text-sm);
+  font-family: var(--lu-font-sans);
   white-space: nowrap;
   z-index: 600;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--lu-elev-2);
   pointer-events: none;
-  animation: lu-fade-in 0.12s var(--lu-ease);
+  animation: lu-fade-in var(--lu-fast) var(--lu-ease);
 }
 
 /* ── Buttons (ui.jsx) ── */
 .lu-btn-primary:not(:disabled):hover {
-  filter: brightness(1.12);
-  box-shadow: 0 2px 14px color-mix(in srgb, var(--luma-a) 35%, transparent);
+  filter: brightness(1.08);
+  box-shadow: 0 1px 8px color-mix(in srgb, var(--luma-a) 30%, transparent);
 }
 .lu-btn-ghost:not(:disabled):hover {
   color: var(--luma-fg) !important;
-  border-color: color-mix(in srgb, var(--luma-fg) 30%, var(--luma-border)) !important;
+  border-color: var(--luma-border-strong) !important;
   background: color-mix(in srgb, var(--luma-fg) 5%, transparent) !important;
 }
 .lu-btn-danger:not(:disabled):hover {
@@ -159,15 +318,30 @@ a { transition: color 0.15s var(--lu-ease), background 0.15s var(--lu-ease); }
   background: color-mix(in srgb, var(--luma-danger) 12%, transparent) !important;
 }
 .lu-chip:not(:disabled):hover {
-  border-color: color-mix(in srgb, var(--luma-fg) 30%, var(--luma-border)) !important;
+  border-color: var(--luma-border-strong) !important;
   color: var(--luma-fg) !important;
 }
 .lu-tab:hover { color: var(--luma-fg) !important; }
 
 /* Einträge in Dropdown-/Vorschlagslisten */
-.lu-option { cursor: pointer; transition: background 0.12s var(--lu-ease); }
+.lu-option { cursor: pointer; transition: background var(--lu-fast) var(--lu-ease); }
 .lu-option:hover {
-  background: color-mix(in srgb, var(--luma-a) 7%, transparent);
+  background: var(--luma-surface-2);
+}
+
+/* ── Ladeplatzhalter statt leerer Fläche ── */
+.lu-skeleton {
+  background: linear-gradient(90deg,
+    var(--luma-surface-2) 25%,
+    color-mix(in srgb, var(--luma-fg) 8%, var(--luma-surface-2)) 37%,
+    var(--luma-surface-2) 63%);
+  background-size: 400% 100%;
+  border-radius: var(--lu-radius-sm);
+  animation: lu-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes lu-shimmer {
+  0%   { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
 }
 
 /* ── Sanfter Seiteneinstieg ── */

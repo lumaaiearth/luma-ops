@@ -57,17 +57,27 @@
       // Boot-Farben passend zum gespeicherten Theme (Standard: hell),
       // damit der Ladebildschirm nicht in der falschen Farbe aufblitzt.
       (function () {
+        // Boot-Farben exakt aus den Theme-Werten (src/context/ThemeContext.jsx),
+        // damit der Ladebildschirm nicht in einer anderen Farbe aufblitzt als
+        // die App danach. Entfallene Theme-Ids zeigen auf ihren Nachfolger.
+        var BOOT = {
+          forest:   { bg: '#070d12', fg: '#f0f7fc', a: '#09BE60', dark: 1 },
+          terminal: { bg: '#000000', fg: '#ffffff', a: '#00FF88', dark: 1 },
+          light:    { bg: '#f4f5f6', fg: '#15181b', a: '#047A3C', dark: 0 },
+          sand:     { bg: '#f8f5f0', fg: '#241c14', a: '#B4531F', dark: 0 },
+        }
+        var RETIRED = { navy: 'forest', ocean: 'forest', violet: 'forest', graphite: 'forest', sunset: 'forest', sky: 'light' }
         var t = 'light'
         try { t = localStorage.getItem('luma-theme') || 'light' } catch (e) {}
-        var dark = t !== 'light'
+        var c = BOOT[t] || BOOT[RETIRED[t]] || BOOT.light
         var r = document.documentElement
-        r.style.setProperty('--boot-bg', dark ? '#080f14' : '#eef0ec')
-        r.style.setProperty('--boot-fg', dark ? '#e8f0f5' : '#0a1409')
-        r.style.setProperty('--boot-a', dark ? '#09BE60' : '#047A3C')
-        r.style.setProperty('--boot-track', dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)')
+        r.style.setProperty('--boot-bg', c.bg)
+        r.style.setProperty('--boot-fg', c.fg)
+        r.style.setProperty('--boot-a', c.a)
+        r.style.setProperty('--boot-track', c.dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)')
         document.addEventListener('DOMContentLoaded', function () {
           var m = document.querySelector('meta[name="theme-color"]')
-          if (m) m.setAttribute('content', dark ? '#080f14' : '#eef0ec')
+          if (m) m.setAttribute('content', c.bg)
         })
       })()
     </script>

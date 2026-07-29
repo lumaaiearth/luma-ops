@@ -237,16 +237,21 @@ export default function SettingsPage() {
                   transition: 'all 0.15s',
                 }}
               >
-                {/* Color preview dots */}
+                {/* Farbvorschau: Hintergrund, Fläche, Akzent.
+                    Rahmen aus dem Theme-Token — hardcodiertes Weiß war auf
+                    hellen Themes unsichtbar. */}
                 <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
-                  <div style={{ width: 18, height: 18, borderRadius: 4, background: t.vars['--luma-bg'], border: '1px solid rgba(255,255,255,0.12)' }} />
-                  <div style={{ width: 18, height: 18, borderRadius: 4, background: t.vars['--luma-surface'], border: '1px solid rgba(255,255,255,0.12)' }} />
+                  <div style={{ width: 18, height: 18, borderRadius: 4, background: t.vars['--luma-bg'], border: `1px solid ${BORDER}` }} />
+                  <div style={{ width: 18, height: 18, borderRadius: 4, background: t.vars['--luma-surface'], border: `1px solid ${BORDER}` }} />
                   <div style={{ width: 18, height: 18, borderRadius: 4, background: t.vars['--luma-a'] }} />
                 </div>
-                <span style={{ fontSize: 13, color: active ? A : FG, fontFamily: "'Space Grotesk', sans-serif", fontWeight: active ? 500 : 400 }}>
-                  {t.name}
+                <span style={{ textAlign: 'left' }}>
+                  <span style={{ display: 'block', fontSize: 13, color: active ? A : FG, fontFamily: "'Space Grotesk', sans-serif", fontWeight: active ? 600 : 500 }}>
+                    {t.name}
+                  </span>
+                  {t.hint && <span style={{ display: 'block', fontSize: 11, color: MUTED }}>{t.hint}</span>}
                 </span>
-                {active && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: A }}>✓</span>}
+                {active && <span style={{ fontSize: 11, color: A }}>✓</span>}
               </button>
             )
           })}
