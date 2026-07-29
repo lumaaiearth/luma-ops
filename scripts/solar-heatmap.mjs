@@ -55,7 +55,8 @@ async function fetchTrees(south, west, north, east) {
       if (lat == null) continue
       const height = parseFloat(p.baumhoehe) > 0 ? Math.min(parseFloat(p.baumhoehe), 45) : 12
       const crown = parseFloat(p.kronedurch) > 0 ? Math.min(parseFloat(p.kronedurch), 30) : 6
-      all.push({ lat, lng, height, crown })
+      const nadel = /nadel/i.test(p.art_gruppe || '')
+      all.push({ lat, lng, height, crown, nadel })
     }
   }
   return all
@@ -160,7 +161,8 @@ async function heatmapFor(name) {
   }
   const dLat = (R + 60) / ky, dLng = (R + 60) / kx
   const trees = (await fetchTrees(clat - dLat, clng - dLng, clat + dLat, clng + dLng))
-    .map(t => { const [x, y] = toXY(t.lng, t.lat); return { x, y, r: Math.max(t.crown / 2, 1.2), top: t.height, base: Math.max(2, t.height * 0.35) } })
+    // Kronenansatz identisch zu src/lib/solar.js crownBase()
+    .map(t => { const [x, y] = toXY(t.lng, t.lat); return { x, y, r: Math.max(t.crown / 2, 1.2), top: t.height, base: Math.max(1.5, t.height * (t.nadel ? 0.22 : 0.38)) } })
 
   const W = Math.ceil((2 * R) / CELL), H = W
   const originX = -R, originY = -R

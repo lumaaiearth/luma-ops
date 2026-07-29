@@ -72,9 +72,29 @@ export async function processUploadQueue() {
         })
         if (upErr && !String(upErr.message || '').toLowerCase().includes('exists')) throw upErr
         const { data } = sb.storage.from(item.bucket).getPublicUrl(item.path)
-        const row = { ...item.row, url: data.publicUrl }
-        const { error: insErr } = await sb.from(item.table).upsert(row, { onConflict: 'id' })
-        if (insErr) throw insErr
+
+        if (item.featureId) {
+          // BIOME-Feature-Foto: Fotos liegen in map_features.properties.photos.
+          // Bewusst Read-Modify-Write gegen den SERVER-Stand, damit zwischenzeitlich
+          // hinzugekommene Fotos/Analysen nicht überschrieben werden.
+          const { data: feat, error: selErr } = await sb.from('map_features')
+            .select('properties').eq('id', item.featureId).maybeSingle()
+          if (selErr) throw selErr
+          if (feat) {
+            const props = feat.properties || {}
+            const photos = props.photos || []
+            if (!photos.some(p => p.id === item.photoId)) {
+              const { error: updErr } = await sb.from('map_features')
+                .update({ properties: { ...props, photos: [...photos, { id: item.photoId, url: data.publicUrl }] }, updated_at: new Date().toISOString() })
+                .eq('id', item.featureId)
+              if (updErr) throw updErr
+            }
+          }
+        } else {
+          const row = { ...item.row, url: data.publicUrl }
+          const { error: insErr } = await sb.from(item.table).upsert(row, { onConflict: 'id' })
+          if (insErr) throw insErr
+        }
         await removeUpload(item.id)
       } catch (err) {
         if (isNetworkError(err)) break   // weiterhin offline → später erneut

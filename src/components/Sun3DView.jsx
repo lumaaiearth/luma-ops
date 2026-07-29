@@ -15,6 +15,7 @@ import { SURFACE, BORDER, FG, MUTED, A, A14 } from '../lib/theme.js'
 import { fetchBuildingsBbox } from '../lib/overpass.js'
 import { fetchAlkisBuildings, fetchBerlinTrees, isInBerlin } from '../lib/berlinGeo.js'
 import { findLod2Patch, findLod2Entry } from '../lib/lod2.js'
+import { crownBase } from '../lib/solar.js'
 
 const MONO = "'Space Mono', monospace"
 const SANS = "'Space Grotesk', sans-serif"
@@ -164,7 +165,7 @@ export default function Sun3DView({ center, mapFeatures = [], projectColorById =
     const trunks = [], crowns = []
     for (const t of trees) {
       const rH = Math.max(t.crown / 2, 1.2)                  // horizontaler Kronenradius
-      const base = Math.max(1.5, t.height * (t.nadel ? 0.22 : 0.38))  // Kronenansatz
+      const base = crownBase(t)                              // Kronenansatz (geteilt mit der Analyse)
       const rV = Math.max((t.height - base) / 2, 1)          // vertikaler Halbmesser
       const zMid = base + rV
       trunks.push({

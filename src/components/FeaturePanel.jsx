@@ -8,6 +8,8 @@ import { A, SURFACE, BORDER, FG, MUTED, OK, WARN, DANGER, A14, A20 } from '../li
 import { sb } from '../lib/supabase.js'
 import { genId } from '../lib/storage.js'
 import { compressImage } from '../lib/images.js'
+import { queueUpload } from '../lib/uploadQueue.js'
+import { isNetworkError } from '../lib/outbox.js'
 import { geomMeasures, fmtArea, fmtLen, fmtLatLng } from '../lib/geo.js'
 import { examplePhotos } from '../lib/placeholderImages.js'
 import { fetchBuildingsAround } from '../lib/overpass.js'
@@ -71,10 +73,14 @@ function FeaturePhotos({ feature, isAdmin, onUpdateProperties }) {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState(null)
   const [lightbox, setLightbox] = useState(null)
+  const [pending, setPending] = useState([])   // offline eingereihte Fotos (lokale Blob-URLs)
   const fileRef = useRef()
   const photos = feature.properties?.photos || []
-  const shown = photos.length > 0 ? photos : examplePhotos(feature)
-  const usingExamples = photos.length === 0
+  // Bereits synchronisierte Warteschlangen-Fotos ausblenden
+  const stillPending = pending.filter(p => !photos.some(x => x.id === p.id))
+  const real = [...photos, ...stillPending.map(p => ({ ...p, _pending: true }))]
+  const shown = real.length > 0 ? real : examplePhotos(feature)
+  const usingExamples = real.length === 0
 
   // Bestehende Baum-Fotos liegen unter tree-<id>/ — dabei bleiben; alles andere unter feature-<id>/
   const storagePrefix = feature.feature_type === 'tree' ? `tree-${feature.id}` : `feature-${feature.id}`
@@ -84,6 +90,7 @@ function FeaturePhotos({ feature, isAdmin, onUpdateProperties }) {
     setUploading(true); setError(null)
     const added = []
     let lastErr = null
+    let queued = 0
     for (const file of Array.from(files)) {
       if (!file.type.startsWith('image/')) continue
       const photoId = genId()
@@ -96,22 +103,31 @@ function FeaturePhotos({ feature, isAdmin, onUpdateProperties }) {
         const { data } = sb.storage.from('job-photos').getPublicUrl(path)
         added.push({ id: photoId, url: data.publicUrl })
       } catch (e) {
-        lastErr = e
+        // Ohne Netz: Foto NICHT verwerfen, sondern in die Offline-Warteschlange
+        // legen (wie bei Einsatz-/Aufgabenfotos) — sonst ist die Aufnahme weg.
+        if (isNetworkError(e) || !navigator.onLine) {
+          try {
+            await queueUpload({ id: photoId, photoId, featureId: feature.id, bucket: 'job-photos', path, contentType: 'image/jpeg', blob })
+            setPending(prev => [...prev, { id: photoId, url: URL.createObjectURL(blob) }])
+            queued++
+          } catch { lastErr = e }
+        } else {
+          lastErr = e
+        }
       }
     }
+    if (queued > 0) setError(null)
     if (lastErr) {
-      setError(navigator.onLine
-        ? `Upload fehlgeschlagen: ${lastErr.message || lastErr.error || 'unbekannter Fehler'}`
-        : 'Offline — bitte später erneut versuchen')
+      setError(`Upload fehlgeschlagen: ${lastErr.message || lastErr.error || 'unbekannter Fehler'}`)
     }
-    if (added.length) onUpdateProperties({ ...feature.properties, photos: [...photos, ...added] })
+    if (added.length) onUpdateProperties({ photos: [...photos, ...added] })
     setUploading(false)
   }
 
   async function handleDelete(photo) {
     if (photo.example) { setLightbox(null); return }
     try { await sb.storage.from('job-photos').remove([`${storagePrefix}/${photo.id}.jpg`]) } catch { /* Storage-Rest ist unkritisch */ }
-    onUpdateProperties({ ...feature.properties, photos: photos.filter(p => p.id !== photo.id) })
+    onUpdateProperties({ photos: photos.filter(p => p.id !== photo.id) })
     setLightbox(null)
   }
 
@@ -119,7 +135,7 @@ function FeaturePhotos({ feature, isAdmin, onUpdateProperties }) {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
         <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-          Fotos {photos.length > 0 && `(${photos.length})`}
+          Fotos {real.length > 0 && `(${real.length})`}{stillPending.length > 0 && ' · ' + stillPending.length + ' wartet'}
         </span>
         {isAdmin && (
           <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="lu-btn-ghost"
@@ -138,6 +154,9 @@ function FeaturePhotos({ feature, isAdmin, onUpdateProperties }) {
             <img src={p.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
             {p.example && (
               <span style={{ position: 'absolute', bottom: 3, left: 3, fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: '0.06em', color: '#fff', background: 'rgba(0,0,0,0.55)', borderRadius: 4, padding: '1px 5px' }}>BEISPIEL</span>
+            )}
+            {p._pending && (
+              <span style={{ position: 'absolute', bottom: 3, left: 3, fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: '0.06em', color: '#001219', background: WARN, borderRadius: 4, padding: '1px 5px' }}>WARTET</span>
             )}
           </div>
         ))}
@@ -199,7 +218,7 @@ function SunAnalysis({ feature, centroid, isAdmin, onUpdateProperties }) {
       if (!lod2Patch && !buildings.length) buildings = await fetchBuildingsAround(centroid.lat, centroid.lng, 180)
       const analysis = analyzeSun(centroid.lat, centroid.lng, buildings, trees, { source, lod2Patch })
       setLocalResult(analysis)
-      if (isAdmin) onUpdateProperties({ ...feature.properties, sonnenanalyse: analysis })
+      if (isAdmin) onUpdateProperties({ sonnenanalyse: analysis })
     } catch (e) {
       setError(navigator.onLine ? 'Gebäudedaten gerade nicht erreichbar — später erneut versuchen.' : 'Offline — Analyse braucht Internet.')
     } finally {
@@ -288,7 +307,7 @@ function RainCheck({ feature, centroid, isAdmin, onUpdateProperties }) {
     try {
       const res = await checkStarkregen(centroid.lat, centroid.lng)
       setLocalResult(res)
-      if (isAdmin) onUpdateProperties({ ...feature.properties, starkregen: res })
+      if (isAdmin) onUpdateProperties({ starkregen: res })
     } catch {
       setError(navigator.onLine ? 'Starkregengefahrenkarte gerade nicht erreichbar.' : 'Offline — Prüfung braucht Internet.')
     } finally {

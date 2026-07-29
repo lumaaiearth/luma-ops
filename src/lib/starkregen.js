@@ -21,6 +21,7 @@ export const AMPEL = {
   gelb: { label: 'Gefahr bei Extremregen', color: '#f59e0b', hint: 'Bei Extremereignissen überflutet — robuste, kurzzeitig staunässetolerante Auswahl von Vorteil.' },
   gruen: { label: 'Keine Überflutung modelliert', color: '#22c55e', hint: 'Im 120-m-Umfeld kein modellierter Wasserstand in beiden Szenarien.' },
   keine_daten: { label: 'Außerhalb der Modellgebiete', color: '#9ca3af', hint: 'Für diesen Ort liegt (noch) keine Starkregengefahrenkarte vor.' },
+  unbekannt: { label: 'Nicht prüfbar', color: '#9ca3af', hint: 'Die Starkregengefahrenkarte war nicht vollständig abrufbar — bitte später erneut prüfen. (Kein Ergebnis heißt hier NICHT „keine Gefahr".)' },
 }
 
 function bboxOf(lat, lng) {
@@ -32,7 +33,9 @@ function bboxOf(lat, lng) {
 
 async function punktKlasse(lat, lng, layer) {
   const url = `${WMS}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS=${layer}&QUERY_LAYERS=${layer}&STYLES=&CRS=EPSG:4326&BBOX=${bboxOf(lat, lng)}&WIDTH=${PX}&HEIGHT=${PX}&I=${PX / 2}&J=${PX / 2}&INFO_FORMAT=text%2Fxml&FEATURE_COUNT=1`
-  const text = await (await fetch(url)).text()
+  const resp = await fetch(url)
+  if (!resp.ok) throw new Error(`WMS ${resp.status}`)
+  const text = await resp.text()
   const m = /<ua_srgk:Wasserstand_m>([^<]*)<\/ua_srgk:Wasserstand_m>/.exec(text)
   if (!m) return null
   const val = m[1].replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').trim()
@@ -41,7 +44,9 @@ async function punktKlasse(lat, lng, layer) {
 
 async function anteilUmfeld(lat, lng, layer) {
   const url = `${WMS}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=${layer}&STYLES=&CRS=EPSG:4326&BBOX=${bboxOf(lat, lng)}&WIDTH=${PX}&HEIGHT=${PX}&FORMAT=image/png&TRANSPARENT=true`
-  const blob = await (await fetch(url)).blob()
+  const resp = await fetch(url)
+  if (!resp.ok) throw new Error(`WMS ${resp.status}`)
+  const blob = await resp.blob()
   const bmp = await createImageBitmap(blob)
   const canvas = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(PX, PX) : Object.assign(document.createElement('canvas'), { width: PX, height: PX })
   const ctx = canvas.getContext('2d')
@@ -69,16 +74,23 @@ export async function checkStarkregen(lat, lng) {
   const result = { modellgebiet, szenarien: {}, computed_at: new Date().toISOString() }
   if (!modellgebiet) { result.ampel = 'keine_daten'; return result }
 
+  let unvollstaendig = false
   for (const s of SZENARIEN) {
-    const [klasse, anteil] = await Promise.all([
+    const [k, a] = await Promise.allSettled([
       punktKlasse(lat, lng, s.layer),
       anteilUmfeld(lat, lng, s.layer),
     ])
-    result.szenarien[s.key] = { klasse, anteil_pct: anteil }
+    if (k.status === 'rejected' || a.status === 'rejected') unvollstaendig = true
+    result.szenarien[s.key] = {
+      klasse: k.status === 'fulfilled' ? k.value : null,
+      anteil_pct: a.status === 'fulfilled' ? a.value : null,
+    }
   }
   const selten = result.szenarien.selten, extrem = result.szenarien.extrem
   const seltenHit = relevant(selten?.klasse) || (selten?.anteil_pct ?? 0) > 5
   const extremHit = relevant(extrem?.klasse) || (extrem?.anteil_pct ?? 0) > 5
-  result.ampel = seltenHit ? 'rot' : extremHit ? 'gelb' : 'gruen'
+  // Ein Ausfall darf nie als „keine Gefahr" durchgehen
+  result.ampel = seltenHit ? 'rot' : extremHit ? 'gelb' : unvollstaendig ? 'unbekannt' : 'gruen'
+  result.unvollstaendig = unvollstaendig
   return result
 }

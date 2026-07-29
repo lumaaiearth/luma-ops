@@ -940,6 +940,18 @@ export default function MapPage() {
   const [lod2Index, setLod2Index] = useState([])
   const [heatmapSeason, setHeatmapSeason] = useState('sommer')
   const [reportFeatureId, setReportFeatureId] = useState(null)  // offener Klima-Steckbrief
+
+  // Tageslänge des gewählten Stichtags — für die Heatmap-Legende. Nimmt das
+  // Gebiet, das gerade im Blick ist (sonst stimmte die Skala nur zufällig).
+  const heatmapMax = useMemo(() => {
+    if (!lod2Index.length) return null
+    const v = viewRef.current
+    const near = lod2Index.find(e => {
+      const kx = 111320 * Math.cos(e.lat * Math.PI / 180)
+      return Math.hypot((v.lng - e.lng) * kx, (v.lat - e.lat) * 111320) < (e.radius || 350) + 900
+    }) || lod2Index[0]
+    return near?.heatmap_max?.[heatmapSeason] ?? null
+  }, [lod2Index, heatmapSeason, flyTarget])
   useEffect(() => {
     fetch('/lod2/index.json').then(r => (r.ok ? r.json() : [])).then(setLod2Index).catch(() => {})
   }, [])
@@ -1251,6 +1263,7 @@ export default function MapPage() {
   }
 
   function startDraw(project, mode) {
+    setPanelFeatureId(null)   // Detailpanel würde das Erfassungs-Formular verdecken
     setDrawingProject(project)
     if (project?.id) setDrawProjectId(project.id)
     setDrawMode(mode)
@@ -1288,6 +1301,7 @@ export default function MapPage() {
       return
     }
     if (!userPos) return
+    setPanelFeatureId(null)
     setDrawingProject(proj)
     setDrawMode('tree')
     setEditMode(false)
@@ -1520,7 +1534,7 @@ export default function MapPage() {
                         <div style={{ height: 8, borderRadius: 4, background: 'linear-gradient(to right, rgb(23,42,84) 0%, rgb(43,92,138) 25%, rgb(56,140,118) 45%, rgb(124,179,66) 65%, rgb(222,200,49) 82%, rgb(255,236,120) 100%)' }} />
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'Space Mono', monospace", fontSize: 8, color: MUTED, marginTop: 3 }}>
                           <span>0 h Sonne</span>
-                          <span>{lod2Index[0]?.heatmap_max?.[heatmapSeason] ? `${lod2Index[0].heatmap_max[heatmapSeason]} h (max.)` : 'volle Sonne'}</span>
+                          <span>{heatmapMax ? `${heatmapMax} h Tageslänge` : 'volle Sonne'}</span>
                         </div>
                       </div>
                     )}
@@ -2298,7 +2312,13 @@ export default function MapPage() {
             onClose={() => setPanelFeatureId(null)}
             onEdit={() => { setPanelFeatureId(null); openEditForm(feat) }}
             onDelete={() => deleteFeature(feat)}
-            onUpdateProperties={props => updateMapFeature(feat.id, { properties: props })}
+            // Teil-Patch immer gegen den AKTUELLEN Stand mergen — sonst
+            // überschreibt eine spät fertige Analyse zwischenzeitlich
+            // hinzugefügte Fotos (und umgekehrt).
+            onUpdateProperties={patch => {
+              const current = mapFeatures.find(f => f.id === feat.id)?.properties || {}
+              updateMapFeature(feat.id, { properties: { ...current, ...patch } })
+            }}
             onGoProject={() => proj && navigate(`/projects/${proj.id}`)}
           />
         )
