@@ -4,6 +4,7 @@ import { getJobs, saveJobs, getRecurring, saveRecurring, getSensors, saveSensors
 import { tgSend, tgGroups, groupsForUsers } from '../lib/telegram.js'
 import { maybeSendWeeklySummary } from '../lib/weeklySummary.js'
 import { maybeSendTaskReminders } from '../lib/taskReminders.js'
+import { pruefeAlarm } from '../lib/sensorAlarm.js'
 import { useAuth } from './AuthContext.jsx'
 import * as gcal from '../lib/gcal.js'
 import { JOB_TYPES, SEED_CLIENTS, VEHICLES as SEED_VEHICLES, SEED_BOARDS, TEAM } from '../data/seed.js'
@@ -397,33 +398,34 @@ export function OpsProvider({ children }) {
   }
 
   // ── Sensors ─────────────────────────────────────────────────────────────────
+  // Was bei welcher Schwelle passiert, entscheidet src/lib/sensorAlarm.js
+  // (reine, testbare Logik inkl. Hysterese und Ruhezeit). Hier wird nur
+  // gespeichert und verschickt.
   function updateSensorValue(id, value) {
     const prev = sensors.find(s => s.id === id)
-    const status = prev
-      ? (value < prev.threshold_low ? (value < prev.threshold_low * 0.6 ? 'critical' : 'warning') : 'ok')
-      : 'ok'
+    const alarm = pruefeAlarm({ sensor: prev, value })
+    const status = alarm.stufe
     const now = new Date().toISOString()
-    setSensorsState(current => current.map(s => s.id === id ? { ...s, value, status, last_updated: now } : s))
-    sbUpdate('sensors', id, { value, status, last_updated: now }).catch(dbErr('ops', 'write'))
+    setSensorsState(current => current.map(s => s.id === id ? { ...s, value, status, last_updated: now, alarm_state: alarm.state } : s))
+    sbUpdate('sensors', id, { value, status, last_updated: now, alarm_state: alarm.state }).catch(dbErr('ops', 'write'))
     recordSensorReading(id, value)
 
-    // Übergang auf "kritisch": Alarm + automatische Gieß-Aufgabe (je Sensor dedupliziert)
-    if (status === 'critical' && prev?.status !== 'critical') {
+    if (alarm.melden && alarm.meldung) {
       const project = projects.find(p => p.id === prev?.project_id)
-      const u = prev?.unit || ''
-      tgSend(tgGroups().pm, `🚨 <b>Sensor kritisch</b>\n<b>${prev?.name}</b>\n${project?.name || ''}\nAktuell: ${value}${u} (Min: ${prev?.threshold_low}${u})`)
+      const ort = project?.name ? `\n${project.name}` : ''
+      tgSend(tgGroups()[alarm.ziel], alarm.meldung + ort)
+    }
 
+    // Aufgabe je Sensor dedupliziert — ein offener Auftrag reicht.
+    if (alarm.aufgabe) {
       const ref = `sensor:${id}`
       const openExists = tasks.some(t => t.source_ref === ref && t.status !== 'done' && t.status !== 'archive')
       if (!openExists) {
+        const project = projects.find(p => p.id === prev?.project_id)
         const clientId = project?.client_id || clients.find(c => c.name === project?.client)?.id || null
         createTask({
-          title: `Gießen nötig: ${prev?.name}`,
-          description: `Sensor „${prev?.name}" ist kritisch (${value}${u}, Schwellwert ${prev?.threshold_low}${u}). Bewässerung prüfen.`,
-          board_id: 'b_pflege',
+          ...alarm.aufgabe,
           status: 'not_started',
-          priority: 'high',
-          task_type: 'giessen',
           project_id: prev?.project_id || null,
           client_id: clientId,
           source_ref: ref,
