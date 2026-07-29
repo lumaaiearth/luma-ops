@@ -1,13 +1,15 @@
-// Erzeugt eine Vorschau des Kunden-Leistungsnachweises als HTML-Datei —
+// Erzeugt Vorschauen des Kunden-Leistungsnachweises als HTML-Dateien —
 // zum Prüfen des Layouts ohne laufende App.
 //
 //   node scripts/preview-nachweis.mjs [zieldatei.html]
 //
+// Schreibt zusätzlich eine „…-email.html“ mit der E-Mail-Fassung.
 // Die Daten sind ein realistischer Auszug (JOPE 2026); echte Kundendaten
 // werden bewusst nicht eingebettet.
 import { writeFileSync } from 'node:fs'
 import { normalisiereZeiteintraege, buildLeistungsnachweis } from '../src/lib/leistungsnachweis.js'
 import { baueNachweisHtml } from '../src/lib/printNachweis.js'
+import { baueNachweisEmail } from '../src/lib/nachweisEmail.js'
 
 const ZEITEN = [
   { project_id: 'h14', date: '2026-04-14', hours: 1.0,  description: 'Regentonne abgeliefert' },
@@ -57,7 +59,18 @@ const html = baueNachweisHtml(nachweis, {
   autoPrint: false,
 })
 
+const mail = baueNachweisEmail(nachweis, {
+  kundeName: 'JOPE AG (Beispiel)',
+  anrede: 'Guten Tag Frau Beispiel',
+  zeitraumLabel: '2026',
+  absender: 'Malte · LUMA Biome',
+})
+
 const ziel = process.argv[2] || 'leistungsnachweis-vorschau.html'
+const zielMail = ziel.replace(/\.html?$/i, '') + '-email.html'
 writeFileSync(ziel, html)
+writeFileSync(zielMail, mail.html)
 console.log(`Vorschau geschrieben: ${ziel}`)
+console.log(`E-Mail-Vorschau:      ${zielMail}`)
+console.log(`E-Mail-Betreff:       ${mail.betreff}`)
 console.log(`Summe: ${nachweis.summe.stunden} h · ${nachweis.summe.objekte} Flächen · ${nachweis.summe.einsatztage} Einsatztage`)

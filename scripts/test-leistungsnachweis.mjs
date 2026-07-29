@@ -4,6 +4,7 @@ import {
   formatStunden, formatDatum, formatProzent, planAmpel,
   anteilJahrBisHeute, anteilVonJahr, jahrVon, monatVon, sollBisKW, isoKW,
 } from '../src/lib/leistungsnachweis.js'
+import { baueNachweisEmail } from '../src/lib/nachweisEmail.js'
 
 let pass = 0, fail = 0
 const eq = (name, actual, expected) => {
@@ -265,6 +266,35 @@ eq('Text enthält Objekt',  txt.includes('H14 Hermannstraße'), true)
 eq('Text enthält Datum',   txt.includes('16.07.2026'), true)
 eq('Text enthält Planbezug', txt.includes('378,1 h'), true)
 eq('Text ohne Personennamen', /malte|jona|anselm|lukas|robert/i.test(txt), false)
+
+console.log('\n── 11) E-Mail-Fassung ──')
+const mail = baueNachweisEmail(nw, {
+  kundeName: 'JOPE AG', anrede: 'Guten Tag Frau Beispiel',
+  zeitraumLabel: '2026', absender: 'LUMA Biome',
+})
+eq('Betreff',                 mail.betreff, 'Leistungsnachweis 2026 — JOPE AG')
+eq('HTML enthält Anrede',     mail.html.includes('Guten Tag Frau Beispiel'), true)
+eq('HTML enthält Summe',      mail.html.includes('191,5 h'), true)
+eq('HTML enthält Objekt',     mail.html.includes('H14 Hermannstraße'), true)
+eq('HTML ist tabellenbasiert', mail.html.includes('<table'), true)
+eq('HTML ohne Flexbox',       /display:\s*flex/.test(mail.html), false)
+eq('HTML ohne externes CSS',  /<link[^>]+stylesheet/i.test(mail.html), false)
+eq('Nur-Text-Fassung vorhanden', mail.text.length > 100, true)
+// Die Zeiterfassungs-Namen dürfen auch hier nicht auftauchen
+eq('E-Mail ohne Personennamen',
+   /\b(malte|jona|anselm|lukas|robert)\b/i.test(mail.html.replace(/LUMA Biome/g, '')), false)
+
+// HTML-Escaping: Freitext darf das Dokument nicht aufbrechen
+const bösartig = buildLeistungsnachweis({
+  leistungen: [{ project_id: 'x', date: '2026-05-01', stunden: 2,
+                 leistungen: '</td></tr></table><script>alert(1)</script>' }],
+  projekte: [{ id: 'x', name: '<img src=x onerror=alert(1)>' }],
+  jahr: 2026,
+})
+const mailBoes = baueNachweisEmail(bösartig, { kundeName: '"><b>x' })
+eq('Skript-Tag escaped',      mailBoes.html.includes('<script>alert(1)</script>'), false)
+eq('Bild-Tag escaped',        mailBoes.html.includes('<img src=x'), false)
+eq('Escaping sichtbar',       mailBoes.html.includes('&lt;script&gt;'), true)
 
 console.log(`\n═══ ${pass} bestanden, ${fail} fehlgeschlagen ═══\n`)
 process.exit(fail ? 1 : 0)
