@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { sb } from '../lib/supabase.js'
 import { A, BG, BORDER, FG, MUTED, SURFACE, CARD, OK, WARN, INFO } from '../lib/theme.js'
 import {
-  buildLeistungsnachweis, planAmpel, formatStunden, formatDatum,
+  buildLeistungsnachweis, planAmpel, formatStunden, formatDatum, formatProzent,
   anteilVonJahr, MONATE_KURZ,
 } from '../lib/leistungsnachweis.js'
 import { druckeLeistungsnachweis } from '../lib/printNachweis.js'
@@ -290,7 +290,7 @@ function TabLeistungen({ nachweis, jahr, jahre, setJahr, offenesObjekt, setOffen
         <KPI label="Einsatztage"        value={summe.einsatztage} icon={<CalendarDays size={17} color={A} />} />
         <KPI label="Betreute Flächen"   value={summe.objekte} icon={<MapPin size={17} color={A} />} />
         {summe.sollStunden > 0
-          ? <KPI label={`Jahresplan ${jahr}`} value={formatStunden(summe.sollStunden)} sub={summe.erfuellung != null ? `${summe.erfuellung.toLocaleString('de-DE')} % erbracht` : null} icon={<CheckCircle2 size={17} color={A} />} />
+          ? <KPI label={`Jahresplan ${jahr}`} value={formatStunden(summe.sollStunden)} sub={summe.erfuellung != null ? `${formatProzent(summe.erfuellung)} erbracht` : null} icon={<CheckCircle2 size={17} color={A} />} />
           : <KPI label="Fotos" value={summe.fotos} icon={<Camera size={17} color={A} />} />}
       </div>
 

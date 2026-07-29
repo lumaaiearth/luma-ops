@@ -30,6 +30,16 @@ export function formatStunden(h, mitEinheit = true) {
   return mitEinheit ? `${s} h` : s
 }
 
+/**
+ * Erfüllungsgrad als ganze Prozent: 94.87 → „95 %“.
+ * Bewusst ohne Nachkommastellen — auf einem Kundenbeleg wirken „40,09 %“
+ * neben „94,9 %“ uneinheitlich und suggerieren eine Scheingenauigkeit.
+ */
+export function formatProzent(n) {
+  if (n == null || !Number.isFinite(Number(n))) return '—'
+  return `${Math.round(Number(n))} %`
+}
+
 /** ISO-Datum (YYYY-MM-DD) → „16.07.2026“. Robust gegen null/Zeitstempel. */
 export function formatDatum(iso) {
   if (!iso) return ''

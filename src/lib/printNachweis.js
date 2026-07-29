@@ -10,7 +10,7 @@
 // gedruckt wie ein sauberer Beleg aussehen.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { formatStunden, formatDatum, MONATE_KURZ } from './leistungsnachweis.js'
+import { formatStunden, formatDatum, formatProzent, MONATE_KURZ } from './leistungsnachweis.js'
 
 /** HTML-Escaping — Beschreibungen kommen aus Freitextfeldern. */
 function esc(s) {
@@ -23,7 +23,9 @@ const heute = () => new Date().toLocaleDateString('de-DE',
   { day: '2-digit', month: 'long', year: 'numeric' })
 
 /**
- * Öffnet die Druckansicht des Leistungsnachweises.
+ * Baut das vollständige HTML des Leistungsnachweises.
+ * Getrennt von der Fensterlogik, damit die Ausgabe ohne Browser prüfbar ist
+ * (siehe scripts/preview-nachweis.mjs).
  *
  * @param {object} nachweis  Ergebnis aus buildLeistungsnachweis()
  * @param {object} [opts]
@@ -31,14 +33,15 @@ const heute = () => new Date().toLocaleDateString('de-DE',
  * @param {string} [opts.titel]       Überschrift
  * @param {boolean}[opts.mitFotos]    Fotostrecke mit ausgeben (Default: true)
  * @param {boolean}[opts.mitPlan]     Plan/Ist-Vergleich ausgeben (Default: true)
- * @returns {boolean} false, wenn der Popup-Blocker das Fenster verhindert hat
+ * @param {boolean}[opts.autoPrint]   Druckdialog automatisch öffnen (Default: true)
+ * @returns {string|null} HTML oder null, wenn kein gültiger Nachweis übergeben wurde
  */
-export function druckeLeistungsnachweis(nachweis, opts = {}) {
+export function baueNachweisHtml(nachweis, opts = {}) {
   const {
     kundeName = '', titel = 'Leistungsnachweis',
-    mitFotos = true, mitPlan = true,
+    mitFotos = true, mitPlan = true, autoPrint = true,
   } = opts
-  if (!nachweis || !nachweis.objekte) return false
+  if (!nachweis || !nachweis.objekte) return null
 
   const { objekte, summe, monate, zeitraum } = nachweis
 
@@ -93,14 +96,14 @@ export function druckeLeistungsnachweis(nachweis, opts = {}) {
               <td>${esc(o.name)}</td>
               <td class="r">${o.sollStunden > 0 ? esc(formatStunden(o.sollStunden)) : '—'}</td>
               <td class="r">${esc(formatStunden(o.stunden))}</td>
-              <td class="r">${o.erfuellung != null ? esc(o.erfuellung.toLocaleString('de-DE')) + ' %' : '—'}</td>
+              <td class="r">${esc(formatProzent(o.erfuellung))}</td>
             </tr>`).join('')}
         </tbody>
         <tfoot><tr>
           <td><b>Gesamt</b></td>
           <td class="r"><b>${summe.sollStunden > 0 ? esc(formatStunden(summe.sollStunden)) : '—'}</b></td>
           <td class="r"><b>${esc(formatStunden(summe.stunden))}</b></td>
-          <td class="r"><b>${summe.erfuellung != null ? esc(summe.erfuellung.toLocaleString('de-DE')) + ' %' : '—'}</b></td>
+          <td class="r"><b>${esc(formatProzent(summe.erfuellung))}</b></td>
         </tr></tfoot>
       </table>
     </div>` : ''
@@ -116,7 +119,7 @@ export function druckeLeistungsnachweis(nachweis, opts = {}) {
       <table>
         <thead><tr><th style="width:92px">Datum</th><th style="width:70px" class="r">Stunden</th><th>Ausgeführte Arbeiten</th></tr></thead>
         <tbody>
-          ${o.termine.map(t => `
+          ${[...o.termine].sort((a, b) => a.datum.localeCompare(b.datum)).map(t => `
             <tr>
               <td>${esc(formatDatum(t.datum))}</td>
               <td class="r">${esc(formatStunden(t.stunden))}</td>
@@ -206,8 +209,19 @@ export function druckeLeistungsnachweis(nachweis, opts = {}) {
     Dieser Nachweis wurde automatisch aus der Einsatz- und Zeitdokumentation von LUMA erstellt.<br />
     LUMA — naturnahe Grünflächen · luma-biome.de
   </div>
-  <script>window.onload = () => window.print()</script>
+  ${autoPrint ? '<script>window.onload = () => window.print()</script>' : ''}
   </body></html>`
+
+  return html
+}
+
+/**
+ * Öffnet die Druckansicht des Leistungsnachweises in einem neuen Fenster.
+ * @returns {boolean} false, wenn kein Nachweis vorliegt oder der Popup-Blocker greift
+ */
+export function druckeLeistungsnachweis(nachweis, opts = {}) {
+  const html = baueNachweisHtml(nachweis, opts)
+  if (!html) return false
 
   const w = window.open('', '_blank')
   if (!w) return false          // Popup-Blocker

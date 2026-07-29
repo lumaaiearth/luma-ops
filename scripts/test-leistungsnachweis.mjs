@@ -1,8 +1,8 @@
 // Verifikation der Leistungsnachweis-Bibliothek gegen echte Produktionsdaten (JOPE 2026).
 import {
   normalisiereZeiteintraege, buildLeistungsnachweis, nachweisAlsText,
-  formatStunden, formatDatum, planAmpel, anteilJahrBisHeute, anteilVonJahr,
-  jahrVon, monatVon,
+  formatStunden, formatDatum, formatProzent, planAmpel,
+  anteilJahrBisHeute, anteilVonJahr, jahrVon, monatVon,
 } from '../src/lib/leistungsnachweis.js'
 
 let pass = 0, fail = 0
@@ -164,6 +164,10 @@ eq('formatStunden 45',    formatStunden(45), '45 h')
 eq('formatStunden 0',     formatStunden(0), '0 h')
 eq('formatStunden null',  formatStunden(null), '0 h')
 eq('formatDatum',         formatDatum('2026-07-16'), '16.07.2026')
+// Einheitliche Prozentdarstellung auf dem Kundenbeleg (keine Scheingenauigkeit)
+eq('formatProzent 94.87', formatProzent(94.87), '95 %')
+eq('formatProzent 40.09', formatProzent(40.09), '40 %')
+eq('formatProzent null',  formatProzent(null), '—')
 eq('formatDatum leer',    formatDatum(null), '')
 eq('jahrVon',             jahrVon('2026-07-16'), 2026)
 eq('monatVon',            monatVon('2026-07-16'), 6)
