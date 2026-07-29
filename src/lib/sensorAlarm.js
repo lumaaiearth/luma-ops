@@ -32,12 +32,35 @@ export const AUFGABE_AB = [
 ]
 
 /**
- * Vollständige Regel eines Sensors — ergänzt fehlende Felder aus den alten
- * Spalten `threshold_low`/`threshold_high`, damit bestehende Sensoren sich
- * genau wie vorher verhalten, bis jemand die Regel bewusst anpasst.
+ * Woher die Regel eines Sensors stammt.
+ *
+ * Ein Projekt hat oft dieselbe Anforderung für alle seine Sensoren („unter
+ * 20 % wird gegossen"), einzelne Standorte weichen bewusst ab. Deshalb zwei
+ * Modi statt Feld-für-Feld-Vererbung — vererbt sich nur die halbe Regel,
+ * versteht am Ende niemand mehr, was gilt.
+ *
+ * `projekt`: die Vorlage des Projekts gilt, Änderungen dort wirken sofort.
+ * `eigen`:   der Sensor hat eine eigene Regel.
  */
-export function alarmRegel(sensor) {
+export function regelHerkunft(sensor) {
   const cfg = sensor?.alarm_config || {}
+  if (cfg.modus === 'eigen' || cfg.modus === 'projekt') return cfg.modus
+  // Sensoren, die vor der Vorlagen-Funktion eine eigene Regel bekommen haben,
+  // behalten sie — sonst würde eine neue Projektvorlage sie still überschreiben.
+  return Object.keys(cfg).length ? 'eigen' : 'projekt'
+}
+
+/**
+ * Vollständige Regel eines Sensors — ergänzt fehlende Felder aus der
+ * Projektvorlage und den alten Spalten `threshold_low`/`threshold_high`,
+ * damit bestehende Sensoren sich genau wie vorher verhalten, bis jemand die
+ * Regel bewusst anpasst.
+ *
+ * @param vorlage  projects.alarm_defaults des zugehörigen Projekts (optional)
+ */
+export function alarmRegel(sensor, vorlage = null) {
+  const eigen = sensor?.alarm_config || {}
+  const cfg = regelHerkunft(sensor) === 'eigen' ? eigen : (vorlage || {})
   const low = num(sensor?.threshold_low)
   const high = num(sensor?.threshold_high)
 
@@ -99,8 +122,8 @@ function verschoben(r, richtung, h) {
  *          `melden` = Telegram schicken, `aufgabe` = Aufgabendaten oder null,
  *          `state` = neuer Wert für sensors.alarm_state.
  */
-export function pruefeAlarm({ sensor, value, jetzt = Date.now() }) {
-  const r = alarmRegel(sensor)
+export function pruefeAlarm({ sensor, value, jetzt = Date.now(), vorlage = null }) {
+  const r = alarmRegel(sensor, vorlage)
   const st = sensor?.alarm_state || {}
   const vorher = STUFEN[st.stufe] ? st.stufe : (STUFEN[sensor?.status] ? sensor.status : 'ok')
   const vorRichtung = vorher === 'ok' ? null : (st.richtung || 'unter')

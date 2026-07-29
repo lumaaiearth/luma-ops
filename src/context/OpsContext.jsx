@@ -403,7 +403,9 @@ export function OpsProvider({ children }) {
   // gespeichert und verschickt.
   function updateSensorValue(id, value) {
     const prev = sensors.find(s => s.id === id)
-    const alarm = pruefeAlarm({ sensor: prev, value })
+    // Sensoren ohne eigene Regel folgen der Alarmvorlage ihres Projekts.
+    const vorlage = projects.find(p => p.id === prev?.project_id)?.alarm_defaults || null
+    const alarm = pruefeAlarm({ sensor: prev, value, vorlage })
     const status = alarm.stufe
     const now = new Date().toISOString()
     setSensorsState(current => current.map(s => s.id === id ? { ...s, value, status, last_updated: now, alarm_state: alarm.state } : s))
