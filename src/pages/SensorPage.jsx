@@ -6,13 +6,15 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts'
-import { ArrowLeft, ChevronRight, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { ArrowLeft, ChevronRight, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown, Minus, Bell } from 'lucide-react'
 import { useOps } from '../context/OpsContext.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 import { sb } from '../lib/supabase.js'
 import { A, BG, SURFACE, BORDER, FG, MUTED, OK, WARN, DANGER } from '../lib/theme.js'
 import { PageHeader, Card, EmptyState, MONO, SANS } from '../components/ui.jsx'
 import { SENSOR_TYPE_LABELS, SENSOR_TYPE_ICONS } from '../data/sensorTypes.js'
 import { useIsMobile } from '../lib/useIsMobile.js'
+import { alarmRegel, TELEGRAM_ZIELE, AUFGABE_AB, STUFEN } from '../lib/sensorAlarm.js'
 
 const RANGES = [
   { id: 'today', label: 'Heute', hours: 24 },
@@ -35,7 +37,8 @@ export default function SensorPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
-  const { sensors, projects, clients } = useOps()
+  const { sensors, projects, clients, boards, updateSensor } = useOps()
+  const { isMitarbeiter } = useAuth()
   const [range, setRange] = useState('week')
   const [readings, setReadings] = useState([])
   const [loading, setLoading] = useState(true)
@@ -207,7 +210,144 @@ export default function SensorPage() {
           Netzwerk-Zuordnung, Installationsdaten, verbaute Komponenten und Notizen folgen mit der Sensor-Verwaltung.
         </div>
       </Card>
+
+      <AlarmCard sensor={sensor} boards={boards} isMobile={isMobile}
+        darfBearbeiten={isMitarbeiter} onSave={cfg => updateSensor(sensor.id, { alarm_config: cfg })} />
     </div>
+  )
+}
+
+/* ── Alarmregel ──────────────────────────────────────────────────────────────
+ * Legt fest, ab welchem Wert der Sensor meldet und was dann passiert. Ohne
+ * eigene Einstellung gelten die aus threshold_low/high abgeleiteten Werte —
+ * die zeigen wir gefüllt an, damit sichtbar ist, was tatsächlich gilt.        */
+function AlarmCard({ sensor, boards, isMobile, darfBearbeiten, onSave }) {
+  const regel = alarmRegel(sensor)
+  const [form, setForm] = useState(regel)
+  const [gespeichert, setGespeichert] = useState(false)
+
+  // Bei Sensorwechsel (oder Änderung von außen) neu aus der Regel füllen.
+  useEffect(() => { setForm(alarmRegel(sensor)); setGespeichert(false) }, [sensor.id, JSON.stringify(sensor.alarm_config)]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const st = sensor.alarm_state || {}
+  const stufe = STUFEN[st.stufe] ? st.stufe : sensor.status
+  const sc = stufe === 'critical' ? DANGER : stufe === 'warning' ? WARN : OK
+  const dirty = JSON.stringify(form) !== JSON.stringify(alarmRegel(sensor))
+  const u = sensor.unit || ''
+
+  const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setGespeichert(false) }
+  const zahl = v => v === '' || v == null ? null : Number(v)
+
+  function speichern() {
+    onSave({
+      aktiv: form.aktiv,
+      warn_low: form.warn_low, krit_low: form.krit_low,
+      warn_high: form.warn_high, krit_high: form.krit_high,
+      hysterese: form.hysterese, ruhe_min: form.ruhe_min,
+      telegram: form.telegram, aufgabe: form.aufgabe, board_id: form.board_id,
+      entwarnung: form.entwarnung,
+    })
+    setGespeichert(true)
+  }
+
+  return (
+    <Card padding={isMobile ? '16px 14px' : '18px 20px'} style={{ marginTop: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+          <Bell size={12} /> Alarmregel
+        </div>
+        <div style={{ fontFamily: MONO, fontSize: 10, color: sc }}>
+          {STUFEN[stufe]?.emoji} {STUFEN[stufe]?.label || '—'}
+          {st.seit && stufe !== 'ok' ? ` seit ${new Date(st.seit).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}` : ''}
+        </div>
+      </div>
+      <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.6, marginBottom: 14 }}>
+        Unter- oder Überschreitung löst eine Telegram-Nachricht und optional eine Aufgabe aus.
+        Leere Felder bedeuten „keine Grenze in dieser Richtung".
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: 10, marginBottom: 14 }}>
+        <NumFeld label={`Kritisch unter (${u})`} value={form.krit_low} onChange={v => set('krit_low', zahl(v))} disabled={!darfBearbeiten} color={DANGER} />
+        <NumFeld label={`Warnung unter (${u})`} value={form.warn_low} onChange={v => set('warn_low', zahl(v))} disabled={!darfBearbeiten} color={WARN} />
+        <NumFeld label={`Warnung über (${u})`} value={form.warn_high} onChange={v => set('warn_high', zahl(v))} disabled={!darfBearbeiten} color={WARN} />
+        <NumFeld label={`Kritisch über (${u})`} value={form.krit_high} onChange={v => set('krit_high', zahl(v))} disabled={!darfBearbeiten} color={DANGER} placeholder="—" />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 10, marginBottom: 14 }}>
+        <SelFeld label="Telegram" value={form.telegram} onChange={v => set('telegram', v)} disabled={!darfBearbeiten}
+          options={TELEGRAM_ZIELE.map(z => [z.id, z.label])} />
+        <SelFeld label="Aufgabe anlegen" value={form.aufgabe} onChange={v => set('aufgabe', v)} disabled={!darfBearbeiten}
+          options={AUFGABE_AB.map(z => [z.id, z.label])} />
+        <SelFeld label="Aufgabe im Bereich" value={form.board_id} onChange={v => set('board_id', v)} disabled={!darfBearbeiten || form.aufgabe === 'aus'}
+          options={(boards || []).map(b => [b.id, `${b.emoji || ''} ${b.name}`.trim()])} />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: 10, alignItems: 'end' }}>
+        <NumFeld label={`Hysterese (${u})`} value={form.hysterese} onChange={v => set('hysterese', zahl(v) ?? 0)} disabled={!darfBearbeiten}
+          hint="Abstand, den der Wert zum Entwarnen überwinden muss" />
+        <NumFeld label="Ruhezeit (Min.)" value={form.ruhe_min} onChange={v => set('ruhe_min', zahl(v) ?? 0)} disabled={!darfBearbeiten}
+          hint="Mindestabstand zwischen zwei gleichen Meldungen" />
+        <Schalter label="Alarm aktiv" checked={form.aktiv} onChange={v => set('aktiv', v)} disabled={!darfBearbeiten} />
+        <Schalter label="Entwarnung melden" checked={form.entwarnung} onChange={v => set('entwarnung', v)} disabled={!darfBearbeiten || !form.aktiv} />
+      </div>
+
+      {darfBearbeiten && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
+          <button onClick={speichern} disabled={!dirty}
+            style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: dirty ? A : BORDER, color: dirty ? 'var(--luma-on-a)' : MUTED, cursor: dirty ? 'pointer' : 'default', fontSize: 13, fontWeight: 600, fontFamily: SANS }}>
+            Regel speichern
+          </button>
+          {dirty && (
+            <button onClick={() => setForm(alarmRegel(sensor))}
+              style={{ padding: '9px 14px', borderRadius: 8, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 13, fontFamily: SANS }}>
+              Verwerfen
+            </button>
+          )}
+          {gespeichert && !dirty && <span style={{ fontFamily: MONO, fontSize: 11, color: OK }}>gespeichert</span>}
+        </div>
+      )}
+      {!darfBearbeiten && (
+        <div style={{ marginTop: 14, fontFamily: MONO, fontSize: 10, color: MUTED }}>Nur das LUMA-Team kann Alarmregeln ändern.</div>
+      )}
+    </Card>
+  )
+}
+
+const feldStyle = disabled => ({
+  width: '100%', padding: '8px 10px', borderRadius: 8, border: `1px solid ${BORDER}`,
+  background: disabled ? 'transparent' : BG, color: FG, fontSize: 13, fontFamily: MONO,
+  boxSizing: 'border-box',
+})
+
+function NumFeld({ label, value, onChange, disabled, color, hint, placeholder }) {
+  return (
+    <div>
+      <div style={{ fontFamily: MONO, fontSize: 9, color: color || MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>{label}</div>
+      <input type="number" inputMode="decimal" value={value ?? ''} disabled={disabled} placeholder={placeholder || ''}
+        onChange={e => onChange(e.target.value)} style={feldStyle(disabled)} />
+      {hint && <div style={{ fontSize: 10, color: MUTED, marginTop: 4, lineHeight: 1.4 }}>{hint}</div>}
+    </div>
+  )
+}
+
+function SelFeld({ label, value, onChange, disabled, options }) {
+  return (
+    <div>
+      <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>{label}</div>
+      <select value={value} disabled={disabled} onChange={e => onChange(e.target.value)} style={{ ...feldStyle(disabled), fontFamily: SANS }}>
+        {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+      </select>
+    </div>
+  )
+}
+
+function Schalter({ label, checked, onChange, disabled }) {
+  return (
+    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: disabled ? MUTED : FG, cursor: disabled ? 'default' : 'pointer', paddingBottom: 8 }}>
+      <input type="checkbox" checked={!!checked} disabled={disabled} onChange={e => onChange(e.target.checked)}
+        style={{ width: 16, height: 16, accentColor: A, cursor: disabled ? 'default' : 'pointer' }} />
+      {label}
+    </label>
   )
 }
 
