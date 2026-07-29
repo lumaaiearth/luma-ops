@@ -13,6 +13,8 @@ import { findPerson, peopleForIds, avatarFor } from '../lib/people.js'
 import { Avatar } from '../components/ui.jsx'
 import { isoToday, formatDate } from '../lib/storage.js'
 import TaskModal from '../components/TaskModal.jsx'
+import { AlarmFelder, SpeichernLeiste, regelFelder } from '../components/AlarmRegelForm.jsx'
+import { alarmRegel, regelHerkunft } from '../lib/sensorAlarm.js'
 
 const TASK_S = Object.fromEntries(TASK_STATUSES.map(s => [s.id, s]))
 const TASK_P = Object.fromEntries(TASK_PRIORITIES.map(p => [p.id, p]))
@@ -66,7 +68,7 @@ function StatCard({ icon: Icon, label, value, color }) {
 export default function ProjectPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { projects, jobs, sensors, clients, tasks, updateProject, createTask, updateTask, deleteTask, setTaskStatus } = useOps()
+  const { projects, jobs, sensors, clients, tasks, boards, updateProject, createTask, updateTask, deleteTask, setTaskStatus } = useOps()
   const { isAdmin, isMitarbeiter } = useAuth()
   const [tab, setTab] = useState('overview')
   const [photos, setPhotos] = useState([])
@@ -506,6 +508,9 @@ export default function ProjectPage() {
                 })}
               </div>
             )}
+
+            <AlarmVorlageCard project={project} sensoren={projectSensors} boards={boards}
+              canEdit={isMitarbeiter} onSave={v => updateProject(id, { alarm_defaults: v })} />
           </div>
         )}
       </div>
@@ -689,6 +694,63 @@ function ZugangCard({ projectId }) {
       ) : (
         <div style={{ fontSize: 12.5, color: MUTED }}>Keine Zugangsdaten hinterlegt.</div>
       )}
+    </div>
+  )
+}
+
+/* ── Alarmvorlage des Projekts ───────────────────────────────────────────────
+ * Eine Regel für alle Sensoren des Projekts, statt jeden einzeln zu pflegen.
+ * Sensoren mit eigener Regel bleiben unberührt — das steht auch dran, sonst
+ * wundert sich jemand, warum seine Änderung dort nicht ankommt.            */
+function AlarmVorlageCard({ project, sensoren, boards, canEdit, onSave }) {
+  const gespeicherteVorlage = project?.alarm_defaults || {}
+  const hatVorlage = Object.keys(gespeicherteVorlage).length > 0
+  // Einheit der Vorlage: die häufigste unter den Sensoren des Projekts —
+  // eine Vorlage über verschiedene Messgrößen hinweg ergibt sonst Unsinn.
+  const einheiten = [...new Set((sensoren || []).map(s => s.unit).filter(Boolean))]
+  const referenz = (sensoren || [])[0] || {}
+  const leer = { threshold_low: null, threshold_high: null, alarm_config: { modus: 'eigen', ...gespeicherteVorlage } }
+
+  const [form, setForm] = useState(alarmRegel(leer))
+  const [gespeichert, setGespeichert] = useState(false)
+  useEffect(() => {
+    setForm(alarmRegel({ threshold_low: null, threshold_high: null, alarm_config: { modus: 'eigen', ...(project?.alarm_defaults || {}) } }))
+    setGespeichert(false)
+  }, [project?.id, JSON.stringify(project?.alarm_defaults)]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const dirty = JSON.stringify(form) !== JSON.stringify(alarmRegel(leer))
+  const folgen = (sensoren || []).filter(s => regelHerkunft(s) === 'projekt')
+  const eigene = (sensoren || []).length - folgen.length
+
+  if (!sensoren?.length) return null
+
+  return (
+    <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 18, marginTop: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+          🔔 Alarmvorlage
+        </div>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>
+          gilt für {folgen.length} von {sensoren.length} Sensoren{eigene > 0 ? ` · ${eigene} mit eigener Regel` : ''}
+        </div>
+      </div>
+      <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.6, marginBottom: 14 }}>
+        {hatVorlage
+          ? 'Änderungen hier wirken sofort auf alle Sensoren, die dieser Vorlage folgen.'
+          : 'Noch keine Vorlage: die Sensoren rechnen mit ihren eigenen Schwellwerten. Sobald hier etwas steht, gilt es für alle Sensoren ohne eigene Regel.'}
+        {einheiten.length > 1 && (
+          <> <b style={{ color: WARN }}>Achtung:</b> dieses Projekt mischt Messgrößen ({einheiten.join(', ')}) — eine gemeinsame Vorlage passt dann selten. Besser einzelne Regeln am Sensor.</>
+        )}
+      </div>
+
+      <AlarmFelder form={form} onSet={(k, v) => { setForm(f => ({ ...f, [k]: v })); setGespeichert(false) }}
+        disabled={!canEdit} boards={boards} unit={einheiten.length === 1 ? einheiten[0] : (referenz.unit || '')} isMobile={false} />
+
+      {canEdit
+        ? <SpeichernLeiste dirty={dirty} gespeichert={gespeichert}
+            onSpeichern={() => { onSave(regelFelder(form)); setGespeichert(true) }}
+            onVerwerfen={() => setForm(alarmRegel(leer))} />
+        : <div style={{ marginTop: 14, fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>Nur das LUMA-Team kann die Vorlage ändern.</div>}
     </div>
   )
 }
