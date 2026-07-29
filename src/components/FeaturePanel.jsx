@@ -3,7 +3,7 @@
 // Fotos (Upload + Beispielbilder), Florales™-Verknüpfung, Aktionen.
 // Desktop: rechte Seite · Mobil: Bottom-Sheet.
 import { useState, useRef } from 'react'
-import { X, Pencil, Trash2, ExternalLink, Camera, Loader, Sprout, Sun, RefreshCw } from 'lucide-react'
+import { X, Pencil, Trash2, ExternalLink, Camera, Loader, Sprout, Sun, RefreshCw, FileText } from 'lucide-react'
 import { A, SURFACE, BORDER, FG, MUTED, OK, WARN, DANGER, A14, A20 } from '../lib/theme.js'
 import { sb } from '../lib/supabase.js'
 import { genId } from '../lib/storage.js'
@@ -360,7 +360,7 @@ const KNOWN_KEYS = new Set([
 export default function FeaturePanel({
   feature, project, isMobile, isAdmin,
   onClose, onEdit, onDelete, onUpdateProperties, onGoProject,
-  linkedPlans = [], onOpenPlan, onPlanInFlorales,
+  linkedPlans = [], onOpenPlan, onPlanInFlorales, onReport,
 }) {
   if (!feature) return null
   const p = feature.properties || {}
@@ -454,6 +454,14 @@ export default function FeaturePanel({
 
         {/* Starkregen-Check (Berliner Gefahrenkarte, Ampel) */}
         <RainCheck feature={feature} centroid={m?.centroid} isAdmin={isAdmin} onUpdateProperties={onUpdateProperties} />
+
+        {/* Klima-Steckbrief: fasst alle Analysen druckfähig zusammen */}
+        {onReport && m?.centroid && (
+          <button onClick={onReport}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, width: '100%', padding: '10px', borderRadius: 8, background: A14, border: `1px solid ${A20}`, color: A, cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: SANS }}>
+            <FileText size={14} /> Klima-Steckbrief öffnen
+          </button>
+        )}
 
         {/* Florales™: verknüpfte Pflanzpläne + Planung starten */}
         {(canFloralis || linkedPlans.length > 0) && (

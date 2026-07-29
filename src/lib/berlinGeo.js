@@ -72,7 +72,14 @@ async function fetchTreeLayer(layer, south, west, north, east) {
     const [lng, lat] = f.geometry?.coordinates || []
     const height = parseFloat(p.baumhoehe) > 0 ? Math.min(parseFloat(p.baumhoehe), 45) : 12
     const crown = parseFloat(p.kronedurch) > 0 ? Math.min(parseFloat(p.kronedurch), 30) : 6
-    return lat != null ? { lat, lng, height, crown, art: p.art_dtsch || p.gattung_deutsch || 'Baum', pflanzjahr: p.pflanzjahr || null } : null
+    // Nadelbäume behalten auch im Winter ihren Schatten und haben schmalere Kronen
+    const nadel = /nadel/i.test(p.art_gruppe || '')
+    return lat != null ? {
+      lat, lng, height, crown, nadel,
+      art: p.art_dtsch || p.gattung_deutsch || 'Baum',
+      gruppe: p.art_gruppe || null,
+      pflanzjahr: p.pflanzjahr || null,
+    } : null
   }).filter(Boolean)
 }
 

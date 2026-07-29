@@ -151,6 +151,8 @@ function makeUserIcon() {
 
 // 3D-Schatten-Ansicht: deck.gl steckt in einem eigenen Chunk (lazy)
 const Sun3DView = lazy(() => import('../components/Sun3DView.jsx'))
+// Klima-Steckbrief (Druckansicht) — erst bei Bedarf laden
+const ClimateReport = lazy(() => import('../components/ClimateReport.jsx'))
 
 // Merkt sich Kartenmitte/Zoom (für die 3D-Ansicht), ohne Re-Render auszulösen
 function ViewTracker({ viewRef }) {
@@ -937,6 +939,7 @@ export default function MapPage() {
   // LoD2-/Heatmap-Index (Projektgebiete mit Dachmodell + Sonnen-Raster)
   const [lod2Index, setLod2Index] = useState([])
   const [heatmapSeason, setHeatmapSeason] = useState('sommer')
+  const [reportFeatureId, setReportFeatureId] = useState(null)  // offener Klima-Steckbrief
   useEffect(() => {
     fetch('/lod2/index.json').then(r => (r.ok ? r.json() : [])).then(setLod2Index).catch(() => {})
   }, [])
@@ -2291,6 +2294,7 @@ export default function MapPage() {
                 },
               })
             }}
+            onReport={() => setReportFeatureId(feat.id)}
             onClose={() => setPanelFeatureId(null)}
             onEdit={() => { setPanelFeatureId(null); openEditForm(feat) }}
             onDelete={() => deleteFeature(feat)}
@@ -2318,6 +2322,28 @@ export default function MapPage() {
           onCancel={() => setOrthoModal(null)}
         />
       )}
+
+      {/* Klima-Steckbrief (Druckansicht, lazy) */}
+      {reportFeatureId && (() => {
+        const feat = mapFeatures.find(f => f.id === reportFeatureId)
+        if (!feat) return null
+        const c = geometryCentroid(feat.geometry)
+        // Heatmap-Ausschnitt des Gebiets, in dem die Fläche liegt
+        const entry = c && lod2Index.find(e => {
+          const kx = 111320 * Math.cos(e.lat * Math.PI / 180)
+          return Math.hypot((c.lng - e.lng) * kx, (c.lat - e.lat) * 111320) < (e.radius || 350)
+        })
+        return (
+          <Suspense fallback={null}>
+            <ClimateReport
+              feature={feat}
+              project={projects.find(p => p.id === feat.project_id)}
+              heatmapEntry={entry || null}
+              onClose={() => setReportFeatureId(null)}
+            />
+          </Suspense>
+        )
+      })()}
 
       {/* 3D-Schatten-Ansicht (deck.gl, lazy) */}
       {show3D && (
