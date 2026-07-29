@@ -4,7 +4,7 @@ import { sb } from '../lib/supabase.js'
 import { A, BG, BORDER, FG, MUTED, SURFACE, CARD, OK, WARN, INFO } from '../lib/theme.js'
 import {
   buildLeistungsnachweis, planAmpel, formatStunden, formatDatum, formatProzent,
-  anteilVonJahr, MONATE_KURZ,
+  anteilVonJahr, sollBisKW, MONATE_KURZ,
 } from '../lib/leistungsnachweis.js'
 import { druckeLeistungsnachweis } from '../lib/printNachweis.js'
 import {
@@ -76,7 +76,7 @@ export default function KundenPortalPage() {
     async function load() {
       const orgId = profile?.org_id
       const [k, pr, le, pl, ga, ei, fo, pp] = await Promise.all([
-        safeRows(sb.from('clients').select('id, name, org_id')),
+        safeRows(sb.from('v_kunde_auftraggeber').select('id, name')),
         safeRows(sb.from('v_kunde_projekte').select('*')),
         safeRows(sb.from('v_kunde_leistungen').select('*')),
         safeRows(sb.from('v_kunde_pflegeplan').select('*')),
@@ -89,11 +89,8 @@ export default function KundenPortalPage() {
       ])
       if (abgebrochen) return
 
-      // Nur der Auftraggeber, der zur eigenen Organisation gehört. Interne
-      // Nutzer sehen per RLS ALLE clients — ohne diesen Filter stünde ein
-      // fremder Kundenname im Kopf des Portals.
-      const eigene = k.rows.filter(c => c.org_id && c.org_id === orgId)
-      setKunde(eigene.length === 1 ? eigene[0] : null)
+      // Die View liefert ausschließlich den eigenen Auftraggeber (oder nichts).
+      setKunde(k.rows[0] || null)
       setProjekte(pr.rows)
       setLeistungen(le.rows)
       setPlaene(pl.rows)
@@ -217,6 +214,7 @@ export default function KundenPortalPage() {
         {tab === 'leistungen' && (
           <TabLeistungen
             nachweis={nachweis} jahr={jahr} jahre={jahre} setJahr={setJahr}
+            gaenge={gaenge}
             offenesObjekt={offenesObjekt} setOffenesObjekt={setOffenesObjekt}
             onDrucken={drucken} hatDaten={hatLeistungsdaten}
           />
@@ -250,11 +248,12 @@ function HinweisBox({ titel, text }) {
 
 // ── Tab: Leistungen ───────────────────────────────────────────────────────────
 
-function TabLeistungen({ nachweis, jahr, jahre, setJahr, offenesObjekt, setOffenesObjekt, onDrucken, hatDaten }) {
+function TabLeistungen({ nachweis, jahr, jahre, setJahr, gaenge, offenesObjekt, setOffenesObjekt, onDrucken, hatDaten }) {
   const { objekte, summe, monate } = nachweis
   const maxMonat = Math.max(...monate.map(m => m.stunden), 1)
   // Abgeschlossene Jahre zählen als vollständig — sonst zeigt ein Rückblick
-  // fälschlich „Rückstand“.
+  // fälschlich „Rückstand“. Der lineare Anteil ist nur der Notnagel; primär
+  // wird das saisonal fällige Soll aus den Pflegegängen verwendet.
   const anteil = anteilVonJahr(jahr)
 
   return (
@@ -330,6 +329,7 @@ function TabLeistungen({ nachweis, jahr, jahre, setJahr, offenesObjekt, setOffen
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {objekte.map(o => (
             <ObjektKarte key={o.projectId} objekt={o} anteilJahr={anteil}
+              erwartet={sollBisKW(gaenge, o.projectId, jahr)}
               offen={offenesObjekt === o.projectId}
               onToggle={() => setOffenesObjekt(offenesObjekt === o.projectId ? null : o.projectId)} />
           ))}
@@ -339,8 +339,8 @@ function TabLeistungen({ nachweis, jahr, jahre, setJahr, offenesObjekt, setOffen
   )
 }
 
-function ObjektKarte({ objekt: o, offen, onToggle, anteilJahr }) {
-  const ampel = planAmpel(o, anteilJahr)
+function ObjektKarte({ objekt: o, offen, onToggle, anteilJahr, erwartet }) {
+  const ampel = planAmpel(o, anteilJahr, erwartet)
   const ampelFarbe = ampel?.status === 'im_plan' ? OK
     : ampel?.status === 'ueber' ? WARN
     : ampel?.status === 'unter' ? INFO : MUTED
@@ -387,22 +387,30 @@ function ObjektKarte({ objekt: o, offen, onToggle, anteilJahr }) {
 
       {offen && (
         <div style={{ borderTop: `1px solid ${BORDER}`, padding: '16px 18px' }}>
-          <SectionTitle>Ausgeführte Arbeiten</SectionTitle>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 10 }}>
-            {o.termine.map((t, i) => (
-              <div key={i} style={{ display: 'flex', gap: 12, padding: '9px 0', borderBottom: i < o.termine.length - 1 ? `1px solid ${BORDER}` : 'none', alignItems: 'flex-start' }}>
-                <div style={{ fontSize: 12, color: MUTED, minWidth: 78, fontFamily: "'Space Mono', monospace" }}>
-                  {formatDatum(t.datum)}
+          <SectionTitle>{o.termine.some(t => t.leistungen) ? 'Ausgeführte Arbeiten' : 'Einsätze'}</SectionTitle>
+          {o.termine.length === 0 ? (
+            <div style={{ fontSize: 13, color: MUTED, marginTop: 10 }}>
+              Auf dieser Fläche wurden in diesem Zeitraum noch keine Stunden erfasst.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 10 }}>
+              {o.termine.map((t, i) => (
+                <div key={`${t.datum}-${i}`} style={{ display: 'flex', gap: 12, padding: '9px 0', borderBottom: i < o.termine.length - 1 ? `1px solid ${BORDER}` : 'none', alignItems: 'flex-start' }}>
+                  <div style={{ fontSize: 12, color: MUTED, minWidth: 78, fontFamily: "'Space Mono', monospace" }}>
+                    {formatDatum(t.datum)}
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: A, minWidth: 56, textAlign: 'right' }}>
+                    {formatStunden(t.stunden)}
+                  </div>
+                  {t.leistungen && (
+                    <div style={{ fontSize: 13, color: FG, flex: 1, lineHeight: 1.45 }}>
+                      {t.leistungen}
+                    </div>
+                  )}
                 </div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: A, minWidth: 56, textAlign: 'right' }}>
-                  {formatStunden(t.stunden)}
-                </div>
-                <div style={{ fontSize: 13, color: FG, flex: 1, lineHeight: 1.45 }}>
-                  {t.leistungen || <span style={{ color: MUTED }}>—</span>}
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
 
           {o.fotos.length > 0 && (
             <div style={{ marginTop: 18 }}>
@@ -428,7 +436,9 @@ function ObjektKarte({ objekt: o, offen, onToggle, anteilJahr }) {
 // ── Tab: Flächen & Termine ────────────────────────────────────────────────────
 
 function TabFlaechen({ projekte, gaenge, einsaetze, plaene, jahr }) {
-  const heute = new Date().toISOString().slice(0, 10)
+  // Lokales Datum (nicht toISOString) — in Berlin liegt UTC nachts noch im
+  // Vortag, dann stünde ein erledigter Einsatz weiter unter „Nächste Termine“.
+  const heute = new Date().toLocaleDateString('sv-SE')
 
   const kommende = useMemo(() => einsaetze
     .filter(e => e.date && e.date >= heute)

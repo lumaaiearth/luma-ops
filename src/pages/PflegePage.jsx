@@ -704,13 +704,18 @@ function TabPlanIst({ plans, jahr, entries, jobs, gaengeByPlan, planLabel, planH
   // Nachweis auch die Einsätze, die vor Ort gebucht, aber nie als Job
   // „erledigt“ geklickt wurden — sonst bliebe er in der Praxis leer.
   function pdfNachweis(projectId, label, ps) {
+    // Planwert aus den Gängen inklusive An-/Abfahrt und ohne entfallene Gänge:
+    // Die Ist-Seite (Zeiterfassung) enthält die Fahrtzeit ebenfalls, sonst wäre
+    // der Erfüllungsgrad auf dem Kundenbeleg systematisch zu hoch.
+    const soll = ps
+      .flatMap((p) => gaengeByPlan[p.id] || [])
+      .filter((g) => g.status !== 'entfallen')
+      .reduce((s, g) => s + Number(g.soll_stunden || 0) + Number(g.fahrt_stunden || 0), 0)
     const nachweis = buildLeistungsnachweis({
       leistungen: normalisiereZeiteintraege(
         (entries || []).filter((e) => e.project_id === projectId)),
       projekte: [{ id: projectId, name: label, location: projById[projectId]?.location || '' }],
-      plaene: ps.map((p) => ({
-        project_id: projectId, jahr: Number(p.jahr), soll_stunden: planHours(p),
-      })),
+      plaene: [{ project_id: projectId, jahr, soll_stunden: round2(soll) }],
       jahr,
     })
     const ok = druckeLeistungsnachweis(nachweis, {

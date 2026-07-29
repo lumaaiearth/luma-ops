@@ -108,6 +108,10 @@ export function baueNachweisHtml(nachweis, opts = {}) {
       </table>
     </div>` : ''
 
+  // Sind Tätigkeitstexte freigegeben? Wenn nicht, entfällt die Spalte ganz,
+  // statt eine Tabelle voller Gedankenstriche zu drucken.
+  const hatTexte = objekte.some(o => o.termine.some(t => t.leistungen))
+
   // ── Detail je Fläche ───────────────────────────────────────────────────────
   const objekteHtml = objekte.map(o => `
     <div class="block obj">
@@ -116,17 +120,19 @@ export function baueNachweisHtml(nachweis, opts = {}) {
           o.sollStunden > 0 ? ` von ${esc(formatStunden(o.sollStunden))} geplant` : ''}</span>
       </h2>
       ${o.ort ? `<div class="meta">${esc(o.ort)}</div>` : ''}
+      ${o.termine.length ? `
       <table>
-        <thead><tr><th style="width:92px">Datum</th><th style="width:70px" class="r">Stunden</th><th>Ausgeführte Arbeiten</th></tr></thead>
+        <thead><tr><th style="width:92px">Datum</th><th style="width:70px" class="r">Stunden</th>${
+          hatTexte ? '<th>Ausgeführte Arbeiten</th>' : ''}</tr></thead>
         <tbody>
           ${[...o.termine].sort((a, b) => a.datum.localeCompare(b.datum)).map(t => `
             <tr>
               <td>${esc(formatDatum(t.datum))}</td>
               <td class="r">${esc(formatStunden(t.stunden))}</td>
-              <td>${esc(t.leistungen) || '<span class="muted">—</span>'}</td>
+              ${hatTexte ? `<td>${esc(t.leistungen) || '<span class="muted">—</span>'}</td>` : ''}
             </tr>`).join('')}
         </tbody>
-      </table>
+      </table>` : '<div class="meta">In diesem Zeitraum wurden auf dieser Fläche keine Stunden erfasst.</div>'}
       ${(mitFotos && o.fotos.length) ? `
         <div class="fotos">
           ${o.fotos.slice(0, 12).map(f => `

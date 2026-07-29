@@ -117,6 +117,17 @@ export function buildLeistungsnachweis({
   const projektName = new Map(projekte.map(p => [p.id, p.name || p.id]))
   const projektOrt  = new Map(projekte.map(p => [p.id, p.location || '']))
 
+  // Welche Planjahre gehören zum ausgewerteten Zeitraum? Ohne diese Prüfung
+  // würden bei einem reinen von/bis-Filter die Soll-Stunden ALLER Jahre
+  // aufaddiert und einem Ist aus einem einzigen Zeitraum gegenübergestellt.
+  const planJahrPasst = (y) => {
+    const n = Number(y)
+    if (jahr) return n === jahr
+    if (von && n < jahrVon(von)) return false
+    if (bis && n > jahrVon(bis)) return false
+    return true
+  }
+
   // 1) Filtern
   const gefiltert = leistungen.filter(l => {
     if (!l || !l.project_id || !l.date) return false
@@ -130,23 +141,22 @@ export function buildLeistungsnachweis({
 
   // 2) Je Objekt gruppieren
   const objMap = new Map()
+  const neuesObjekt = (id) => ({
+    projectId: id,
+    name: projektName.get(id) || id,
+    ort: projektOrt.get(id) || '',
+    stunden: 0,
+    einsatztage: 0,
+    termine: [],
+    fotos: [],
+    sollStunden: 0,
+    gaengeGesamt: 0,
+    gaengeErledigt: 0,
+  })
+
   for (const l of gefiltert) {
     let o = objMap.get(l.project_id)
-    if (!o) {
-      o = {
-        projectId: l.project_id,
-        name: projektName.get(l.project_id) || l.project_id,
-        ort: projektOrt.get(l.project_id) || '',
-        stunden: 0,
-        einsatztage: 0,
-        termine: [],
-        fotos: [],
-        sollStunden: 0,
-        gaengeGesamt: 0,
-        gaengeErledigt: 0,
-      }
-      objMap.set(l.project_id, o)
-    }
+    if (!o) { o = neuesObjekt(l.project_id); objMap.set(l.project_id, o) }
     o.stunden += Number(l.stunden) || 0
     o.einsatztage += 1
     o.termine.push({
@@ -156,26 +166,39 @@ export function buildLeistungsnachweis({
     })
   }
 
-  // 3) Planwerte (Soll) anreichern — nur passendes Jahr
+  // 3) Planwerte (Soll) anreichern.
+  // Eine geplante Fläche, auf der noch nicht gearbeitet wurde, MUSS im
+  // Jahresnachweis ebenfalls erscheinen: sonst fehlt ihr Soll im Nenner und
+  // der Erfüllungsgrad fällt zu optimistisch aus („52 % erbracht“ statt
+  // korrekt „46 %“). Bei einem Teilzeitraum (von/bis) wird dagegen nichts
+  // ergänzt — ein Monatsauszug soll keine Fläche mit Jahres-Soll und null
+  // Stunden zeigen.
+  const planObjekteErgaenzen = !von && !bis
   for (const p of plaene) {
     if (!p || !p.project_id) continue
-    if (jahr && Number(p.jahr) !== jahr) continue
-    const o = objMap.get(p.project_id)
-    if (!o) continue
+    if (!planJahrPasst(p.jahr)) continue
+    if (projectId && p.project_id !== projectId) continue
+    let o = objMap.get(p.project_id)
+    if (!o && !planObjekteErgaenzen) continue
+    if (!o) { o = neuesObjekt(p.project_id); objMap.set(p.project_id, o) }
     o.sollStunden   += Number(p.soll_stunden) || 0
     o.gaengeGesamt  += Number(p.gaenge_gesamt) || 0
     o.gaengeErledigt += Number(p.gaenge_erledigt) || 0
   }
 
   // 4) Fotos zuordnen (nach Zeitraum gefiltert wie die Leistungen)
+  const zeitfilterAktiv = Boolean(jahr || von || bis)
   for (const f of fotos) {
     if (!f || !f.project_id) continue
     const o = objMap.get(f.project_id)
     if (!o) continue
     const d = String(f.einsatz_datum || f.created_at || '').slice(0, 10)
-    if (jahr && d && jahrVon(d) !== jahr) continue
-    if (von && d && d < von) continue
-    if (bis && d && d > bis) continue
+    // Undatierte Fotos gehören in keinen datierten Nachweis — sonst tauchte
+    // dasselbe Bild als Beleg in jedem Jahr auf.
+    if (zeitfilterAktiv && !d) continue
+    if (jahr && jahrVon(d) !== jahr) continue
+    if (von && d < von) continue
+    if (bis && d > bis) continue
     o.fotos.push({ url: f.url, datum: d, titel: f.einsatz_titel || '' })
   }
 
@@ -189,11 +212,14 @@ export function buildLeistungsnachweis({
     termine: o.termine.sort((a, b) => b.datum.localeCompare(a.datum)),
   })).sort((a, b) => b.stunden - a.stunden)
 
-  // 6) Summen
+  // 6) Summen.
+  // `einsatztage` zählt KALENDERTAGE, nicht Fläche/Tag-Zeilen: Werden an
+  // einem Tag zwei Flächen desselben Auftraggebers betreut, war LUMA an
+  // einem Tag vor Ort, nicht an zweien.
   const summe = {
     stunden: round2(objekte.reduce((s, o) => s + o.stunden, 0)),
     sollStunden: round2(objekte.reduce((s, o) => s + o.sollStunden, 0)),
-    einsatztage: gefiltert.length,
+    einsatztage: new Set(gefiltert.map(l => String(l.date).slice(0, 10))).size,
     objekte: objekte.length,
     fotos: objekte.reduce((s, o) => s + o.fotos.length, 0),
   }
@@ -266,23 +292,63 @@ export function nachweisAlsText(nachweis, { kundeName = '', titel = 'Leistungsna
 // ── Plan/Ist-Ampel ───────────────────────────────────────────────────────────
 
 /**
- * Bewertet den Erfüllungsgrad im Jahresverlauf: Liegt die Fläche im Plan?
- * `anteilJahr` = wieviel des Jahres vorbei ist (0–1). Ohne Angabe wird das
- * Kalenderjahr bis heute angenommen.
+ * Bewertet den Erfüllungsgrad: Liegt die Fläche im Plan?
+ *
+ * @param {object} objekt        Objekt aus buildLeistungsnachweis()
+ * @param {number} [anteilJahr]  Fallback: linearer Jahresanteil (0–1)
+ * @param {number} [erwartet]    Saisonal korrektes Soll bis heute (bevorzugt)
+ *
+ * WICHTIG: Pflege ist saisonal, nicht linear — die Gänge liegen zwischen
+ * KW 12 und KW 45 mit Schwerpunkten im Frühjahr und Herbst. Ein linear
+ * hochgerechnetes Soll meldet im Frühjahr systematisch „Rückstand“ und im
+ * Spätherbst „Mehraufwand“, obwohl exakt nach Plan gearbeitet wurde.
+ * Deshalb sollte `erwartet` aus den tatsächlich fälligen Gängen kommen
+ * (siehe sollBisKW) — der Jahresanteil ist nur der Notnagel, wenn keine
+ * Gangdaten vorliegen.
  *
  * Gibt `null` zurück, wenn kein Plan hinterlegt ist.
  */
-export function planAmpel(objekt, anteilJahr = null) {
+export function planAmpel(objekt, anteilJahr = null, erwartet = null) {
   if (!objekt || !(objekt.sollStunden > 0)) return null
-  const anteil = anteilJahr == null ? anteilJahrBisHeute() : anteilJahr
-  const erwartet = objekt.sollStunden * anteil
+  const soll = erwartet != null
+    ? Number(erwartet)
+    : objekt.sollStunden * (anteilJahr == null ? anteilJahrBisHeute() : anteilJahr)
   const ist = objekt.stunden
-  if (erwartet <= 0) return { status: 'offen', text: 'Saison beginnt', abweichung: 0 }
-  const faktor = ist / erwartet
-  const abweichung = round2(ist - erwartet)
+  if (!(soll > 0)) return { status: 'offen', text: 'Saison beginnt', abweichung: round2(ist) }
+  const faktor = ist / soll
+  const abweichung = round2(ist - soll)
   if (faktor >= 0.85 && faktor <= 1.15) return { status: 'im_plan', text: 'Im Plan', abweichung }
   if (faktor > 1.15) return { status: 'ueber', text: 'Mehraufwand', abweichung }
   return { status: 'unter', text: 'Rückstand', abweichung }
+}
+
+/** ISO-Kalenderwoche (1–53). */
+export function isoKW(datum = new Date()) {
+  const d = new Date(Date.UTC(datum.getFullYear(), datum.getMonth(), datum.getDate()))
+  const tag = d.getUTCDay() || 7
+  d.setUTCDate(d.getUTCDate() + 4 - tag)
+  const start = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+  return Math.ceil(((d - start) / 86400000 + 1) / 7)
+}
+
+/**
+ * Saisonal korrektes Soll bis heute: Summe der Soll-Stunden aller Pflegegänge
+ * einer Fläche, die im gewählten Jahr bis zur aktuellen KW fällig waren.
+ * Bei einem abgeschlossenen Jahr zählen alle Gänge, bei einem künftigen keiner.
+ * Entfallene Gänge bleiben außen vor — gleiche Definition wie intern.
+ *
+ * Gibt `null` zurück, wenn für die Fläche keine Gänge vorliegen (dann greift
+ * in planAmpel der lineare Notnagel).
+ */
+export function sollBisKW(gaenge, projectId, jahr, heute = new Date()) {
+  const relevant = (gaenge || []).filter(g =>
+    g && g.project_id === projectId && Number(g.jahr) === Number(jahr) && g.status !== 'entfallen')
+  if (!relevant.length) return null
+  const aktuellesJahr = heute.getFullYear()
+  const grenzKW = jahr < aktuellesJahr ? 53 : jahr > aktuellesJahr ? 0 : isoKW(heute)
+  return round2(relevant
+    .filter(g => Number(g.kw) <= grenzKW)
+    .reduce((s, g) => s + (Number(g.soll_stunden) || 0), 0))
 }
 
 /** Anteil des laufenden Jahres, der bereits vergangen ist (0–1). */

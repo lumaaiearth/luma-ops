@@ -80,12 +80,14 @@ export default function UserManagement() {
 
   // Auftraggeber ↔ Organisation verknüpfen. Erst diese Zuordnung entscheidet,
   // welche Flächen, Einsätze und Leistungen ein Kundenkonto im Portal sieht.
-  async function setClientOrg(clientId, orgId) {
+  // Läuft bewusst über eine SECURITY-DEFINER-RPC mit is_admin()-Prüfung: die
+  // Spalten org_id/leistungstexte_sichtbar sind für `authenticated` gesperrt,
+  // damit nicht jede:r Mitarbeiter:in den Mandantenzugriff umhängen kann.
+  async function setClientOrg(clientId, params, label) {
     setBusyClient(clientId); setMsg(null)
-    const { error: err } = await sb.from('clients')
-      .update({ org_id: orgId || null }).eq('id', clientId)
+    const { error: err } = await sb.rpc('admin_set_client_org', { p_client_id: clientId, ...params })
     if (err) setMsg({ ok: false, text: err.message })
-    else { setMsg({ ok: true, text: orgId ? 'Auftraggeber verknüpft' : 'Verknüpfung entfernt' }); await load() }
+    else { setMsg({ ok: true, text: label }); await load() }
     setBusyClient(null)
   }
 
@@ -199,8 +201,20 @@ export default function UserManagement() {
                     Portal aktiv
                   </span>
                 )}
+                {c.org_id && (
+                  <label title="Die Tätigkeitstexte aus der Zeiterfassung im Portal anzeigen. Erst einschalten, wenn die Texte dieses Auftraggebers durchgesehen sind — sie können Namen von Beschäftigten oder Hinweise auf andere Auftraggeber enthalten."
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: MUTED, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    <input type="checkbox" checked={!!c.leistungstexte_sichtbar} disabled={busyClient === c.client_id}
+                      onChange={e => setClientOrg(c.client_id,
+                        { p_org_id: c.org_id, p_texte: e.target.checked },
+                        e.target.checked ? 'Tätigkeitstexte freigegeben' : 'Tätigkeitstexte verborgen')} />
+                    Tätigkeitstexte
+                  </label>
+                )}
                 <select style={SEL} value={c.org_id || ''} disabled={busyClient === c.client_id}
-                  onChange={e => setClientOrg(c.client_id, e.target.value)}>
+                  onChange={e => setClientOrg(c.client_id,
+                    { p_org_id: e.target.value || null },
+                    e.target.value ? 'Auftraggeber verknüpft' : 'Verknüpfung entfernt')}>
                   <option value="">— keine Verknüpfung —</option>
                   {orgs.filter(o => o.typ !== 'intern').map(o => (
                     <option key={o.id} value={o.id}>{o.name}</option>

@@ -2,7 +2,7 @@
 import {
   normalisiereZeiteintraege, buildLeistungsnachweis, nachweisAlsText,
   formatStunden, formatDatum, formatProzent, planAmpel,
-  anteilJahrBisHeute, anteilVonJahr, jahrVon, monatVon,
+  anteilJahrBisHeute, anteilVonJahr, jahrVon, monatVon, sollBisKW, isoKW,
 } from '../src/lib/leistungsnachweis.js'
 
 let pass = 0, fail = 0
@@ -190,7 +190,74 @@ eq('Laufendes Jahr ~0,5', Math.round(anteilVonJahr(2026, IM_JULI_26) * 100) / 10
 eq('Abgeschlossenes Jahr voll erfüllt → im Plan',
    planAmpel({ sollStunden: 100, stunden: 100 }, anteilVonJahr(2025, IM_JULI_26)).status, 'im_plan')
 
-console.log('\n── 9) Textausgabe ──')
+console.log('\n── 9) Regressionen aus der Sicherheits-/Korrektheitsprüfung ──')
+
+// (a) Einsatztage sind KALENDERTAGE, nicht Fläche/Tag-Zeilen.
+// Am 29.04. wurden h14 und X13 betreut, am 13./14.05. je p15 und s3 →
+// 25 Fläche/Tag-Zeilen, aber nur 22 Tage, an denen LUMA vor Ort war.
+eq('Einsatztage = Kalendertage', nw.summe.einsatztage, 22)
+eq('Einsatztage je Objekt bleiben Objekt-Tage', byId.h14.einsatztage, 9)
+
+// (b) Eine geplante Fläche ohne Buchung darf im Nenner nicht fehlen —
+// sonst wäre der Erfüllungsgrad zu optimistisch.
+const mitUnbearbeiteter = buildLeistungsnachweis({
+  leistungen: norm, projekte: [...PROJEKTE, { id: 'neu', name: 'Neue Fläche' }],
+  plaene: [...PLAENE, { project_id: 'neu', jahr: 2026, soll_stunden: 100, gaenge_gesamt: 4, gaenge_erledigt: 0 }],
+  jahr: 2026,
+})
+const neu = mitUnbearbeiteter.objekte.find(o => o.projectId === 'neu')
+eq('Fläche ohne Stunden erscheint',      Boolean(neu), true)
+eq('… mit 0 Stunden',                    neu.stunden, 0)
+eq('… mit vollem Soll',                  neu.sollStunden, 100)
+eq('… und 0 % Erfüllung',                neu.erfuellung, 0)
+eq('Soll-Summe enthält sie',             mitUnbearbeiteter.summe.sollStunden, 478.1)
+eq('Erfüllung sinkt entsprechend',       mitUnbearbeiteter.summe.erfuellung, 40.05)
+
+// (c) Teilzeitraum: keine Plan-Flächen ergänzen (sonst Jahres-Soll bei 0 h)
+const juli = buildLeistungsnachweis({
+  leistungen: norm, projekte: PROJEKTE, plaene: PLAENE,
+  von: '2026-07-01', bis: '2026-07-31',
+})
+eq('Monatsauszug ergänzt keine Plan-Flächen', juli.summe.objekte, 3)
+
+// (d) von/bis ohne jahr darf keine Pläne anderer Jahre einrechnen
+const nurAlteplaene = buildLeistungsnachweis({
+  leistungen: norm, projekte: PROJEKTE,
+  plaene: [{ project_id: 'r95', jahr: 2024, soll_stunden: 812 }],
+  von: '2026-07-01', bis: '2026-07-31',
+})
+eq('Plan aus 2024 fließt nicht in Juli 2026', nurAlteplaene.summe.sollStunden, 0)
+
+// (e) Undatiertes Foto gehört in keinen datierten Nachweis
+const ohneDatum = buildLeistungsnachweis({
+  leistungen: norm, projekte: PROJEKTE, jahr: 2026,
+  fotos: [{ project_id: 'r95', url: 'x.jpg' }],
+})
+eq('Foto ohne Datum wird nicht zugeordnet', ohneDatum.summe.fotos, 0)
+
+// (f) Saisonales Soll statt linearer Hochrechnung.
+// BL-Muster: 9 Gänge, Schwerpunkt Frühjahr/Herbst. Am 01.04. (KW 14) ist
+// erst der Gang aus KW 12 fällig.
+const GAENGE = [
+  { project_id: 'bl', jahr: 2026, kw: 12, soll_stunden: 4,  status: 'geplant' },
+  { project_id: 'bl', jahr: 2026, kw: 20, soll_stunden: 15, status: 'geplant' },
+  { project_id: 'bl', jahr: 2026, kw: 45, soll_stunden: 74, status: 'geplant' },
+  { project_id: 'bl', jahr: 2026, kw: 46, soll_stunden: 20, status: 'entfallen' },
+  { project_id: 'bl', jahr: 2025, kw: 10, soll_stunden: 99, status: 'geplant' },
+]
+const AM_1_APRIL = new Date(2026, 3, 1)
+eq('Soll bis KW 14 = nur der KW-12-Gang', sollBisKW(GAENGE, 'bl', 2026, AM_1_APRIL), 4)
+eq('Entfallener Gang zählt nicht',        sollBisKW(GAENGE, 'bl', 2026, new Date(2026, 11, 31)), 93)
+eq('Abgeschlossenes Jahr = alle Gänge',   sollBisKW(GAENGE, 'bl', 2025, AM_1_APRIL), 99)
+eq('Ohne Gänge → null (Notnagel greift)', sollBisKW(GAENGE, 'unbekannt', 2026, AM_1_APRIL), null)
+
+const blObjekt = { sollStunden: 93, stunden: 4 }
+eq('Saisonal: planmäßig → im Plan',
+   planAmpel(blObjekt, null, sollBisKW(GAENGE, 'bl', 2026, AM_1_APRIL)).status, 'im_plan')
+eq('Linear wäre es fälschlich Rückstand',
+   planAmpel(blObjekt, anteilVonJahr(2026, AM_1_APRIL)).status, 'unter')
+
+console.log('\n── 10) Textausgabe ──')
 const txt = nachweisAlsText(nw, { kundeName:'JOPE AG', titel:'Leistungsnachweis 2026' })
 eq('Text enthält Kunde',   txt.includes('JOPE AG'), true)
 eq('Text enthält Summe',   txt.includes('191,5 h'), true)
