@@ -934,6 +934,12 @@ export default function MapPage() {
   const [show3D, setShow3D] = useState(false)
   const viewRef = useRef({ lat: 52.515, lng: 13.405, zoom: 11 })
 
+  // LoD2-/Heatmap-Index (Projektgebiete mit Dachmodell + Sonnen-Raster)
+  const [lod2Index, setLod2Index] = useState([])
+  useEffect(() => {
+    fetch('/lod2/index.json').then(r => (r.ok ? r.json() : [])).then(setLod2Index).catch(() => {})
+  }, [])
+
   // Adress- & Feature-Suche (Lupe in der Toolbar)
   const [searchOpen, setSearchOpen] = useState(false)
   const [geoQuery, setGeoQuery] = useState('')
@@ -1714,11 +1720,19 @@ export default function MapPage() {
               zIndex 210: immer über der Basiskarte (sonst verdeckt ein Basiskarten-
               Wechsel die Overlays). maxZoom 22 + maxNativeZoom 19: Leaflet-WMS stoppt
               sonst bei Zoom 18 und die Ebene verschwindet beim Heranzoomen. */}
-          {OPEN_LAYERS.filter(l => activeLayers.has(l.id)).map(layer => (
+          {OPEN_LAYERS.filter(l => l.wms && activeLayers.has(l.id)).map(layer => (
             <WMSTileLayer key={layer.id} url={layer.wms.url} layers={layer.wms.layers}
               format={layer.wms.format} transparent={layer.wms.transparent} opacity={layer.wms.opacity}
               version={layer.wms.version || '1.3.0'} attribution={layer.wms.attribution || ''}
               zIndex={210} maxZoom={22} maxNativeZoom={19} minZoom={layer.minZoom || 0} />
+          ))}
+
+          {/* Sonnen-Heatmaps: vorberechnete Raster (scripts/solar-heatmap.mjs)
+              je Projektgebiet, aus LoD2-Dachmodell + Baumkataster */}
+          {activeLayers.has('sonnen_heatmap') && lod2Index.filter(e => e.heatmap && e.bounds).map(e => (
+            <ImageOverlay key={`heat-${e.name}`} url={`/lod2/${e.heatmap}`}
+              bounds={[[e.bounds[0], e.bounds[1]], [e.bounds[2], e.bounds[3]]]}
+              opacity={0.78} zIndex={230} />
           ))}
 
           {flyTarget && <FlyTo center={flyTarget} />}
