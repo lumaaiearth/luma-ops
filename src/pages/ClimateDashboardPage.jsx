@@ -9,13 +9,14 @@ import {
   AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ReferenceArea, Legend,
 } from 'recharts'
-import { Layers, Thermometer, Droplets, Activity, MapPin, Radio, ChevronDown, Loader } from 'lucide-react'
+import { Layers, Thermometer, Droplets, Activity, MapPin, Radio, ChevronDown, Loader, Download, Printer } from 'lucide-react'
 import { useOps } from '../context/OpsContext.jsx'
 import { sb } from '../lib/supabase.js'
 import { A, BG, SURFACE, BORDER, FG, MUTED, CARD, OK, WARN, DANGER, A14, A20 } from '../lib/theme.js'
 import { SENSOR_TYPE_LABELS, SENSOR_TYPE_ICONS } from '../data/sensorTypes.js'
 import { useIsMobile } from '../lib/useIsMobile.js'
 import { geometryCentroid } from '../lib/geo.js'
+import { sampleScopePoints, fetchGebietsProfil, fetchSensorCluster, CLUSTER } from '../lib/klimaProfil.js'
 
 const MONO = "'Space Mono', monospace"
 const SANS = "'Space Grotesk', sans-serif"
@@ -99,6 +100,10 @@ export default function ClimateDashboardPage() {
   const [range, setRange] = useState('7d')
   const [readings, setReadings] = useState({})              // sensorId → [{ts, value}]
   const [loading, setLoading] = useState(false)
+  const [gebietsProfil, setGebietsProfil] = useState(null)  // Klimakennwerte des Scopes
+  const [profilLaeuft, setProfilLaeuft] = useState(false)
+  const [cluster, setCluster] = useState({})                // sensorId → {vg_pct, cluster}
+  const [clusterAn, setClusterAn] = useState(false)
 
   const metric = METRICS.find(m => m.type === metricType) || METRICS[0]
   const rangeDef = RANGES.find(r => r.id === range)
@@ -162,6 +167,32 @@ export default function ClimateDashboardPage() {
     return () => { cancelled = true }
   }, [metricSensors.map(s => s.id).join(','), range]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Gebiets-Klimaprofil (amtliche Fachdaten als Stichprobe über den Scope)
+  useEffect(() => {
+    if (!scope?.bbox) { setGebietsProfil(null); return }
+    const ctrl = new AbortController()
+    setProfilLaeuft(true)
+    setGebietsProfil(null)
+    const pts = sampleScopePoints(scope.bbox, scope.geometry, 9)
+    fetchGebietsProfil(pts, { signal: ctrl.signal })
+      .then(p => { if (!ctrl.signal.aborted) setGebietsProfil(p) })
+      .catch(() => {})
+      .finally(() => { if (!ctrl.signal.aborted) setProfilLaeuft(false) })
+    return () => ctrl.abort()
+  }, [scope?.label, scope?.bbox?.join?.(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Standortcharakter der Messstellen (Blockversiegelung) — nur auf Wunsch
+  useEffect(() => {
+    if (!clusterAn || !metricSensors.length) return
+    const offen = metricSensors.filter(s => !cluster[s.id])
+    if (!offen.length) return
+    const ctrl = new AbortController()
+    fetchSensorCluster(offen, { signal: ctrl.signal })
+      .then(m => { if (!ctrl.signal.aborted) setCluster(prev => ({ ...prev, ...m })) })
+      .catch(() => {})
+    return () => ctrl.abort()
+  }, [clusterAn, metricSensors.map(s => s.id).join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Verlauf: Mittelwert + Bandbreite (min/max) je Zeitfenster über alle Sensoren
   const series = useMemo(() => {
     const bucketMs = rangeDef.bucketMin * 60_000
@@ -183,6 +214,37 @@ export default function ClimateDashboardPage() {
       band: [Math.round(b.min * 10) / 10, Math.round(b.max * 10) / 10],
     }))
   }, [readings, rangeDef])
+
+  // Verlauf je Standortcluster (versiegelt / gemischt / Grünlage)
+  const clusterSeries = useMemo(() => {
+    if (!clusterAn) return null
+    const bucketMs = rangeDef.bucketMin * 60_000
+    const gruppen = {}
+    for (const s of metricSensors) {
+      const key = cluster[s.id]?.cluster || 'unbekannt'
+      for (const r of readings[s.id] || []) {
+        const t = Math.floor(r.ts / bucketMs) * bucketMs
+        const g = (gruppen[key] ||= new Map())
+        const b = g.get(t) || { sum: 0, n: 0 }
+        b.sum += r.value; b.n++
+        g.set(t, b)
+      }
+    }
+    const aktive = Object.keys(gruppen)
+    if (aktive.length < 2) return null   // Vergleich lohnt erst ab zwei Gruppen
+    const alleTs = [...new Set(aktive.flatMap(k => [...gruppen[k].keys()]))].sort((a, b) => a - b)
+    return {
+      keys: aktive,
+      data: alleTs.map(ts => {
+        const row = { ts }
+        for (const k of aktive) {
+          const b = gruppen[k].get(ts)
+          row[k] = b ? Math.round((b.sum / b.n) * 10) / 10 : null
+        }
+        return row
+      }),
+    }
+  }, [clusterAn, cluster, readings, metricSensors, rangeDef])
 
   // Aktueller Wert je Sensor (letzter Messwert im Zeitraum, sonst Live-Wert)
   const latest = useMemo(() => {
@@ -213,6 +275,31 @@ export default function ClimateDashboardPage() {
     return bins.map(b => ({ ...b, bereich: `${b.von}–${b.bis}` }))
   }, [values.join(','), metric, vmin, vmax]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // CSV-Export der Rohmesswerte (für GIS-/Fachabteilungen)
+  function exportCsv() {
+    const rows = [['messstelle', 'sensor_id', 'projekt', 'lat', 'lng', 'standortcharakter', 'zeitpunkt', 'wert', 'einheit']]
+    for (const s of metricSensors) {
+      const proj = projects.find(p => p.id === s.project_id)?.name || ''
+      const cl = CLUSTER.find(c => c.key === cluster[s.id]?.cluster)?.label || ''
+      for (const r of readings[s.id] || []) {
+        rows.push([s.name, s.id, proj, s.lat, s.lng, cl, new Date(r.ts).toISOString(), r.value, metric.unit])
+      }
+    }
+    const csv = '﻿' + rows.map(r => r.map(v => {
+      const t = String(v ?? '')
+      return /[";\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t
+    }).join(';')).join('\n')
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+    const a = document.createElement('a')
+    const slug = (scope?.label || 'gebiet').toLowerCase().replace(/[^a-z0-9]+/g, '-')
+    a.href = url
+    a.download = `biome_${slug}_${metricType}_${range}.csv`
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+
+  const messwerteGesamt = Object.values(readings).reduce((s, l) => s + l.length, 0)
+
   const fmtTs = ts => {
     const d = new Date(ts)
     return rangeDef.hours <= 24 ? d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
@@ -241,10 +328,22 @@ export default function ClimateDashboardPage() {
         <div style={{ fontFamily: MONO, fontSize: 10, color: A, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 6 }}>
           BIOME™ · Klima-Dashboard
         </div>
-        <h1 style={{ fontSize: isMobile ? 21 : 26, fontWeight: 400, color: FG, letterSpacing: '-0.02em', margin: '0 0 14px' }}>
-          {scope?.label || 'Gebiet wählen'}
-        </h1>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
+          <h1 style={{ fontSize: isMobile ? 21 : 26, fontWeight: 400, color: FG, letterSpacing: '-0.02em', margin: 0 }}>
+            {scope?.label || 'Gebiet wählen'}
+          </h1>
+          <div className="lu-noprint" style={{ display: 'flex', gap: 6 }}>
+            <button onClick={exportCsv} disabled={!messwerteGesamt} title="Rohmesswerte als CSV herunterladen"
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, border: `1px solid ${BORDER}`, background: 'transparent', color: messwerteGesamt ? FG : MUTED, cursor: messwerteGesamt ? 'pointer' : 'default', fontSize: 12, fontFamily: SANS }}>
+              <Download size={13} /> CSV
+            </button>
+            <button onClick={() => window.print()} title="Dashboard drucken oder als PDF sichern"
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, border: `1px solid ${BORDER}`, background: 'transparent', color: FG, cursor: 'pointer', fontSize: 12, fontFamily: SANS }}>
+              <Printer size={13} /> Bericht
+            </button>
+          </div>
+        </div>
+        <div className="lu-noprint" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
             {[['alle', 'Alles'], ['bezirk', 'Bezirk'], ['ortsteil', 'Ortsteil'], ['projekt', 'Projektfläche']].map(([k, l]) => (
               <button key={k} onClick={() => { setScopeKind(k); setScopeName('') }} style={chip(scopeKind === k)}>{l}</button>
@@ -262,7 +361,7 @@ export default function ClimateDashboardPage() {
       </div>
 
       {/* Messgröße + Zeithorizont */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center' }}>
+      <div className="lu-noprint" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center' }}>
         {METRICS.map(m => {
           const n = scopeSensors.filter(s => s.type === m.type).length
           return (
@@ -297,6 +396,74 @@ export default function ClimateDashboardPage() {
         <Kpi label="Messpunkte" value={Object.values(readings).reduce((s, l) => s + l.length, 0)} icon={<Layers size={11} />}
           sub={`im Zeitraum ${rangeDef.label}`} />
       </div>
+
+      {/* Gebiets-Klimaprofil aus amtlichen Fachdaten */}
+      {(profilLaeuft || gebietsProfil) && (
+        <Card style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+              Klimaprofil des Gebiets · Umweltatlas Berlin
+            </div>
+            {gebietsProfil && (
+              <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED }}>
+                Stichprobe aus {gebietsProfil.treffer} Punkten im Gebiet
+              </div>
+            )}
+          </div>
+          {profilLaeuft ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: MUTED, fontFamily: MONO, fontSize: 12, padding: '10px 0' }}>
+              <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> frage amtliche Fachdaten ab…
+            </div>
+          ) : gebietsProfil ? (
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(${isMobile ? 150 : 200}px, 1fr))`, gap: 10 }}>
+              {gebietsProfil.pet && (
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>🌡 Wärmebelastung (PET)</div>
+                  <div style={{ fontSize: 20, fontWeight: 300, color: gebietsProfil.pet.stufe?.color }}>
+                    Ø {gebietsProfil.pet.mitte}<span style={{ fontSize: 12, color: MUTED }}> °C</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: FG, marginTop: 2 }}>{gebietsProfil.pet.stufe?.label}</div>
+                  {gebietsProfil.pet.belastet_pct != null && (
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, marginTop: 3 }}>
+                      {gebietsProfil.pet.belastet} von {gebietsProfil.treffer} Punkten stark belastet (≥ 35 °C)
+                    </div>
+                  )}
+                </div>
+              )}
+              {gebietsProfil.versiegelung && (
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>🏢 Versiegelung</div>
+                  <div style={{ fontSize: 20, fontWeight: 300, color: gebietsProfil.versiegelung.stufe?.color }}>
+                    Ø {gebietsProfil.versiegelung.pct}<span style={{ fontSize: 12, color: MUTED }}> %</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: FG, marginTop: 2 }}>{gebietsProfil.versiegelung.stufe?.label}</div>
+                  {gebietsProfil.versiegelung.spanne && (
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, marginTop: 3 }}>
+                      Spanne {gebietsProfil.versiegelung.spanne[0].toFixed(0)}–{gebietsProfil.versiegelung.spanne[1].toFixed(0)} %
+                      {gebietsProfil.versiegelung.trend_pct != null && ` · Trend ${gebietsProfil.versiegelung.trend_pct > 0 ? '+' : ''}${gebietsProfil.versiegelung.trend_pct.toFixed(1)} Pp. seit 2016`}
+                    </div>
+                  )}
+                </div>
+              )}
+              {gebietsProfil.gruen && (
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>🌿 Grünvolumen</div>
+                  <div style={{ fontSize: 20, fontWeight: 300, color: OK }}>
+                    Ø {gebietsProfil.gruen.gvz}<span style={{ fontSize: 12, color: MUTED }}> m³/m²</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: FG, marginTop: 2 }}>Vegetationsvolumen je m² Blockfläche</div>
+                  {gebietsProfil.gruen.trend_gvz != null && (
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: gebietsProfil.gruen.trend_gvz < -0.3 ? WARN : MUTED, marginTop: 3 }}>
+                      Trend {gebietsProfil.gruen.trend_gvz > 0 ? '+' : ''}{gebietsProfil.gruen.trend_gvz.toFixed(2)} seit 2010
+                      {gebietsProfil.gruen.trend_gvz < -0.3 ? ' — Gehölzvolumen verloren' : ''}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : null}
+        </Card>
+      )}
 
       {/* Karte + Verteilung */}
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.6fr 1fr', gap: 12, marginBottom: 12 }}>
@@ -404,6 +571,62 @@ export default function ClimateDashboardPage() {
         )}
       </Card>
 
+      {/* Standort-Cluster-Vergleich */}
+      {metricSensors.length >= 2 && (
+        <Card style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+              Vergleich nach Standortcharakter
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: MUTED, fontFamily: SANS, cursor: 'pointer' }}>
+              <input type="checkbox" checked={clusterAn} onChange={e => setClusterAn(e.target.checked)} style={{ accentColor: A }} />
+              Messstellen nach Blockversiegelung gruppieren
+            </label>
+          </div>
+          {!clusterAn ? (
+            <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.6 }}>
+              Ordnet jeder Messstelle die amtliche Versiegelung ihres Blocks zu und vergleicht die
+              Gruppen im Verlauf — so wird sichtbar, ob Standorte in versiegelter Umgebung
+              tatsächlich schneller austrocknen als Grünlagen.
+            </div>
+          ) : clusterSeries ? (
+            <>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+                {CLUSTER.filter(c => clusterSeries.keys.includes(c.key)).map(c => {
+                  const n = metricSensors.filter(s => (cluster[s.id]?.cluster || 'unbekannt') === c.key).length
+                  return (
+                    <span key={c.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: FG, fontFamily: SANS }}>
+                      <span style={{ width: 10, height: 10, borderRadius: 3, background: c.color }} /> {c.label}
+                      <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED }}>{n}</span>
+                    </span>
+                  )
+                })}
+              </div>
+              <ResponsiveContainer width="100%" height={240}>
+                <LineChart data={clusterSeries.data} margin={{ top: 6, right: 10, left: -18, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={BORDER} vertical={false} />
+                  <XAxis dataKey="ts" tickFormatter={fmtTs} tick={{ fill: MUTED, fontSize: 10, fontFamily: MONO }} stroke={BORDER} minTickGap={44} />
+                  <YAxis tick={{ fill: MUTED, fontSize: 10, fontFamily: MONO }} stroke={BORDER} width={42} domain={['auto', 'auto']} />
+                  <Tooltip contentStyle={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, fontFamily: SANS, fontSize: 12 }}
+                    labelFormatter={ts => new Date(ts).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    formatter={(v, k) => [`${v} ${metric.unit}`, CLUSTER.find(c => c.key === k)?.label || k]} />
+                  {clusterSeries.keys.map(k => {
+                    const c = CLUSTER.find(x => x.key === k)
+                    return <Line key={k} type="monotone" dataKey={k} stroke={c?.color || MUTED} strokeWidth={2} dot={false} connectNulls />
+                  })}
+                </LineChart>
+              </ResponsiveContainer>
+            </>
+          ) : (
+            <div style={{ fontSize: 12, color: MUTED, padding: '8px 0' }}>
+              {Object.keys(cluster).length < metricSensors.length
+                ? 'Ordne Messstellen zu…'
+                : 'Alle Messstellen liegen im selben Standorttyp — für einen Vergleich braucht es Sensoren in unterschiedlichen Lagen.'}
+            </div>
+          )}
+        </Card>
+      )}
+
       {/* Sensorliste */}
       {metricSensors.length > 0 && (
         <Card>
@@ -432,7 +655,16 @@ export default function ClimateDashboardPage() {
         Gebietsgrenzen: GDI Berlin / ALKIS (dl-de/by-2-0) · Messwerte: LUMA-Sensorik.
         Der Gebietszuschnitt bestimmt, welche Messstellen und Auswertungen angezeigt werden.
       </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg) } }
+        @media print {
+          /* Bericht: nur der Dashboard-Inhalt, auf hellem Grund, ohne Bedienelemente */
+          .lu-noprint, .desktop-sidebar, .mobile-topbar, .mobile-bottom-nav { display: none !important; }
+          .main-content { overflow: visible !important; padding: 0 !important; }
+          @page { margin: 12mm; size: A4 portrait; }
+          body { background: #fff !important; }
+        }
+      `}</style>
     </div>
   )
 }

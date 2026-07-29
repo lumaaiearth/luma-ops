@@ -6,6 +6,8 @@
 //  · GetMap-Pixelzählung im Umfeld → Anteil überfluteter Fläche
 //  · WFS a_modellgebiete → liegt der Punkt überhaupt im Modellgebiet?
 
+import { fetchT } from './fetchTimeout.js'
+
 const WMS = 'https://gdi.berlin.de/services/wms/ua_srgk'
 const WFS = 'https://gdi.berlin.de/services/wfs/ua_srgk'
 const WIN = 60   // halbes Abfragefenster in Metern
@@ -33,7 +35,7 @@ function bboxOf(lat, lng) {
 
 async function punktKlasse(lat, lng, layer) {
   const url = `${WMS}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS=${layer}&QUERY_LAYERS=${layer}&STYLES=&CRS=EPSG:4326&BBOX=${bboxOf(lat, lng)}&WIDTH=${PX}&HEIGHT=${PX}&I=${PX / 2}&J=${PX / 2}&INFO_FORMAT=text%2Fxml&FEATURE_COUNT=1`
-  const resp = await fetch(url)
+  const resp = await fetchT(url, { timeout: 12000 })
   if (!resp.ok) throw new Error(`WMS ${resp.status}`)
   const text = await resp.text()
   const m = /<ua_srgk:Wasserstand_m>([^<]*)<\/ua_srgk:Wasserstand_m>/.exec(text)
@@ -44,7 +46,7 @@ async function punktKlasse(lat, lng, layer) {
 
 async function anteilUmfeld(lat, lng, layer) {
   const url = `${WMS}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=${layer}&STYLES=&CRS=EPSG:4326&BBOX=${bboxOf(lat, lng)}&WIDTH=${PX}&HEIGHT=${PX}&FORMAT=image/png&TRANSPARENT=true`
-  const resp = await fetch(url)
+  const resp = await fetchT(url, { timeout: 12000 })
   if (!resp.ok) throw new Error(`WMS ${resp.status}`)
   const blob = await resp.blob()
   const bmp = await createImageBitmap(blob)
@@ -61,7 +63,7 @@ async function imModellgebiet(lat, lng) {
   const d = 0.0004
   const url = `${WFS}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ua_srgk:a_modellgebiete&BBOX=${lat - d},${lng - d},${lat + d},${lng + d},urn:ogc:def:crs:EPSG::4326&COUNT=1&outputFormat=application/json`
   try {
-    const json = await (await fetch(url)).json()
+    const json = await (await fetchT(url, { timeout: 10000 })).json()
     return (json.features || []).length > 0
   } catch { return true } // im Zweifel prüfen statt fälschlich „keine Daten"
 }

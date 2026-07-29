@@ -3,6 +3,8 @@
 // Die Sonnenanalyse rechnet damit gegen echte Dach-/Wandflächen; die 3D-Ansicht
 // rendert sie. Kein Patch vorhanden → Aufrufer fällt auf ALKIS/OSM zurück.
 
+import { fetchT } from './fetchTimeout.js'
+
 let indexPromise = null
 const patchCache = new Map()
 
@@ -13,7 +15,7 @@ function distM(lat1, lng1, lat2, lng2) {
 
 export function loadLod2Index() {
   if (!indexPromise) {
-    indexPromise = fetch('/lod2/index.json')
+    indexPromise = fetchT('/lod2/index.json', { timeout: 10000 })
       .then(r => (r.ok ? r.json() : []))
       .catch(() => [])
   }
@@ -33,7 +35,7 @@ export async function findLod2Patch(lat, lng, marginM = 120) {
   const hit = await findLod2Entry(lat, lng, marginM)
   if (!hit) return null
   if (!patchCache.has(hit.file)) {
-    patchCache.set(hit.file, fetch(`/lod2/${hit.file}`)
+    patchCache.set(hit.file, fetchT(`/lod2/${hit.file}`, { timeout: 25000 })
       .then(r => { if (!r.ok) throw new Error(`lod2 ${r.status}`); return r.json() })
       .catch(err => { patchCache.delete(hit.file); throw err }))
   }

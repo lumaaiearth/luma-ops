@@ -5,6 +5,8 @@
 // Achtung Maßstab: die GDI-Dienste antworten nur in ausreichend großem Maßstab,
 // deshalb wird ein kleines, hochaufgelöstes Fenster abgefragt (≈180 m / 200 px).
 
+import { fetchT, mapLimit } from './fetchTimeout.js'
+
 const GDI = 'https://gdi.berlin.de/services/wms'
 const WIN_M = 90     // halbe Fensterkante in Metern
 const PX = 200
@@ -23,7 +25,7 @@ async function featureInfo(service, layer, lat, lng, signal) {
   // WMS 1.3.0 + EPSG:4326 → Achsenfolge lat,lon
   const bbox = `${lat - dLat},${lng - dLng},${lat + dLat},${lng + dLng}`
   const url = `${GDI}/${service}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS=${layer}&QUERY_LAYERS=${layer}&STYLES=&CRS=EPSG:4326&BBOX=${bbox}&WIDTH=${PX}&HEIGHT=${PX}&I=${PX / 2}&J=${PX / 2}&INFO_FORMAT=text%2Fxml&FEATURE_COUNT=1`
-  const text = await (await fetch(url, { signal })).text()
+  const text = await (await fetchT(url, { timeout: 12000, signal })).text()
   const out = {}
   const re = /<[a-z_0-9]+:([A-Za-zÄÖÜäöüß_0-9]+)>([^<]*)<\/[a-z_0-9]+:[A-Za-zÄÖÜäöüß_0-9]+>/g
   let m
@@ -110,6 +112,135 @@ export async function fetchKlimaProfil(lat, lng, { signal } = {}) {
   }
   profil.leer = !profil.hitze.tag && !profil.versiegelung && !profil.gruen
   return profil
+}
+
+/* ── Gebietsprofil: Stichprobe über ein Gebiet (Bezirk/Ortsteil/Fläche) ───
+   Die Fachdaten sind punktbezogen (Blöcke bzw. 10-m-Raster). Für ein ganzes
+   Gebiet wird ein Punktraster gelegt, jeder Punkt abgefragt und gemittelt —
+   bewusst als STICHPROBE ausgewiesen, nicht als exakte Flächenstatistik. */
+
+function pointInRing(pt, ring) {
+  let inside = false
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i], [xj, yj] = ring[j]
+    if ((yi > pt[1]) !== (yj > pt[1]) && pt[0] < ((xj - xi) * (pt[1] - yi)) / (yj - yi) + xi) inside = !inside
+  }
+  return inside
+}
+
+function inGeom(lng, lat, geom) {
+  if (!geom) return true
+  const polys = geom.type === 'Polygon' ? [geom.coordinates] : geom.type === 'MultiPolygon' ? geom.coordinates : []
+  return polys.some(rings => pointInRing([lng, lat], rings[0]) && !rings.slice(1).some(h => pointInRing([lng, lat], h)))
+}
+
+// Gleichmäßiges Raster über die BBox, auf die Geometrie beschnitten
+export function sampleScopePoints(bbox, geometry, ziel = 9) {
+  if (!bbox) return []
+  const [s, w, n, e] = bbox
+  const out = []
+  for (let grid = Math.ceil(Math.sqrt(ziel)); grid <= 9; grid++) {
+    out.length = 0
+    for (let i = 0; i < grid; i++) {
+      for (let j = 0; j < grid; j++) {
+        const lat = s + ((i + 0.5) / grid) * (n - s)
+        const lng = w + ((j + 0.5) / grid) * (e - w)
+        if (inGeom(lng, lat, geometry)) out.push({ lat, lng })
+      }
+    }
+    if (out.length >= ziel) break
+  }
+  // gleichmäßig ausdünnen statt abschneiden
+  if (out.length > ziel) {
+    const step = out.length / ziel
+    return Array.from({ length: ziel }, (_, i) => out[Math.floor(i * step)])
+  }
+  return out
+}
+
+const mittel = arr => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null)
+
+export async function fetchGebietsProfil(points, { signal } = {}) {
+  if (!points?.length) return null
+  // Nur die drei aussagekräftigsten Schichten je Punkt → 3 Anfragen/Punkt
+  const results = await mapLimit(points, 6, async p => {
+    const [pet, vers, gruen] = await Promise.all([
+      featureInfo('ua_klimaanalyse_2022', 'q_ua_pet_raster_2022', p.lat, p.lng, signal).catch(() => ({})),
+      featureInfo('ua_versiegelung_2021', 'versieg2021', p.lat, p.lng, signal).catch(() => ({})),
+      featureInfo('ua_gruenvolumen_2020', 'a_gruenvol2020', p.lat, p.lng, signal).catch(() => ({})),
+    ])
+    return {
+      pet: parseKlasse(pet.PET),
+      vg: num(vers.vg_2021),
+      vgTrend: num(vers.vg_dif21_16),
+      gvz: num(gruen.vegvol2020),
+      gvzTrend: num(gruen.changegvz),
+      nutzung: vers.wozklar || null,
+    }
+  })
+
+  const ok = results.filter(Boolean)
+  const petWerte = ok.map(r => r.pet?.mitte).filter(v => v != null)
+  const vgWerte = ok.map(r => r.vg).filter(v => v != null)
+  const gvzWerte = ok.map(r => r.gvz).filter(v => v != null)
+  const petAvg = mittel(petWerte)
+  const vgAvg = mittel(vgWerte)
+
+  // Statt einer „häufigsten Bewertung" (die dem Mittelwert widersprechen kann)
+  // der belastbare Anteil: wie viele Stützpunkte liegen im kritischen Bereich?
+  const belastet = petWerte.filter(v => v >= 35).length
+
+  return {
+    stichprobe: points.length,
+    treffer: ok.length,
+    pet: petAvg == null ? null : {
+      mitte: Math.round(petAvg * 10) / 10,
+      stufe: hitzeStufe(petAvg),
+      spanne: petWerte.length > 1 ? [Math.min(...petWerte), Math.max(...petWerte)] : null,
+      belastet,                                                   // PET ≥ 35 °C
+      belastet_pct: petWerte.length ? Math.round((belastet / petWerte.length) * 100) : null,
+    },
+    versiegelung: vgAvg == null ? null : {
+      pct: Math.round(vgAvg * 10) / 10,
+      stufe: versiegelungStufe(vgAvg),
+      trend_pct: mittel(ok.map(r => r.vgTrend).filter(v => v != null)),
+      spanne: vgWerte.length > 1 ? [Math.min(...vgWerte), Math.max(...vgWerte)] : null,
+    },
+    gruen: gvzWerte.length ? {
+      gvz: Math.round(mittel(gvzWerte) * 100) / 100,
+      trend_gvz: mittel(ok.map(r => r.gvzTrend).filter(v => v != null)),
+    } : null,
+    computed_at: new Date().toISOString(),
+  }
+}
+
+/* ── Sensor-Cluster nach Standortcharakter ───────────────────────────────
+   Ordnet jedem Messpunkt die amtliche Blockversiegelung zu und gruppiert
+   danach. So lässt sich vergleichen, wie sich Messwerte in versiegelter
+   Umgebung gegenüber Grünlagen entwickeln — der eigentliche Erkenntniswert
+   verteilter Sensorik. */
+export const CLUSTER = [
+  { key: 'versiegelt', label: 'Versiegelte Lage', kurz: 'versiegelt', color: '#ef4444', ab: 50 },
+  { key: 'gemischt', label: 'Gemischte Lage', kurz: 'gemischt', color: '#f59e0b', ab: 25 },
+  { key: 'gruen', label: 'Grünlage', kurz: 'grün', color: '#22c55e', ab: 0 },
+  { key: 'unbekannt', label: 'Ohne Zuordnung', kurz: 'unbekannt', color: '#6b7280', ab: null },
+]
+
+export function clusterFor(vgPct) {
+  if (vgPct == null) return CLUSTER[3]
+  return CLUSTER.find(c => c.ab != null && vgPct >= c.ab) || CLUSTER[2]
+}
+
+// Für eine Liste Messpunkte den Versiegelungsgrad holen (1 Anfrage je Punkt)
+export async function fetchSensorCluster(sensoren, { signal } = {}) {
+  const res = await mapLimit(sensoren, 6, async s => {
+    const v = await featureInfo('ua_versiegelung_2021', 'versieg2021', s.lat, s.lng, signal).catch(() => ({}))
+    const pct = num(v.vg_2021)
+    return { id: s.id, vg_pct: pct, nutzung: v.wozklar || null, cluster: clusterFor(pct).key }
+  })
+  const out = {}
+  for (const r of res) if (r) out[r.id] = r
+  return out
 }
 
 /* ── Maßnahmen-Empfehlungen aus allen Analysen ──────────────────────────── */

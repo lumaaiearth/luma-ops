@@ -2,6 +2,8 @@
 // Sonnen-/Schattenanalyse. Höhe: height-Tag > building:levels × 3,2 m + Dach,
 // sonst 12 m Standardannahme (Berliner Blockrand ≈ 20–22 m hat fast immer Tags).
 
+import { fetchT } from './fetchTimeout.js'
+
 const OVERPASS = 'https://overpass-api.de/api/interpreter'
 const cache = new Map() // key → Promise<buildings[]>
 
@@ -32,7 +34,8 @@ function parseBuildings(json) {
 async function query(bbox) {
   const [s, w, n, e] = bbox
   const q = `[out:json][timeout:25];way["building"](${s},${w},${n},${e});out geom;`
-  const resp = await fetch(OVERPASS, { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } })
+  // Overpass ist der langsamste Dienst → großzügigeres, aber endliches Limit
+  const resp = await fetchT(OVERPASS, { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 25000 })
   if (!resp.ok) throw new Error(`Overpass ${resp.status}`)
   return parseBuildings(await resp.json())
 }
