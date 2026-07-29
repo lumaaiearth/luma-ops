@@ -462,7 +462,7 @@ function FeatureForm({ mode, project, color, existingFeature, draft, onSave, onC
             Abbrechen
           </button>
           {existingFeature && onDelete && (
-            <button onClick={onDelete} title="Feature löschen" className="lu-btn-danger"
+            <button onClick={onDelete} title="Objekt löschen" className="lu-btn-danger"
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '9px 12px', borderRadius: 8, background: 'transparent', border: '1px solid color-mix(in srgb, var(--luma-danger) 40%, transparent)', color: 'var(--luma-danger)', cursor: 'pointer' }}>
               <Trash2 size={13} />
             </button>
@@ -1104,19 +1104,52 @@ export default function MapPage() {
   }, [sensors])
 
   // Features grouped by project, with search/filter
+  // Suchindex einmal je Feature aufbauen — vorher wurde bei JEDEM Tastendruck
+  // JSON.stringify über alle Properties aller Features gelegt.
+  const searchIndex = useMemo(() => {
+    const idx = new Map()
+    for (const f of mapFeatures) {
+      const props = f.properties || {}
+      const teile = [f.label, f.feature_type]
+      for (const [k, v] of Object.entries(props)) {
+        if (k === 'photos' || k === 'sonnenanalyse' || k === 'starkregen') continue
+        if (v != null && typeof v !== 'object') teile.push(String(v))
+      }
+      idx.set(f.id, teile.join(' ').toLowerCase())
+    }
+    return idx
+  }, [mapFeatures])
+
+  const passtZumFilter = useCallback(f => {
+    const q = searchQuery.trim().toLowerCase()
+    if (q && !(searchIndex.get(f.id) || '').includes(q)) return false
+    if (typeFilter && f.feature_type !== typeFilter && f.feature_type !== 'drone_image' && f.feature_type !== 'ortho_tiles') return false
+    return true
+  }, [searchQuery, typeFilter, searchIndex])
+
   const featuresByProject = useMemo(() => {
     const map = {}
     mapFeatures.forEach(f => {
-      const q = searchQuery.toLowerCase()
-      const matchesSearch = !q || (f.label || '').toLowerCase().includes(q) ||
-        JSON.stringify(f.properties || {}).toLowerCase().includes(q)
-      const matchesType = !typeFilter || f.feature_type === typeFilter || f.feature_type === 'drone_image' || f.feature_type === 'ortho_tiles'
-      if (!matchesSearch || !matchesType) return
+      if (!passtZumFilter(f)) return
       if (!map[f.project_id]) map[f.project_id] = []
       map[f.project_id].push(f)
     })
     return map
-  }, [mapFeatures, searchQuery, typeFilter])
+  }, [mapFeatures, passtZumFilter])
+
+  // Wie viele Objekte sind gerade NICHT auf der Karte zu sehen (Filter oder
+  // manuell ausgeblendet)? Ohne diesen Hinweis sucht man Flächen, die man
+  // selbst versteckt hat.
+  const versteckt = useMemo(() => mapFeatures.filter(f =>
+    !passtZumFilter(f) || hiddenFeatures.has(f.id) || hiddenProjects.has(f.project_id)
+  ).length, [mapFeatures, passtZumFilter, hiddenFeatures, hiddenProjects])
+
+  const resetFilter = useCallback(() => {
+    setSearchQuery('')
+    setTypeFilter(null)
+    setHiddenFeatures(new Set())
+    setHiddenProjects(new Set())
+  }, [])
 
   useEffect(() => {
     const focusId = location.state?.focusProjectId
@@ -1512,7 +1545,7 @@ export default function MapPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 6, border: `1px solid ${BORDER}`, background: 'rgba(255,255,255,0.03)', marginBottom: 7 }}>
           <Search size={12} color={MUTED} />
           <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Suche in Features..."
+            placeholder="Bäume, Beete, Flächen suchen…"
             style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: FG, fontSize: 12, fontFamily: "'Space Grotesk', sans-serif" }} />
           {searchQuery && <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', color: MUTED, cursor: 'pointer', padding: 0, display: 'flex' }}><X size={11} /></button>}
         </div>
@@ -1642,7 +1675,7 @@ export default function MapPage() {
                                     }
                                     if (isMobile) setSidebarOpen(false)
                                   }}
-                                  style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 5, padding: '3px 4px', borderRadius: 4, fontSize: 11, color: featHidden ? MUTED : FG, opacity: featHidden ? 0.45 : 1, cursor: 'pointer', background: isSelected ? `color-mix(in srgb, ${color} 16%, transparent)` : 'transparent', border: `1px solid ${isSelected ? `color-mix(in srgb, ${color} 45%, transparent)` : 'transparent'}` }}>
+                                  style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 5, padding: '7px 5px', borderRadius: 5, fontSize: 11, minWidth: 0, color: featHidden ? MUTED : FG, opacity: featHidden ? 0.45 : 1, cursor: 'pointer', background: isSelected ? `color-mix(in srgb, ${color} 16%, transparent)` : 'transparent', border: `1px solid ${isSelected ? `color-mix(in srgb, ${color} 45%, transparent)` : 'transparent'}` }}>
                                   <span style={{ fontSize: 10, flexShrink: 0 }}>{isDrone ? '🚁' : isOrtho ? '🗺️' : (modeInfo.icon || '●')}</span>
                                   <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {feat.label || modeInfo.label || feat.feature_type}
@@ -1656,19 +1689,20 @@ export default function MapPage() {
                                   )}
                                 </div>
                                 <button onClick={() => toggleFeature(feat.id)} title={featHidden ? 'Einblenden' : 'Ausblenden'}
-                                  style={{ width: 20, height: 20, borderRadius: 4, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                  {featHidden ? <EyeOff size={10} /> : <Eye size={10} />}
+                                  style={{ width: 30, height: 30, borderRadius: 6, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                  {featHidden ? <EyeOff size={12} /> : <Eye size={12} />}
                                 </button>
                                 {canCapture && !isOverlay && (
                                   <button onClick={() => openEditForm(feat)} title="Bearbeiten"
-                                    style={{ width: 20, height: 20, borderRadius: 4, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Pencil size={9} />
+                                    style={{ width: 30, height: 30, borderRadius: 6, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <Pencil size={12} />
                                   </button>
                                 )}
+                                {/* Löschen bewusst abgesetzt — saß direkt neben „Ausblenden" */}
                                 {isAdmin && (
                                   <button onClick={() => deleteFeature(feat.id)} title="Löschen"
-                                    style={{ width: 20, height: 20, borderRadius: 4, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Trash2 size={9} />
+                                    style={{ width: 30, height: 30, marginLeft: 6, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <Trash2 size={12} />
                                   </button>
                                 )}
                               </div>
@@ -1697,7 +1731,7 @@ export default function MapPage() {
                                   if (s.lat && s.lng) { setFlyTarget([s.lat, s.lng]); if (isMobile) setSidebarOpen(false) }
                                   else navigate(`/sensors/${s.id}`)
                                 }}
-                                style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 5, padding: '3px 4px', borderRadius: 4, fontSize: 11, color: FG, cursor: 'pointer' }}>
+                                style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 5, padding: '7px 5px', borderRadius: 5, fontSize: 11, minWidth: 0, color: FG, cursor: 'pointer' }}>
                                 <span style={{ fontSize: 10, flexShrink: 0 }}>📡</span>
                                 <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</span>
                                 <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: s.value == null ? MUTED : sColor, flexShrink: 0 }}>{s.value == null ? '—' : `${s.value}${s.unit}`}</span>
@@ -1882,9 +1916,7 @@ export default function MapPage() {
           {mapFeatures.map(feat => {
             if (feat.feature_type === 'drone_image' || feat.feature_type === 'ortho_tiles') return null
             if (hiddenProjects.has(feat.project_id) || hiddenFeatures.has(feat.id)) return null
-            if (typeFilter && feat.feature_type !== typeFilter) return null
-            const q = searchQuery.toLowerCase()
-            if (q && !(feat.label || '').toLowerCase().includes(q) && !JSON.stringify(feat.properties || {}).toLowerCase().includes(q)) return null
+            if (!passtZumFilter(feat)) return null
 
             const color = projectColorById[feat.project_id] || A
             const geom = feat.geometry
@@ -1979,7 +2011,7 @@ export default function MapPage() {
                     <div style={{ fontSize: 11, color: 'rgba(232,240,245,0.5)', marginBottom: 4 }}>{p.location}</div>
                     {mapFeatures.filter(f => f.project_id === p.id).length > 0 && (
                       <div style={{ fontSize: 10, color, fontFamily: "'Space Mono', monospace" }}>
-                        {mapFeatures.filter(f => f.project_id === p.id).length} Features kartiert
+                        {mapFeatures.filter(f => f.project_id === p.id).length} Objekte kartiert
                       </div>
                     )}
                     {(jobsByProject[p.id] || []).length > 0 && (
@@ -2061,7 +2093,17 @@ export default function MapPage() {
 
         {/* ── Zeichen-Toolbar (schwebend) ── */}
         {!drawMode && (
-          <div style={{ position: 'absolute', top: isMobile ? 56 : 12, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, display: 'flex', alignItems: 'center', gap: 4, background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, padding: 4, boxShadow: '0 2px 14px rgba(0,0,0,0.4)', maxWidth: 'calc(100% - 24px)', overflowX: 'auto' }}>
+          <div style={{
+            position: 'absolute', top: isMobile ? 56 : 12,
+            // Bei offenem Detailpanel (Desktop: 330 px rechts) die Toolbar-Mitte
+            // mitverschieben, sonst liegt ihr rechtes Ende unter dem Panel
+            left: !isMobile && panelFeatureId ? 'calc(50% - 171px)' : '50%',
+            transform: 'translateX(-50%)', transition: 'left .18s ease',
+            zIndex: 1000, display: 'flex', alignItems: 'center', gap: 4, background: SURFACE,
+            border: `1px solid ${BORDER}`, borderRadius: 10, padding: 4,
+            boxShadow: '0 2px 14px rgba(0,0,0,0.4)',
+            maxWidth: !isMobile && panelFeatureId ? 'calc(100% - 380px)' : 'calc(100% - 24px)', overflowX: 'auto',
+          }}>
             {/* Suche: Adresse (OSM-Geocoder), Projekte & Features */}
             <button onClick={() => searchOpen ? closeSearch() : setSearchOpen(true)}
               title="Suchen: Adresse, Projekt oder Feature" className="lu-chip"
@@ -2078,7 +2120,7 @@ export default function MapPage() {
             {canCapture && (
               <>
                 <select value={drawProjectId || ''} onChange={e => setDrawProjectId(e.target.value || null)}
-                  title="Projekt für neue Features"
+                  title="Projekt für neue Objekte"
                   style={{ maxWidth: 130, padding: '5px 6px', borderRadius: 6, border: `1px solid ${projectHint ? 'var(--luma-danger)' : BORDER}`, background: 'transparent', color: drawProjectId ? FG : MUTED, fontSize: 11, fontFamily: "'Space Grotesk', sans-serif", outline: 'none', cursor: 'pointer', flexShrink: 0 }}>
                   <option value="">Projekt wählen…</option>
                   {[...projects].sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -2205,6 +2247,20 @@ export default function MapPage() {
             <div style={{ padding: '5px 12px', fontSize: 8, color: MUTED, fontFamily: "'Space Mono', monospace", opacity: 0.7 }}>
               Adressen © OpenStreetMap (Photon)
             </div>
+          </div>
+        )}
+
+        {/* Filter-Hinweis: sonst sucht man Features, die man selbst versteckt hat */}
+        {!drawMode && versteckt > 0 && (
+          <div className="lu-fade-in" style={{ position: 'absolute', top: isMobile ? 102 : 58, right: 12, zIndex: 1001, display: 'flex', alignItems: 'center', gap: 8, background: SURFACE, border: `1px solid color-mix(in srgb, var(--luma-warn) 45%, transparent)`, borderRadius: 10, padding: '6px 10px', boxShadow: '0 2px 12px rgba(0,0,0,0.4)' }}>
+            <EyeOff size={12} color="var(--luma-warn)" />
+            <span style={{ fontSize: 11.5, color: FG, fontFamily: "'Space Grotesk', sans-serif" }}>
+              {versteckt} {versteckt === 1 ? 'Objekt' : 'Objekte'} ausgeblendet
+            </span>
+            <button onClick={resetFilter} className="lu-btn-ghost"
+              style={{ padding: '3px 9px', borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 11, fontFamily: "'Space Grotesk', sans-serif" }}>
+              Alle zeigen
+            </button>
           </div>
         )}
 

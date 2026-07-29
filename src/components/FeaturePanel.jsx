@@ -282,6 +282,7 @@ function SunAnalysis({ feature, centroid, canCapture, onUpdateProperties }) {
           </div>
           <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, marginTop: 6, lineHeight: 1.5 }}>
             {result.computed_at && <>Berechnet am {new Date(result.computed_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} · </>}
+            {['bed', 'area'].includes(feature.feature_type) && <>gilt für den Flächenschwerpunkt (nicht die ganze Fläche) · </>}
             {result.source === 'lod2'
               ? `${result.buildings_n} Gebäude (LoD2-Dachmodell, amtlich)`
               : `${result.buildings_n} Gebäude (${result.source === 'alkis' ? 'amtlich/ALKIS' : 'OSM'})`}
