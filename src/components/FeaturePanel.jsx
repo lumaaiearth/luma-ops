@@ -10,7 +10,8 @@ import { genId } from '../lib/storage.js'
 import { compressImage } from '../lib/images.js'
 import { queueUpload } from '../lib/uploadQueue.js'
 import { isNetworkError } from '../lib/outbox.js'
-import { geomMeasures, fmtArea, fmtLen, fmtLatLng } from '../lib/geo.js'
+import { geomMeasures, fmtArea, fmtLen, fmtLatLng, geometryBbox } from '../lib/geo.js'
+import { sampleScopePoints } from '../lib/klimaProfil.js'
 import { examplePhotos } from '../lib/placeholderImages.js'
 import { fetchBuildingsAround } from '../lib/overpass.js'
 import { fetchAlkisBuildings, fetchBerlinTrees, isInBerlin, radiusBbox } from '../lib/berlinGeo.js'
@@ -187,23 +188,52 @@ function FeaturePhotos({ feature, isAdmin, canCapture, onUpdateProperties }) {
   )
 }
 
+/** Min/Median/Max der Sonnenstunden je Jahreszeit über mehrere Stichproben. */
+function spannePerSaison(proben) {
+  const seasons = {}
+  for (const s of SEASONS) {
+    const werte = proben.map(p => p?.seasons?.[s.key]?.sun).filter(v => Number.isFinite(v)).sort((a, b) => a - b)
+    if (!werte.length) continue
+    const mitte = werte.length % 2
+      ? werte[(werte.length - 1) / 2]
+      : (werte[werte.length / 2 - 1] + werte[werte.length / 2]) / 2
+    seasons[s.key] = {
+      min: Math.round(werte[0] * 10) / 10,
+      med: Math.round(mitte * 10) / 10,
+      max: Math.round(werte[werte.length - 1] * 10) / 10,
+    }
+  }
+  return { n: proben.length, seasons }
+}
+
 /* ── Sonnenanalyse: direkte Sonnenstunden je Jahreszeit am Feature-Standort.
    Gebäude aus OSM (Overpass), Sonnenstand via SunCalc — Ergebnis wird in
    properties.sonnenanalyse gespeichert und befüllt den Florales™-Lichtfilter. */
-function SunAnalysis({ feature, centroid, canCapture, onUpdateProperties }) {
+function SunAnalysis({ feature, centroid, canCapture, onUpdateProperties, flaecheM2 }) {
   const [running, setRunning] = useState(false)
+  const [fortschritt, setFortschritt] = useState(null)
   const [error, setError] = useState(null)
   const [localResult, setLocalResult] = useState(null)
   const result = localResult || feature.properties?.sonnenanalyse || null
 
+  // Ab dieser Größe sagt ein einzelner Punkt zu wenig über die Fläche aus —
+  // ein 400-m²-Beet kann am Nordrand im Hausschatten und am Südrand voll
+  // besonnt sein. Dann rechnen wir zusätzlich Stichproben.
+  const mehrpunktig = flaecheM2 >= 150 && ['bed', 'area'].includes(feature.feature_type) && !!feature.geometry
+
   async function run() {
     if (!centroid) return
-    setRunning(true); setError(null)
+    setRunning(true); setError(null); setFortschritt(null)
     try {
       // Beste verfügbare Quelle: LoD2-Dachmodell (Projektgebiete) > ALKIS > OSM;
       // Bäume kommen in Berlin immer aus dem Baumkataster dazu.
       const berlin = isInBerlin(centroid.lat, centroid.lng)
-      const bbox = radiusBbox(centroid.lat, centroid.lng, 180)
+      // Umkreis so wählen, dass er die ganze Fläche plus Verschattungsradius
+      // abdeckt — sonst fehlen bei großen Flächen die Randgebäude.
+      const fbox = mehrpunktig ? geometryBbox(feature.geometry) : null
+      const spanneM = fbox ? Math.max((fbox[2] - fbox[0]) * 111320, (fbox[3] - fbox[1]) * 111320 * Math.cos(centroid.lat * Math.PI / 180)) : 0
+      const radius = Math.min(400, 180 + spanneM / 2)
+      const bbox = radiusBbox(centroid.lat, centroid.lng, radius)
       let buildings = [], trees = [], source = 'osm'
       const lod2Patch = await findLod2Patch(centroid.lat, centroid.lng).catch(() => null)
       if (berlin) {
@@ -215,14 +245,30 @@ function SunAnalysis({ feature, centroid, canCapture, onUpdateProperties }) {
           if (b) { buildings = b; source = 'alkis' }
         } catch { /* GDI down → OSM-Fallback */ }
       }
-      if (!lod2Patch && !buildings.length) buildings = await fetchBuildingsAround(centroid.lat, centroid.lng, 180)
+      if (!lod2Patch && !buildings.length) buildings = await fetchBuildingsAround(centroid.lat, centroid.lng, radius)
       const analysis = await analyzeSunAsync(centroid.lat, centroid.lng, buildings, trees, { source, lod2Patch })
+
+      // Stichproben über die Fläche — der Schwerpunkt bleibt der Hauptwert,
+      // die Spanne zeigt, wie einheitlich die Fläche wirklich ist.
+      if (mehrpunktig && fbox) {
+        const punkte = sampleScopePoints(fbox, feature.geometry, 5)
+          .filter(p => Math.abs(p.lat - centroid.lat) > 1e-6 || Math.abs(p.lng - centroid.lng) > 1e-6)
+        const proben = [analysis]
+        for (let i = 0; i < punkte.length; i++) {
+          setFortschritt(`Fläche ${i + 1}/${punkte.length}`)
+          try {
+            proben.push(await analyzeSunAsync(punkte[i].lat, punkte[i].lng, buildings, trees, { source, lod2Patch }))
+          } catch { /* einzelner Punkt darf das Gesamtergebnis nicht kippen */ }
+        }
+        analysis.flaeche = spannePerSaison(proben)
+      }
+
       setLocalResult(analysis)
       if (canCapture) onUpdateProperties({ sonnenanalyse: analysis })
     } catch (e) {
       setError(navigator.onLine ? 'Gebäudedaten gerade nicht erreichbar — später erneut versuchen.' : 'Offline — Analyse braucht Internet.')
     } finally {
-      setRunning(false)
+      setRunning(false); setFortschritt(null)
     }
   }
 
@@ -245,7 +291,7 @@ function SunAnalysis({ feature, centroid, canCapture, onUpdateProperties }) {
         <button type="button" onClick={run} disabled={running}
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: '9px 10px', borderRadius: 8, background: '#f59e0b15', border: '1px solid #f59e0b40', color: running ? MUTED : '#f59e0b', cursor: running ? 'default' : 'pointer', fontSize: 12, fontWeight: 600, fontFamily: SANS }}>
           {running ? <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Sun size={13} />}
-          {running ? 'Berechne Sonnenstunden…' : 'Sonnenstunden berechnen'}
+          {running ? (fortschritt ? `Berechne… ${fortschritt}` : 'Berechne Sonnenstunden…') : 'Sonnenstunden berechnen'}
         </button>
       )}
 
@@ -273,6 +319,12 @@ function SunAnalysis({ feature, centroid, canCapture, onUpdateProperties }) {
                   {v.kwh != null && (
                     <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, marginTop: 1 }}>≈ {v.kwh} kWh/m² <span style={{ opacity: 0.7 }}>(klarer Tag)</span></div>
                   )}
+                  {result.flaeche?.seasons?.[s.key] && (
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, marginTop: 1 }}>
+                      Fläche {result.flaeche.seasons[s.key].min}–{result.flaeche.seasons[s.key].max} h
+                      <span style={{ opacity: 0.7 }}> (Median {result.flaeche.seasons[s.key].med})</span>
+                    </div>
+                  )}
                   <div style={{ height: 3, borderRadius: 2, background: 'color-mix(in srgb, var(--luma-fg) 8%, transparent)', marginTop: 4, overflow: 'hidden' }}>
                     <div style={{ width: `${pct}%`, height: '100%', background: '#f59e0b' }} />
                   </div>
@@ -282,7 +334,9 @@ function SunAnalysis({ feature, centroid, canCapture, onUpdateProperties }) {
           </div>
           <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, marginTop: 6, lineHeight: 1.5 }}>
             {result.computed_at && <>Berechnet am {new Date(result.computed_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} · </>}
-            {['bed', 'area'].includes(feature.feature_type) && <>gilt für den Flächenschwerpunkt (nicht die ganze Fläche) · </>}
+            {['bed', 'area'].includes(feature.feature_type) && (result.flaeche?.n > 1
+              ? <>Hauptwert am Flächenschwerpunkt, Spanne aus {result.flaeche.n} Stichproben über die Fläche · </>
+              : <>gilt für den Flächenschwerpunkt (nicht die ganze Fläche) · </>)}
             {result.source === 'lod2'
               ? `${result.buildings_n} Gebäude (LoD2-Dachmodell, amtlich)`
               : `${result.buildings_n} Gebäude (${result.source === 'alkis' ? 'amtlich/ALKIS' : 'OSM'})`}
@@ -472,7 +526,7 @@ export default function FeaturePanel({
         )}
 
         {/* Sonnenstunden-Analyse (Gebäudeschatten, 4 Jahreszeiten) */}
-        <SunAnalysis feature={feature} centroid={m?.centroid} canCapture={canCapture} onUpdateProperties={onUpdateProperties} />
+        <SunAnalysis feature={feature} centroid={m?.centroid} flaecheM2={m?.area_m2 || 0} canCapture={canCapture} onUpdateProperties={onUpdateProperties} />
 
         {/* Starkregen-Check (Berliner Gefahrenkarte, Ampel) */}
         <RainCheck feature={feature} centroid={m?.centroid} canCapture={canCapture} onUpdateProperties={onUpdateProperties} />

@@ -114,6 +114,29 @@ export function geometryCentroid(geometry) {
   return geomMeasures(geometry)?.centroid || null
 }
 
+// Umschließendes Rechteck einer Geometrie als [süd, west, nord, ost] —
+// dieselbe Reihenfolge wie die Gebiets-BBoxen in public/geo und Leaflets
+// fitBounds-Paare.
+export function geometryBbox(geometry) {
+  if (!geometry?.coordinates) return null
+  let s = 90, w = 180, n = -90, e = -180, gefunden = false
+  const lauf = c => {
+    if (typeof c[0] === 'number') {
+      const [lng, lat] = c
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
+      gefunden = true
+      if (lat < s) s = lat
+      if (lat > n) n = lat
+      if (lng < w) w = lng
+      if (lng > e) e = lng
+      return
+    }
+    for (const teil of c) lauf(teil)
+  }
+  lauf(geometry.coordinates)
+  return gefunden ? [s, w, n, e] : null
+}
+
 export function fmtArea(m2) { return m2 >= 10000 ? `${(m2 / 10000).toFixed(2)} ha` : `${Math.round(m2)} m²` }
 export function fmtLen(m) { return m >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${Math.round(m)} m` }
 export function fmtLatLng(c) { return c ? `${c.lat.toFixed(6)}, ${c.lng.toFixed(6)}` : '—' }
