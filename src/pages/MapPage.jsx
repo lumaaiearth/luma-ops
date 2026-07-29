@@ -954,6 +954,9 @@ export default function MapPage() {
   const [lod2Index, setLod2Index] = useState([])
   const [heatmapSeason, setHeatmapSeason] = useState('sommer')
   const [reportFeatureId, setReportFeatureId] = useState(null)  // offener Klima-Steckbrief
+  // Kacheln, die der Dienst nicht liefert — sonst meldet die Ebene „AN",
+  // obwohl gar nichts ankommt
+  const [layerIssues, setLayerIssues] = useState({})
 
   // Tageslänge des gewählten Stichtags — für die Heatmap-Legende. Nimmt das
   // Gebiet, das gerade im Blick ist (sonst stimmte die Skala nur zufällig).
@@ -1041,6 +1044,7 @@ export default function MapPage() {
   }
   function toggleLayer(id) {
     setActiveLayers(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next })
+    setLayerIssues(prev => (prev[id] ? { ...prev, [id]: false } : prev))
   }
 
   const upcomingJobs = useMemo(() => {
@@ -1579,8 +1583,15 @@ export default function MapPage() {
                       <div style={{ width: 8, height: 8, borderRadius: 2, background: layer.color, flexShrink: 0 }} />
                       <span style={{ flex: 1 }}>{layer.label}</span>
                       {layer.region && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, opacity: 0.55, flexShrink: 0 }}>{layer.region}</span>}
-                      <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9 }}>{on ? 'AN' : 'AUS'}</span>
+                      <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: on && layerIssues[layer.id] ? 'var(--luma-warn)' : undefined }}>
+                        {on ? (layerIssues[layer.id] ? 'FEHLER' : 'AN') : 'AUS'}
+                      </span>
                     </button>
+                    {on && layerIssues[layer.id] && (
+                      <div style={{ fontSize: 10, color: 'var(--luma-warn)', padding: '3px 10px 4px 25px', lineHeight: 1.4 }}>
+                        Der Dienst liefert gerade keine Kacheln{layer.minZoom ? ` — evtl. zu weit herausgezoomt (ab Stufe ${layer.minZoom} sichtbar)` : ''}.
+                      </div>
+                    )}
                     {on && layer.desc && (
                       <div style={{ fontSize: 10, color: MUTED, padding: '3px 10px 4px 25px', lineHeight: 1.4 }}>{layer.desc}</div>
                     )}
@@ -1834,7 +1845,11 @@ export default function MapPage() {
             <WMSTileLayer key={layer.id} url={layer.wms.url} layers={layer.wms.layers}
               format={layer.wms.format} transparent={layer.wms.transparent} opacity={layer.wms.opacity}
               version={layer.wms.version || '1.3.0'} attribution={layer.wms.attribution || ''}
-              zIndex={210} maxZoom={22} maxNativeZoom={19} minZoom={layer.minZoom || 0} />
+              zIndex={210} maxZoom={22} maxNativeZoom={19} minZoom={layer.minZoom || 0}
+              eventHandlers={{
+                tileerror: () => setLayerIssues(prev => (prev[layer.id] ? prev : { ...prev, [layer.id]: true })),
+                load: () => setLayerIssues(prev => (prev[layer.id] ? { ...prev, [layer.id]: false } : prev)),
+              }} />
           ))}
 
           {/* Sonnen-Heatmaps: vorberechnete Raster (scripts/solar-heatmap.mjs)
