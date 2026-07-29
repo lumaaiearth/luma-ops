@@ -898,7 +898,11 @@ function SensorFormModal({ project, position, onSave, onCancel }) {
 /* ─── MAIN COMPONENT ────────────────────────────────────────────────────── */
 export default function MapPage() {
   const { projects, jobs, clients, mapFeatures, tasks, pflanzplaene, sensors, createSensor, createMapFeature, updateMapFeature, deleteMapFeature, updateProject } = useOps()
-  const { isAdmin } = useAuth()
+  // Rechte: Erfassen (Features, Fotos, Sensoren, Analysen) dürfen alle internen
+  // Nutzer — dafür ist die mobile Serien-Erfassung gebaut, und die RLS erlaubt es
+  // (Policy is_internal()). Löschen und Geometrien verschieben bleibt Admin-Sache.
+  const { isAdmin, isMitarbeiter } = useAuth()
+  const canCapture = isMitarbeiter
   const navigate = useNavigate()
   const location = useLocation()
   const today = isoToday()
@@ -1628,7 +1632,7 @@ export default function MapPage() {
                                   style={{ width: 20, height: 20, borderRadius: 4, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                   {featHidden ? <EyeOff size={10} /> : <Eye size={10} />}
                                 </button>
-                                {isAdmin && !isOverlay && (
+                                {canCapture && !isOverlay && (
                                   <button onClick={() => openEditForm(feat)} title="Bearbeiten"
                                     style={{ width: 20, height: 20, borderRadius: 4, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <Pencil size={9} />
@@ -1680,7 +1684,7 @@ export default function MapPage() {
                         })}
 
                         {/* Draw mode selector */}
-                        {isAdmin && !drawMode && (
+                        {canCapture && !drawMode && (
                           <div style={{ marginTop: 4, marginBottom: 6 }}>
                             <div style={{ fontSize: 9, color: MUTED, fontFamily: "'Space Mono', monospace", textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 4 }}>Erfassen</div>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
@@ -2039,7 +2043,7 @@ export default function MapPage() {
                 style={{ width: isMobile ? 150 : 240, padding: '6px 8px', borderRadius: 7, border: `1px solid ${BORDER}`, background: 'transparent', color: FG, fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", outline: 'none', flexShrink: 0 }} />
             )}
             <div style={{ width: 1, alignSelf: 'stretch', background: BORDER, margin: '2px 2px', flexShrink: 0 }} />
-            {isAdmin && (
+            {canCapture && (
               <>
                 <select value={drawProjectId || ''} onChange={e => setDrawProjectId(e.target.value || null)}
                   title="Projekt für neue Features"
@@ -2057,10 +2061,12 @@ export default function MapPage() {
                   style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: '1px solid transparent', background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
                   <span style={{ fontSize: 13 }}>📡</span>{!isMobile && 'Sensor'}
                 </button>
-                <button onClick={() => setEditMode(v => !v)} title="Bearbeiten: Punkte verschieben, Eckpunkte ziehen"
+                {/* Geometrien verschieben bleibt Admin-Sache — versehentliches
+                    Ziehen würde bestehende Flächen verfälschen */}
+                {isAdmin && <button onClick={() => setEditMode(v => !v)} title="Bearbeiten: Punkte verschieben, Eckpunkte ziehen"
                   style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: `1px solid ${editMode ? `color-mix(in srgb, ${A} 44%, transparent)` : 'transparent'}`, background: editMode ? A14 : 'transparent', color: editMode ? A : MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
                   <Move size={13} />{!isMobile && 'Bearbeiten'}
-                </button>
+                </button>}
                 <div style={{ width: 1, alignSelf: 'stretch', background: BORDER, margin: '2px 2px', flexShrink: 0 }} />
               </>
             )}
@@ -2076,7 +2082,7 @@ export default function MapPage() {
               style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: `1px solid ${gpsOn ? 'rgba(59,130,246,0.5)' : 'transparent'}`, background: gpsOn ? 'rgba(59,130,246,0.14)' : 'transparent', color: gpsOn ? '#3b82f6' : MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
               <LocateFixed size={13} />{!isMobile && 'Standort'}
             </button>
-            {isAdmin && gpsOn && userPos && (
+            {canCapture && gpsOn && userPos && (
               <button onClick={captureTreeAtPosition} title="Baum an meiner aktuellen GPS-Position erfassen"
                 style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 7, border: '1px solid #22c55e50', background: '#22c55e18', color: '#22c55e', cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0, fontWeight: 600 }}>
                 🌳 Baum hier
@@ -2291,6 +2297,7 @@ export default function MapPage() {
             project={proj}
             isMobile={isMobile}
             isAdmin={isAdmin}
+            canCapture={canCapture}
             linkedPlans={plansByFeature[feat.id] || []}
             onOpenPlan={pp => navigate('/planning', { state: { openPlanId: pp.id } })}
             onPlanInFlorales={() => {

@@ -69,7 +69,7 @@ function Stat({ label, value, unit }) {
 
 /* ── Fotos: gespeichert in feature.properties.photos = [{id, url}] ──
    Ohne eigene Fotos werden generierte Beispielbilder angezeigt. */
-function FeaturePhotos({ feature, isAdmin, onUpdateProperties }) {
+function FeaturePhotos({ feature, isAdmin, canCapture, onUpdateProperties }) {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState(null)
   const [lightbox, setLightbox] = useState(null)
@@ -137,7 +137,7 @@ function FeaturePhotos({ feature, isAdmin, onUpdateProperties }) {
         <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
           Fotos {real.length > 0 && `(${real.length})`}{stillPending.length > 0 && ' · ' + stillPending.length + ' wartet'}
         </span>
-        {isAdmin && (
+        {canCapture && (
           <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="lu-btn-ghost"
             style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 5, border: `1px solid ${BORDER}`, background: 'transparent', color: uploading ? MUTED : A, cursor: uploading ? 'default' : 'pointer', fontSize: 11, fontFamily: SANS }}>
             {uploading ? <Loader size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Camera size={12} />}
@@ -163,7 +163,7 @@ function FeaturePhotos({ feature, isAdmin, onUpdateProperties }) {
       </div>
       {usingExamples && (
         <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, marginTop: 6, lineHeight: 1.5 }}>
-          Noch keine eigenen Fotos — Beispielbilder werden angezeigt.{isAdmin ? ' Über „Foto" eigene Bilder hochladen.' : ''}
+          Noch keine eigenen Fotos — Beispielbilder werden angezeigt.{canCapture ? ' Über „Foto" eigene Bilder hochladen.' : ''}
         </div>
       )}
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
@@ -190,7 +190,7 @@ function FeaturePhotos({ feature, isAdmin, onUpdateProperties }) {
 /* ── Sonnenanalyse: direkte Sonnenstunden je Jahreszeit am Feature-Standort.
    Gebäude aus OSM (Overpass), Sonnenstand via SunCalc — Ergebnis wird in
    properties.sonnenanalyse gespeichert und befüllt den Florales™-Lichtfilter. */
-function SunAnalysis({ feature, centroid, isAdmin, onUpdateProperties }) {
+function SunAnalysis({ feature, centroid, canCapture, onUpdateProperties }) {
   const [running, setRunning] = useState(false)
   const [error, setError] = useState(null)
   const [localResult, setLocalResult] = useState(null)
@@ -218,7 +218,7 @@ function SunAnalysis({ feature, centroid, isAdmin, onUpdateProperties }) {
       if (!lod2Patch && !buildings.length) buildings = await fetchBuildingsAround(centroid.lat, centroid.lng, 180)
       const analysis = analyzeSun(centroid.lat, centroid.lng, buildings, trees, { source, lod2Patch })
       setLocalResult(analysis)
-      if (isAdmin) onUpdateProperties({ sonnenanalyse: analysis })
+      if (canCapture) onUpdateProperties({ sonnenanalyse: analysis })
     } catch (e) {
       setError(navigator.onLine ? 'Gebäudedaten gerade nicht erreichbar — später erneut versuchen.' : 'Offline — Analyse braucht Internet.')
     } finally {
@@ -295,7 +295,7 @@ function SunAnalysis({ feature, centroid, isAdmin, onUpdateProperties }) {
 
 /* ── Starkregen-Check: Ampel gegen die Berliner Starkregengefahrenkarte.
    Ergebnis wird in properties.starkregen gespeichert (wie Sonnenanalyse). */
-function RainCheck({ feature, centroid, isAdmin, onUpdateProperties }) {
+function RainCheck({ feature, centroid, canCapture, onUpdateProperties }) {
   const [running, setRunning] = useState(false)
   const [error, setError] = useState(null)
   const [localResult, setLocalResult] = useState(null)
@@ -307,7 +307,7 @@ function RainCheck({ feature, centroid, isAdmin, onUpdateProperties }) {
     try {
       const res = await checkStarkregen(centroid.lat, centroid.lng)
       setLocalResult(res)
-      if (isAdmin) onUpdateProperties({ starkregen: res })
+      if (canCapture) onUpdateProperties({ starkregen: res })
     } catch {
       setError(navigator.onLine ? 'Starkregengefahrenkarte gerade nicht erreichbar.' : 'Offline — Prüfung braucht Internet.')
     } finally {
@@ -377,7 +377,7 @@ const KNOWN_KEYS = new Set([
 ])
 
 export default function FeaturePanel({
-  feature, project, isMobile, isAdmin,
+  feature, project, isMobile, isAdmin, canCapture = false,
   onClose, onEdit, onDelete, onUpdateProperties, onGoProject,
   linkedPlans = [], onOpenPlan, onPlanInFlorales, onReport,
 }) {
@@ -469,10 +469,10 @@ export default function FeaturePanel({
         )}
 
         {/* Sonnenstunden-Analyse (Gebäudeschatten, 4 Jahreszeiten) */}
-        <SunAnalysis feature={feature} centroid={m?.centroid} isAdmin={isAdmin} onUpdateProperties={onUpdateProperties} />
+        <SunAnalysis feature={feature} centroid={m?.centroid} canCapture={canCapture} onUpdateProperties={onUpdateProperties} />
 
         {/* Starkregen-Check (Berliner Gefahrenkarte, Ampel) */}
-        <RainCheck feature={feature} centroid={m?.centroid} isAdmin={isAdmin} onUpdateProperties={onUpdateProperties} />
+        <RainCheck feature={feature} centroid={m?.centroid} canCapture={canCapture} onUpdateProperties={onUpdateProperties} />
 
         {/* Klima-Steckbrief: fasst alle Analysen druckfähig zusammen */}
         {onReport && m?.centroid && (
@@ -496,7 +496,7 @@ export default function FeaturePanel({
                 <span style={{ fontFamily: MONO, fontSize: 9, color: A }}>{PLAN_STATUS_LABELS[pp.status] || pp.status} · {pp.positionen?.length || 0} Arten</span>
               </button>
             ))}
-            {canFloralis && isAdmin && (
+            {canFloralis && canCapture && (
               <button onClick={onPlanInFlorales}
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: '8px 10px', borderRadius: 8, background: '#22c55e18', border: '1px solid #22c55e40', color: '#22c55e', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: SANS }}>
                 🌿 {linkedPlans.length > 0 ? 'Neu in Florales planen' : 'In Florales planen'} →
@@ -506,12 +506,12 @@ export default function FeaturePanel({
         )}
 
         {/* Fotos */}
-        <FeaturePhotos feature={feature} isAdmin={isAdmin} onUpdateProperties={onUpdateProperties} />
+        <FeaturePhotos feature={feature} isAdmin={isAdmin} canCapture={canCapture} onUpdateProperties={onUpdateProperties} />
       </div>
 
       {/* Aktionen */}
       <div style={{ display: 'flex', gap: 6, padding: '10px 16px', borderTop: `1px solid ${BORDER}`, flexShrink: 0, paddingBottom: isMobile ? 'calc(10px + env(safe-area-inset-bottom))' : 10 }}>
-        {isAdmin && (
+        {canCapture && (
           <button onClick={onEdit} className="lu-btn-ghost"
             style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '8px 10px', borderRadius: 7, border: `1px solid ${BORDER}`, background: 'transparent', color: FG, cursor: 'pointer', fontSize: 12, fontFamily: SANS }}>
             <Pencil size={12} /> Bearbeiten
