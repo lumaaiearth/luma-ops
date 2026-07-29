@@ -77,7 +77,7 @@ wiederkehrende Aufgabe (Mechanik existiert bereits).
 ├────────────────────────────────────────────────────────────┤
 │ Sensoren  │ Ø Wert   │ Kritisch │ Warnung │ Messpunkte     │
 ├───────────────────────────────┬────────────────────────────┤
-│  Punktwolke (Karte)           │  Verteilung (Histogramm)   │
+│  Punktwolke + IDW-Fläche      │  Verteilung (Histogramm)   │
 │  Farbe = Messwert             │  Wie viele Messstellen     │
 │  Größe = Abweichung           │  liegen in welchem Bereich │
 ├───────────────────────────────┴────────────────────────────┤
@@ -98,15 +98,30 @@ wiederkehrende Aufgabe (Mechanik existiert bereits).
 - Zeithorizont 24 h / 7 Tage / 30 Tage / 12 Monate mit passender Verdichtung
 - Kennzahlen: Anzahl Messstellen, Mittelwert, kritische/warnende Stellen
 
+**Inzwischen ebenfalls umgesetzt:**
+1. ✅ **Gebiets-Klimaprofil** im Kopf: PET, Versiegelung, Grünvolumen als
+   Gebietsmittel aus einer Stichprobe über das Gebiet (`fetchGebietsProfil`).
+   Wichtig für die Belastbarkeit: statt eines widersprüchlichen „häufigsten
+   Labels" wird der **Anteil belasteter Punkte** (PET ≥ 35) ausgewiesen.
+2. ✅ **Sensor-Cluster** nach Standortcharakter (versiegelt ≥ 50 % /
+   gemischt ≥ 25 % / grün), Vergleich der Cluster im selben Diagramm
+3. ✅ **Interpolationsfläche** (IDW) über die Messpunkte, zuschaltbar; auf die
+   Gebietsgrenze maskiert, ohne Messpunkt in Reichweite bleibt die Karte frei.
+   Ab drei Messpunkten wählbar, mit ausgewiesener Reichweite — die Schätzung
+   ist als Schätzung gekennzeichnet.
+4. ✅ **CSV-Export** der Rohmesswerte inkl. Standortcharakter (für GIS-/
+   Fachabteilungen) und Druckansicht des Dashboards
+5. ✅ **Alarm-Regeln** je Sensor: Warn-/Kritisch-Schwelle nach unten **und**
+   oben, Hysterese gegen Flattern, Ruhezeit, Ziel-Gruppe in Telegram, Aufgabe
+   im wählbaren Bereich (`lib/sensorAlarm.js`, Sensor-Detailseite)
+
 🔜 **als Nächstes:**
-1. **Gebiets-Klimaprofil** im Kopf: PET, Versiegelung, Grünvolumen als
-   Gebietsmittel (die Punktabfrage dafür existiert schon in `lib/klimaProfil.js`)
-2. **Sensor-Cluster**: Gruppierung nach Standorttyp (versiegelt/Baumscheibe/
-   Grünfläche) und Vergleich der Cluster im selben Diagramm
-3. **Interpolationsfläche** statt nur Punkte (IDW-Raster über das Gebiet)
-4. **Export**: PDF-Bericht je Zeitraum, CSV/GeoJSON für die GIS-Abteilung
-5. **Alarm-Regeln** je Kunde (Schwellwert → E-Mail/Telegram; Mechanik existiert)
-6. **Vergleich**: zwei Gebiete oder zwei Zeiträume nebeneinander
+1. **PDF-Bericht je Zeitraum** (heute Browser-Druck) mit Kartenausschnitt —
+   die Kachel-Komposition dafür steht bereits (`lib/mapSnapshot.js`)
+2. **Vergleich**: zwei Gebiete oder zwei Zeiträume nebeneinander
+3. **Alarmregeln auf Kunden-/Projektebene** statt nur je Sensor (Vorlage, die
+   für alle Sensoren eines Projekts gilt)
+4. **Gieß-Prioritätenliste** an Hitzetagen aus Sensorlage + DWD-Vorhersage
 
 ## 5 · Warum das verkäuflich ist
 
