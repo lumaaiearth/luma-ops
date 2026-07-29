@@ -3,7 +3,7 @@
 // sieht darin seine Sensorik als Punktwolke mit Verteilungen, wählt frei den
 // Zeithorizont und bekommt die Klima-Kennwerte des Gebiets aus amtlichen Daten.
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { MapContainer, TileLayer, GeoJSON, CircleMarker, Tooltip as LTooltip, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, GeoJSON, CircleMarker, ImageOverlay, Tooltip as LTooltip, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import {
   AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -17,6 +17,7 @@ import { SENSOR_TYPE_LABELS, SENSOR_TYPE_ICONS } from '../data/sensorTypes.js'
 import { useIsMobile } from '../lib/useIsMobile.js'
 import { geometryCentroid } from '../lib/geo.js'
 import { sampleScopePoints, fetchGebietsProfil, fetchSensorCluster, CLUSTER } from '../lib/klimaProfil.js'
+import { idwRaster, rasterZuDataUrl } from '../lib/idw.js'
 
 const MONO = "'Space Mono', monospace"
 const SANS = "'Space Grotesk', sans-serif"
@@ -37,15 +38,18 @@ const METRICS = [
 ]
 
 // Farbverlauf einer Messgröße (niedrig → hoch)
-function valueColor(metric, v) {
-  if (v == null) return '#6b7280'
+function valueRgb(metric, v) {
+  if (v == null) return [107, 114, 128]
   const t = Math.max(0, Math.min(1, (v - metric.low) / (metric.high - metric.low || 1)))
   const stops = metric.type === 'soil_moisture'
     ? [[194, 120, 60], [214, 190, 90], [110, 190, 160], [56, 140, 220]]   // trocken → nass
     : [[59, 130, 246], [110, 200, 180], [250, 204, 21], [239, 68, 68]]    // kalt → heiß
   const seg = Math.min(stops.length - 2, Math.floor(t * (stops.length - 1)))
   const f = t * (stops.length - 1) - seg
-  const c = stops[seg].map((x, i) => Math.round(x + (stops[seg + 1][i] - x) * f))
+  return stops[seg].map((x, i) => Math.round(x + (stops[seg + 1][i] - x) * f))
+}
+function valueColor(metric, v) {
+  const c = valueRgb(metric, v)
   return `rgb(${c[0]},${c[1]},${c[2]})`
 }
 
@@ -104,6 +108,7 @@ export default function ClimateDashboardPage() {
   const [profilLaeuft, setProfilLaeuft] = useState(false)
   const [cluster, setCluster] = useState({})                // sensorId → {vg_pct, cluster}
   const [clusterAn, setClusterAn] = useState(false)
+  const [flaecheAn, setFlaecheAn] = useState(true)          // IDW-Fläche zwischen den Punkten
 
   const metric = METRICS.find(m => m.type === metricType) || METRICS[0]
   const rangeDef = RANGES.find(r => r.id === range)
@@ -262,6 +267,38 @@ export default function ClimateDashboardPage() {
   const vmax = values.length ? Math.max(...values) : null
   const kritisch = metricSensors.filter(s => s.status === 'critical').length
   const warnend = metricSensors.filter(s => s.status === 'warning').length
+
+  // IDW-Fläche: Schätzwert zwischen den Messpunkten. Erst ab drei Punkten
+  // sinnvoll — mit zwei Sensoren entsteht nur ein Farbverlauf ohne Aussage.
+  const interpolation = useMemo(() => {
+    if (!flaecheAn) return null
+    const punkte = metricSensors
+      .map(s => ({ lat: +s.lat, lng: +s.lng, value: latest[s.id] }))
+      .filter(p => Number.isFinite(p.value))
+    if (punkte.length < 3) return null
+
+    // Ausschnitt: der Scope, sonst die Punkte selbst mit Rand.
+    let bbox = scope?.bbox
+    if (!bbox) {
+      const lats = punkte.map(p => p.lat), lngs = punkte.map(p => p.lng)
+      const dLat = Math.max(0.004, (Math.max(...lats) - Math.min(...lats)) * 0.25)
+      const dLng = Math.max(0.006, (Math.max(...lngs) - Math.min(...lngs)) * 0.25)
+      bbox = [Math.min(...lats) - dLat, Math.min(...lngs) - dLng, Math.max(...lats) + dLat, Math.max(...lngs) + dLng]
+    }
+    // Reichweite an die Punktdichte koppeln: in einem Bezirk darf ein Sensor
+    // weiter „strahlen" als auf einer Projektfläche.
+    const spanneM = (bbox[2] - bbox[0]) * 111320
+    const maxDistM = Math.max(150, Math.min(2500, spanneM / Math.sqrt(punkte.length) * 0.9))
+    const maske = scope?.geometry ? (lng, lat) => inGeometry(lng, lat, scope.geometry) : null
+
+    const raster = idwRaster({ punkte, bbox, breite: 150, hoehe: 110, maxDistM, maske })
+    if (!raster.gefuellt) return null
+    let url = null
+    try { url = rasterZuDataUrl(raster, v => valueRgb(metric, v), 0.7) } catch { return null }
+    return { url, bounds: [[bbox[0], bbox[1]], [bbox[2], bbox[3]]], punkte: punkte.length, maxDistM: Math.round(maxDistM) }
+  }, [flaecheAn, metricSensors, latest, scope, metric])
+
+  const interpolierbar = metricSensors.filter(s => Number.isFinite(latest[s.id])).length >= 3
 
   // Verteilung (Histogramm) der aktuellen Werte
   const verteilung = useMemo(() => {
@@ -473,6 +510,19 @@ export default function ClimateDashboardPage() {
               Sensor-Punktwolke · {metric.label}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button onClick={() => interpolierbar && setFlaecheAn(v => !v)} disabled={!interpolierbar}
+                title={interpolierbar
+                  ? 'Geschätzter Verlauf zwischen den Messpunkten (IDW)'
+                  : 'Braucht mindestens 3 Messpunkte mit Wert'}
+                style={{
+                  padding: '4px 10px', borderRadius: 999, fontFamily: MONO, fontSize: 9, letterSpacing: '0.06em',
+                  border: `1px solid ${flaecheAn && interpolierbar ? A : BORDER}`,
+                  background: flaecheAn && interpolierbar ? A20 : 'transparent',
+                  color: !interpolierbar ? MUTED : flaecheAn ? A : MUTED,
+                  cursor: interpolierbar ? 'pointer' : 'default', fontWeight: 700,
+                }}>
+                FLÄCHE
+              </button>
               <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED }}>{metric.low}{metric.unit}</span>
               <div style={{ width: 90, height: 7, borderRadius: 4, background: `linear-gradient(to right, ${valueColor(metric, metric.low)}, ${valueColor(metric, (metric.low + metric.high) / 2)}, ${valueColor(metric, metric.high)})` }} />
               <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED }}>{metric.high}{metric.unit}</span>
@@ -487,6 +537,9 @@ export default function ClimateDashboardPage() {
                   style={{ color: A, weight: 2, fillColor: A, fillOpacity: 0.06 }} />
               )}
               {scope?.bbox && <FitBounds bbox={scope.bbox} />}
+              {interpolation && (
+                <ImageOverlay url={interpolation.url} bounds={interpolation.bounds} opacity={1} zIndex={250} />
+              )}
               {metricSensors.map(s => {
                 const v = latest[s.id]
                 return (
@@ -504,6 +557,13 @@ export default function ClimateDashboardPage() {
                 )
               })}
             </MapContainer>
+          </div>
+          <div style={{ padding: '7px 16px 10px', fontFamily: MONO, fontSize: 9, color: MUTED, lineHeight: 1.5 }}>
+            {interpolation
+              ? `Fläche: geschätzter Verlauf (IDW, ${interpolation.punkte} Messpunkte, Reichweite ${interpolation.maxDistM} m) — Schätzung, keine Messung. Ohne Sensor in Reichweite bleibt die Karte frei.`
+              : interpolierbar
+                ? 'Nur Messpunkte. „Fläche" schätzt den Verlauf dazwischen.'
+                : 'Ab drei Messpunkten mit Wert lässt sich der Verlauf dazwischen schätzen.'}
           </div>
         </Card>
 
