@@ -3,6 +3,7 @@
 // das Dokument, das man einer Verwaltung oder einem Auftraggeber vorlegt.
 // Öffnet als Vollbild-Overlay, druckt über die Browser-Druckfunktion (auch PDF).
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { X, Printer, Loader, Sun, Droplets, Thermometer, Leaf, MapPin } from 'lucide-react'
 import { geomMeasures, fmtArea, fmtLen, fmtLatLng } from '../lib/geo.js'
 import { SEASONS, LICHT_KLASSEN } from '../lib/solar.js'
@@ -96,31 +97,53 @@ export default function ClimateReport({ feature, project, heatmapEntry, onClose 
 
   if (!feature) return null
 
+  // Kartenbilder brauchen einen Moment (Kacheln laden + zeichnen); solange
+  // gilt der Bericht als unfertig.
+  const nochNichtFertig = loading || (!!feature.geometry && karten === null)
   const licht = sonne ? LICHT_KLASSEN[sonne.licht] : null
   const regenAmpel = regen ? REGEN_AMPEL[regen.ampel] : null
   const tipps = empfehlungen({ klima, sonne, regen, flaeche_m2: m?.area_m2 || 0 })
   const heute = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })
 
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(15,18,22,0.75)', overflowY: 'auto', padding: '24px 16px' }}
+  // Der Bericht hängt per Portal direkt an <body>. Ohne das steht er im
+  // React-Baum unter #root — und die Druckregel „alles außer dem Bericht
+  // ausblenden" träfe #root selbst, der Ausdruck bliebe leer.
+  return createPortal((
+    <div className="lu-report-root" style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(15,18,22,0.75)', overflowY: 'auto', padding: '24px 16px' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
       <style>{`
         @media print {
           body > *:not(.lu-report-root) { display: none !important; }
           .lu-report-root { position: static !important; inset: auto !important; background: #fff !important; padding: 0 !important; overflow: visible !important; }
-          .lu-report-sheet { box-shadow: none !important; margin: 0 !important; max-width: none !important; border-radius: 0 !important; }
+          .lu-report-sheet { box-shadow: none !important; margin: 0 !important; max-width: none !important; border-radius: 0 !important; padding: 0 !important; }
           .lu-report-noprint { display: none !important; }
-          @page { margin: 14mm; }
+          /* Farbige Flächen (Ampel, Lichtklasse, Kartenbilder) druckt der
+             Browser sonst weiß — der Bericht lebt aber von ihnen. */
+          .lu-report-root, .lu-report-root * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          /* Umbruchsteuerung: Überschrift nie allein am Seitenfuß, Bilder und
+             Kennzahlenblöcke nicht zerschneiden, keine Schusterjungen. */
+          .lu-report-root h1, .lu-report-root h2 { break-after: avoid-page; }
+          .lu-report-root img, .lu-report-root table, .lu-report-root figure { break-inside: avoid; }
+          .lu-report-root p, .lu-report-root li { orphans: 3; widows: 3; }
+          .lu-report-root footer { break-inside: avoid; }
+          @page { size: A4; margin: 14mm; }
         }
       `}</style>
 
-      <div className="lu-report-root" style={{ display: 'contents' }}>
+      <div>
         <div className="lu-report-sheet" style={{ maxWidth: 820, margin: '0 auto', background: PAPER, borderRadius: 12, boxShadow: '0 24px 70px rgba(0,0,0,0.45)', padding: '28px 34px 34px', color: INK }}>
 
           {/* Aktionsleiste (nicht im Druck) */}
-          <div className="lu-report-noprint" style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginBottom: 14 }}>
-            <button onClick={() => window.print()}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, border: 'none', background: '#08AA56', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: SANS }}>
+          <div className="lu-report-noprint" style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center', marginBottom: 14 }}>
+            {nochNichtFertig && (
+              <span style={{ fontFamily: MONO, fontSize: 10, color: SOFT }}>
+                {loading ? 'Klimadaten werden geladen…' : 'Kartenbilder werden gerendert…'}
+              </span>
+            )}
+            {/* Erst drucken, wenn Klimadaten und Kartenbilder da sind — sonst
+                fehlen im PDF genau die Teile, wegen derer es gedruckt wird. */}
+            <button onClick={() => window.print()} disabled={nochNichtFertig}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, border: 'none', background: nochNichtFertig ? LINE : '#08AA56', color: nochNichtFertig ? SOFT : '#fff', cursor: nochNichtFertig ? 'default' : 'pointer', fontSize: 13, fontWeight: 600, fontFamily: SANS }}>
               <Printer size={14} /> Drucken / als PDF speichern
             </button>
             <button onClick={onClose}
@@ -323,5 +346,5 @@ export default function ClimateReport({ feature, project, heatmapEntry, onClose 
       </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
-  )
+  ), document.body)
 }
