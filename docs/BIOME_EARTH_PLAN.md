@@ -131,10 +131,25 @@ Ergebnis wirklich besser ist.
    die Starkregengefahrenkarte, Ergebnis am Objekt gespeichert; Ausfall des
    Dienstes wird als „unbekannt" gezeigt statt fälschlich als grün.
    Offen: Maßnahmenvorschlag (Mulde/Versickerung) und Sturmschaden-Doku.
-3. **Sensor-Live-Kacheln** (P2): Sensorwerte als Karten-Badges mit Sparkline.
+3. **Sensor-Live-Kacheln** ✅ umgesetzt: Panel „📡 Sensoren" in der Karten-
+   Toolbar zeigt je Sensor aktuellen Wert, Sparkline, Tendenz und min/ø/max;
+   dieselbe Kurve steckt im Marker-Popup. Alarme stehen oben und der Toolbar-
+   Button trägt die Anzahl als Badge. Technik: `sensorSeries.js` (reine
+   Rechenlogik, per `npm test` geprüft), `sensorHistory.js` (lädt alle
+   Sensoren in EINER Abfrage, 5-Minuten-Cache, erst beim Öffnen des Panels),
+   `Sparkline.jsx` (reines SVG, absichtlich ohne Recharts — auf der Karte
+   liegen viele Kacheln gleichzeitig).
+   Beschriftet wird mit dem echten Zeitraum der Messwerte statt mit einer
+   festen Angabe; liegt der jüngste Wert über 3 Tage zurück, sagt die Kachel
+   „seit N Tagen kein Wert". Grund: Die Messwerte kommen schubweise — aktuell
+   liegen 1348 Werte für s1–s4 vom 4.–11.7. in der DB, ein 7-Tage-Fenster
+   hätte jede Kachel leer aussehen lassen.
    Alarmteil ✅ umgesetzt (`sensorAlarm.js`): Warn-/Kritisch-Schwellen nach
    oben und unten je Sensor, Hysterese, Ruhezeit, Flatterschutz, Ziel-Gruppe
    in Telegram, Aufgabe im wählbaren Bereich.
+   Offen: Die Tabelle `sensors` ist in der DB leer — die Sensorliste kommt aus
+   `SEED_SENSORS` (ohne GPS, daher keine Marker). Sobald echte Hardware Sensoren
+   mit Koordinaten anlegt, erscheinen sie ohne weitere Änderung auch als Marker.
 4. **Hitze-Monitoring** (P2): DWD-Vorhersage + Wärmeinsel-Layer → „Gieß-
    Prioritätenliste" der eigenen Flächen an Hitzetagen.
 5. **Mandanten-Ansicht** (P3): Verwaltung sieht nur ihre Flächen/Reports
