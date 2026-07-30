@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "node scripts/test-leistungsnachweis.mjs",
+    "test": "node scripts/test-leistungsnachweis.mjs && node scripts/test-sensor-series.mjs",
     "preview": "vite preview",
     "sync": "npm run build && npx cap sync",
     "open:android": "npx cap open android",

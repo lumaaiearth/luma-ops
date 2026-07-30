@@ -23,6 +23,8 @@ import { TREE_SPECIES, matchSpecies, rememberSpecies } from '../data/treeSpecies
 import { TILES, LAYER_CATS, OPEN_LAYERS } from '../data/biomeLayers.js'
 import { geometryCentroid, geomMeasures } from '../lib/geo.js'
 import { SENSOR_TYPE_LABELS, SENSOR_TYPE_ICONS } from '../data/sensorTypes.js'
+import { useSensorSeries } from '../lib/sensorHistory.js'
+import SensorTile, { SensorSparkRow, sensorColor } from '../components/SensorTile.jsx'
 import { Layers, Satellite, Map as MapIcon, Pencil, Save, X, ExternalLink, ChevronRight, ChevronDown, FolderOpen, Folder, Eye, EyeOff, Search, MapPin, Plus, Trash2, Upload, Image, SlidersHorizontal, Ruler, Move, LocateFixed } from 'lucide-react'
 
 /* ─── GEO HELPERS ───────────────────────────────────────────────────────── */
@@ -930,6 +932,10 @@ export default function MapPage() {
   const [hiddenFeatures, setHiddenFeatures] = useState(new Set())
   const [searchQuery, setSearchQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState(null)
+  // Sensor-Kacheln: Panel rechts. `sensorHistOn` schaltet das Laden der
+  // Messwerte frei — beim reinen Kartenbesuch soll dafür keine Abfrage laufen.
+  const [sensorPanel, setSensorPanel] = useState(false)
+  const [sensorHistOn, setSensorHistOn] = useState(false)
 
   // Drawing state
   const [drawMode, setDrawMode] = useState(null)
@@ -1106,6 +1112,22 @@ export default function MapPage() {
     })
     return map
   }, [sensors])
+
+  // Sensoren, die gerade auf der Karte liegen (ausgeblendete Projekte fallen
+  // raus). Alarme zuerst, danach alphabetisch — im Panel soll das Kritische oben
+  // stehen, ohne dass man scrollen muss.
+  const visibleSensors = useMemo(() => {
+    const rank = { critical: 0, warning: 1 }
+    return (sensors || [])
+      .filter(s => !hiddenProjects.has(s.project_id))
+      .sort((a, b) => (rank[a.status] ?? 2) - (rank[b.status] ?? 2) || (a.name || '').localeCompare(b.name || ''))
+  }, [sensors, hiddenProjects])
+
+  const sensorAlarmCount = useMemo(
+    () => visibleSensors.filter(s => s.status === 'critical' || s.status === 'warning').length,
+    [visibleSensors])
+  const sensorIds = useMemo(() => visibleSensors.map(s => s.id), [visibleSensors])
+  const { series: sensorSeries, loading: sensorSeriesLoading } = useSensorSeries(sensorIds, { enabled: sensorHistOn })
 
   // Features grouped by project, with search/filter
   // Suchindex einmal je Feature aufbauen — vorher wurde bei JEDEM Tastendruck
@@ -1984,11 +2006,13 @@ export default function MapPage() {
           })}
 
           {/* Sensor-Marker (📡): echte Sensoren mit GPS, Klick → Wert + Sensorseite */}
-          {(sensors || []).filter(s => s.lat && s.lng && !hiddenProjects.has(s.project_id)).map(s => {
-            const sColor = s.status === 'critical' ? '#ef4444' : s.status === 'warning' ? '#f59e0b' : '#38bdf8'
+          {visibleSensors.filter(s => s.lat && s.lng).map(s => {
+            const sColor = sensorColor(s)
             const proj = projects.find(p => p.id === s.project_id)
             return (
-              <Marker key={`sensor-${s.id}`} position={[s.lat, s.lng]} icon={makeSensorIcon(sColor)} zIndexOffset={500}>
+              <Marker key={`sensor-${s.id}`} position={[s.lat, s.lng]} icon={makeSensorIcon(sColor)} zIndexOffset={500}
+                // Verlauf erst beim ersten Popup laden, nicht beim Kartenaufbau
+                eventHandlers={{ click: () => setSensorHistOn(true) }}>
                 <Popup>
                   <div style={{ fontFamily: "'Space Grotesk', sans-serif", minWidth: 170 }}>
                     <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: sColor, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 3 }}>
@@ -2000,6 +2024,7 @@ export default function MapPage() {
                         ? <span style={{ fontSize: 12, color: 'rgba(232,240,245,0.55)' }}>noch keine Messung</span>
                         : <>{s.value}<span style={{ fontSize: 12, color: 'rgba(232,240,245,0.5)' }}>{s.unit}</span></>}
                     </div>
+                    <SensorSparkRow sensor={s} series={sensorSeries[s.id]} loading={sensorSeriesLoading} />
                     {proj && <div style={{ fontSize: 11, color: 'rgba(232,240,245,0.5)', marginBottom: 2 }}>{proj.name}</div>}
                     <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: 'rgba(232,240,245,0.4)' }}>{s.lat.toFixed(6)}, {s.lng.toFixed(6)}</div>
                     <button onClick={() => navigate(`/sensors/${s.id}`)}
@@ -2181,6 +2206,17 @@ export default function MapPage() {
                 </div>
               )}
             </div>
+            {/* Sensor-Kacheln: aktueller Wert + Messverlauf je Sensor */}
+            <button onClick={() => { setSensorPanel(v => !v); setSensorHistOn(true) }}
+              title="Sensor-Kacheln: aktueller Wert und Messverlauf je Sensor" className="lu-chip"
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: `1px solid ${sensorPanel ? 'rgba(56,189,248,0.5)' : 'transparent'}`, background: sensorPanel ? 'rgba(56,189,248,0.14)' : 'transparent', color: sensorPanel ? '#38bdf8' : MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
+              <span style={{ fontSize: 13 }}>📡</span>{!isMobile && 'Sensoren'}
+              {sensorAlarmCount > 0 && (
+                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8.5, padding: '1px 4px', borderRadius: 4, background: 'var(--luma-danger)', color: '#fff' }}>
+                  {sensorAlarmCount}
+                </span>
+              )}
+            </button>
             <button onClick={() => setShow3D(true)} title="3D-Schatten: Gebäude in 3D mit Sonnenstand-Simulation" className="lu-chip"
               style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: '1px solid transparent', background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
               <span style={{ fontSize: 13 }}>☀️</span>{!isMobile && '3D-Schatten'}
@@ -2197,6 +2233,52 @@ export default function MapPage() {
             )}
           </div>
         )}
+
+        {/* ── Sensor-Kacheln (Panel rechts) ── */}
+        {sensorPanel && !drawMode && (() => {
+          // Oben rechts sitzt schon der Hinweis „N Objekte ausgeblendet", und bei
+          // offenem Feature-Detail liegt dort das 330-px-Panel. Beidem ausweichen,
+          // statt sich darüberzulegen.
+          const top = (isMobile ? 102 : 58) + (versteckt > 0 ? 40 : 0)
+          const right = !isMobile && panelFeatureId ? 354 : 12
+          return (
+          <div className="lu-fade-in" style={{
+            position: 'absolute', top, right, zIndex: 1001,
+            width: isMobile ? 'calc(100% - 24px)' : 268,
+            maxHeight: isMobile ? '46vh' : `calc(100% - ${top + 26}px)`,
+            display: 'flex', flexDirection: 'column',
+            background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12,
+            boxShadow: '0 8px 30px rgba(0,0,0,0.45)', overflow: 'hidden',
+            transition: 'right .18s ease',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 11px', borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
+              <span style={{ fontSize: 13 }}>📡</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: FG, fontFamily: "'Space Grotesk', sans-serif", flex: 1 }}>
+                Sensoren
+                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, marginLeft: 5 }}>{visibleSensors.length}</span>
+              </span>
+              <button onClick={() => setSensorPanel(false)} title="Panel schließen"
+                style={{ display: 'flex', padding: 3, borderRadius: 5, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer' }}>
+                <X size={13} />
+              </button>
+            </div>
+            <div style={{ overflowY: 'auto', padding: 9, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {visibleSensors.length === 0 ? (
+                <div style={{ fontSize: 11.5, color: MUTED, padding: '10px 2px', lineHeight: 1.5 }}>
+                  Keine Sensoren sichtbar. Über <strong style={{ color: FG }}>📡 Sensor</strong> in der Toolbar einen an
+                  einer GPS-Position anlegen — ausgeblendete Projekte zählen hier nicht mit.
+                </div>
+              ) : visibleSensors.map(s => (
+                <SensorTile key={s.id} sensor={s}
+                  series={sensorSeries[s.id]} loading={sensorSeriesLoading}
+                  compact={isMobile}
+                  onLocate={sen => { setFlyTarget([sen.lat, sen.lng]); if (isMobile) setSensorPanel(false) }}
+                  onOpen={sen => navigate(`/sensors/${sen.id}`)} />
+              ))}
+            </div>
+          </div>
+          )
+        })()}
 
         {/* Such-Ergebnisse (unter der Toolbar) */}
         {!drawMode && searchOpen && (geoLoading || geoResults !== null || localSearchMatches.length > 0) && (
