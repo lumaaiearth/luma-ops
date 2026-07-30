@@ -20,7 +20,61 @@ import {
 import {
   CalendarDays, ListTodo, Radio, Users, AlertTriangle, CheckCircle2, Plus, Trash2, Repeat,
 } from 'lucide-react'
+import { AnalyticsView } from './components/DashboardAnalytics.jsx'
+import { JOB_TYPES, SEED_CLIENTS } from './data/seed.js'
 import './styles/ui.css'
+
+/* ─── Beispieldaten für die Auswertung ─────────────────────────────────────
+   Ein Jahr Einsätze und Zeiteinträge, deterministisch erzeugt (fester Seed),
+   damit die Vorschau bei jedem Aufruf gleich aussieht. */
+
+const MOCK_PROJECTS = [
+  { id: 'mv-bew',       name: 'MV Tiny Forest',   client_id: 'bew' },
+  { id: 'blankenburg',  name: 'BL Blankenburg',   client_id: 'bew' },
+  { id: 'h14',          name: 'H14 Hermannstr.',  client_id: 'jope' },
+  { id: 'preussenpark', name: 'Preußenpark',      client_id: 'gruenflaeche' },
+  { id: 'snb-nord',     name: 'SNB Umspannwerk',  client_id: 'stromnetz' },
+  { id: 'wisag-hof',    name: 'WISAG Innenhöfe',  client_id: 'wisag' },
+  { id: 'miya-dach',    name: 'MIYA Dachgarten',  client_id: 'miya' },
+  { id: 'ebw-allee',    name: 'Eberswalde Allee', client_id: 'eberswalde' },
+]
+
+const MOCK_PEOPLE = ['malte', 'lukas', 'jona', 'anselm', 'robert', 'felix']
+
+function mockData() {
+  // Linearer Kongruenzgenerator — reproduzierbar, kein Math.random
+  let seed = 42
+  const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648
+  const pick = arr => arr[Math.floor(rnd() * arr.length)]
+
+  const jobs = []
+  const entries = []
+  const today = new Date()
+
+  for (let d = 364; d >= 0; d--) {
+    const day = new Date(today)
+    day.setDate(day.getDate() - d)
+    if (day.getDay() === 0 || day.getDay() === 6) continue      // Wochenende aussparen
+    const iso = day.toISOString().slice(0, 10)
+    // Im Sommer mehr Pflege als im Winter — sonst ist der Verlauf langweilig flach
+    const season = 0.5 + 0.5 * Math.sin(((day.getMonth() + 1) / 12) * Math.PI * 2 - 1.6)
+    const count = Math.round(rnd() * 2 + season * 2)
+    for (let i = 0; i < count; i++) {
+      const project = pick(MOCK_PROJECTS)
+      const type = pick(JOB_TYPES).id
+      const id = `j${jobs.length}`
+      const team = MOCK_PEOPLE.slice(0, 1 + Math.floor(rnd() * 3))
+      jobs.push({ id, date: iso, job_type: type, project_id: project.id, assigned_users: team, status: 'done' })
+      team.forEach(uid => entries.push({
+        id: `e${entries.length}`, date: iso, hours: Math.round((3 + rnd() * 5) * 2) / 2,
+        project_id: project.id, job_id: id, user_id: uid,
+      }))
+    }
+  }
+  return { jobs, entries }
+}
+
+const MOCK = mockData()
 
 const JOBS = [
   { id: 1, date: 'Heute',     title: 'Rasenpflege Innenhof',        project: 'Wohnpark Süd',     status: 'in_progress', team: ['ML', 'JK'], accent: OK },
@@ -208,6 +262,12 @@ function Preview() {
             </div>
           </div>
         </Panel>
+
+        <SectionLabel style={{ marginBottom: SPACE[3] }}>Auswertung (Dashboard-Reiter)</SectionLabel>
+        <div id="analytics" style={{ marginBottom: SPACE[6] }}>
+          <AnalyticsView jobs={MOCK.jobs} entries={MOCK.entries}
+            projects={MOCK_PROJECTS} clients={SEED_CLIENTS} isLight={theme.scheme === 'light'} />
+        </div>
 
         <SectionLabel style={{ marginBottom: SPACE[3] }}>Typo-Skala</SectionLabel>
         <Panel>

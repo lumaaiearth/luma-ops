@@ -4,7 +4,8 @@ import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useWeather } from '../context/WeatherContext.jsx'
 import { A, SURFACE_2, BORDER, FG, MUTED, OK, WARN, DANGER, INFO, TEXT, SPACE } from '../lib/theme.js'
-import { StatCard, EmptyState, Avatar, Panel, DataTable, ListRow, Badge, SANS } from '../components/ui.jsx'
+import { StatCard, EmptyState, Avatar, Panel, DataTable, ListRow, Badge, Tabs, SANS } from '../components/ui.jsx'
+import DashboardAnalytics from '../components/DashboardAnalytics.jsx'
 import { JOB_TYPES, TASK_STATUSES, TASK_PRIORITIES } from '../data/seed.js'
 import { findPerson, peopleForIds, avatarFor } from '../lib/people.js'
 import { sb } from '../lib/supabase.js'
@@ -147,6 +148,10 @@ export default function DashboardPage() {
   const today = isoToday()
   const tomorrow = addDays(today, 1)
 
+  // Tagesgeschäft und Auswertung getrennt: das Dashboard soll beim Öffnen
+  // sofort zeigen, was heute ansteht — die Auswertung ist eine eigene Frage.
+  const [view, setView] = useState('heute')
+
   // MANA: relevante offene Ausschreibungen (Score >= 60, noch nicht bearbeitet)
   const [manaCount, setManaCount] = useState(null)
   useEffect(() => {
@@ -264,6 +269,11 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      <Tabs tabs={[['heute', 'Überblick'], ['auswertung', 'Auswertung']]}
+        active={view} onChange={setView} isMobile={isMobile} />
+
+      {view === 'auswertung' ? <DashboardAnalytics isMobile={isMobile} /> : (
+      <>
       {/* Kennzahlen — dichte Reihe, Farbe nur wenn sie etwas bedeutet */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: SPACE[3], marginBottom: SPACE[5] }}>
         <StatCard icon={CalendarDays} label="Heute" value={todayJobs.length}
@@ -481,6 +491,8 @@ export default function DashboardPage() {
           </Panel>
         </div>
       </div>
+      </>
+      )}
     </div>
   )
 }
