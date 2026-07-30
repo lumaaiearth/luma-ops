@@ -231,7 +231,10 @@ export function StatCard({ label, value, sub, color, onClick, icon: Icon, delta 
         <div style={{ fontSize: TEXT.xs, fontWeight: 500, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</div>
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: SPACE[2] }}>
-        <div className="lu-num" style={{ fontSize: TEXT['3xl'], fontWeight: 600, color: color || FG, letterSpacing: '-0.03em', lineHeight: 1 }}>{value}</div>
+        {/* Proportionale Ziffern: Tabellenziffern geben jeder Ziffer die Breite
+            einer Null — bei großen Einzelzahlen wirkt „121" dadurch zerfasert.
+            Tabellenziffern gehören in Spalten, nicht auf eine Kennzahl. */}
+        <div style={{ fontSize: TEXT['3xl'], fontWeight: 600, color: color || FG, letterSpacing: '-0.03em', lineHeight: 1 }}>{value}</div>
         {delta && (
           <span className="lu-num" style={{ fontSize: TEXT.xs, color: delta.dir === 'up' ? 'var(--luma-ok)' : delta.dir === 'down' ? 'var(--luma-warn)' : MUTED }}>
             {delta.dir === 'up' ? '↑' : delta.dir === 'down' ? '↓' : '±'}{delta.value}
@@ -453,5 +456,34 @@ export function Toolbar({ children, right, style }) {
 
 /** Ladeplatzhalter — statt leerer Fläche oder springendem Layout */
 export function Skeleton({ width = '100%', height = 12, radius, style }) {
-  return <div className="lu-skeleton" style={{ width, height, borderRadius: radius || RADIUS.sm, ...style }} />
+  return <div className="lu-skeleton" style={{ width, height, borderRadius: RADIUS.sm, ...style }} />
+}
+
+/**
+ * Aufklappmenü mit vorangestelltem Label.
+ *
+ * Bewusst ein natives <select>: Tastaturbedienung, Suche durch Tippen und der
+ * Rad-Picker auf dem Handy kommen damit gratis — ein nachgebautes Menü müsste
+ * das alles selbst leisten und tut es meist schlechter.
+ *
+ *   options: [[wert, beschriftung], …]
+ */
+export function Select({ label, value, onChange, options, style }) {
+  return (
+    <label style={{
+      display: 'inline-flex', alignItems: 'center', gap: SPACE[2],
+      background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: RADIUS.md,
+      padding: '4px 4px 4px 10px', cursor: 'pointer', maxWidth: '100%', ...style,
+    }}>
+      {label && <span style={{ fontSize: TEXT.xs, color: MUTED, whiteSpace: 'nowrap', flexShrink: 0 }}>{label}</span>}
+      <select value={value} onChange={e => onChange(e.target.value)}
+        style={{
+          background: 'transparent', border: 'none', outline: 'none', cursor: 'pointer',
+          color: FG, fontFamily: SANS, fontSize: TEXT.base, fontWeight: 500,
+          padding: '3px 2px', maxWidth: 200, textOverflow: 'ellipsis',
+        }}>
+        {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+      </select>
+    </label>
+  )
 }
