@@ -94,8 +94,7 @@ const USP_RECS = [
 
 export default function EpsAnalysePage() {
   const navigate = useNavigate()
-  const { themeId } = useTheme()
-  const L = themeId === 'light'
+  const { isLight: L } = useTheme()
 
   const accentBar = L ? '#d97706' : '#f59e0b'
   const cardBg = L ? '#fff' : SURFACE
