@@ -8,10 +8,10 @@ import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css'
 import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { sb, SUPABASE_URL } from '../lib/supabase.js'
-import { A, BG, SURFACE, BORDER, FG, MUTED, CARD, A06, A10, A14, A18 } from '../lib/theme.js'
+import { A, BG, SURFACE, BORDER, FG, MUTED, CARD, DANGER, TEXT, SPACE, RADIUS, ELEV, A06, A10, A14, A18 } from '../lib/theme.js'
 import { JOB_TYPES, TASK_PRIORITIES, TASK_STATUSES } from '../data/seed.js'
 import { findPerson, avatarFor } from '../lib/people.js'
-import { DateInput, Avatar } from '../components/ui.jsx'
+import { DateInput, Avatar, Badge, EmptyState } from '../components/ui.jsx'
 
 const TASK_P = Object.fromEntries(TASK_PRIORITIES.map(p => [p.id, p]))
 const TASK_S = Object.fromEntries(TASK_STATUSES.map(s => [s.id, s]))
@@ -2211,11 +2211,7 @@ export default function MapPage() {
               title="Sensor-Kacheln: aktueller Wert und Messverlauf je Sensor" className="lu-chip"
               style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: `1px solid ${sensorPanel ? 'rgba(56,189,248,0.5)' : 'transparent'}`, background: sensorPanel ? 'rgba(56,189,248,0.14)' : 'transparent', color: sensorPanel ? '#38bdf8' : MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
               <span style={{ fontSize: 13 }}>📡</span>{!isMobile && 'Sensoren'}
-              {sensorAlarmCount > 0 && (
-                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8.5, padding: '1px 4px', borderRadius: 4, background: 'var(--luma-danger)', color: '#fff' }}>
-                  {sensorAlarmCount}
-                </span>
-              )}
+              {sensorAlarmCount > 0 && <Badge color={DANGER}>{sensorAlarmCount}</Badge>}
             </button>
             <button onClick={() => setShow3D(true)} title="3D-Schatten: Gebäude in 3D mit Sonnenstand-Simulation" className="lu-chip"
               style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: '1px solid transparent', background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
@@ -2242,32 +2238,29 @@ export default function MapPage() {
           const top = (isMobile ? 102 : 58) + (versteckt > 0 ? 40 : 0)
           const right = !isMobile && panelFeatureId ? 354 : 12
           return (
-          <div className="lu-fade-in" style={{
+          <div className="lu-panel lu-fade-in" style={{
             position: 'absolute', top, right, zIndex: 1001,
-            width: isMobile ? 'calc(100% - 24px)' : 268,
+            width: isMobile ? `calc(100% - ${SPACE[6]})` : 268,
             maxHeight: isMobile ? '46vh' : `calc(100% - ${top + 26}px)`,
             display: 'flex', flexDirection: 'column',
-            background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12,
-            boxShadow: '0 8px 30px rgba(0,0,0,0.45)', overflow: 'hidden',
-            transition: 'right .18s ease',
+            boxShadow: ELEV[2], transition: 'right .18s ease',
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 11px', borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
-              <span style={{ fontSize: 13 }}>📡</span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: FG, fontFamily: "'Space Grotesk', sans-serif", flex: 1 }}>
+            <div className="lu-panel-head" style={{ flexShrink: 0 }}>
+              <span className="lu-panel-title" style={{ display: 'flex', alignItems: 'center', gap: SPACE[2], flex: 1 }}>
+                <span style={{ fontSize: 13 }}>📡</span>
                 Sensoren
-                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, marginLeft: 5 }}>{visibleSensors.length}</span>
+                <span className="lu-num" style={{ fontSize: TEXT['2xs'], fontWeight: 400, color: MUTED }}>{visibleSensors.length}</span>
               </span>
-              <button onClick={() => setSensorPanel(false)} title="Panel schließen"
-                style={{ display: 'flex', padding: 3, borderRadius: 5, border: 'none', background: 'transparent', color: MUTED, cursor: 'pointer' }}>
+              <button onClick={() => setSensorPanel(false)} title="Panel schließen" className="lu-chip"
+                style={{ display: 'flex', padding: 3, borderRadius: RADIUS.sm, border: '1px solid transparent', background: 'transparent', color: MUTED, cursor: 'pointer' }}>
                 <X size={13} />
               </button>
             </div>
-            <div style={{ overflowY: 'auto', padding: 9, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ overflowY: 'auto', padding: SPACE[2], display: 'flex', flexDirection: 'column', gap: SPACE[2] }}>
               {visibleSensors.length === 0 ? (
-                <div style={{ fontSize: 11.5, color: MUTED, padding: '10px 2px', lineHeight: 1.5 }}>
-                  Keine Sensoren sichtbar. Über <strong style={{ color: FG }}>📡 Sensor</strong> in der Toolbar einen an
-                  einer GPS-Position anlegen — ausgeblendete Projekte zählen hier nicht mit.
-                </div>
+                <EmptyState icon={Layers} title="Keine Sensoren sichtbar"
+                  hint={'Über „📡 Sensor“ in der Toolbar einen an einer GPS-Position anlegen. Ausgeblendete Projekte zählen hier nicht mit.'}
+                  style={{ padding: `${SPACE[5]} ${SPACE[3]}` }} />
               ) : visibleSensors.map(s => (
                 <SensorTile key={s.id} sensor={s}
                   series={sensorSeries[s.id]} loading={sensorSeriesLoading}
