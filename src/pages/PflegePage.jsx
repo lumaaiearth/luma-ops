@@ -63,15 +63,30 @@ const STATUS_COLORS = { entwurf: MUTED, aktiv: OK, abgeschlossen: INFO }
 const OFFER_STATUS = { entwurf: MUTED, versendet: INFO, angenommen: OK, abgelehnt: DANGER }
 const GANG_STATUS = { geplant: MUTED, terminiert: INFO, erledigt: OK, entfallen: DANGER }
 
-/** KW→h einer Aufgabe aus ihren Saisonfenstern erzeugen (erste KW des Monats;
-    Turnus: einmalig | monatlich | 2x_monat (zusätzlich Monatsmitte) | quartal (jeder 3.) | nach_bedarf (0 h)) */
+/** KW→h einer Aufgabe aus ihren Saisonfenstern erzeugen.
+    Turnus: einmalig | monatlich | 2x_monat | quartal | nach_bedarf (0 h)
+    | wochen (alle N Wochen, f.intervall_wochen — z. B. IBC alle 3 Wochen)
+    | n_pro_jahr (N× gleichmäßig über das Fenster verteilt, f.anzahl —
+      ALLCURA-Stil „Wildkrautentfernung 3–4× p. A.") */
 function wochenFromFenster(fenster) {
   const w = {}
-  const add = (kw, h) => { if (h > 0) w[kw] = round2((w[kw] || 0) + h) }
+  const add = (kw, h) => { if (h > 0 && kw >= 1 && kw <= 53) w[kw] = round2((w[kw] || 0) + h) }
   for (const f of fenster || []) {
     const h = Number(f.stunden_pro_gang || 0)
     const von = Number(f.von_monat || 1), bis = Number(f.bis_monat || f.von_monat || 1)
     if (f.turnus === 'nach_bedarf') continue
+    const startKW = MONTH_KWS[von - 1][0], endKW = MONTH_KWS[bis - 1][1]
+    if (f.turnus === 'wochen') {
+      const step = Math.max(1, Math.round(Number(f.intervall_wochen || 2)))
+      for (let kw = startKW; kw <= endKW; kw += step) add(kw, h)
+      continue
+    }
+    if (f.turnus === 'n_pro_jahr') {
+      const n = Math.max(1, Math.round(Number(f.anzahl || 1)))
+      if (n === 1) add(Math.round((startKW + endKW) / 2), h)
+      else for (let i = 0; i < n; i += 1) add(Math.round(startKW + ((endKW - startKW) * i) / (n - 1)), h)
+      continue
+    }
     const step = f.turnus === 'quartal' ? 3 : 1
     for (let m = von; m <= bis; m += step) {
       const [a, b] = MONTH_KWS[m - 1]
@@ -100,7 +115,12 @@ function fensterText(fenster) {
   return fenster.map((w) => {
     const von = MONATE[(w.von_monat || 1) - 1], bis = MONATE[(w.bis_monat || w.von_monat || 1) - 1]
     const range = von === bis ? `im ${von}` : `${von}–${bis}`
-    const t = w.turnus === 'monatlich' ? 'monatlich' : w.turnus === '2x_monat' ? '2× monatlich' : w.turnus === 'quartal' ? 'quartalsweise' : w.turnus === 'nach_bedarf' ? 'nach Bedarf' : '1×'
+    const t = w.turnus === 'monatlich' ? 'monatlich'
+      : w.turnus === '2x_monat' ? '2× monatlich'
+      : w.turnus === 'quartal' ? 'quartalsweise'
+      : w.turnus === 'wochen' ? `alle ${Math.max(1, Math.round(Number(w.intervall_wochen || 2)))} Wochen`
+      : w.turnus === 'n_pro_jahr' ? `${Math.max(1, Math.round(Number(w.anzahl || 1)))}×`
+      : w.turnus === 'nach_bedarf' ? 'nach Bedarf' : '1×'
     return `${t} ${range}`
   }).join(' · ')
 }
@@ -268,23 +288,29 @@ export default function PflegePage() {
     setGangModal(null)
   }
 
-  // Aufgabe anlegen/ändern: wochen + jahres_stunden aus den Fenstern ableiten
+  // Leistung anlegen/ändern: wochen + jahres_stunden aus den Fenstern ableiten.
+  // Danach werden die geplanten Einsätze sofort aus dem LV regeneriert —
+  // LV ist die Quelle, die Einsätze folgen (terminierte/erledigte bleiben).
   async function saveAufgabe(plan, aufgabe, values) {
     const wochen = wochenFromFenster(values.fenster)
     const jahres = round2(Object.values(wochen).reduce((s, h) => s + h, 0))
     const row = { ...values, wochen, jahres_stunden: jahres }
+    let updatedTasks
     if (aufgabe) {
       const { error } = await sb.from('pflege_aufgaben').update(row).eq('id', aufgabe.id)
       if (error) return dbErr('pflege_aufgaben')(error)
+      updatedTasks = (aufgabenByPlan[plan.id] || []).map((a) => (a.id === aufgabe.id ? { ...a, ...row } : a))
       setAufgaben((prev) => prev.map((a) => (a.id === aufgabe.id ? { ...a, ...row } : a)))
     } else {
       const sort = (aufgabenByPlan[plan.id] || []).length
       const { data, error } = await sb.from('pflege_aufgaben')
         .insert({ ...row, plan_id: plan.id, sort_order: sort }).select().single()
       if (error) return dbErr('pflege_aufgaben')(error)
+      updatedTasks = [...(aufgabenByPlan[plan.id] || []), data]
       setAufgaben((prev) => [...prev, data])
     }
     setAufgabeModal(null)
+    await regenerateGaenge(plan, updatedTasks)
   }
 
   async function deleteAufgabe(aufgabe) {
@@ -292,6 +318,8 @@ export default function PflegePage() {
     const { error } = await sb.from('pflege_aufgaben').delete().eq('id', aufgabe.id)
     if (error) return dbErr('pflege_aufgaben')(error)
     setAufgaben((prev) => prev.filter((a) => a.id !== aufgabe.id))
+    const plan = plaene.find((p) => p.id === aufgabe.plan_id)
+    if (plan) await regenerateGaenge(plan, (aufgabenByPlan[plan.id] || []).filter((a) => a.id !== aufgabe.id))
   }
 
   // Geplante Gänge eines Plans aus den Aufgaben neu erzeugen.
@@ -1380,7 +1408,11 @@ function ErledigenModal({ gang, label, onClose, onSubmit }) {
 
 /* ─── Modal: Leistung anlegen/bearbeiten ──────────────────────── */
 
-const TURNUS_OPTIONS = [['einmalig', '1×'], ['monatlich', 'monatlich'], ['2x_monat', '2× im Monat'], ['quartal', 'quartalsweise'], ['nach_bedarf', 'nach Bedarf (0 h)']]
+const TURNUS_OPTIONS = [
+  ['einmalig', '1×'], ['monatlich', 'monatlich'], ['2x_monat', '2× im Monat'],
+  ['wochen', 'alle … Wochen'], ['n_pro_jahr', '…× im Zeitraum'],
+  ['quartal', 'quartalsweise'], ['nach_bedarf', 'nach Bedarf (0 h)'],
+]
 
 function AufgabeModal({ plan, aufgabe, onClose, onSave }) {
   const [katalogKey, setKatalogKey] = useState(aufgabe?.katalog_key || '')
@@ -1440,9 +1472,23 @@ function AufgabeModal({ plan, aufgabe, onClose, onSave }) {
                 <select value={f.bis_monat} onChange={(e) => setF(i, { bis_monat: Number(e.target.value) })} style={{ ...INPUT_STYLE, padding: '7px 8px', fontSize: 12 }}>
                   {MONATE.map((m, j) => <option key={m} value={j + 1}>{m}</option>)}
                 </select>
-                <select value={f.turnus} onChange={(e) => setF(i, { turnus: e.target.value })} style={{ ...INPUT_STYLE, padding: '7px 8px', fontSize: 12 }}>
-                  {TURNUS_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                </select>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <select value={f.turnus} onChange={(e) => setF(i, { turnus: e.target.value })} style={{ ...INPUT_STYLE, padding: '7px 8px', fontSize: 12, flex: 1 }}>
+                    {TURNUS_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
+                  {f.turnus === 'wochen' && (
+                    <input type="number" min="1" max="12" value={f.intervall_wochen ?? 3}
+                      onChange={(e) => setF(i, { intervall_wochen: Number(e.target.value) })}
+                      title="Intervall in Wochen (z. B. 3 = alle 3 Wochen)"
+                      style={{ ...INPUT_STYLE, padding: '7px 6px', fontSize: 12, width: 48, textAlign: 'right' }} />
+                  )}
+                  {f.turnus === 'n_pro_jahr' && (
+                    <input type="number" min="1" max="26" value={f.anzahl ?? 3}
+                      onChange={(e) => setF(i, { anzahl: Number(e.target.value) })}
+                      title="Anzahl der Gänge im Zeitraum (z. B. 3–4× p. A.)"
+                      style={{ ...INPUT_STYLE, padding: '7px 6px', fontSize: 12, width: 48, textAlign: 'right' }} />
+                  )}
+                </div>
                 <input type="number" step="0.25" min="0" value={f.stunden_pro_gang}
                   onChange={(e) => setF(i, { stunden_pro_gang: Number(e.target.value) })}
                   style={{ ...INPUT_STYLE, padding: '7px 8px', fontSize: 12, textAlign: 'right' }} title="Stunden je Gang" />
