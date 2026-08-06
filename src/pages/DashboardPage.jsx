@@ -10,7 +10,7 @@ import { JOB_TYPES, TASK_STATUSES, TASK_PRIORITIES } from '../data/seed.js'
 import { findPerson, peopleForIds, avatarFor } from '../lib/people.js'
 import { sb } from '../lib/supabase.js'
 import { isoToday, addDays, formatDate } from '../lib/storage.js'
-import { AlertTriangle, CheckCircle2, Repeat, Droplets, Umbrella, Sun as SunIcon, ListTodo, ChevronRight, CalendarDays, Users, Radio, Radar, Briefcase } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Repeat, Droplets, Umbrella, Sun as SunIcon, ListTodo, ChevronRight, CalendarDays, Users, Radio, Radar, Briefcase, Sprout } from 'lucide-react'
 
 const TASK_S = Object.fromEntries(TASK_STATUSES.map(s => [s.id, s]))
 const TASK_P = Object.fromEntries(TASK_PRIORITIES.map(p => [p.id, p]))
@@ -161,6 +161,23 @@ export default function DashboardPage() {
       .then(({ count }) => setManaCount(count ?? 0))
   }, [])
 
+  // Pflege: fällige Pflegegänge (geplant, KW ≤ aktuelle KW + 2; überfällig = KW vorbei)
+  const [pflegeDue, setPflegeDue] = useState(null)
+  useEffect(() => {
+    const now = new Date()
+    const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()))
+    const day = d.getUTCDay() || 7
+    d.setUTCDate(d.getUTCDate() + 4 - day)
+    const curKW = Math.ceil(((d - new Date(Date.UTC(d.getUTCFullYear(), 0, 1))) / 86400000 + 1) / 7)
+    sb.from('pflege_gaenge')
+      .select('kw')
+      .eq('jahr', now.getFullYear()).eq('status', 'geplant').lte('kw', curKW + 2)
+      .then(({ data }) => setPflegeDue({
+        due: (data || []).length,
+        overdue: (data || []).filter(g => g.kw < curKW).length,
+      }))
+  }, [])
+
   const todayJobs = jobs.filter(j => j.date === today)
   const tomorrowJobs = jobs.filter(j => j.date === tomorrow)
   const weekJobs = jobs.filter(j => j.date >= today && j.date <= addDays(today, 7))
@@ -296,6 +313,10 @@ export default function DashboardPage() {
           onClick={() => navigate('/sensors')} />
         <StatCard icon={Radar} label="MANA™" value={manaCount ?? '–'} sub="relevante Ausschreibungen"
           onClick={() => navigate('/mana')} />
+        <StatCard icon={Sprout} label="Pflegegänge" value={pflegeDue?.due ?? '–'}
+          sub={pflegeDue?.overdue > 0 ? `${pflegeDue.overdue} überfällig` : 'fällig (2 Wochen)'}
+          color={pflegeDue?.overdue > 0 ? DANGER : undefined}
+          onClick={() => navigate('/pflege')} />
       </div>
 
       {/* Alarme zuerst — was heute kaputt ist, gehört nach oben */}

@@ -586,6 +586,11 @@ function TabPlaene({ isMobile, plans, aufgabenByPlan, gaengeByPlan, planLabel, p
                       <Badge color={p.status === s ? STATUS_COLORS[s] : MUTED}>{s}</Badge>
                     </span>
                   ))}
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.12em', marginLeft: 10 }}>Kalibrierung ×</span>
+                  <input type="number" step="0.05" min="0.1" max="5" value={Number(p.kalib_faktor) || 1}
+                    onChange={(e) => updatePlan(p.id, { kalib_faktor: Number(e.target.value) || 1 })}
+                    title="Ist/Plan-Faktor für Folgeangebote — händisch oder per Plan/Ist-Tab"
+                    style={{ ...INPUT_STYLE, width: 70, padding: '5px 8px', fontFamily: MONO, fontSize: 12, textAlign: 'right' }} />
                   <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
                     <Button variant="ghost" icon={Plus} onClick={() => onEditAufgabe(p, null)}>Aufgabe</Button>
                     <Button variant="ghost" icon={RefreshCw} title="Geplante Gänge aus den Aufgaben neu erzeugen (terminierte/erledigte bleiben)"
@@ -604,12 +609,16 @@ function TabPlaene({ isMobile, plans, aufgabenByPlan, gaengeByPlan, planLabel, p
 /* ─── Tab: Kapazität ──────────────────────────────────────────── */
 
 function TabKapazitaet({ plans, gaengeByPlan, hourRules }) {
-  // Bedarf je Monat: Soll- + Fahrtstunden aller Gänge (außer entfallen)
+  // 'gesamt' = Jahresbild (alle Gänge außer entfallen); 'offen' = was noch
+  // zu tun ist (nur geplant/terminiert) — der Blick nach vorn.
+  const [mode, setMode] = useState('gesamt')
   const demand = Array(12).fill(0)
   for (const p of plans) {
     for (const g of gaengeByPlan[p.id] || []) {
       const m = monthOf(g.kw)
-      if (m >= 0 && g.status !== 'entfallen') demand[m] += Number(g.soll_stunden || 0) + Number(g.fahrt_stunden || 0)
+      if (m < 0 || g.status === 'entfallen') continue
+      if (mode === 'offen' && g.status === 'erledigt') continue
+      demand[m] += Number(g.soll_stunden || 0) + Number(g.fahrt_stunden || 0)
     }
   }
   // Verfügbar: Stundenkonto-Regeln der Pflegekräfte (monatlich + wöchentlich)
@@ -625,6 +634,7 @@ function TabKapazitaet({ plans, gaengeByPlan, hourRules }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <Chips options={[['gesamt', 'Jahresbild'], ['offen', 'Nur offene Gänge']]} value={mode} onChange={setMode} />
       <Card>
         <SectionLabel style={{ marginBottom: 12 }}>Bedarf (inkl. Fahrt) vs. verfügbare Stunden je Monat</SectionLabel>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -770,6 +780,12 @@ function TabPlanIst({ plans, jahr, entries, jobs, gaengeByPlan, planLabel, planH
         const sollYtd = gs.filter((g) => g.kw <= curKW).reduce((s, g) => s + Number(g.soll_stunden || 0), 0)
         const sollJahr = ps.reduce((s, p) => s + planHours(p), 0)
         const ist = istByProject[projectId] || 0
+        // Anteil der Ist-Stunden, der sauber auf Pflege-Einsätze gebucht ist —
+        // je höher, desto belastbarer die Kalibrierung
+        const pflegeJobIds = new Set((jobs || []).filter((j) => j.project_id === projectId && j.job_type === 'pflege').map((j) => j.id))
+        const istAufEinsatz = (entries || [])
+          .filter((e) => e.job_id && pflegeJobIds.has(e.job_id) && e.date?.startsWith(String(jahr)))
+          .reduce((s, e) => s + Number(e.hours || 0), 0)
         const faktor = sollYtd > 0 ? ist / sollYtd : null
         const off = faktor !== null && (faktor > 1.15 || faktor < 0.85)
         return (
@@ -781,7 +797,8 @@ function TabPlanIst({ plans, jahr, entries, jobs, gaengeByPlan, planLabel, planH
               )}
             </div>
             <div style={{ display: 'flex', gap: 22, marginTop: 10, flexWrap: 'wrap' }}>
-              {[['Soll bis KW ' + curKW, hrs(sollYtd)], ['Ist gebucht', hrs(ist)], ['Jahres-Soll', hrs(sollJahr)],
+              {[['Soll bis KW ' + curKW, hrs(sollYtd)], ['Ist gebucht', hrs(ist)],
+                ['davon auf Pflege-Einsätze', hrs(istAufEinsatz)], ['Jahres-Soll', hrs(sollJahr)],
                 ['Prognose Jahr', faktor !== null ? hrs(sollJahr * faktor) : '—']].map(([l, v]) => (
                 <div key={l}>
                   <div style={{ ...LABEL_STYLE, marginBottom: 2 }}>{l}</div>
