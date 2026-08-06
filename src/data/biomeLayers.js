@@ -58,6 +58,9 @@ const ATTR_DWD = '&copy; <a href="https://www.dwd.de">DWD</a>'
 
 export const OPEN_LAYERS = [
   /* ── Hitze & Stadtklima (Klimamodell Berlin 2022, 10-m-Raster) ─────────── */
+  { id: 'sonnen_heatmap', label: 'Sonnen-Heatmap', color: '#fbbf24', cat: 'hitze', region: 'Projekte',
+    custom: 'lod2-heatmap',
+    desc: 'Eigene Simulation: direkte Sonnenstunden im 4-m-Raster (Jahreszeit unten wählbar) aus LoD2-Dachmodell + Baumkataster (dunkelblau = dauerbeschattet, gelb = vollsonnig). Verfügbar in den Projektgebieten.' },
   { id: 'uhi_nacht', label: 'Wärmeinseln (Nacht 4 Uhr)', color: '#f97316', cat: 'hitze', region: 'Berlin',
     desc: 'Lufttemperatur 4 Uhr nachts — zeigt, wo die Stadt nicht abkühlt (Urban-Heat-Island). Klimamodell Berlin 2022, 10-m-Raster.',
     wms: { url: `${GDI}/ua_klimaanalyse_2022`, layers: 'g_ua_lufttemp_raster_t2m_04h_2022', format: 'image/png', transparent: true, opacity: 0.62, version: '1.3.0', attribution: ATTR_BERLIN } },

@@ -30,6 +30,13 @@ export const LICHT_KLASSEN = {
   3: { label: 'Schattig', color: '#60a5fa', hint: '< 3 h Sommersonne — Schattenstauden, Waldrand-Charakter' },
 }
 
+// Kronenansatz eines Katasterbaums — EINE Quelle der Wahrheit für Analyse,
+// 3D-Ansicht (Sun3DView) und Heatmap-Generator (scripts/solar-heatmap.mjs),
+// sonst widersprechen sich die drei Darstellungen am selben Punkt.
+export function crownBase(t) {
+  return Math.max(1.5, (t.height || 12) * (t.nadel ? 0.22 : 0.38))
+}
+
 // Lokales Meter-Koordinatensystem um den Beobachtungspunkt
 function toLocal(lat0, lng0) {
   const kx = 111320 * Math.cos(lat0 * Math.PI / 180)
@@ -73,8 +80,10 @@ export function prepareShaders(lat, lng, buildings = [], trees = []) {
     const d = Math.hypot(x, y)
     if (d > MAX_DIST + 20) continue
     const r = Math.max(t.crown / 2, 1.2)
-    if (d <= r) continue // Punkt steht unter dieser Krone → nicht als Fern-Verschatter werten
-    preppedT.push({ x, y, r, top: t.height, base: Math.max(2, t.height * 0.35) })
+    // Bäume, unter deren Krone der Punkt liegt, verschatten ihn AM STÄRKSTEN —
+    // sie dürfen nicht übersprungen werden (sonst gilt ein Beet unter einer
+    // Linde als „vollsonnig").
+    preppedT.push({ x, y, r, top: t.height, base: crownBase(t) })
   }
   return { buildings: preppedB, trees: preppedT, onBuilding }
 }
@@ -168,14 +177,16 @@ function shadeType(prep, bearing, altitude) {
       if (t !== null && t < Math.min(relevant, MAX_DIST)) return 'building'
     }
   }
-  // Bäume: Strahl ∩ Kronenzylinder (Kreis in der Ebene + Höhenfenster)
+  // Bäume: Strahl ∩ Kronenzylinder (Kreis in der Ebene + Höhenfenster).
+  // Kein Vorab-Abbruch bei proj <= 0: steht der Punkt IN der Krone, liegt der
+  // Fußpunkt hinter dem Beobachter, der Strahl schneidet sie trotzdem.
   for (const tr of prep.trees) {
     const proj = tr.x * dx + tr.y * dy            // Fußpunkt entlang des Strahls
-    if (proj <= 0) continue
     const lat2 = (tr.x - proj * dx) ** 2 + (tr.y - proj * dy) ** 2
     const r2 = tr.r * tr.r
     if (lat2 > r2) continue
     const half = Math.sqrt(r2 - lat2)
+    if (proj + half <= 0.01) continue             // Krone liegt komplett hinter dem Beobachter
     const t1 = Math.max(proj - half, 0.01), t2 = Math.min(proj + half, MAX_DIST)
     if (t2 <= t1) continue
     const z1 = t1 * tanAlt + OBSERVER_H, z2 = t2 * tanAlt + OBSERVER_H
@@ -212,6 +223,40 @@ export function sunHoursForDate(lat, lng, prep, date, treeTransparency = 0) {
   const r1 = v => Math.round(v * 10) / 10
   const r2 = v => Math.round(v * 100) / 100
   return { sun: r1(sun * f), possible: r1(possible * f), kwh: r2(wh * f / 1000), kwh_possible: r2(whPossible * f / 1000) }
+}
+
+// Kurz den Hauptthread freigeben, damit die Oberfläche während der Berechnung
+// reagiert (auf dem Handy summieren sich die Stichtage sonst zu ~1 s Blockade).
+const atmen = () => new Promise(r => setTimeout(r, 0))
+
+// Asynchrone Variante von analyzeSun: identisches Ergebnis, aber die vier
+// Stichtage werden nacheinander mit Atempausen gerechnet.
+export async function analyzeSunAsync(lat, lng, buildings, trees = [], meta = {}) {
+  const prep = prepareShaders(lat, lng, meta.lod2Patch ? [] : buildings, trees)
+  let buildingsN = prep.buildings.length
+  if (meta.lod2Patch) {
+    const mesh = prepareLod2(lat, lng, meta.lod2Patch)
+    prep.meshFaces = mesh.faces
+    prep.onBuilding = prep.onBuilding || mesh.onBuilding
+    buildingsN = (meta.lod2Patch.buildings || []).length
+  }
+  const year = new Date().getFullYear()
+  const seasons = {}
+  for (const s of SEASONS) {
+    await atmen()
+    seasons[s.key] = sunHoursForDate(lat, lng, prep, new Date(year, s.month, s.day, 12), s.treeTransparency)
+  }
+  const sommer = seasons.sommer.sun
+  return {
+    seasons,
+    licht: sommer >= 6 ? 1 : sommer >= 3 ? 2 : 3,
+    on_building: prep.onBuilding,
+    buildings_n: buildingsN,
+    faces_n: prep.meshFaces ? prep.meshFaces.length : undefined,
+    trees_n: prep.trees.length,
+    source: meta.lod2Patch ? 'lod2' : (meta.source || 'osm'),
+    computed_at: new Date().toISOString(),
+  }
 }
 
 // Komplette Analyse: 4 Stichtage + Licht-Klasse (Florales: 1/2/3).

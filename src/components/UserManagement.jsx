@@ -6,7 +6,7 @@
 // SECURITY-DEFINER-RPCs admin_* (serverseitig per is_admin() abgesichert).
 // ────────────────────────────────────────────────────────────────
 import { useState, useEffect, useCallback } from 'react'
-import { RefreshCw, Check, Plus, Building2 } from 'lucide-react'
+import { RefreshCw, Check, Plus, Building2, Briefcase } from 'lucide-react'
 import { sb } from '../lib/supabase.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { A, SURFACE, BORDER, FG, MUTED, OK, WARN, DANGER } from '../lib/theme.js'
@@ -38,16 +38,22 @@ export default function UserManagement() {
   const [msg, setMsg] = useState(null)
   const [newOrg, setNewOrg] = useState('')
   const [creatingOrg, setCreatingOrg] = useState(false)
+  const [clientOrgs, setClientOrgs] = useState(null)   // null = RPC nicht verfügbar
+  const [busyClient, setBusyClient] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true); setError(null)
-    const [u, o] = await Promise.all([
+    const [u, o, c] = await Promise.all([
       sb.rpc('admin_list_users'),
       sb.rpc('admin_list_orgs'),
+      sb.rpc('admin_list_client_orgs'),
     ])
     if (u.error) setError(u.error.message)
     else setUsers(u.data || [])
     if (!o.error) setOrgs(o.data || [])
+    // Fehlt die RPC noch (Migration nicht angewendet), blenden wir den
+    // Abschnitt „Kundenzugänge“ einfach aus, statt einen Fehler zu zeigen.
+    setClientOrgs(c.error ? null : (c.data || []))
     setLoading(false)
   }, [])
 
@@ -70,6 +76,19 @@ export default function UserManagement() {
     if (err) setMsg({ ok: false, text: err.message })
     else { setNewOrg(''); setMsg({ ok: true, text: `Organisation „${name}" angelegt` }); await load() }
     setCreatingOrg(false)
+  }
+
+  // Auftraggeber ↔ Organisation verknüpfen. Erst diese Zuordnung entscheidet,
+  // welche Flächen, Einsätze und Leistungen ein Kundenkonto im Portal sieht.
+  // Läuft bewusst über eine SECURITY-DEFINER-RPC mit is_admin()-Prüfung: die
+  // Spalten org_id/leistungstexte_sichtbar sind für `authenticated` gesperrt,
+  // damit nicht jede:r Mitarbeiter:in den Mandantenzugriff umhängen kann.
+  async function setClientOrg(clientId, params, label) {
+    setBusyClient(clientId); setMsg(null)
+    const { error: err } = await sb.rpc('admin_set_client_org', { p_client_id: clientId, ...params })
+    if (err) setMsg({ ok: false, text: err.message })
+    else { setMsg({ ok: true, text: label }); await load() }
+    setBusyClient(null)
   }
 
   return (
@@ -160,6 +179,52 @@ export default function UserManagement() {
       <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, marginTop: 6, opacity: 0.8 }}>
         Danach oben in der Zeile der Kund:in als Organisation auswählen, um sie freizuschalten.
       </div>
+
+      {/* Kundenzugänge: Auftraggeber ↔ Organisation */}
+      {clientOrgs && (
+        <div style={{ marginTop: 26, paddingTop: 18, borderTop: `1px solid ${BORDER}` }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+            <Briefcase size={14} color={MUTED} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: FG }}>Kundenzugänge</span>
+          </div>
+          <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.6, maxWidth: 620, marginBottom: 12 }}>
+            Legt fest, welche Organisation welchen Auftraggeber im Portal sieht. Erst mit dieser
+            Verknüpfung erscheinen die betreuten Flächen, Einsätze und der Leistungsnachweis für
+            das Kundenkonto. Ohne Zuordnung sieht das Konto nichts.
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {clientOrgs.map(c => (
+              <div key={c.client_id} style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '9px 14px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, opacity: busyClient === c.client_id ? 0.55 : 1, transition: 'opacity 0.15s' }}>
+                <div style={{ flex: 1, minWidth: 140, fontSize: 13, color: FG }}>{c.client_name}</div>
+                {c.org_id && (
+                  <span style={{ fontFamily: MONO, fontSize: 9, color: OK, background: `color-mix(in srgb, ${OK} 14%, transparent)`, padding: '2px 8px', borderRadius: 10, whiteSpace: 'nowrap' }}>
+                    Portal aktiv
+                  </span>
+                )}
+                {c.org_id && (
+                  <label title="Die Tätigkeitstexte aus der Zeiterfassung im Portal anzeigen. Erst einschalten, wenn die Texte dieses Auftraggebers durchgesehen sind — sie können Namen von Beschäftigten oder Hinweise auf andere Auftraggeber enthalten."
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: MUTED, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    <input type="checkbox" checked={!!c.leistungstexte_sichtbar} disabled={busyClient === c.client_id}
+                      onChange={e => setClientOrg(c.client_id,
+                        { p_org_id: c.org_id, p_texte: e.target.checked },
+                        e.target.checked ? 'Tätigkeitstexte freigegeben' : 'Tätigkeitstexte verborgen')} />
+                    Tätigkeitstexte
+                  </label>
+                )}
+                <select style={SEL} value={c.org_id || ''} disabled={busyClient === c.client_id}
+                  onChange={e => setClientOrg(c.client_id,
+                    { p_org_id: e.target.value || null },
+                    e.target.value ? 'Auftraggeber verknüpft' : 'Verknüpfung entfernt')}>
+                  <option value="">— keine Verknüpfung —</option>
+                  {orgs.filter(o => o.typ !== 'intern').map(o => (
+                    <option key={o.id} value={o.id}>{o.name}</option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>

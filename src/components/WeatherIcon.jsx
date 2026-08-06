@@ -14,7 +14,10 @@ export default function WeatherIcon({ code, size = 16, color }) {
   // Map WMO code → icon key
   const key = wmoToIconKey(code)
   const Icon = ICON_MAP[key] || Cloud
-  return <Icon size={size} color={color} strokeWidth={2} />
+  // Farbe über style statt über das color-Prop: lucide schreibt color in das
+  // SVG-Attribut stroke, dort löst var(--luma-…) nicht auf. Per currentColor
+  // funktionieren sowohl Hex-Werte als auch Theme-Tokens.
+  return <Icon size={size} style={{ color }} strokeWidth={2} />
 }
 
 function wmoToIconKey(code) {

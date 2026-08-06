@@ -6,13 +6,16 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts'
-import { ArrowLeft, ChevronRight, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { ArrowLeft, ChevronRight, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown, Minus, Bell } from 'lucide-react'
 import { useOps } from '../context/OpsContext.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 import { sb } from '../lib/supabase.js'
-import { A, BG, SURFACE, BORDER, FG, MUTED, OK, WARN, DANGER } from '../lib/theme.js'
+import { A, A20, BG, SURFACE, BORDER, FG, MUTED, OK, WARN, DANGER } from '../lib/theme.js'
 import { PageHeader, Card, EmptyState, MONO, SANS } from '../components/ui.jsx'
 import { SENSOR_TYPE_LABELS, SENSOR_TYPE_ICONS } from '../data/sensorTypes.js'
 import { useIsMobile } from '../lib/useIsMobile.js'
+import { alarmRegel, regelHerkunft, STUFEN } from '../lib/sensorAlarm.js'
+import { AlarmFelder, SpeichernLeiste, regelFelder } from '../components/AlarmRegelForm.jsx'
 
 const RANGES = [
   { id: 'today', label: 'Heute', hours: 24 },
@@ -35,7 +38,8 @@ export default function SensorPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
-  const { sensors, projects, clients } = useOps()
+  const { sensors, projects, clients, boards, updateSensor } = useOps()
+  const { isMitarbeiter } = useAuth()
   const [range, setRange] = useState('week')
   const [readings, setReadings] = useState([])
   const [loading, setLoading] = useState(true)
@@ -207,7 +211,91 @@ export default function SensorPage() {
           Netzwerk-Zuordnung, Installationsdaten, verbaute Komponenten und Notizen folgen mit der Sensor-Verwaltung.
         </div>
       </Card>
+
+      <AlarmCard sensor={sensor} projekt={project} boards={boards} isMobile={isMobile}
+        darfBearbeiten={isMitarbeiter} onSave={cfg => updateSensor(sensor.id, { alarm_config: cfg })} />
     </div>
+  )
+}
+/* ── Alarmregel ──────────────────────────────────────────────────────────────
+ * Legt fest, ab welchem Wert der Sensor meldet und was dann passiert.
+ * Standard ist die Alarmvorlage des Projekts; ein Sensor kann bewusst
+ * ausscheren. Angezeigt wird immer die Regel, die tatsächlich gilt.        */
+function AlarmCard({ sensor, projekt, boards, isMobile, darfBearbeiten, onSave }) {
+  const vorlage = projekt?.alarm_defaults || null
+  const gespeicherteHerkunft = regelHerkunft(sensor)
+  const [herkunft, setHerkunft] = useState(gespeicherteHerkunft)
+  const [form, setForm] = useState(alarmRegel(sensor, vorlage))
+  const [gespeichert, setGespeichert] = useState(false)
+
+  // Bei Sensorwechsel (oder Änderung von außen) neu aus der Regel füllen.
+  useEffect(() => {
+    setHerkunft(regelHerkunft(sensor))
+    setForm(alarmRegel(sensor, vorlage))
+    setGespeichert(false)
+  }, [sensor.id, JSON.stringify(sensor.alarm_config), JSON.stringify(vorlage)]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const st = sensor.alarm_state || {}
+  const stufe = STUFEN[st.stufe] ? st.stufe : sensor.status
+  const sc = stufe === 'critical' ? DANGER : stufe === 'warning' ? WARN : OK
+  const ausVorlage = herkunft === 'projekt'
+  // Anzeige folgt dem Schalter: „Vorlage" zeigt sofort, was dann gälte.
+  const angezeigt = ausVorlage ? alarmRegel({ ...sensor, alarm_config: { modus: 'projekt' } }, vorlage) : form
+  const dirty = herkunft !== gespeicherteHerkunft ||
+    (!ausVorlage && JSON.stringify(form) !== JSON.stringify(alarmRegel(sensor, vorlage)))
+
+  const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setGespeichert(false) }
+
+  function speichern() {
+    onSave(ausVorlage ? { modus: 'projekt' } : { modus: 'eigen', ...regelFelder(form) })
+    setGespeichert(true)
+  }
+  function verwerfen() {
+    setHerkunft(gespeicherteHerkunft)
+    setForm(alarmRegel(sensor, vorlage))
+  }
+
+  return (
+    <Card padding={isMobile ? '16px 14px' : '18px 20px'} style={{ marginTop: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+          <Bell size={12} /> Alarmregel
+        </div>
+        <div style={{ fontFamily: MONO, fontSize: 10, color: sc }}>
+          {STUFEN[stufe]?.emoji} {STUFEN[stufe]?.label || '—'}
+          {st.seit && stufe !== 'ok' ? ` seit ${new Date(st.seit).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}` : ''}
+        </div>
+      </div>
+
+      {/* Herkunft der Regel */}
+      <div style={{ display: 'flex', gap: 6, margin: '10px 0 12px', flexWrap: 'wrap' }}>
+        {[['projekt', projekt ? `Vorlage: ${projekt.name}` : 'Projektvorlage'], ['eigen', 'Eigene Regel']].map(([id, label]) => (
+          <button key={id} onClick={() => darfBearbeiten && (setHerkunft(id), setGespeichert(false))} disabled={!darfBearbeiten}
+            style={{
+              padding: '5px 12px', borderRadius: 999, fontSize: 12, fontFamily: SANS,
+              border: `1px solid ${herkunft === id ? A : BORDER}`,
+              background: herkunft === id ? A20 : 'transparent',
+              color: herkunft === id ? A : MUTED, cursor: darfBearbeiten ? 'pointer' : 'default',
+            }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.6, marginBottom: 14 }}>
+        {ausVorlage
+          ? 'Dieser Sensor folgt der Alarmvorlage seines Projekts. Änderungen an der Vorlage wirken hier sofort.'
+          : 'Eigene Regel — die Projektvorlage wird für diesen Sensor nicht angewendet.'}
+        {' '}Leere Felder bedeuten „keine Grenze in dieser Richtung".
+      </div>
+
+      <AlarmFelder form={angezeigt} onSet={set} disabled={!darfBearbeiten || ausVorlage}
+        boards={boards} unit={sensor.unit || ''} isMobile={isMobile} />
+
+      {darfBearbeiten
+        ? <SpeichernLeiste dirty={dirty} gespeichert={gespeichert} onSpeichern={speichern} onVerwerfen={verwerfen} />
+        : <div style={{ marginTop: 14, fontFamily: MONO, fontSize: 10, color: MUTED }}>Nur das LUMA-Team kann Alarmregeln ändern.</div>}
+    </Card>
   )
 }
 

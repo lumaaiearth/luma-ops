@@ -3,6 +3,8 @@
 //  · Baumkataster: Straßen- & Anlagenbäume mit Kronendurchmesser + Baumhöhe
 // Beide für die Sonnen-/Schattenanalyse; außerhalb Berlins → null (Fallback OSM).
 
+import { fetchT } from './fetchTimeout.js'
+
 const WFS = 'https://gdi.berlin.de/services/wfs'
 const CRS = 'urn:ogc:def:crs:EPSG::4326'
 const cache = new Map()
@@ -12,8 +14,8 @@ export function isInBerlin(lat, lng) {
   return lat > 52.32 && lat < 52.69 && lng > 13.07 && lng < 13.78
 }
 
-async function getJson(url) {
-  const resp = await fetch(url)
+async function getJson(url, signal) {
+  const resp = await fetchT(url, { timeout: 15000, signal })
   if (!resp.ok) throw new Error(`WFS ${resp.status}`)
   return resp.json()
 }
@@ -72,7 +74,14 @@ async function fetchTreeLayer(layer, south, west, north, east) {
     const [lng, lat] = f.geometry?.coordinates || []
     const height = parseFloat(p.baumhoehe) > 0 ? Math.min(parseFloat(p.baumhoehe), 45) : 12
     const crown = parseFloat(p.kronedurch) > 0 ? Math.min(parseFloat(p.kronedurch), 30) : 6
-    return lat != null ? { lat, lng, height, crown, art: p.art_dtsch || p.gattung_deutsch || 'Baum', pflanzjahr: p.pflanzjahr || null } : null
+    // Nadelbäume behalten auch im Winter ihren Schatten und haben schmalere Kronen
+    const nadel = /nadel/i.test(p.art_gruppe || '')
+    return lat != null ? {
+      lat, lng, height, crown, nadel,
+      art: p.art_dtsch || p.gattung_deutsch || 'Baum',
+      gruppe: p.art_gruppe || null,
+      pflanzjahr: p.pflanzjahr || null,
+    } : null
   }).filter(Boolean)
 }
 

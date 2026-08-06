@@ -1,5 +1,17 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 
+// ────────────────────────────────────────────────────────────────
+// Vier gepflegte Themes statt zehn halbgepflegter.
+// Jedes Theme definiert drei Flächenebenen, damit Inhalte eine
+// Tiefenordnung bekommen (vorher waren surface und card identisch —
+// Karten hoben sich nur durch eine 1px-Linie vom Hintergrund ab):
+//
+//   bg         Seitenhintergrund (liegt hinten)
+//   surface    Karten & Panels (angehoben)
+//   surface-2  eingelassen: Tabellenkopf, Hover-Zeile, Inset-Blöcke
+//   card       Overlays & Modals (ganz vorn)
+// ────────────────────────────────────────────────────────────────
+
 // Semantische Statusfarben: dunkle Themes teilen sich einen Satz,
 // das helle Theme braucht kräftigere Töne für ausreichend Kontrast.
 const SEMANTIC_DARK = {
@@ -17,176 +29,127 @@ const SEMANTIC_LIGHT = {
   '--luma-on-a':   '#ffffff',   // dunkles Grün → weißer Text
 }
 
+// Elevation pro Schema: auf dunklem Grund trägt Schatten wenig, dort
+// macht die hellere Fläche die Tiefe; auf hellem Grund umgekehrt.
+const ELEV_DARK = {
+  '--lu-elev-1': '0 1px 2px rgba(0,0,0,0.30)',
+  '--lu-elev-2': '0 4px 14px rgba(0,0,0,0.40)',
+  '--lu-elev-3': '0 24px 64px rgba(0,0,0,0.60)',
+}
+const ELEV_LIGHT = {
+  '--lu-elev-1': '0 1px 2px rgba(16,24,40,0.06)',
+  '--lu-elev-2': '0 4px 14px rgba(16,24,40,0.10)',
+  '--lu-elev-3': '0 24px 60px rgba(16,24,40,0.18)',
+}
+
 export const THEMES = [
   {
     id: 'forest',
     name: 'Waldgrün',
+    hint: 'Dunkel · Markenfarbe',
     preview: ['#070d12', '#09BE60'],
     scheme: 'dark',
     vars: {
-      '--luma-a':       '#09BE60',
-      '--luma-bg':      '#070d12',
-      '--luma-surface': '#0e1c26',
-      '--luma-card':    '#0e1c26',
-      '--luma-border':  'rgba(255,255,255,0.12)',
-      '--luma-fg':      '#f0f7fc',
-      '--luma-muted':   'rgba(240,247,252,0.58)',
+      '--luma-a':             '#09BE60',
+      '--luma-bg':            '#070d12',
+      '--luma-surface':       '#0e1c26',
+      '--luma-surface-2':     '#162a37',
+      '--luma-card':          '#12222e',
+      '--luma-border':        'rgba(255,255,255,0.11)',
+      '--luma-border-strong': 'rgba(255,255,255,0.20)',
+      '--luma-fg':            '#f0f7fc',
+      '--luma-muted':         'rgba(240,247,252,0.60)',
+      '--luma-faint':         'rgba(240,247,252,0.38)',
       ...SEMANTIC_DARK,
+      ...ELEV_DARK,
     },
   },
   {
     id: 'terminal',
     name: 'Terminal',
+    hint: 'Dunkel · maximaler Kontrast',
     preview: ['#000000', '#00FF88'],
     scheme: 'dark',
     vars: {
-      '--luma-a':       '#00FF88',
-      '--luma-bg':      '#000000',
-      '--luma-surface': '#0c0c0c',
-      '--luma-card':    '#0c0c0c',
-      '--luma-border':  'rgba(255,255,255,0.16)',
-      '--luma-fg':      '#ffffff',
-      '--luma-muted':   'rgba(255,255,255,0.62)',
+      '--luma-a':             '#00FF88',
+      '--luma-bg':            '#000000',
+      '--luma-surface':       '#0c0c0c',
+      '--luma-surface-2':     '#171717',
+      '--luma-card':          '#111111',
+      '--luma-border':        'rgba(255,255,255,0.14)',
+      '--luma-border-strong': 'rgba(255,255,255,0.26)',
+      '--luma-fg':            '#ffffff',
+      '--luma-muted':         'rgba(255,255,255,0.62)',
+      '--luma-faint':         'rgba(255,255,255,0.40)',
       ...SEMANTIC_DARK,
-    },
-  },
-  {
-    id: 'navy',
-    name: 'Navy',
-    preview: ['#060c18', '#22EAA7'],
-    scheme: 'dark',
-    vars: {
-      '--luma-a':       '#22EAA7',
-      '--luma-bg':      '#060c18',
-      '--luma-surface': '#0e1c30',
-      '--luma-card':    '#0e1c30',
-      '--luma-border':  'rgba(255,255,255,0.13)',
-      '--luma-fg':      '#eaf3ff',
-      '--luma-muted':   'rgba(234,243,255,0.58)',
-      ...SEMANTIC_DARK,
+      ...ELEV_DARK,
     },
   },
   {
     id: 'light',
     name: 'Hell',
+    hint: 'Hell · Standard',
     preview: ['#f4f5f6', '#047A3C'],
     scheme: 'light',
     vars: {
-      '--luma-a':       '#047A3C',
-      '--luma-bg':      '#f4f5f6',
-      '--luma-surface': '#ffffff',
-      '--luma-card':    '#ffffff',
-      '--luma-border':  'rgba(0,0,0,0.13)',
-      '--luma-fg':      '#15181b',
-      '--luma-muted':   'rgba(21,24,27,0.54)',
-      '--lu-shadow':    '0 1px 3px rgba(15,18,20,0.07), 0 6px 16px rgba(15,18,20,0.05)',
+      '--luma-a':             '#047A3C',
+      '--luma-bg':            '#f4f5f6',
+      '--luma-surface':       '#ffffff',
+      '--luma-surface-2':     '#f6f7f8',
+      '--luma-card':          '#ffffff',
+      '--luma-border':        'rgba(16,24,32,0.11)',
+      '--luma-border-strong': 'rgba(16,24,32,0.20)',
+      '--luma-fg':            '#15181b',
+      '--luma-muted':         'rgba(21,24,27,0.56)',
+      '--luma-faint':         'rgba(21,24,27,0.38)',
       ...SEMANTIC_LIGHT,
+      ...ELEV_LIGHT,
     },
   },
   {
     id: 'sand',
     name: 'Sand',
+    hint: 'Hell · warm',
     preview: ['#f8f5f0', '#B4531F'],
     scheme: 'light',
     vars: {
-      '--luma-a':       '#B4531F',
-      '--luma-bg':      '#f8f5f0',
-      '--luma-surface': '#fffdfa',
-      '--luma-card':    '#fffdfa',
-      '--luma-border':  'rgba(60,40,20,0.15)',
-      '--luma-fg':      '#241c14',
-      '--luma-muted':   'rgba(36,28,20,0.55)',
-      '--lu-shadow':    '0 1px 3px rgba(60,40,20,0.07), 0 6px 16px rgba(60,40,20,0.05)',
+      '--luma-a':             '#B4531F',
+      '--luma-bg':            '#f8f5f0',
+      '--luma-surface':       '#fffdfa',
+      '--luma-surface-2':     '#f5f0e8',
+      '--luma-card':          '#fffdfa',
+      '--luma-border':        'rgba(60,40,20,0.13)',
+      '--luma-border-strong': 'rgba(60,40,20,0.24)',
+      '--luma-fg':            '#241c14',
+      '--luma-muted':         'rgba(36,28,20,0.57)',
+      '--luma-faint':         'rgba(36,28,20,0.38)',
       ...SEMANTIC_LIGHT,
-    },
-  },
-  {
-    id: 'sky',
-    name: 'Himmel',
-    preview: ['#f2f5f9', '#1D6FE0'],
-    scheme: 'light',
-    vars: {
-      '--luma-a':       '#1D6FE0',
-      '--luma-bg':      '#f2f5f9',
-      '--luma-surface': '#ffffff',
-      '--luma-card':    '#ffffff',
-      '--luma-border':  'rgba(20,40,70,0.14)',
-      '--luma-fg':      '#101820',
-      '--luma-muted':   'rgba(16,24,32,0.54)',
-      '--lu-shadow':    '0 1px 3px rgba(20,40,70,0.07), 0 6px 16px rgba(20,40,70,0.05)',
-      ...SEMANTIC_LIGHT,
-    },
-  },
-  {
-    id: 'ocean',
-    name: 'Ozean',
-    preview: ['#041520', '#38BDF8'],
-    scheme: 'dark',
-    vars: {
-      '--luma-a':       '#38BDF8',
-      '--luma-bg':      '#041520',
-      '--luma-surface': '#0a2434',
-      '--luma-card':    '#0a2434',
-      '--luma-border':  'rgba(200,235,255,0.14)',
-      '--luma-fg':      '#e8f6ff',
-      '--luma-muted':   'rgba(232,246,255,0.58)',
-      ...SEMANTIC_DARK,
-    },
-  },
-  {
-    id: 'sunset',
-    name: 'Abendrot',
-    preview: ['#170f0c', '#FB923C'],
-    scheme: 'dark',
-    vars: {
-      '--luma-a':       '#FB923C',
-      '--luma-bg':      '#170f0c',
-      '--luma-surface': '#251712',
-      '--luma-card':    '#251712',
-      '--luma-border':  'rgba(255,220,190,0.13)',
-      '--luma-fg':      '#fdf1e7',
-      '--luma-muted':   'rgba(253,241,231,0.56)',
-      ...SEMANTIC_DARK,
-    },
-  },
-  {
-    id: 'violet',
-    name: 'Flieder',
-    preview: ['#0f0c1a', '#C084FC'],
-    scheme: 'dark',
-    vars: {
-      '--luma-a':       '#C084FC',
-      '--luma-bg':      '#0f0c1a',
-      '--luma-surface': '#1a1530',
-      '--luma-card':    '#1a1530',
-      '--luma-border':  'rgba(220,205,255,0.14)',
-      '--luma-fg':      '#f2eeff',
-      '--luma-muted':   'rgba(242,238,255,0.58)',
-      ...SEMANTIC_DARK,
-    },
-  },
-  {
-    id: 'graphite',
-    name: 'Graphit',
-    preview: ['#101214', '#9BE84C'],
-    scheme: 'dark',
-    vars: {
-      '--luma-a':       '#9BE84C',
-      '--luma-bg':      '#101214',
-      '--luma-surface': '#1a1d20',
-      '--luma-card':    '#1a1d20',
-      '--luma-border':  'rgba(255,255,255,0.12)',
-      '--luma-fg':      '#f2f4f5',
-      '--luma-muted':   'rgba(242,244,245,0.56)',
-      ...SEMANTIC_DARK,
+      ...ELEV_LIGHT,
     },
   },
 ]
 
+// Entfallene Themes auf das nächstliegende verbliebene abbilden —
+// sonst landen bestehende Nutzer stumm auf dem Standard.
+const RETIRED = {
+  navy: 'forest', ocean: 'forest', violet: 'forest',
+  graphite: 'forest', sunset: 'forest', sky: 'light',
+}
+
+const DEFAULT_THEME = 'light'
+
+function readStoredTheme() {
+  let stored = null
+  try { stored = localStorage.getItem('luma-theme') } catch { /* Storage gesperrt */ }
+  if (!stored) return DEFAULT_THEME
+  if (THEMES.some(t => t.id === stored)) return stored
+  return RETIRED[stored] || DEFAULT_THEME
+}
+
 const ThemeContext = createContext(null)
 
 export function ThemeProvider({ children }) {
-  const [themeId, setThemeId] = useState(() => localStorage.getItem('luma-theme') || 'light')
+  const [themeId, setThemeId] = useState(readStoredTheme)
 
   const theme = THEMES.find(t => t.id === themeId) || THEMES[0]
 
@@ -195,13 +158,17 @@ export function ThemeProvider({ children }) {
     Object.entries(theme.vars).forEach(([k, v]) => root.style.setProperty(k, v))
     // native Controls (Selects, Scrollbars, Date-Picker) folgen dem Theme
     root.style.colorScheme = theme.scheme || 'dark'
-    localStorage.setItem('luma-theme', themeId)
+    try { localStorage.setItem('luma-theme', theme.id) } catch { /* Storage gesperrt */ }
   }, [themeId, theme])
 
   function setTheme(id) { setThemeId(id) }
 
+  // isLight kommt aus dem Schema, nicht aus einem Vergleich mit 'light' —
+  // sonst gilt „Sand" fälschlich als dunkles Theme.
+  const isLight = theme.scheme === 'light'
+
   return (
-    <ThemeContext.Provider value={{ themeId, theme, setTheme, themes: THEMES }}>
+    <ThemeContext.Provider value={{ themeId: theme.id, theme, setTheme, themes: THEMES, isLight }}>
       {children}
     </ThemeContext.Provider>
   )

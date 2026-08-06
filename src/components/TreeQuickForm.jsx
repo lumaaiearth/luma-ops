@@ -46,7 +46,7 @@ export default function TreeQuickForm({ project, suggestedNumber, savedCount = 0
 
   return (
     <div className="lu-fade-in" style={{
-      position: 'absolute', zIndex: 1100,
+      position: 'absolute', zIndex: 1350,
       left: isMobile ? 0 : '50%', right: isMobile ? 0 : 'auto', bottom: isMobile ? 0 : 20,
       transform: isMobile ? 'none' : 'translateX(-50%)',
       width: isMobile ? '100%' : 460,

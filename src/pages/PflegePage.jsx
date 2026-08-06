@@ -8,7 +8,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
   Sprout, Scale, FileText, Plus, Copy, Trash2, Check, Pencil,
-  ChevronDown, ChevronRight, AlertTriangle, CalendarPlus, RotateCcw, RefreshCw,
+  ChevronDown, ChevronRight, AlertTriangle, CalendarPlus, RotateCcw, RefreshCw, Printer, Mail,
 } from 'lucide-react'
 import { sb } from '../lib/supabase.js'
 import { useOps } from '../context/OpsContext.jsx'
@@ -22,6 +22,10 @@ import {
   Modal, ModalActions, DateInput, INPUT_STYLE, LABEL_STYLE, MONO, SANS,
 } from '../components/ui.jsx'
 import { PFLEGE_KATALOG } from '../data/pflegeKatalog.js'
+import { normalisiereZeiteintraege, buildLeistungsnachweis } from '../lib/leistungsnachweis.js'
+import { druckeLeistungsnachweis } from '../lib/printNachweis.js'
+import { baueNachweisEmail } from '../lib/nachweisEmail.js'
+import { sendeEmail, versandProtokoll } from '../lib/email.js'
 
 const MONATE = ['Jan', 'Feb', 'Mrz', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
 // KW→Monat wie in den Excel-Plänen/Import (Jan KW1–5 … Dez KW49–53)
@@ -260,7 +264,7 @@ export default function PflegePage() {
           {tab === 'plaene' && <TabPlaene isMobile={isMobile} plans={yearPlans} {...{ aufgabenByPlan, gaengeByPlan, planLabel, planClientId, planHours, clientById, updatePlan, regenerateGaenge, deleteAufgabe, onEditAufgabe: (plan, aufgabe) => setAufgabeModal({ plan, aufgabe }) }} />}
           {tab === 'gaenge' && <TabGaenge plans={yearPlans} {...{ jahr, gaengeByPlan, planLabel, updateGang, jobs, onTerminieren: setGangModal }} />}
           {tab === 'kapazitaet' && <TabKapazitaet plans={yearPlans} {...{ gaengeByPlan, hourRules, planLabel }} />}
-          {tab === 'planist' && <TabPlanIst plans={yearPlans} {...{ jahr, entries, jobs, gaengeByPlan, planLabel, planHours, projById, updatePlan }} />}
+          {tab === 'planist' && <TabPlanIst plans={yearPlans} {...{ jahr, entries, jobs, gaengeByPlan, planLabel, planHours, projById, updatePlan, clients }} />}
           {tab === 'angebote' && isAdmin && (
             <TabAngebote {...{ offers, setOffers, plaene, jahr, clients, clientById, rates, planLabel, planClientId, planHours, aufgabenByPlan, projById, onNew: () => setOfferModal(true) }} />
           )}
@@ -669,9 +673,10 @@ function TabKapazitaet({ plans, gaengeByPlan, hourRules }) {
 
 /* ─── Tab: Plan/Ist ───────────────────────────────────────────── */
 
-function TabPlanIst({ plans, jahr, entries, jobs, gaengeByPlan, planLabel, planHours, projById, updatePlan }) {
+function TabPlanIst({ plans, jahr, entries, jobs, gaengeByPlan, planLabel, planHours, projById, updatePlan, clients }) {
   const curKW = jahr === new Date().getFullYear() ? isoWeek() : jahr < new Date().getFullYear() ? 53 : 0
   const [copied, setCopied] = useState(null)
+  const [mailModal, setMailModal] = useState(null)
 
   // Leistungsnachweis (Phase 4): erledigte Pflege-Einsätze des Jahres als Text
   // für den Kunden — Datum, Titel, Stunden (gebucht, sonst Soll), Summe.
@@ -699,6 +704,44 @@ function TabPlanIst({ plans, jahr, entries, jobs, gaengeByPlan, planLabel, planH
       setCopied(projectId)
       setTimeout(() => setCopied(null), 2500)
     } catch { window.__lumaToast?.('⚠️ Kopieren fehlgeschlagen') }
+  }
+
+  // Kundentauglicher Leistungsnachweis als PDF — Grundlage ist die
+  // Zeiterfassung (time_entries), nicht der Job-Status. Damit enthält der
+  // Nachweis auch die Einsätze, die vor Ort gebucht, aber nie als Job
+  // „erledigt“ geklickt wurden — sonst bliebe er in der Praxis leer.
+  function baueNachweis(projectId, label, ps) {
+    // Planwert aus den Gängen inklusive An-/Abfahrt und ohne entfallene Gänge:
+    // Die Ist-Seite (Zeiterfassung) enthält die Fahrtzeit ebenfalls, sonst wäre
+    // der Erfüllungsgrad auf dem Kundenbeleg systematisch zu hoch.
+    const soll = ps
+      .flatMap((p) => gaengeByPlan[p.id] || [])
+      .filter((g) => g.status !== 'entfallen')
+      .reduce((s, g) => s + Number(g.soll_stunden || 0) + Number(g.fahrt_stunden || 0), 0)
+    return buildLeistungsnachweis({
+      leistungen: normalisiereZeiteintraege(
+        (entries || []).filter((e) => e.project_id === projectId)),
+      projekte: [{ id: projectId, name: label, location: projById[projectId]?.location || '' }],
+      plaene: [{ project_id: projectId, jahr, soll_stunden: round2(soll) }],
+      jahr,
+    })
+  }
+
+  function pdfNachweis(projectId, label, ps) {
+    const ok = druckeLeistungsnachweis(baueNachweis(projectId, label, ps), {
+      kundeName: projById[projectId]?.client || '',
+      titel: `Leistungsnachweis ${jahr}`,
+    })
+    if (!ok) window.__lumaToast?.('⚠️ Pop-up-Blocker verhindert die Druckansicht')
+  }
+
+  function mailNachweis(projectId, label, ps) {
+    const clientId = projById[projectId]?.client_id
+    const client = (clients || []).find((c) => c.id === clientId) || null
+    setMailModal({
+      nachweis: baueNachweis(projectId, label, ps),
+      client, clientId, label,
+    })
   }
 
   // Ist je Projekt aus der Zeiterfassung (alle Buchungen des Jahres auf das Projekt)
@@ -751,6 +794,16 @@ function TabPlanIst({ plans, jahr, entries, jobs, gaengeByPlan, planLabel, planH
                   onClick={() => copyNachweis(projectId, label)}>
                   {copied === projectId ? 'Kopiert' : 'Leistungsnachweis'}
                 </Button>
+                <Button variant="ghost" icon={Printer}
+                  title="Leistungsnachweis aus der Zeiterfassung als PDF für den Kunden erzeugen"
+                  onClick={() => pdfNachweis(projectId, label, ps)}>
+                  PDF
+                </Button>
+                <Button variant="ghost" icon={Mail}
+                  title="Leistungsnachweis per E-Mail an den Auftraggeber senden (mit Vorschau und Freigabe)"
+                  onClick={() => mailNachweis(projectId, label, ps)}>
+                  E-Mail
+                </Button>
                 {faktor !== null && (
                   <Button variant="ghost" icon={Scale}
                     title="Ist/Soll-Faktor als Kalibrierung für Folgeangebote in den Plan schreiben"
@@ -767,7 +820,135 @@ function TabPlanIst({ plans, jahr, entries, jobs, gaengeByPlan, planLabel, planH
         Ist = alle Zeiterfassungs-Buchungen des Jahres auf das Projekt. Sauber wird der Vergleich, wenn Stunden je Einsatz
         (job) gebucht werden und Spezialaufträge eigene Einsätze sind (Konzept Kap. 4.2).
       </div>
+
+      {mailModal && (
+        <NachweisMailModal {...mailModal} jahr={jahr} onClose={() => setMailModal(null)} />
+      )}
     </div>
+  )
+}
+
+/* ─── Leistungsnachweis per E-Mail ─────────────────────────────────
+   Bewusst mit Vorschau und ausdrücklicher Freigabe: Es geht an echte
+   Auftraggeber. Automatischer Versand ist erst sinnvoll, wenn sich die
+   Zahlen über eine Saison als verlässlich erwiesen haben (vgl. MANA_PLAN.md,
+   „Human-in-the-Loop“). */
+function NachweisMailModal({ nachweis, client, clientId, label, jahr, onClose }) {
+  const { user, displayName } = useAuth()
+  const mail = useMemo(() => baueNachweisEmail(nachweis, {
+    kundeName: client?.name || '',
+    anrede: client?.contact_name ? `Guten Tag ${client.contact_name}` : 'Guten Tag',
+    zeitraumLabel: String(jahr),
+    absender: displayName || 'Ihr LUMA-Team',
+  }), [nachweis, client, jahr, displayName])
+
+  const [betreff, setBetreff] = useState(mail.betreff)
+  const [anTest, setAnTest] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [ergebnis, setErgebnis] = useState(null)
+  const [protokoll, setProtokoll] = useState([])
+
+  useEffect(() => {
+    if (clientId) versandProtokoll(clientId, 5).then(setProtokoll)
+  }, [clientId])
+
+  const kundenAdresse = (client?.contact_email || '').trim()
+  const eigeneAdresse = (user?.email || '').trim()
+  const empfaenger = anTest ? eigeneAdresse : kundenAdresse
+  const kannSenden = Boolean(empfaenger) && !busy
+
+  async function senden() {
+    setBusy(true); setErgebnis(null)
+    try {
+      const res = await sendeEmail({
+        clientId, betreff, html: mail.html, text: mail.text,
+        typ: anTest ? 'test' : 'leistungsnachweis',
+        zeitraum: String(jahr),
+        to: anTest ? eigeneAdresse : undefined,
+      })
+      setErgebnis({ ok: true, text: `Gesendet an ${res.empfaenger}` })
+      if (clientId) versandProtokoll(clientId, 5).then(setProtokoll)
+    } catch (e) {
+      setErgebnis({ ok: false, text: e.message })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal eyebrow="Leistungsnachweis" title={`${label} · ${jahr}`} onClose={onClose} maxWidth={720}>
+      <form onSubmit={(e) => { e.preventDefault(); if (kannSenden) senden() }}
+        style={{ padding: '18px 24px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {/* Empfänger */}
+        <div>
+          <div style={LABEL_STYLE}>Empfänger</div>
+          {kundenAdresse ? (
+            <div style={{ fontSize: 13, color: FG, marginTop: 3 }}>
+              {client?.name} — <span style={{ fontFamily: MONO }}>{kundenAdresse}</span>
+            </div>
+          ) : (
+            <div style={{ fontSize: 13, color: WARN, marginTop: 3 }}>
+              Für {client?.name || 'diesen Auftraggeber'} ist keine Kontakt-E-Mail hinterlegt.
+              In den Stammdaten beim Kunden ergänzen — oder unten zunächst an dich selbst testen.
+            </div>
+          )}
+          {eigeneAdresse && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, color: MUTED, marginTop: 8, cursor: 'pointer' }}>
+              <input type="checkbox" checked={anTest} onChange={(e) => setAnTest(e.target.checked)} />
+              Zuerst als Test an mich selbst ({eigeneAdresse})
+            </label>
+          )}
+        </div>
+
+        {/* Betreff */}
+        <div>
+          <div style={LABEL_STYLE}>Betreff</div>
+          <input style={INPUT_STYLE} value={betreff} onChange={(e) => setBetreff(e.target.value)} />
+        </div>
+
+        {/* Vorschau */}
+        <div>
+          <div style={LABEL_STYLE}>Vorschau</div>
+          <iframe title="E-Mail-Vorschau" srcDoc={mail.html}
+            style={{ width: '100%', height: 320, border: `1px solid ${BORDER}`, borderRadius: 8, background: '#fff', marginTop: 4 }} />
+          <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, marginTop: 5 }}>
+            {nachweis.summe.objekte} Fläche(n) · {hrs(nachweis.summe.stunden)} · {nachweis.summe.einsatztage} Einsatztage
+          </div>
+        </div>
+
+        {/* Bisherige Versände */}
+        {protokoll.length > 0 && (
+          <div>
+            <div style={LABEL_STYLE}>Bereits gesendet</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 4 }}>
+              {protokoll.map((v) => (
+                <div key={v.id} style={{ fontSize: 11.5, color: v.status === 'fehler' ? DANGER : MUTED, fontFamily: MONO }}>
+                  {new Date(v.gesendet_am).toLocaleDateString('de-DE')} · {v.empfaenger}
+                  {v.status === 'fehler' ? ' · fehlgeschlagen' : ''}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {ergebnis && (
+          <div style={{ fontSize: 12.5, color: ergebnis.ok ? OK : DANGER, lineHeight: 1.5 }}>
+            {ergebnis.ok ? '✓ ' : '⚠️ '}{ergebnis.text}
+          </div>
+        )}
+
+        <ModalActions
+          onCancel={onClose}
+          cancelLabel={ergebnis?.ok ? 'Schließen' : 'Abbrechen'}
+          left={<span style={{ fontSize: 11, color: MUTED }}>
+            {empfaenger
+              ? <>Antworten gehen an {eigeneAdresse || 'dich'}.</>
+              : <>Kein Empfänger — bitte Kontakt-E-Mail ergänzen.</>}
+          </span>}
+          submitLabel={busy ? 'Sendet…' : anTest ? 'Test senden' : 'Senden'}
+        />
+      </form>
+    </Modal>
   )
 }
 

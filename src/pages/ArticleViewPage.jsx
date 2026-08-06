@@ -170,7 +170,7 @@ function renderMarkdown(text) {
 export default function ArticleViewPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { themeId } = useTheme()
+  const { isLight } = useTheme()
   const article = ARTICLES[id]
 
   if (!article) {
@@ -182,7 +182,7 @@ export default function ArticleViewPage() {
     )
   }
 
-  const color = themeId === 'light' ? article.colorLight : article.color
+  const color = isLight ? article.colorLight : article.color
 
   return (
     <div style={{ padding: '0 0 60px' }}>

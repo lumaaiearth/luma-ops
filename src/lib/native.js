@@ -7,11 +7,19 @@ export async function initNative() {
   if (!isNativeApp()) return
   try {
     const { StatusBar, Style } = await import('@capacitor/status-bar')
-    const dark = (localStorage.getItem('luma-theme') || 'light') !== 'light'
+    // Hintergrund je Theme — nicht „alles außer light ist dunkel": „Sand" ist
+    // ebenfalls ein helles Theme und bekam sonst helle Icons auf hellem Grund.
+    const BARS = {
+      forest:   { bg: '#070d12', dark: true },
+      terminal: { bg: '#000000', dark: true },
+      light:    { bg: '#f4f5f6', dark: false },
+      sand:     { bg: '#f8f5f0', dark: false },
+    }
+    const bar = BARS[localStorage.getItem('luma-theme')] || BARS.light
     // Style.Dark = helle Icons (für dunklen Grund), Style.Light = dunkle Icons.
-    await StatusBar.setStyle({ style: dark ? Style.Dark : Style.Light })
+    await StatusBar.setStyle({ style: bar.dark ? Style.Dark : Style.Light })
     if (platformName() === 'android') {
-      await StatusBar.setBackgroundColor({ color: dark ? '#080f14' : '#eef0ec' })
+      await StatusBar.setBackgroundColor({ color: bar.bg })
     }
   } catch {}
   try {

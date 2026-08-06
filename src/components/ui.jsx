@@ -6,7 +6,10 @@
 // ────────────────────────────────────────────────────────────────
 import { useEffect, useRef, useState } from 'react'
 import { X, CalendarDays } from 'lucide-react'
-import { A, SURFACE, BORDER, FG, MUTED, CARD, DANGER } from '../lib/theme.js'
+import {
+  A, SURFACE, SURFACE_2, BORDER, BORDER_STRONG, FG, MUTED, CARD, DANGER,
+  RADIUS, TEXT, SPACE, ELEV, tint,
+} from '../lib/theme.js'
 
 export const MONO = "'Space Mono', monospace"
 export const SANS = "'Space Grotesk', sans-serif"
@@ -14,14 +17,16 @@ export const SANS = "'Space Grotesk', sans-serif"
 /** Einheitlicher Formular-Input-Stil (vorher in jedem Modal dupliziert) */
 export const INPUT_STYLE = {
   width: '100%', background: SURFACE, border: `1px solid ${BORDER}`,
-  borderRadius: 6, padding: '10px 12px', color: FG,
-  fontFamily: SANS, fontSize: 14, outline: 'none',
+  borderRadius: RADIUS.md, padding: '9px 12px', color: FG,
+  fontFamily: SANS, fontSize: TEXT.md, outline: 'none',
 }
 
-/** Einheitlicher Formular-Label-Stil */
+/** Einheitlicher Formular-Label-Stil.
+ *  Sans statt Mono-Versalien: Feldbeschriftungen sind Text, keine Messwerte —
+ *  in Versalien-Mono bei 10px waren sie schwer zu lesen und optisch laut. */
 export const LABEL_STYLE = {
-  fontFamily: MONO, fontSize: 10, color: MUTED,
-  letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6, display: 'block',
+  fontFamily: SANS, fontSize: TEXT.xs, fontWeight: 500, color: MUTED,
+  marginBottom: SPACE[2], display: 'block',
 }
 
 /* ─── Datumsfeld im deutschen Format ──────────────────────────────────────────
@@ -134,16 +139,16 @@ export function Modal({ eyebrow, eyebrowColor = A, title, onClose, maxWidth = 58
     // die Aktions-Buttons dahinter. Safe-Area-Padding hält das Panel frei von
     // Notch und Home-Indicator.
     <div style={{ position: 'fixed', inset: 0, zIndex, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, paddingTop: 'max(16px, env(safe-area-inset-top))', paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }} onClick={onClose}>
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(4px)' }} />
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(3px)' }} />
       <div role="dialog" aria-modal="true" onClick={e => e.stopPropagation()} className="lu-fade-in"
-        style={{ position: 'relative', background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, width: '100%', maxWidth, maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 32px 80px rgba(0,0,0,0.55)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '18px 24px', borderBottom: `1px solid ${BORDER}`, position: 'sticky', top: 0, background: CARD, zIndex: 2 }}>
+        style={{ position: 'relative', background: CARD, border: `1px solid ${BORDER}`, borderRadius: RADIUS.xl, width: '100%', maxWidth, maxHeight: '92vh', overflowY: 'auto', boxShadow: ELEV[3] }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SPACE[3], padding: '14px 20px', borderBottom: `1px solid ${BORDER}`, position: 'sticky', top: 0, background: CARD, zIndex: 2 }}>
           <div style={{ minWidth: 0 }}>
-            {eyebrow && <div style={{ fontFamily: MONO, fontSize: 10, color: eyebrowColor, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: title ? 2 : 0 }}>{eyebrow}</div>}
-            {title && <div style={{ fontSize: 15, fontWeight: 500, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>}
+            {eyebrow && <div style={{ fontFamily: SANS, fontSize: TEXT.xs, fontWeight: 500, color: eyebrowColor, marginBottom: title ? 1 : 0 }}>{eyebrow}</div>}
+            {title && <div style={{ fontSize: TEXT.lg, fontWeight: 600, color: FG, letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>}
           </div>
           <button type="button" onClick={onClose} aria-label="Schließen" className="lu-btn-ghost"
-            style={{ background: 'transparent', border: `1px solid ${BORDER}`, borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            style={{ background: 'transparent', border: `1px solid ${BORDER}`, borderRadius: RADIUS.md, width: 30, height: 30, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <X size={16} />
           </button>
         </div>
@@ -166,10 +171,10 @@ export function ModalActions({ left, onCancel, submitLabel = 'Speichern', cancel
   )
 }
 
-/** Mono-Uppercase-Abschnittslabel — optional mit Aktion rechts (z.B. „alle →") */
+/** Abschnittslabel — optional mit Aktion rechts (z.B. „alle →") */
 export function SectionLabel({ children, action, style }) {
   const label = (
-    <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', ...(!action ? style : {}) }}>
+    <div className="lu-section-label" style={!action ? style : undefined}>
       {children}
     </div>
   )
@@ -185,19 +190,19 @@ export function SectionLabel({ children, action, style }) {
 /** Einheitlicher Seitenkopf: optionale Eyebrow-Zeile über großem Titel, Aktionen rechts */
 export function PageHeader({ title, sub, eyebrow, actions, isMobile = false, style }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 18, ...style }}>
-      <div>
-        {eyebrow && <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>{eyebrow}</div>}
-        <h1 style={{ fontSize: isMobile ? 20 : 26, fontWeight: 500, color: FG, letterSpacing: '-0.03em', margin: 0, lineHeight: 1.15 }}>{title}</h1>
-        {sub && <div style={{ fontFamily: MONO, fontSize: 11, color: MUTED, marginTop: 3 }}>{sub}</div>}
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: SPACE[3], marginBottom: SPACE[5], ...style }}>
+      <div style={{ minWidth: 0 }}>
+        {eyebrow && <div style={{ fontFamily: SANS, fontSize: TEXT.xs, fontWeight: 500, color: MUTED, marginBottom: 2 }}>{eyebrow}</div>}
+        <h1 style={{ fontSize: isMobile ? TEXT.xl : TEXT['2xl'], fontWeight: 600, color: FG, letterSpacing: '-0.02em', margin: 0, lineHeight: 1.2 }}>{title}</h1>
+        {sub && <div style={{ fontSize: TEXT.sm, color: MUTED, marginTop: SPACE[1] }}>{sub}</div>}
       </div>
-      {actions && <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>{actions}</div>}
+      {actions && <div style={{ display: 'flex', alignItems: 'center', gap: SPACE[2] }}>{actions}</div>}
     </div>
   )
 }
 
 /** Basis-Karte; `accent` färbt die linke Kante, `onClick` aktiviert Hover-Feedback */
-export function Card({ children, onClick, accent, padding = '14px 18px', style }) {
+export function Card({ children, onClick, accent, padding = '12px 16px', style }) {
   return (
     <div
       onClick={onClick}
@@ -205,8 +210,7 @@ export function Card({ children, onClick, accent, padding = '14px 18px', style }
       style={{
         background: SURFACE,
         border: `1px solid ${BORDER}`,
-        borderLeft: accent ? `3px solid ${accent}` : `1px solid ${BORDER}`,
-        borderRadius: 14,
+        borderLeft: accent ? `2px solid ${accent}` : `1px solid ${BORDER}`,
         padding,
         ...style,
       }}>
@@ -215,52 +219,75 @@ export function Card({ children, onClick, accent, padding = '14px 18px', style }
   )
 }
 
-/** Kennzahl-Kachel fürs Dashboard */
-export function StatCard({ label, value, sub, color, onClick }) {
+/** Kennzahl-Kachel fürs Dashboard.
+ *  Wert in Tabellenziffern und kräftiger Schnittstärke — dünne 32px-Zahlen
+ *  wirkten dekorativ; hier soll die Zahl der Anker sein.
+ *  `delta` zeigt eine Veränderung ({ value, dir: 'up'|'down'|'flat' }). */
+export function StatCard({ label, value, sub, color, onClick, icon: Icon, delta }) {
   return (
-    <Card onClick={onClick} padding="20px 24px">
-      <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 8 }}>{label}</div>
-      <div style={{ fontSize: 32, fontWeight: 300, color: color || FG, letterSpacing: '-0.03em', lineHeight: 1 }}>{value}</div>
-      {sub && <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, marginTop: 6 }}>{sub}</div>}
+    <Card onClick={onClick} padding="12px 14px">
+      <div style={{ display: 'flex', alignItems: 'center', gap: SPACE[2], marginBottom: SPACE[2] }}>
+        {Icon && <Icon size={13} color={MUTED} style={{ flexShrink: 0 }} />}
+        <div style={{ fontSize: TEXT.xs, fontWeight: 500, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: SPACE[2] }}>
+        {/* Proportionale Ziffern: Tabellenziffern geben jeder Ziffer die Breite
+            einer Null — bei großen Einzelzahlen wirkt „121" dadurch zerfasert.
+            Tabellenziffern gehören in Spalten, nicht auf eine Kennzahl. */}
+        <div style={{ fontSize: TEXT['3xl'], fontWeight: 600, color: color || FG, letterSpacing: '-0.03em', lineHeight: 1 }}>{value}</div>
+        {delta && (
+          <span className="lu-num" style={{ fontSize: TEXT.xs, color: delta.dir === 'up' ? 'var(--luma-ok)' : delta.dir === 'down' ? 'var(--luma-warn)' : MUTED }}>
+            {delta.dir === 'up' ? '↑' : delta.dir === 'down' ? '↓' : '±'}{delta.value}
+          </span>
+        )}
+      </div>
+      {sub && <div style={{ fontSize: TEXT.xs, color: MUTED, marginTop: SPACE[2] }}>{sub}</div>}
     </Card>
   )
 }
 
-/** Status-Pill: einheitliche Größe/Radius für alle Badges */
+/** Status-Pill: einheitliche Größe/Radius für alle Badges.
+ *  Sans statt Mono-Versalien — Statuswörter sind Text, keine Messwerte. */
 export function Badge({ color = A, children, icon: Icon, style }) {
   return (
     <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 4,
-      fontFamily: MONO, fontSize: 9, fontWeight: 700,
-      color, background: `color-mix(in srgb, ${color} 12%, transparent)`,
-      border: `1px solid color-mix(in srgb, ${color} 30%, transparent)`,
-      padding: '2px 8px', borderRadius: 10, whiteSpace: 'nowrap', flexShrink: 0,
+      display: 'inline-flex', alignItems: 'center', gap: SPACE[1],
+      fontFamily: SANS, fontSize: TEXT.xs, fontWeight: 500, lineHeight: 1.5,
+      color, background: tint(color, 12),
+      border: `1px solid ${tint(color, 26)}`,
+      padding: '1px 7px', borderRadius: RADIUS.sm, whiteSpace: 'nowrap', flexShrink: 0,
       ...style,
     }}>
-      {Icon && <Icon size={10} />}
+      {Icon && <Icon size={11} />}
       {children}
     </span>
   )
 }
 
-/** Button-Varianten: primary (Akzent), ghost (Rahmen), danger (rot) */
-export function Button({ variant = 'primary', icon: Icon, children, style, ...props }) {
+/** Button-Varianten: primary (Akzent), ghost (Rahmen), subtle (Fläche), danger (rot).
+ *  `size` steuert die Höhe: sm für Toolbars, md als Standard. */
+export function Button({ variant = 'primary', size = 'md', icon: Icon, children, style, ...props }) {
   const variants = {
     primary: { background: A, color: 'var(--luma-on-a)', border: '1px solid transparent', fontWeight: 600 },
     ghost:   { background: 'transparent', color: MUTED, border: `1px solid ${BORDER}` },
-    danger:  { background: `color-mix(in srgb, ${DANGER} 12%, transparent)`, color: DANGER, border: `1px solid color-mix(in srgb, ${DANGER} 35%, transparent)` },
+    subtle:  { background: SURFACE_2, color: FG, border: `1px solid ${BORDER}` },
+    danger:  { background: tint(DANGER, 12), color: DANGER, border: `1px solid ${tint(DANGER, 35)}` },
+  }
+  const sizes = {
+    sm: { padding: '5px 10px', fontSize: TEXT.sm },
+    md: { padding: '7px 14px', fontSize: TEXT.base },
   }
   return (
     <button
-      className={`lu-btn-${variant}`}
+      className={`lu-btn-${variant === 'subtle' ? 'ghost' : variant}`}
       style={{
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-        padding: '8px 16px', borderRadius: 10, cursor: props.disabled ? 'not-allowed' : 'pointer',
-        fontFamily: SANS, fontSize: 13, opacity: props.disabled ? 0.55 : 1,
-        ...variants[variant], ...style,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: SPACE[2],
+        borderRadius: RADIUS.md, cursor: props.disabled ? 'not-allowed' : 'pointer',
+        fontFamily: SANS, fontWeight: 500, opacity: props.disabled ? 0.5 : 1, whiteSpace: 'nowrap',
+        ...sizes[size] || sizes.md, ...variants[variant], ...style,
       }}
       {...props}>
-      {Icon && <Icon size={14} />}
+      {Icon && <Icon size={size === 'sm' ? 13 : 14} />}
       {children}
     </button>
   )
@@ -269,11 +296,11 @@ export function Button({ variant = 'primary', icon: Icon, children, style, ...pr
 /** Leerer Zustand mit Icon & optionalem Hinweis statt nacktem Text */
 export function EmptyState({ icon: Icon, title, hint, action, style }) {
   return (
-    <div style={{ padding: '36px 24px', textAlign: 'center', border: `1px dashed ${BORDER}`, borderRadius: 14, ...style }}>
-      {Icon && <Icon size={22} color={MUTED} style={{ marginBottom: 10, opacity: 0.7 }} />}
-      <div style={{ fontFamily: MONO, fontSize: 12, color: MUTED, letterSpacing: '0.05em' }}>{title}</div>
-      {hint && <div style={{ fontSize: 12, color: MUTED, marginTop: 6, opacity: 0.8 }}>{hint}</div>}
-      {action && <div style={{ marginTop: 14, display: 'flex', justifyContent: 'center' }}>{action}</div>}
+    <div style={{ padding: '32px 24px', textAlign: 'center', border: `1px dashed ${BORDER}`, borderRadius: RADIUS.md, ...style }}>
+      {Icon && <Icon size={20} color={MUTED} style={{ marginBottom: SPACE[2], opacity: 0.7 }} />}
+      <div style={{ fontSize: TEXT.base, fontWeight: 500, color: FG }}>{title}</div>
+      {hint && <div style={{ fontSize: TEXT.sm, color: MUTED, marginTop: SPACE[1] }}>{hint}</div>}
+      {action && <div style={{ marginTop: SPACE[4], display: 'flex', justifyContent: 'center' }}>{action}</div>}
     </div>
   )
 }
@@ -296,19 +323,22 @@ export function Avatar({ initials, color = A, size = 22, title, src, style }) {
   )
 }
 
-/** Segmentierte Pill-Tabs (aktiver Tab als gefüllte Pille) */
+/** Segmentierter Umschalter.
+ *  Der aktive Reiter wird angehoben (helle Fläche + Schatten) statt in
+ *  Akzentfarbe geflutet — der Akzent bleibt so Aktionen vorbehalten. */
 export function Tabs({ tabs, active, onChange, isMobile = false, style }) {
   return (
-    <div style={{ display: 'inline-flex', gap: 3, background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 999, padding: 4, marginBottom: 16, overflowX: 'auto', maxWidth: '100%', ...style }}>
+    <div style={{ display: 'inline-flex', gap: 2, background: SURFACE_2, border: `1px solid ${BORDER}`, borderRadius: RADIUS.md, padding: 3, marginBottom: SPACE[4], overflowX: 'auto', maxWidth: '100%', ...style }}>
       {tabs.map(([id, label]) => {
         const on = active === id
         return (
           <button key={id} onClick={() => onChange(id)} className={on ? undefined : 'lu-tab'}
             style={{
-              padding: isMobile ? '7px 13px' : '7px 18px', border: 'none', borderRadius: 999,
-              background: on ? A : 'transparent',
-              color: on ? 'var(--luma-on-a)' : MUTED, fontFamily: SANS, fontSize: isMobile ? 12 : 13,
-              fontWeight: on ? 600 : 400, cursor: 'pointer', whiteSpace: 'nowrap',
+              padding: isMobile ? '6px 12px' : '6px 16px', border: 'none', borderRadius: RADIUS.sm,
+              background: on ? SURFACE : 'transparent',
+              boxShadow: on ? ELEV[1] : 'none',
+              color: on ? FG : MUTED, fontFamily: SANS, fontSize: isMobile ? TEXT.sm : TEXT.base,
+              fontWeight: on ? 600 : 500, cursor: 'pointer', whiteSpace: 'nowrap',
             }}>
             {label}
           </button>
@@ -321,17 +351,17 @@ export function Tabs({ tabs, active, onChange, isMobile = false, style }) {
 /** Filter-Chips (Pill-Reihe), optional farbig pro Option */
 export function Chips({ options, value, onChange, colors = {}, style }) {
   return (
-    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', ...style }}>
+    <div style={{ display: 'flex', gap: SPACE[2], flexWrap: 'wrap', ...style }}>
       {options.map(([id, label]) => {
         const c = colors[id] || A
         const on = value === id
         return (
           <button key={id} onClick={() => onChange(id)} className="lu-chip"
             style={{
-              padding: '5px 12px', borderRadius: 20,
-              border: `1px solid ${on ? c : BORDER}`,
-              background: on ? `color-mix(in srgb, ${c} 12%, transparent)` : 'transparent',
-              color: on ? c : MUTED, cursor: 'pointer', fontSize: 12,
+              padding: '4px 11px', borderRadius: RADIUS.sm,
+              border: `1px solid ${on ? tint(c, 45) : BORDER}`,
+              background: on ? tint(c, 12) : 'transparent',
+              color: on ? c : MUTED, cursor: 'pointer', fontSize: TEXT.sm, fontWeight: on ? 600 : 500,
               fontFamily: SANS, whiteSpace: 'nowrap', flexShrink: 0,
             }}>
             {label}
@@ -339,5 +369,121 @@ export function Chips({ options, value, onChange, colors = {}, style }) {
         )
       })}
     </div>
+  )
+}
+
+/* ─── Panel, Tabelle, Zeile ────────────────────────────────────────────────
+   Die App besteht überwiegend aus Listen (Aufgaben, Einsätze, Zeiten,
+   Stammdaten). Bisher baute jede Seite ihre Zeilen selbst — mit je eigener
+   Höhe, Ausrichtung und Trennung. Diese drei Bausteine geben allen Listen
+   dieselbe Rasterung. */
+
+/** Umrahmter Block mit Kopfzeile; Inhalt läuft randlos bis an die Kante,
+ *  damit Tabellen und Listen bündig sitzen. */
+export function Panel({ title, action, children, style, bodyStyle }) {
+  return (
+    <section className="lu-panel" style={style}>
+      {(title || action) && (
+        <header className="lu-panel-head">
+          <span className="lu-panel-title">{title}</span>
+          {action}
+        </header>
+      )}
+      <div style={bodyStyle}>{children}</div>
+    </section>
+  )
+}
+
+/**
+ * Dichte Datentabelle.
+ *   columns: [{ key, label, width, align, mono, muted, render(row) }]
+ *   rows:    Datensätze mit stabiler `id`
+ *   accent(row) → Farbe für die Statuskante links (optional)
+ */
+export function DataTable({ columns, rows, onRowClick, accent, empty, maxHeight }) {
+  if (!rows?.length && empty) return empty
+  return (
+    <div style={{ overflowX: 'auto', maxHeight, overflowY: maxHeight ? 'auto' : undefined }}>
+      <table className="lu-table">
+        <thead>
+          <tr>
+            {accent && <th style={{ width: 2, padding: 0 }} aria-hidden="true" />}
+            {columns.map(c => (
+              <th key={c.key} style={{ width: c.width, textAlign: c.align === 'right' ? 'right' : 'left' }}>{c.label}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(row => (
+            <tr key={row.id} className={onRowClick ? 'lu-row-click' : undefined}
+              onClick={onRowClick ? () => onRowClick(row) : undefined}>
+              {accent && <td style={{ width: 2, padding: 0, background: accent(row) || 'transparent' }} />}
+              {columns.map(c => (
+                <td key={c.key}
+                  className={[c.align === 'right' || c.mono ? 'lu-cell-num' : '', c.muted ? 'lu-cell-mute' : ''].filter(Boolean).join(' ')}
+                  style={{ width: c.width }}>
+                  {c.render ? c.render(row) : row[c.key]}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+/** Einzelne Listenzeile — für mobile Ansichten und Fälle, in denen eine
+ *  Tabelle zu breit würde. Gleiche Rasterung wie DataTable. */
+export function ListRow({ accent, onClick, children, style }) {
+  return (
+    <div className={`lu-row${onClick ? ' lu-row-click' : ''}`} onClick={onClick}
+      style={{ borderLeft: accent ? `2px solid ${accent}` : undefined, ...style }}>
+      {children}
+    </div>
+  )
+}
+
+/** Werkzeugleiste über Listen: Filter links, Aktionen rechts */
+export function Toolbar({ children, right, style }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: SPACE[2], flexWrap: 'wrap', marginBottom: SPACE[3], ...style }}>
+      {children}
+      {right && <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: SPACE[2] }}>{right}</div>}
+    </div>
+  )
+}
+
+/** Ladeplatzhalter — statt leerer Fläche oder springendem Layout */
+export function Skeleton({ width = '100%', height = 12, radius, style }) {
+  return <div className="lu-skeleton" style={{ width, height, borderRadius: RADIUS.sm, ...style }} />
+}
+
+/**
+ * Aufklappmenü mit vorangestelltem Label.
+ *
+ * Bewusst ein natives <select>: Tastaturbedienung, Suche durch Tippen und der
+ * Rad-Picker auf dem Handy kommen damit gratis — ein nachgebautes Menü müsste
+ * das alles selbst leisten und tut es meist schlechter.
+ *
+ *   options: [[wert, beschriftung], …]
+ */
+export function Select({ label, value, onChange, options, style }) {
+  return (
+    <label style={{
+      display: 'inline-flex', alignItems: 'center', gap: SPACE[2],
+      background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: RADIUS.md,
+      padding: '4px 4px 4px 10px', cursor: 'pointer', maxWidth: '100%', ...style,
+    }}>
+      {label && <span style={{ fontSize: TEXT.xs, color: MUTED, whiteSpace: 'nowrap', flexShrink: 0 }}>{label}</span>}
+      <select value={value} onChange={e => onChange(e.target.value)}
+        style={{
+          background: 'transparent', border: 'none', outline: 'none', cursor: 'pointer',
+          color: FG, fontFamily: SANS, fontSize: TEXT.base, fontWeight: 500,
+          padding: '3px 2px', maxWidth: 200, textOverflow: 'ellipsis',
+        }}>
+        {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+      </select>
+    </label>
   )
 }

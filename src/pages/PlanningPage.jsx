@@ -113,8 +113,7 @@ const STEP_INDEX = k => Math.max(0, STEPS.findIndex(s => s.key === k))
 
 /* ─── MAIN ──────────────────────────────────────────────────────────────── */
 export default function PlanningPage() {
-  const { themeId } = useTheme()
-  const L = themeId === 'light'
+  const { isLight: L } = useTheme()
   const bp = useBreakpoint()
   const isMobile = bp === 'xs' || bp === 'sm'
   const { projects = [], updateProject, pflanzplaene = [], createPflanzplan, updatePflanzplan, deletePflanzplan,

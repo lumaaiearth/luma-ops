@@ -146,8 +146,7 @@ const COMING_SOON = [
 
 export default function AnalysePage() {
   const navigate = useNavigate()
-  const { themeId } = useTheme()
-  const isLight = themeId === 'light'
+  const { isLight } = useTheme()
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '32px 24px' }}>

@@ -7,24 +7,43 @@ import * as suncalcNs from 'suncalc'
 const SunCalc = suncalcNs.default || suncalcNs
 import { Deck, LightingEffect, AmbientLight, _SunLight as SunLight } from '@deck.gl/core'
 import { GeoJsonLayer, SolidPolygonLayer, BitmapLayer } from '@deck.gl/layers'
+import { SimpleMeshLayer } from '@deck.gl/mesh-layers'
 import { TileLayer } from '@deck.gl/geo-layers'
+import { SphereGeometry } from '@luma.gl/engine'
 import { X, Sun, Loader } from 'lucide-react'
 import { SURFACE, BORDER, FG, MUTED, A, A14 } from '../lib/theme.js'
 import { fetchBuildingsBbox } from '../lib/overpass.js'
 import { fetchAlkisBuildings, fetchBerlinTrees, isInBerlin } from '../lib/berlinGeo.js'
-import { findLod2Patch } from '../lib/lod2.js'
+import { findLod2Patch, findLod2Entry } from '../lib/lod2.js'
+import { crownBase } from '../lib/solar.js'
 
 const MONO = "'Space Mono', monospace"
 const SANS = "'Space Grotesk', sans-serif"
 const HALF_M = 450 // halbe Kantenlänge des geladenen Ausschnitts (Meter)
 
 const DATE_PRESETS = [
-  { key: 'fruehling', label: '21.3.', title: 'Frühling', month: 2, day: 21 },
-  { key: 'sommer', label: '21.6.', title: 'Sommer', month: 5, day: 21 },
-  { key: 'herbst', label: '23.9.', title: 'Herbst', month: 8, day: 23 },
-  { key: 'winter', label: '21.12.', title: 'Winter', month: 11, day: 21 },
+  { key: 'fruehling', label: '21.3.', title: 'Frühling', month: 2, day: 21, heat: 'fruehling' },
+  { key: 'sommer', label: '21.6.', title: 'Sommer', month: 5, day: 21, heat: 'sommer' },
+  { key: 'herbst', label: '23.9.', title: 'Herbst', month: 8, day: 23, heat: 'herbst' },
+  { key: 'winter', label: '21.12.', title: 'Winter', month: 11, day: 21, heat: 'winter' },
   { key: 'heute', label: 'Heute', title: 'Heute' },
 ]
+
+// Kugelgeometrie für Baumkronen: in Metern, per Instanz zu einem Ellipsoid
+// skaliert (breit für Laub-, schmal-hoch für Nadelbäume).
+const CROWN_MESH = new SphereGeometry({ radius: 1, nlat: 6, nlong: 10 })
+
+// Sechseck-Grundriss (für Stämme) um einen Punkt
+function hexRing(lat, lng, r) {
+  const dLat = r / 111320
+  const dLng = r / (111320 * Math.cos(lat * Math.PI / 180))
+  const ring = []
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * 2 * Math.PI
+    ring.push([lng + Math.cos(a) * dLng, lat + Math.sin(a) * dLat])
+  }
+  return ring
+}
 
 function hexToRgb(hex) {
   const m = /^#?([0-9a-f]{6})/i.exec(hex || '')
@@ -41,6 +60,8 @@ export default function Sun3DView({ center, mapFeatures = [], projectColorById =
   const [buildings, setBuildings] = useState(null)
   const [trees, setTrees] = useState([])
   const [lod2, setLod2] = useState(null)      // LoD2-Patch (amtliche Dachformen), falls vorhanden
+  const [heatEntry, setHeatEntry] = useState(null) // Index-Eintrag mit Sonnen-Heatmaps
+  const [showHeat, setShowHeat] = useState(false)
   const [dataSource, setDataSource] = useState('osm')
   const [error, setError] = useState(null)
   const [dateKey, setDateKey] = useState('heute')
@@ -73,8 +94,9 @@ export default function Sun3DView({ center, mapFeatures = [], projectColorById =
     const dLat = HALF_M / 111320
     const dLng = HALF_M / (111320 * Math.cos(lat * Math.PI / 180))
     const bbox = [lat - dLat, lng - dLng, lat + dLat, lng + dLng]
-    // Amtliche Dachformen, falls für dieses Gebiet ein LoD2-Patch existiert
+    // Amtliche Dachformen + vorberechnete Sonnen-Heatmaps für dieses Gebiet
     findLod2Patch(lat, lng, -120).then(setLod2).catch(() => setLod2(null))
+    findLod2Entry(lat, lng, -120).then(setHeatEntry).catch(() => setHeatEntry(null))
     try {
       if (isInBerlin(lat, lng)) {
         try {
@@ -97,9 +119,11 @@ export default function Sun3DView({ center, mapFeatures = [], projectColorById =
     let list = buildings
     if (lod2) {
       const kx = 111320 * Math.cos(lod2.center.lat * Math.PI / 180)
+      // Patch enthält Gebäude bis Radius + 40 m → Prismen bis dorthin ausblenden,
+      // sonst stehen an der Naht Prisma UND Dachmodell doppelt übereinander
       const inPatch = ring => {
         const [lo, la] = ring[0]
-        return Math.hypot((lo - lod2.center.lng) * kx, (la - lod2.center.lat) * 111320) < (lod2.radius || 350) - 15
+        return Math.hypot((lo - lod2.center.lng) * kx, (la - lod2.center.lat) * 111320) < (lod2.radius || 350) + 40
       }
       list = buildings.filter(b => !inPatch(b.ring))
     }
@@ -113,29 +137,59 @@ export default function Sun3DView({ center, mapFeatures = [], projectColorById =
     }
   }, [buildings, lod2])
 
+  // Heatmap-Bild passend zum gewählten Stichtag („Heute" → Sommer-Raster)
+  const heatImage = useMemo(() => {
+    if (!showHeat || !heatEntry?.bounds) return null
+    const key = preset?.heat || 'sommer'
+    const file = heatEntry.heatmaps?.[key] || heatEntry.heatmap
+    if (!file) return null
+    const [south, west, north, east] = heatEntry.bounds
+    return { url: `/lod2/${file}`, south, west, north, east, key }
+  }, [showHeat, heatEntry, preset?.heat])
+
   // LoD2-Dach-/Wandflächen als echte 3D-Polygone
   const lod2Faces = useMemo(() => {
     if (!lod2) return null
+    // Nur Gebäude im sichtbaren Umkreis rendern — große Patches haben bis zu
+    // 16.000 Flächen, die mit Shadow-Mapping ein Handy in die Knie zwingen.
+    const kx = 111320 * Math.cos(lat * Math.PI / 180)
     const out = []
-    for (const b of lod2.buildings) for (const f of b.faces) {
-      if (f.t === 'g') continue
-      out.push({ poly: f.pts, roof: f.t === 'r' })
+    for (const b of lod2.buildings) {
+      const p0 = b.faces[0]?.pts?.[0]
+      if (p0 && Math.hypot((p0[0] - lng) * kx, (p0[1] - lat) * 111320) > HALF_M) continue
+      for (const f of b.faces) {
+        if (f.t === 'g') continue
+        out.push({ poly: f.pts, roof: f.t === 'r' })
+      }
     }
     return out
-  }, [lod2])
+  }, [lod2, lat, lng])
 
-  // Baumkronen als 10-Eck-Zylinder (werfen im Licht-Effekt echte Schatten)
-  const treeColumns = useMemo(() => trees.map(t => {
-    const r = Math.max(t.crown / 2, 1.2)
-    const dLat = r / 111320
-    const dLng = r / (111320 * Math.cos(t.lat * Math.PI / 180))
-    const ring = []
-    for (let i = 0; i < 10; i++) {
-      const a = (i / 10) * 2 * Math.PI
-      ring.push([t.lng + Math.cos(a) * dLng, t.lat + Math.sin(a) * dLat])
+  // Bäume: Stamm (extrudiertes Sechseck vom Boden bis Kronenansatz) +
+  // Krone (instanziertes Ellipsoid). Vorher war jeder Baum ein voller Zylinder
+  // ab Boden — das verdeckte Gebäude und sah nach grünen Türmen aus.
+  const treeParts = useMemo(() => {
+    const trunks = [], crowns = []
+    for (const t of trees) {
+      const rH = Math.max(t.crown / 2, 1.2)                  // horizontaler Kronenradius
+      const base = crownBase(t)                              // Kronenansatz (geteilt mit der Analyse)
+      const rV = Math.max((t.height - base) / 2, 1)          // vertikaler Halbmesser
+      const zMid = base + rV
+      trunks.push({
+        polygon: hexRing(t.lat, t.lng, Math.max(0.16, rH * 0.09)),
+        elevation: base + 0.4,
+        art: t.art, height: t.height, crown: t.crown, gruppe: t.gruppe,
+      })
+      crowns.push({
+        position: [t.lng, t.lat, zMid],
+        // Nadelbäume schmaler und höher, Laubbäume breit-rundlich
+        scale: t.nadel ? [rH * 0.72, rH * 0.72, rV * 1.12] : [rH, rH, rV],
+        nadel: t.nadel,
+        art: t.art, height: t.height, crown: t.crown, gruppe: t.gruppe,
+      })
     }
-    return { polygon: ring, elevation: t.height, art: t.art, height: t.height, crown: t.crown }
-  }), [trees])
+    return { trunks, crowns }
+  }, [trees])
 
   const featureGeojson = useMemo(() => ({
     type: 'FeatureCollection',
@@ -203,6 +257,18 @@ export default function Sun3DView({ center, mapFeatures = [], projectColorById =
         pickable: true,
         material: { ambient: 0.45, diffuse: 0.65, shininess: 18, specularColor: [30, 30, 30] },
       }),
+      // Sonnen-Heatmap knapp über der Bodenplatte (Jahreszeit folgt der Datumswahl)
+      heatImage && new BitmapLayer({
+        id: 'sun-heatmap',
+        image: heatImage.url,
+        bounds: [
+          [heatImage.west, heatImage.south, 0.05],
+          [heatImage.west, heatImage.north, 0.05],
+          [heatImage.east, heatImage.north, 0.05],
+          [heatImage.east, heatImage.south, 0.05],
+        ],
+        opacity: 0.82,
+      }),
       // LoD2: amtliche Dach- & Wandflächen als echte 3D-Polygone (mit Schatten)
       lod2Faces && new SolidPolygonLayer({
         id: 'lod2',
@@ -213,16 +279,27 @@ export default function Sun3DView({ center, mapFeatures = [], projectColorById =
         getFillColor: d => (d.roof ? [186, 108, 86, 255] : [223, 223, 227, 255]),
         material: { ambient: 0.45, diffuse: 0.65, shininess: 16, specularColor: [25, 25, 25] },
       }),
-      // Bäume (Baumkataster): Kronenzylinder werfen echte Schatten
-      showTrees && treeColumns.length > 0 && new SolidPolygonLayer({
-        id: 'trees',
-        data: treeColumns,
+      // Bäume (Baumkataster): Stämme …
+      showTrees && treeParts.trunks.length > 0 && new SolidPolygonLayer({
+        id: 'tree-trunks',
+        data: treeParts.trunks,
         extruded: true,
         getPolygon: d => d.polygon,
         getElevation: d => d.elevation,
-        getFillColor: [92, 152, 90, 215],
+        getFillColor: [104, 80, 60, 255],
         pickable: true,
-        material: { ambient: 0.5, diffuse: 0.6, shininess: 5, specularColor: [0, 0, 0] },
+        material: { ambient: 0.5, diffuse: 0.6, shininess: 2, specularColor: [0, 0, 0] },
+      }),
+      // … und Kronen als instanzierte Ellipsoide (werfen echte Schatten)
+      showTrees && treeParts.crowns.length > 0 && new SimpleMeshLayer({
+        id: 'tree-crowns',
+        data: treeParts.crowns,
+        mesh: CROWN_MESH,
+        getPosition: d => d.position,
+        getScale: d => d.scale,
+        getColor: d => (d.nadel ? [58, 104, 74, 235] : [96, 150, 84, 232]),
+        pickable: true,
+        material: { ambient: 0.55, diffuse: 0.6, shininess: 4, specularColor: [0, 0, 0] },
       }),
       // Eigene BIOME-Features flach einblenden (Orientierung: wo ist meine Fläche?)
       new GeoJsonLayer({
@@ -242,7 +319,7 @@ export default function Sun3DView({ center, mapFeatures = [], projectColorById =
     effect.shadowColor = [0, 0, 25, sunUp ? 0.42 : 0]
 
     deck.setProps({ layers, effects: [effect] })
-  }, [buildingGeojson, lod2Faces, featureGeojson, treeColumns, showTrees, date, sunUp, showMap, lat, lng])
+  }, [buildingGeojson, lod2Faces, featureGeojson, treeParts, showTrees, heatImage, date, sunUp, showMap, lat, lng])
 
   const chip = (active) => ({
     padding: '5px 10px', borderRadius: 7, fontSize: 11, fontFamily: SANS, cursor: 'pointer', whiteSpace: 'nowrap',
@@ -269,6 +346,13 @@ export default function Sun3DView({ center, mapFeatures = [], projectColorById =
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '7px 12px', fontSize: 11, color: MUTED, fontFamily: SANS, cursor: 'pointer', pointerEvents: 'auto' }}>
             <input type="checkbox" checked={showTrees} onChange={e => setShowTrees(e.target.checked)} style={{ accentColor: '#5c985a' }} />
             🌳 Bäume ({trees.length})
+          </label>
+        )}
+        {heatEntry?.bounds && (
+          <label title="Vorberechnete Sonnenstunden am Boden (folgt der Datumswahl)"
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '7px 12px', fontSize: 11, color: MUTED, fontFamily: SANS, cursor: 'pointer', pointerEvents: 'auto' }}>
+            <input type="checkbox" checked={showHeat} onChange={e => setShowHeat(e.target.checked)} style={{ accentColor: '#fbbf24' }} />
+            ☀️ Sonnen-Heatmap
           </label>
         )}
         <button onClick={onClose} aria-label="3D-Ansicht schließen"
