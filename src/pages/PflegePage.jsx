@@ -36,6 +36,10 @@ function isoWeek(date = new Date()) {
   return Math.ceil(((d - start) / 86400000 + 1) / 7)
 }
 
+// Wie LABEL_STYLE, aber ohne display:block/marginBottom — in <th> zerstört
+// display:block das Tabellenlayout (Spalten stapeln sich vertikal)
+const TH_STYLE = { fontFamily: MONO, fontSize: 10, fontWeight: 400, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }
+
 const STATUS_COLORS = { entwurf: MUTED, aktiv: OK, abgeschlossen: INFO }
 const OFFER_STATUS = { entwurf: MUTED, versendet: INFO, angenommen: OK, abgelehnt: DANGER }
 const GANG_STATUS = { geplant: MUTED, terminiert: INFO, erledigt: OK, entfallen: DANGER }
@@ -530,9 +534,9 @@ function TabPlaene({ isMobile, plans, aufgabenByPlan, gaengeByPlan, planLabel, p
                   <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 720 }}>
                     <thead>
                       <tr>
-                        <th style={{ ...LABEL_STYLE, marginBottom: 0, textAlign: 'left', padding: '6px 8px 6px 0', position: 'sticky', left: 0, background: SURFACE }}>Aufgabe</th>
-                        {MONATE.map((m) => <th key={m} style={{ ...LABEL_STYLE, marginBottom: 0, padding: '6px 4px', textAlign: 'right' }}>{m}</th>)}
-                        <th style={{ ...LABEL_STYLE, marginBottom: 0, padding: '6px 0 6px 10px', textAlign: 'right' }}>Jahr</th>
+                        <th style={{ ...TH_STYLE, textAlign: 'left', padding: '6px 8px 6px 0', position: 'sticky', left: 0, background: SURFACE }}>Aufgabe</th>
+                        {MONATE.map((m) => <th key={m} style={{ ...TH_STYLE, padding: '6px 4px', textAlign: 'right' }}>{m}</th>)}
+                        <th style={{ ...TH_STYLE, padding: '6px 0 6px 10px', textAlign: 'right' }}>Jahr</th>
                         <th />
                       </tr>
                     </thead>
