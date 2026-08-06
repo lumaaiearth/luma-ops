@@ -28,6 +28,8 @@ import {
   Modal, ModalActions, DateInput, INPUT_STYLE, LABEL_STYLE, MONO, SANS,
 } from '../components/ui.jsx'
 import { PFLEGE_KATALOG } from '../data/pflegeKatalog.js'
+import { normalizeRule, kontostand, hoursFromTimes } from '../lib/hourAccounts.js'
+import { isoToday } from '../lib/storage.js'
 import { normalisiereZeiteintraege, buildLeistungsnachweis } from '../lib/leistungsnachweis.js'
 import { druckeLeistungsnachweis } from '../lib/printNachweis.js'
 import { baueNachweisEmail } from '../lib/nachweisEmail.js'
@@ -46,6 +48,7 @@ const SAISONS = [
   { key: 'herbst', label: 'Herbst', kurz: 'H', von: 36, bis: 48, color: WARN },
 ]
 const WINTER = { key: 'winter', label: 'Winter', kurz: 'W', color: MUTED }
+const DAY_NAMES = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 const saisonForKw = (kw) => SAISONS.find((s) => kw >= s.von && kw <= s.bis) || WINTER
 
 function isoWeek(date = new Date()) {
@@ -171,10 +174,10 @@ Auftraggeber                          Auftragnehmer`
 export default function PflegePage() {
   const isMobile = useIsMobile()
   const { projects, clients, jobs, createJob } = useOps()
-  const { entries, hourRules, rates } = useTime()
-  const { isAdmin } = useAuth()
+  const { entries, hourRules, rates, costs, logTime, updateEntry, deleteEntry, addCost, deleteCost } = useTime()
+  const { isAdmin, profile } = useAuth()
 
-  const [tab, setTab] = useState('standorte')
+  const [tab, setTab] = useState('erfassung')
   const [plaene, setPlaene] = useState([])
   const [aufgaben, setAufgaben] = useState([])
   const [gaenge, setGaenge] = useState([])
@@ -376,7 +379,9 @@ export default function PflegePage() {
   }
 
   const totalTage = yearPlans.reduce((s, p) => s + (gaengeByPlan[p.id] || []).filter((g) => g.status !== 'entfallen').length, 0)
-  const TABS = [['standorte', 'Standorte'], ['jahresplan', 'Jahresplan'], ['abschluss', 'Abschluss'], ...(isAdmin ? [['angebote', 'Angebote & Verträge']] : [])]
+  // Reihenfolge = Arbeitsablauf (Wunsch Malte 08/2026): erst eintragen,
+  // dann auswerten, dann planen. Standorte/Angebote sind Stammdaten-Pflege.
+  const TABS = [['erfassung', 'Erfassung'], ['statistik', 'Statistik'], ['jahresplan', 'Jahresplanung'], ['standorte', 'Standorte'], ...(isAdmin ? [['angebote', 'Angebote & Verträge']] : [])]
 
   return (
     // Gleiche Seitenarchitektur wie ManaPage/Dashboard: zentrierter Container
@@ -404,22 +409,25 @@ export default function PflegePage() {
       <Tabs tabs={TABS} active={tab} onChange={setTab} isMobile={isMobile} />
       {loading ? (
         <EmptyState icon={Sprout} title="lädt…" />
-      ) : !yearPlans.length && tab !== 'angebote' ? (
+      ) : !yearPlans.length && ['standorte', 'jahresplan'].includes(tab) ? (
         <EmptyState icon={Sprout} title={`Keine Pflegepläne für ${jahr}`}
           hint={years.length ? `Vorhandene Jahre: ${years.join(', ')} — über „${jahr - 1}" auswählen und „${jahr} vorbereiten" übernehmen.` : 'Import: node scripts/gen-pflege-import.mjs'} />
       ) : (
         <>
-          {tab === 'standorte' && (
-            <TabStandorte isMobile={isMobile} plans={yearPlans}
-              {...{ jahr, years, aufgabenByPlan, gaengeByPlan, jobById, planLabel, planClientId, planHours, clientById, projById, updatePlan, updateGang, regenerateGaenge, carryOverPlan, markErledigt, onTerminieren: setGangModal, deleteAufgabe, onEditAufgabe: (plan, aufgabe) => setAufgabeModal({ plan, aufgabe }) }} />
+          {tab === 'erfassung' && (
+            <TabErfassung {...{ jahr, entries, costs, projects, clients, projById, clientById, profile, isAdmin, logTime, updateEntry, deleteEntry, addCost, deleteCost }} />
+          )}
+          {tab === 'statistik' && (
+            <TabStatistik plans={yearPlans}
+              {...{ jahr, entries, jobs, hourRules, gaengeByPlan, planLabel, planHours, projById, updatePlan, updateGang, clients }} />
           )}
           {tab === 'jahresplan' && (
             <TabJahresplan plans={yearPlans}
-              {...{ jahr, gaengeByPlan, jobById, planLabel, hourRules, markErledigt, onTerminieren: setGangModal }} />
+              {...{ jahr, gaengeByPlan, jobById, jobs, planLabel, projById, hourRules, markErledigt, onTerminieren: setGangModal }} />
           )}
-          {tab === 'abschluss' && (
-            <TabAbschluss plans={yearPlans}
-              {...{ jahr, entries, jobs, gaengeByPlan, planLabel, planHours, projById, updatePlan, updateGang, clients }} />
+          {tab === 'standorte' && (
+            <TabStandorte isMobile={isMobile} plans={yearPlans}
+              {...{ jahr, years, aufgabenByPlan, gaengeByPlan, jobById, planLabel, planClientId, planHours, clientById, projById, updatePlan, updateGang, regenerateGaenge, carryOverPlan, markErledigt, onTerminieren: setGangModal, deleteAufgabe, onEditAufgabe: (plan, aufgabe) => setAufgabeModal({ plan, aufgabe }) }} />
           )}
           {tab === 'angebote' && isAdmin && (
             <TabAngebote {...{ offers, setOffers, clientById, onNew: () => setOfferModal(true) }} />
@@ -472,6 +480,315 @@ function SaisonBar({ gaenge }) {
           </span>
         )
       })}
+    </div>
+  )
+}
+
+/* ─── Tab: Erfassung (ersetzt die Excel-Stundendokumentation) ──
+   Jede Person trägt hier ihre Einsätze ein: Wer, wann, von–bis, wo, was.
+   Stunden werden aus Start/Ende berechnet (überschreibbar). Admins können
+   zusätzlich Material-Ausgaben je Fläche erfassen. Datenbasis ist die
+   zentrale Zeiterfassung (time_entries) — alles fließt automatisch in
+   Statistik, Stundenkonten und Leistungsnachweise. */
+
+function TabErfassung({ jahr, entries, costs, projects, clients, projById, clientById, profile, isAdmin, logTime, updateEntry, deleteEntry, addCost, deleteCost }) {
+  const people = allPeople()
+  const emptyForm = () => ({
+    typ: 'person', user_id: profile?.team_id || people[0]?.id || '',
+    date: isoToday(), start_time: '', end_time: '', hours: '',
+    amount: '', client_id: '', project_id: '', description: '',
+  })
+  const [form, setForm] = useState(emptyForm)
+  const [editId, setEditId] = useState(null)
+  const [fPerson, setFPerson] = useState('alle')
+  const [fClient, setFClient] = useState('alle')
+
+  const set = (changes) => setForm((f) => ({ ...f, ...changes }))
+  const autoHours = form.start_time && form.end_time ? hoursFromTimes(form.start_time, form.end_time) : null
+  const effHours = form.hours !== '' ? Number(form.hours) : (autoHours ?? 0)
+  const clientProjects = projects.filter((p) => !form.client_id || p.client_id === form.client_id)
+
+  function submit(e) {
+    e.preventDefault()
+    if (form.typ === 'material') {
+      if (!form.project_id && !form.client_id) return
+      addCost({ project_id: form.project_id || null, date: form.date, description: form.description, amount_net: Number(form.amount) || 0 })
+      setForm(emptyForm()); return
+    }
+    const data = {
+      user_id: form.user_id, project_id: form.project_id || null, job_id: null,
+      date: form.date, hours: round2(effHours), description: form.description,
+      start_time: form.start_time || null, end_time: form.end_time || null,
+    }
+    if (editId) { updateEntry(editId, data); setEditId(null) } else logTime(data)
+    setForm(emptyForm())
+  }
+
+  function editRow(r) {
+    if (r.typ === 'material') return
+    setEditId(r.id)
+    setForm({
+      typ: 'person', user_id: r.user_id || '', date: r.date || isoToday(),
+      start_time: r.start_time || '', end_time: r.end_time || '', hours: String(r.hours ?? ''),
+      amount: '', client_id: projById[r.project_id]?.client_id || '', project_id: r.project_id || '', description: r.description || '',
+    })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  // Zeilen: Zeiteinträge + (für Admins) Material-Ausgaben des Jahres
+  const rows = useMemo(() => {
+    const zeit = (entries || [])
+      .filter((e) => e.date?.startsWith(String(jahr)))
+      .map((e) => ({ ...e, typ: 'person' }))
+    const mat = isAdmin ? (costs || [])
+      .filter((c) => c.date?.startsWith(String(jahr)))
+      .map((c) => ({ id: c.id, typ: 'material', user_id: null, date: c.date, hours: null, amount: c.amount_net, project_id: c.project_id, description: c.description })) : []
+    return [...zeit, ...mat]
+      .filter((r) => fPerson === 'alle' || r.user_id === fPerson)
+      .filter((r) => fClient === 'alle' || projById[r.project_id]?.client_id === fClient)
+      .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+  }, [entries, costs, jahr, fPerson, fClient, isAdmin, projById])
+
+  const sumH = rows.reduce((s, r) => s + Number(r.hours || 0), 0)
+  const personName = (id) => people.find((p) => p.id === id)?.name || id || '—'
+  const SELECT = { ...INPUT_STYLE, padding: '8px 10px', fontSize: 13 }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* Eingabezeile — bewusst nah an der gewohnten Excel-Zeile */}
+      <Card padding="14px 16px" accent={editId ? INFO : undefined}>
+        <SectionLabel style={{ marginBottom: 10 }}>{editId ? 'Eintrag bearbeiten' : 'Neuer Eintrag'}</SectionLabel>
+        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8 }}>
+            <div>
+              <label style={LABEL_STYLE}>Name</label>
+              <select value={form.user_id} onChange={(e) => set({ user_id: e.target.value })} style={SELECT} disabled={form.typ === 'material'}>
+                {people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+            {isAdmin && (
+              <div>
+                <label style={LABEL_STYLE}>Typ</label>
+                <select value={form.typ} onChange={(e) => set({ typ: e.target.value })} style={SELECT} disabled={!!editId}>
+                  <option value="person">Person</option>
+                  <option value="material">Material</option>
+                </select>
+              </div>
+            )}
+            <div>
+              <label style={LABEL_STYLE}>Datum</label>
+              <DateInput value={form.date} onChange={(v) => set({ date: v })} required />
+            </div>
+            {form.typ === 'person' ? (
+              <>
+                <div>
+                  <label style={LABEL_STYLE}>Start</label>
+                  <input type="time" value={form.start_time} onChange={(e) => set({ start_time: e.target.value })} style={SELECT} />
+                </div>
+                <div>
+                  <label style={LABEL_STYLE}>Ende</label>
+                  <input type="time" value={form.end_time} onChange={(e) => set({ end_time: e.target.value })} style={SELECT} />
+                </div>
+                <div>
+                  <label style={LABEL_STYLE}>Stunden</label>
+                  <input type="number" step="0.25" min="0" value={form.hours}
+                    placeholder={autoHours != null ? String(round2(autoHours)) : '0'}
+                    onChange={(e) => set({ hours: e.target.value })}
+                    style={{ ...SELECT, fontFamily: MONO, textAlign: 'right' }} />
+                </div>
+              </>
+            ) : (
+              <div>
+                <label style={LABEL_STYLE}>Kosten netto (€)</label>
+                <input type="number" step="0.01" min="0" value={form.amount} onChange={(e) => set({ amount: e.target.value })}
+                  style={{ ...SELECT, fontFamily: MONO, textAlign: 'right' }} required />
+              </div>
+            )}
+            <div>
+              <label style={LABEL_STYLE}>Auftraggeber</label>
+              <select value={form.client_id} onChange={(e) => set({ client_id: e.target.value, project_id: '' })} style={SELECT}>
+                <option value="">—</option>
+                {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={LABEL_STYLE}>Projektfläche</label>
+              <select value={form.project_id} onChange={(e) => set({ project_id: e.target.value })} style={SELECT}>
+                <option value="">—</option>
+                {clientProjects.map((p) => <option key={p.id} value={p.id}>{p.flaeche_code || p.name}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+            <div style={{ flex: 1 }}>
+              <label style={LABEL_STYLE}>Beschreibung der Tätigkeiten</label>
+              <input value={form.description} onChange={(e) => set({ description: e.target.value })} style={SELECT}
+                placeholder="z. B. Beikräuter entfernen, Rasen mähen, Wege reinigen" />
+            </div>
+            {editId && (
+              <Button type="button" variant="ghost" onClick={() => { setEditId(null); setForm(emptyForm()) }}>Abbrechen</Button>
+            )}
+            <Button type="submit" icon={editId ? Check : Plus}>
+              {editId ? 'Speichern' : 'Eintragen'}{form.typ === 'person' && effHours > 0 ? ` (${round2(effHours).toLocaleString('de-DE')} h)` : ''}
+            </Button>
+          </div>
+        </form>
+      </Card>
+
+      {/* Filter + Summe */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <select value={fPerson} onChange={(e) => setFPerson(e.target.value)} style={{ ...SELECT, width: 'auto' }}>
+          <option value="alle">Alle Personen</option>
+          {people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+        <select value={fClient} onChange={(e) => setFClient(e.target.value)} style={{ ...SELECT, width: 'auto' }}>
+          <option value="alle">Alle Auftraggeber</option>
+          {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+        <span style={{ marginLeft: 'auto', fontFamily: MONO, fontSize: 12, color: MUTED }}>
+          {rows.length} Einträge · {hrs(sumH)}
+        </span>
+      </div>
+
+      {/* Detailliste */}
+      <Card padding="6px 16px">
+        <div style={{ overflowX: 'auto' }}>
+          <div style={{ minWidth: 820 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '78px 110px 92px 56px 130px 1fr 64px', gap: 10, padding: '8px 0', borderBottom: `1px solid ${BORDER}` }}>
+              {['Datum', 'Name', 'Zeit', 'h / €', 'Fläche', 'Beschreibung', ''].map((h, i) => (
+                <div key={i} style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase', textAlign: i === 3 ? 'right' : 'left' }}>{h}</div>
+              ))}
+            </div>
+            {rows.map((r) => {
+              const proj = projById[r.project_id]
+              const client = clientById[proj?.client_id]
+              return (
+                <div key={`${r.typ}-${r.id}`}
+                  style={{ display: 'grid', gridTemplateColumns: '78px 110px 92px 56px 130px 1fr 64px', gap: 10, padding: '7px 0', borderBottom: `1px solid color-mix(in srgb, ${BORDER} 50%, transparent)`, alignItems: 'baseline' }}>
+                  <div style={{ fontFamily: MONO, fontSize: 11.5, color: FG }}>{r.date ? new Date(r.date + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) : '—'}</div>
+                  <div style={{ fontSize: 12.5, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {r.typ === 'material' ? <Badge color={INFO}>Material</Badge> : personName(r.user_id)}
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 11, color: MUTED }}>
+                    {r.start_time ? `${r.start_time}–${r.end_time || ''}` : '—'}
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 11.5, color: FG, textAlign: 'right' }}>
+                    {r.typ === 'material' ? eur(r.amount) : round2(Number(r.hours || 0)).toLocaleString('de-DE')}
+                  </div>
+                  <div style={{ fontSize: 12, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`${client?.name || ''} ${proj?.name || ''}`}>
+                    {proj ? (proj.flaeche_code || proj.name) : '—'}
+                  </div>
+                  <div style={{ fontSize: 12.5, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.description || ''}>
+                    {r.description || <span style={{ color: MUTED }}>—</span>}
+                  </div>
+                  <div style={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+                    {r.typ === 'person' && (
+                      <button type="button" onClick={() => editRow(r)} title="Bearbeiten"
+                        style={{ background: 'transparent', border: 'none', color: MUTED, cursor: 'pointer', padding: 3 }}><Pencil size={13} /></button>
+                    )}
+                    <button type="button" title="Löschen"
+                      onClick={() => { if (window.confirm('Eintrag löschen?')) (r.typ === 'material' ? deleteCost(r.id) : deleteEntry(r.id)) }}
+                      style={{ background: 'transparent', border: 'none', color: MUTED, cursor: 'pointer', padding: 3 }}><Trash2 size={13} /></button>
+                  </div>
+                </div>
+              )
+            })}
+            {!rows.length && <div style={{ padding: '18px 0', fontSize: 13, color: MUTED }}>Noch keine Einträge in {jahr}.</div>}
+          </div>
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+/* ─── Tab: Statistik (Soll/Ist je Standort + Stundenkonten) ───── */
+
+function TabStatistik({ plans, jahr, entries, jobs, hourRules, gaengeByPlan, planLabel, planHours, projById, updatePlan, updateGang, clients }) {
+  const people = allPeople()
+
+  // Soll/Ist je Projekt (Teilobjekte zusammengefasst — die Zeiterfassung
+  // kennt nur das Projekt). Soll inkl. Fahrt, damit es zur Ist-Seite passt.
+  const groups = useMemo(() => {
+    const m = {}
+    for (const p of plans) (m[p.project_id] = m[p.project_id] || []).push(p)
+    return Object.entries(m).map(([projectId, ps]) => {
+      const soll = ps.flatMap((p) => gaengeByPlan[p.id] || [])
+        .filter((g) => g.status !== 'entfallen')
+        .reduce((s, g) => s + Number(g.soll_stunden || 0) + Number(g.fahrt_stunden || 0), 0)
+      const ist = (entries || [])
+        .filter((e) => e.project_id === projectId && e.date?.startsWith(String(jahr)))
+        .reduce((s, e) => s + Number(e.hours || 0), 0)
+      const label = ps.length === 1 ? planLabel(ps[0]) : projById[projectId]?.name || projectId
+      return { projectId, label, soll: round2(soll), ist: round2(ist) }
+    }).sort((a, b) => b.soll - a.soll)
+  }, [plans, gaengeByPlan, entries, jahr])
+
+  const maxSoll = Math.max(1, ...groups.map((g) => Math.max(g.soll, g.ist)))
+
+  // Stundenkonten: Plus/Minus je Person aus den Stundenkonto-Regeln
+  const saldi = useMemo(() => Object.values(hourRules || {}).map((r) => {
+    const rule = normalizeRule(r, r.team_id)
+    const saldo = kontostand(rule, entries || [], r.team_id)
+    const geleistet = (entries || [])
+      .filter((e) => e.user_id === r.team_id && e.date?.startsWith(String(jahr)))
+      .reduce((s, e) => s + Number(e.hours || 0), 0)
+    return { id: r.team_id, name: people.find((p) => p.id === r.team_id)?.name || r.team_id, geleistet: round2(geleistet), saldo: saldo === null ? null : round2(saldo) }
+  }).filter((x) => x.saldo !== null || x.geleistet > 0), [hourRules, entries, jahr])
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <Card padding="14px 16px">
+        <SectionLabel style={{ marginBottom: 12 }}>Stunden je Standort — geleistet vs. Planung {jahr}</SectionLabel>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+          {groups.map((g) => {
+            const over = g.ist > g.soll + 0.01
+            const rest = round2(Math.max(0, g.soll - g.ist))
+            return (
+              <div key={g.projectId} style={{ display: 'grid', gridTemplateColumns: '150px 1fr 190px', gap: 10, alignItems: 'center' }}>
+                <div style={{ fontSize: 12.5, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={g.label}>{g.label}</div>
+                <div style={{ position: 'relative', height: 15, background: `color-mix(in srgb, ${MUTED} 8%, transparent)`, borderRadius: 5, overflow: 'hidden' }}>
+                  {/* Soll-Spur */}
+                  <div style={{ position: 'absolute', inset: 0, width: `${(g.soll / maxSoll) * 100}%`, background: `color-mix(in srgb, ${MUTED} 16%, transparent)`, borderRadius: 5 }} />
+                  {/* Ist-Füllung */}
+                  <div style={{ position: 'absolute', inset: 0, width: `${(Math.min(g.ist, maxSoll) / maxSoll) * 100}%`, background: over ? `color-mix(in srgb, ${WARN} 65%, transparent)` : `color-mix(in srgb, ${A} 60%, transparent)`, borderRadius: 5 }} />
+                </div>
+                <div style={{ fontFamily: MONO, fontSize: 11, color: over ? WARN : FG, textAlign: 'right' }}>
+                  {round2(g.ist).toLocaleString('de-DE')} / {round2(g.soll).toLocaleString('de-DE')} h
+                  <span style={{ color: MUTED }}> · {over ? `+${round2(g.ist - g.soll).toLocaleString('de-DE')} über Plan` : `Rest ${rest.toLocaleString('de-DE')}`}</span>
+                </div>
+              </div>
+            )
+          })}
+          {!groups.length && <div style={{ fontSize: 12.5, color: MUTED }}>Keine Pläne für {jahr}.</div>}
+        </div>
+        <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, marginTop: 10 }}>
+          Soll = Einsätze laut Planung inkl. Fahrt · Ist = Zeiterfassung auf das Projekt
+        </div>
+      </Card>
+
+      <Card padding="14px 16px">
+        <SectionLabel style={{ marginBottom: 12 }}>Stundenkonten — Plus/Minus je Person</SectionLabel>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10 }}>
+          {saldi.map((s) => (
+            <div key={s.id} style={{ border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 14px' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: FG }}>{s.name}</div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 6 }}>
+                <span style={{ fontFamily: MONO, fontSize: 18, fontWeight: 700, color: s.saldo === null ? MUTED : s.saldo >= 0 ? OK : DANGER }}>
+                  {s.saldo === null ? '—' : `${s.saldo > 0 ? '+' : ''}${s.saldo.toLocaleString('de-DE')} h`}
+                </span>
+                <span style={{ fontFamily: MONO, fontSize: 10.5, color: MUTED }}>{s.geleistet.toLocaleString('de-DE')} h in {jahr}</span>
+              </div>
+            </div>
+          ))}
+          {!saldi.length && <div style={{ fontSize: 12.5, color: MUTED }}>Keine Stundenkonto-Regeln hinterlegt (Team → Stundenkonto).</div>}
+        </div>
+        <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, marginTop: 10 }}>
+          Saldo = geleistete Stunden minus geschuldete Stunden (bezahlte Monate) minus Übertrag Vorjahr — wie auf der Zeiten-Seite
+        </div>
+      </Card>
+
+      {/* Plan/Ist im Detail, Leistungsnachweise, Restanten */}
+      <TabAbschluss plans={plans} {...{ jahr, entries, jobs, gaengeByPlan, planLabel, planHours, projById, updatePlan, updateGang, clients }} />
     </div>
   )
 }
@@ -640,10 +957,15 @@ function TabStandorte({ isMobile, plans, jahr, aufgabenByPlan, gaengeByPlan, job
 
 /* ─── Tab: Jahresplan (Belegung Standorte × KW + Kapazität) ───── */
 
-function TabJahresplan({ plans, jahr, gaengeByPlan, jobById, planLabel, hourRules, markErledigt, onTerminieren }) {
+function TabJahresplan({ plans, jahr, gaengeByPlan, jobById, jobs, planLabel, projById, hourRules, markErledigt, onTerminieren }) {
   const curKW = jahr === new Date().getFullYear() ? isoWeek() : jahr < new Date().getFullYear() ? 53 : 0
+  // Zoomstufen: Jahr (Überblick) → Saison (KW breit, mit Stunden) → Monat
+  // (echter Kalender mit terminierten Einsätzen und offenen Gängen je Woche)
+  const [zoom, setZoom] = useState('jahr')
+  const [monat, setMonat] = useState(() => Math.min(11, Math.max(3, new Date().getMonth() + 1)))
+  const season = SAISONS.find((s) => s.key === zoom)
   const KWS = []
-  for (let k = SAISONS[0].von; k <= SAISONS[2].bis; k += 1) KWS.push(k)
+  for (let k = season ? season.von : SAISONS[0].von; k <= (season ? season.bis : SAISONS[2].bis); k += 1) KWS.push(k)
 
   const sorted = [...plans].sort((a, b) => planLabel(a).localeCompare(planLabel(b)))
   const faellig = plans.flatMap((p) => (gaengeByPlan[p.id] || [])
@@ -659,10 +981,24 @@ function TabJahresplan({ plans, jahr, gaengeByPlan, jobById, planLabel, hourRule
     if (g.status !== 'entfallen') tageJeKw[g.kw] = (tageJeKw[g.kw] || 0) + 1
   }
 
-  const CELL = 20
+  const CELL = season ? 58 : 20
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <Chips value={zoom} onChange={setZoom}
+          options={[['jahr', 'Jahr'], ['fruehjahr', 'Frühjahr'], ['sommer', 'Sommer'], ['herbst', 'Herbst'], ['monat', 'Monat']]} />
+        {zoom === 'monat' && (
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <Button variant="ghost" style={{ padding: '4px 10px' }} onClick={() => setMonat((m) => Math.max(1, m - 1))}>‹</Button>
+            <select value={monat} onChange={(e) => setMonat(Number(e.target.value))} style={{ ...INPUT_STYLE, width: 'auto', padding: '7px 10px', fontSize: 13 }}>
+              {MONATE.map((m, i) => <option key={m} value={i + 1}>{m} {jahr}</option>)}
+            </select>
+            <Button variant="ghost" style={{ padding: '4px 10px' }} onClick={() => setMonat((m) => Math.min(12, m + 1))}>›</Button>
+          </div>
+        )}
+      </div>
+
       {faellig.length > 0 && (
         <Card accent={WARN} padding="12px 16px">
           <SectionLabel style={{ marginBottom: 8 }}>Fällig (bis KW {curKW + 2})</SectionLabel>
@@ -680,13 +1016,18 @@ function TabJahresplan({ plans, jahr, gaengeByPlan, jobById, planLabel, hourRule
         </Card>
       )}
 
+      {zoom === 'monat' ? (
+        <MonatsKalender {...{ jahr, monat, plans, gaengeByPlan, jobs, projById, planLabel, onTerminieren, markErledigt, curKW }} />
+      ) : (
       <Card padding="14px 16px">
-        <SectionLabel style={{ marginBottom: 10 }}>Belegung {jahr} · KW {SAISONS[0].von}–{SAISONS[2].bis} (Dez–Feb Pflegepause)</SectionLabel>
+        <SectionLabel style={{ marginBottom: 10 }}>
+          Belegung {jahr} · KW {KWS[0]}–{KWS[KWS.length - 1]}{zoom === 'jahr' ? ' (Dez–Feb Pflegepause)' : ` · ${season.label}spflege`}
+        </SectionLabel>
         <div style={{ overflowX: 'auto' }}>
           <div style={{ minWidth: KWS.length * CELL + 170 }}>
             {/* Saison-Band */}
             <div style={{ display: 'flex', marginLeft: 170, marginBottom: 4 }}>
-              {SAISONS.map((s) => (
+              {SAISONS.filter((s) => !season || s.key === season.key).map((s) => (
                 <div key={s.key} style={{
                   width: (s.bis - s.von + 1) * CELL, textAlign: 'center',
                   fontFamily: MONO, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase',
@@ -697,8 +1038,8 @@ function TabJahresplan({ plans, jahr, gaengeByPlan, jobById, planLabel, hourRule
             {/* KW-Skala */}
             <div style={{ display: 'flex', marginLeft: 170, marginBottom: 6 }}>
               {KWS.map((k) => (
-                <div key={k} style={{ width: CELL, textAlign: 'center', fontFamily: MONO, fontSize: 8, color: k === curKW ? FG : MUTED, fontWeight: k === curKW ? 700 : 400 }}>
-                  {k % 2 === 0 ? k : ''}
+                <div key={k} style={{ width: CELL, textAlign: 'center', fontFamily: MONO, fontSize: season ? 10 : 8, color: k === curKW ? FG : MUTED, fontWeight: k === curKW ? 700 : 400 }}>
+                  {season ? `KW ${k}` : (k % 2 === 0 ? k : '')}
                 </div>
               ))}
             </div>
@@ -709,7 +1050,7 @@ function TabJahresplan({ plans, jahr, gaengeByPlan, jobById, planLabel, hourRule
                 if (g.status !== 'entfallen' && saisonForKw(g.kw).key !== 'winter') (byKw[g.kw] = byKw[g.kw] || []).push(g)
               }
               return (
-                <div key={p.id} style={{ display: 'flex', alignItems: 'center', height: 26 }}>
+                <div key={p.id} style={{ display: 'flex', alignItems: 'center', height: season ? 30 : 26 }}>
                   <div style={{ width: 170, fontSize: 12, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 10 }}>{planLabel(p)}</div>
                   {KWS.map((k) => {
                     const cell = byKw[k] || []
@@ -718,17 +1059,25 @@ function TabJahresplan({ plans, jahr, gaengeByPlan, jobById, planLabel, hourRule
                     const late = g.status === 'geplant' && g.kw < curKW
                     const c = late ? DANGER : g.status === 'erledigt' ? OK : g.status === 'terminiert' ? INFO : MUTED
                     const job = g.job_id ? jobById[g.job_id] : null
-                    const tip = `${planLabel(p)} · KW ${g.kw} · ${hrs(Number(g.soll_stunden) + Number(g.fahrt_stunden || 0))}${job?.date ? ` · ${fmtDate(job.date)}` : ''} · ${late ? 'überfällig' : g.status}`
+                    const aufg = (g.aufgaben || []).map((a) => a.titel).slice(0, 5).join(' · ')
+                    const tip = `${planLabel(p)} · KW ${g.kw} · ${hrs(Number(g.soll_stunden) + Number(g.fahrt_stunden || 0))}${job?.date ? ` · ${fmtDate(job.date)}` : ''} · ${late ? 'überfällig' : g.status}${aufg ? `\n${aufg}` : ''}`
+                    const dim = g.status === 'geplant' && !late
                     return (
                       <div key={k} style={{ width: CELL, display: 'flex', justifyContent: 'center' }}>
                         <button type="button" title={tip}
                           onClick={() => { if (g.status === 'geplant') onTerminieren(g) }}
                           style={{
-                            width: 13, height: 13, borderRadius: '50%', border: 'none', padding: 0,
+                            width: season ? CELL - 10 : 13, height: season ? 20 : 13,
+                            borderRadius: season ? 6 : '50%', border: 'none', padding: 0,
                             cursor: g.status === 'geplant' ? 'pointer' : 'default',
-                            background: g.status === 'geplant' && !late ? `color-mix(in srgb, ${MUTED} 40%, transparent)` : c,
+                            background: dim ? `color-mix(in srgb, ${MUTED} 40%, transparent)` : c,
                             outline: cell.length > 1 ? `2px solid color-mix(in srgb, ${c} 45%, transparent)` : 'none',
-                          }} />
+                            fontFamily: MONO, fontSize: 9.5, fontWeight: 700,
+                            color: season ? (dim ? FG : 'var(--luma-on-a)') : 'transparent',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}>
+                          {season ? `${round2(Number(g.soll_stunden) + Number(g.fahrt_stunden || 0)).toLocaleString('de-DE')}h` : ''}
+                        </button>
                       </div>
                     )
                   })}
@@ -752,9 +1101,10 @@ function TabJahresplan({ plans, jahr, gaengeByPlan, jobById, planLabel, hourRule
               <span style={{ width: 10, height: 10, borderRadius: '50%', background: c }} /> {l}
             </span>
           ))}
-          <span style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>Klick auf geplanten Punkt = Terminieren</span>
+          <span style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>Klick auf geplanten Punkt = Terminieren · Tooltip zeigt die Aufgaben</span>
         </div>
       </Card>
+      )}
 
       {winterGaenge.length > 0 && (
         <Card padding="12px 16px">
@@ -772,6 +1122,111 @@ function TabJahresplan({ plans, jahr, gaengeByPlan, jobById, planLabel, hourRule
 
       <Kapazitaet plans={plans} gaengeByPlan={gaengeByPlan} hourRules={hourRules} />
     </div>
+  )
+}
+
+/* ─── Monatskalender (Zoomstufe „Monat" der Jahresplanung) ─────
+   Echte Tage: terminierte Pflege-Einsätze liegen auf ihrem Datum
+   (Tooltip = Aufgabenliste aus den Einsatz-Notizen), offene Gänge der
+   jeweiligen KW stehen rechts neben der Woche und sind direkt
+   terminierbar. */
+
+function MonatsKalender({ jahr, monat, plans, gaengeByPlan, jobs, projById, planLabel, onTerminieren, markErledigt, curKW }) {
+  const first = new Date(jahr, monat - 1, 1)
+  const daysInMonth = new Date(jahr, monat, 0).getDate()
+  const lead = (first.getDay() + 6) % 7
+  const cells = [...Array(lead).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)]
+  while (cells.length % 7) cells.push(null)
+  const weeks = []
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7))
+  const iso = (d) => `${jahr}-${String(monat).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+  const today = isoToday()
+
+  const monthPrefix = `${jahr}-${String(monat).padStart(2, '0')}`
+  const pflegeJobs = (jobs || []).filter((j) => j.job_type === 'pflege' && (j.date || '').startsWith(monthPrefix) && j.status !== 'cancelled')
+
+  const openByKw = {}
+  for (const p of plans) {
+    for (const g of gaengeByPlan[p.id] || []) {
+      if (g.status === 'geplant') (openByKw[g.kw] = openByKw[g.kw] || []).push({ ...g, planRef: p })
+    }
+  }
+
+  const JOB_C = { planned: INFO, in_progress: WARN, done: OK }
+
+  return (
+    <Card padding="14px 16px">
+      <SectionLabel style={{ marginBottom: 10 }}>{MONATE[monat - 1]} {jahr} — Einsätze & offene Gänge</SectionLabel>
+      <div style={{ overflowX: 'auto' }}>
+        <div style={{ minWidth: 860 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '44px repeat(7, 1fr) 190px', gap: 5, marginBottom: 5 }}>
+            <div />
+            {DAY_NAMES.map((d) => (
+              <div key={d} style={{ fontFamily: MONO, fontSize: 10, color: MUTED, textTransform: 'uppercase', textAlign: 'center' }}>{d}</div>
+            ))}
+            <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, textTransform: 'uppercase' }}>Offen (KW)</div>
+          </div>
+          {weeks.map((week, wi) => {
+            const firstDay = week.find((d) => d != null)
+            const kw = firstDay ? isoWeek(new Date(jahr, monat - 1, firstDay)) : null
+            const open = kw != null ? openByKw[kw] || [] : []
+            return (
+              <div key={wi} style={{ display: 'grid', gridTemplateColumns: '44px repeat(7, 1fr) 190px', gap: 5, marginBottom: 5 }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: kw === curKW ? FG : MUTED, fontWeight: kw === curKW ? 700 : 400, alignSelf: 'center' }}>
+                  {kw != null ? `KW ${kw}` : ''}
+                </div>
+                {week.map((d, di) => {
+                  const dayIso = d != null ? iso(d) : null
+                  const dayJobs = dayIso ? pflegeJobs.filter((j) => j.date === dayIso) : []
+                  const isToday = dayIso === today
+                  return (
+                    <div key={di} style={{
+                      minHeight: 58, borderRadius: 8, padding: 4,
+                      border: `1px solid ${isToday ? A : BORDER}`,
+                      background: d == null ? `color-mix(in srgb, ${MUTED} 5%, transparent)` : isToday ? `color-mix(in srgb, ${A} 7%, transparent)` : SURFACE,
+                      display: 'flex', flexDirection: 'column', gap: 3,
+                    }}>
+                      {d != null && <div style={{ fontFamily: MONO, fontSize: 9.5, color: isToday ? A : MUTED, fontWeight: isToday ? 700 : 400 }}>{d}</div>}
+                      {dayJobs.map((j) => {
+                        const proj = projById[j.project_id]
+                        return (
+                          <div key={j.id} title={`${j.title}${j.planned_hours ? ` · ${hrs(j.planned_hours)}` : ''}${j.notes ? `\n${j.notes}` : ''}`}
+                            style={{
+                              fontSize: 10.5, fontWeight: 600, color: FG, padding: '2px 5px', borderRadius: 4,
+                              background: `color-mix(in srgb, ${JOB_C[j.status] || MUTED} 14%, transparent)`,
+                              borderLeft: `2px solid ${JOB_C[j.status] || MUTED}`,
+                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                            }}>
+                            {proj?.flaeche_code || proj?.name || j.title}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )
+                })}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 3, justifyContent: 'center' }}>
+                  {open.map((g) => (
+                    <button key={g.id} type="button" onClick={() => onTerminieren(g)}
+                      title={`${planLabel(g.planRef)} · ${hrs(Number(g.soll_stunden) + Number(g.fahrt_stunden || 0))} · ${(g.aufgaben || []).map((a) => a.titel).slice(0, 5).join(' · ')}\nKlick = terminieren`}
+                      style={{
+                        textAlign: 'left', fontSize: 10.5, color: FG, padding: '3px 7px', borderRadius: 5,
+                        background: `color-mix(in srgb, ${kw < curKW ? DANGER : MUTED} 12%, transparent)`,
+                        border: `1px dashed color-mix(in srgb, ${kw < curKW ? DANGER : MUTED} 45%, transparent)`,
+                        cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>
+                      {planLabel(g.planRef)} · {round2(Number(g.soll_stunden) + Number(g.fahrt_stunden || 0)).toLocaleString('de-DE')}h
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+      <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, marginTop: 8 }}>
+        Farbige Chips = terminierte Einsätze (Tooltip zeigt die Aufgaben) · gestrichelt = offene Gänge der KW, Klick = terminieren
+      </div>
+    </Card>
   )
 }
 
