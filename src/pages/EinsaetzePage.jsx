@@ -31,7 +31,8 @@ export default function EinsaetzePage() {
     const q = searchParams.get('view')
     if (q && VIEWS.some(v => v.id === q)) return q
     try { const s = localStorage.getItem(LS_KEY); if (VIEWS.some(v => v.id === s)) return s } catch {}
-    return 'liste'
+    // Standard: Wochenplan — die Planungsansicht ist der häufigste Einstieg (Wunsch Malte, 08/2026)
+    return 'wochenplan'
   })
 
   // Deep-Links (?view=…) aus Redirects übernehmen, danach Param aufräumen

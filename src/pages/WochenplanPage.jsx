@@ -299,14 +299,14 @@ export default function WochenplanPage({ embedded = false }) {
         onClick={e => { e.stopPropagation(); openJob(job) }}
         style={{
           background: A14, borderLeft: `3px solid ${job.color || A}`,
-          borderRadius: 5, padding: big ? '6px 9px' : '3px 6px', fontSize: big ? 12 : 10,
+          borderRadius: 5, padding: big ? '6px 9px' : '4px 7px', fontSize: big ? 13 : 11,
           lineHeight: 1.35, color: FG, cursor: 'grab', userSelect: 'none',
           opacity: isDragged ? 0.35 : 1, touchAction: 'pan-y',
         }}>
         <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {p?.flaeche_code || p?.name || job.title}
         </div>
-        <div style={{ fontFamily: MONO, fontSize: big ? 10 : 8.5, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ fontFamily: MONO, fontSize: big ? 10.5 : 9.5, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {[job.start_time, vNames.length ? `🚐 ${vNames.join(', ')}` : null].filter(Boolean).join(' · ') || job.title}
         </div>
       </div>
@@ -456,7 +456,9 @@ export default function WochenplanPage({ embedded = false }) {
 
   // ─────────────────────────── DESKTOP: Wochen-Matrix ───────────────────────
   return (
-    <div style={{ padding: 24, maxWidth: 1200, margin: '0 auto' }}>
+    // Breiter als die Listen-Seiten: die Matrix lebt von Platz je Tagesspalte.
+    // Sie füllt bis 1720px und wächst mit dem Fenster (Spalten = 1fr).
+    <div style={{ padding: '24px 28px', maxWidth: 1720, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20, flexWrap: 'wrap' }}>
         {!embedded && (
           <h1 style={{ fontSize: 22, fontWeight: 400, color: FG, letterSpacing: '-0.02em', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -471,7 +473,7 @@ export default function WochenplanPage({ embedded = false }) {
           <button onClick={() => setWs(addDays(ws, 7))} className="lu-btn-ghost" style={{ width: 28, height: 28, borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronRight size={14} /></button>
           <button onClick={goToday} className="lu-btn-ghost" style={{ padding: '5px 12px', borderRadius: 6, background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 12 }}>Heute</button>
         </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 14, fontFamily: MONO, fontSize: 9, color: MUTED, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 14, fontFamily: MONO, fontSize: 10, color: MUTED, alignItems: 'center', flexWrap: 'wrap' }}>
           <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, boxShadow: `inset 0 0 0 1.5px ${A}`, verticalAlign: -1, marginRight: 4 }} />verfügbar</span>
           <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, verticalAlign: -1, marginRight: 4, background: `repeating-linear-gradient(45deg, transparent, transparent 2px, color-mix(in srgb, ${MUTED} 35%, transparent) 2px, color-mix(in srgb, ${MUTED} 35%, transparent) 4px)` }} />abwesend</span>
           <span>Zelle anklicken = anlegen · Chip ziehen = verschieben</span>
@@ -480,7 +482,7 @@ export default function WochenplanPage({ embedded = false }) {
 
       {/* Matrix */}
       <div ref={matrixRef} style={{ overflowX: 'auto', paddingBottom: 8 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: `150px repeat(7, minmax(120px, 1fr))`, gap: 4, minWidth: 1050 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: `170px repeat(7, minmax(135px, 1fr))`, gap: 5, minWidth: 1115 }}>
           {/* Kopfzeile */}
           <div />
           {days.map((d, i) => {
@@ -490,7 +492,7 @@ export default function WochenplanPage({ embedded = false }) {
               <div key={d} {...(isT ? { 'data-today': true } : {})}
                 style={{ padding: '4px 8px', textAlign: 'center' }}>
                 <span style={{
-                  fontFamily: MONO, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em',
+                  fontFamily: MONO, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em',
                   color: isT ? 'var(--luma-on-a)' : MUTED, fontWeight: isT ? 700 : 400,
                   background: isT ? A : 'transparent', borderRadius: 6, padding: isT ? '2px 8px' : 0,
                   display: 'inline-block',
@@ -517,7 +519,7 @@ export default function WochenplanPage({ embedded = false }) {
       {/* Abwesenheiten dieser Woche */}
       {weekAbsences.length > 0 && (
         <div style={{ marginTop: 18, padding: '12px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12 }}>
-          <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 8 }}>Abwesenheiten in KW {kw}</div>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 8 }}>Abwesenheiten in KW {kw}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {weekAbsences.map(a => {
               const u = findPerson(a.team_id)
@@ -580,11 +582,11 @@ function RowFragment({ person, days, today, cellJobs, isAvailable, absenceFor, a
   const avail = person.id ? availability[person.id] : null
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', minHeight: 52 }}>
-        <Avatar initials={person.initials} color={person.color} size={22} src={avatarFor(person.id)} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', minHeight: 58 }}>
+        <Avatar initials={person.initials} color={person.color} size={24} src={avatarFor(person.id)} />
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: FG, whiteSpace: 'nowrap' }}>{person.name}</div>
-          {avail?.note && <div style={{ fontSize: 9, color: MUTED, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }} title={avail.note}>{avail.note}</div>}
+          <div style={{ fontSize: 13, fontWeight: 600, color: FG, whiteSpace: 'nowrap' }}>{person.name}</div>
+          {avail?.note && <div style={{ fontSize: 10, color: MUTED, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }} title={avail.note}>{avail.note}</div>}
         </div>
         {person.id && onAddAbsence && (
           <button onClick={() => onAddAbsence(person.id)} title="Abwesenheit eintragen" className="lu-btn-ghost"
@@ -608,7 +610,7 @@ function RowFragment({ person, days, today, cellJobs, isAvailable, absenceFor, a
                 : day === today ? A08 : CARD,
               border: isDrop ? `2px dashed ${A}` : `1px solid ${BORDER}`,
               boxShadow: available ? `inset 0 0 0 1.5px color-mix(in srgb, ${A} 55%, transparent)` : 'none',
-              borderRadius: 8, minHeight: 52, padding: 3, cursor: 'pointer',
+              borderRadius: 8, minHeight: 58, padding: 4, cursor: 'pointer',
               display: 'flex', flexDirection: 'column', gap: 3,
             }}
             title={absence ? `Abwesend: ${absence.reason || ''}` : undefined}
