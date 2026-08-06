@@ -220,6 +220,29 @@ alter table jobs add column if not exists planned_hours numeric;  -- Soll-h je E
 3. **Plan/Ist** — je Standort: Soll-h vs. gebuchte h (laufendes Jahr), Abweichung in % und €, Ampel; je Aufgabe aufklappbar. Vorschlag „Kalibrierung fürs nächste Jahr: Faktor 1,25" auf Basis der Daten.
 4. **Angebote** — Liste + Generator: Kunde wählen → zieht die aktiven Pflegepläne → erzeugt Angebots-Entwurf mit Leistungsverzeichnis-Positionen je Standort (aus dem Aufgaben-Katalog), Jahresstunden **intern**, nach außen Pauschale mit gewählter Abrechnung (monatlich/Drittel). Export als Text/PDF zum Einfügen ins Rechnungstool (Format wie AN-57: Kopf-Text, Positionen, Fuß-Text — aber mit sauberem Leistungszeitraum).
 
+### 6.1 Redesign 08/2026 — „Objektakte statt Matrix" (umgesetzt)
+
+Nach dem ersten Praxiseinsatz (Feedback Malte: zu voll, Tabellenansicht raus) wurde die Seite
+nach dem Vorbild professioneller GaLaBau-Software (DATAflor & Co.: **Objektakte** als Zentrum,
+LV in Turnussprache als Kundendokument, Belegungsplan Objekte × KW, Saisonphasen) neu geschnitten:
+
+- **Standorte** (Startansicht): je Standort eine kompakte Akte — Saison-Fortschritt
+  (Frühjahr Mrz–Mai · Sommer Jun–Aug · Herbst Sep–Nov, **Winter = Pflegepause**),
+  **Leistungsverzeichnis** als Liste in Turnussprache (ersetzt die Aufgaben×Monats-Matrix;
+  die Stundenmatrix war ein internes Kalkulationsartefakt, kein Arbeitsinstrument),
+  Einsätze des Jahres chronologisch mit Inline-Terminierung, Aktionen: LV kopieren/per
+  E-Mail senden (ALLCURA-Format), Gänge neu generieren, **ins Folgejahr übernehmen**
+  (kopiert LV + Kalibrierung, regeneriert Gänge, Status Entwurf).
+- **Jahresplan**: Belegungsleiste Standorte × KW 10–48 mit Saisonbändern (Winter ausgeblendet),
+  Zelle = Einsatztag mit Statusfarbe und Datum, Fällig-Leiste (nächste 2 Wochen) mit
+  Ein-Klick-Terminierung, darunter die Kapazitätsbalken (Bedarf vs. verfügbar).
+- **Abschluss**: Plan/Ist + Kalibrierung + Leistungsnachweis (Text/PDF/E-Mail) und
+  **Restanten**: Beim Erledigen eines Gangs wird die Aufgaben-Checkliste abgehakt;
+  nicht Geschafftes erscheint hier je Standort und kann in den nächsten Gang übernommen werden.
+- **Angebote & Verträge** (admin): bisheriger Generator + **Vertragstext nach
+  ALLCURA-Struktur** (Laufzeit 12 Monate, Kündigung 3 Monate, Abrechnung monatlich/quartalsweise)
+  je Angebot kopierbar; LV je Objekt als Anlage.
+
 **Erweiterungen bestehender Seiten:**
 - **Wochenplan/Einsätze:** Backlog-Spalte „Fällige Pflegegänge" (Status `geplant`, KW ≤ aktuelle KW + 2) zum Drag-&-Drop-Terminieren → erzeugt `job` mit `planned_hours`, verlinkt den Gang. Im Einsatz sichtbar: Soll-h vs. bisher gebuchte h.
 - **Kundenportal:** Erledigte Pflege-Einsätze mit Datum, Leistungen und 2–3 Fotos je Standort anzeigen (Daten existieren: `jobs` + `job_photos`; CUSTOMER_STRATEGY.md schlägt genau das vor). Das ist der stärkste Hebel gegen „zu teuer": Der Kunde *sieht* die 90 Stunden.
