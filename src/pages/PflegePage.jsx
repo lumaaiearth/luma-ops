@@ -379,7 +379,9 @@ export default function PflegePage() {
   const TABS = [['standorte', 'Standorte'], ['jahresplan', 'Jahresplan'], ['abschluss', 'Abschluss'], ...(isAdmin ? [['angebote', 'Angebote & Verträge']] : [])]
 
   return (
-    <div>
+    // Gleiche Seitenarchitektur wie ManaPage/Dashboard: zentrierter Container
+    // mit Maximalbreite — sonst zerläuft die Seite auf breiten Monitoren.
+    <div style={{ padding: isMobile ? '16px 14px 90px' : '28px 32px', maxWidth: 1080, margin: '0 auto', fontFamily: SANS }}>
       <PageHeader
         title="Pflege" isMobile={isMobile}
         eyebrow="Pflegeplanung"
