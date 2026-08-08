@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useOps } from '../context/OpsContext.jsx'
 import { A, SURFACE, BORDER, FG, MUTED, OK, DANGER, INFO } from '../lib/theme.js'
 import { PageHeader, Button, Tabs, Chips, EmptyState, Badge, Avatar } from '../components/ui.jsx'
@@ -8,14 +8,14 @@ import { peopleForIds, avatarFor } from '../lib/people.js'
 import { formatDate, isoToday } from '../lib/storage.js'
 import JobModal from '../components/JobModal.jsx'
 import { useBreakpoint } from '../lib/useBreakpoint.js'
-import { Plus, Repeat, Trash2, CheckCircle2, Circle, Pencil, ChevronRight, Archive, RotateCcw } from 'lucide-react'
+import { Plus, Repeat, Trash2, CheckCircle2, Circle, Pencil, ChevronRight, Archive, RotateCcw, Check } from 'lucide-react'
 
 const STATUS_COLORS  = { planned: INFO, in_progress: A, done: OK, cancelled: '#6B7280', archived: '#6B7280' }
 const STATUS_LABELS  = { planned: 'Geplant', in_progress: 'Läuft', done: 'Erledigt', cancelled: 'Abgesagt', archived: 'Archiv' }
 const DURATION_LABEL = { full: 'Ganztags', half_am: 'Vormittag', half_pm: 'Nachmittag' }
 
 export default function JobsPage() {
-  const { jobs, archivedJobs, recurring, projects, clients, createJob, updateJob, deleteJob, setJobStatus, archiveJob, restoreJob, createRecurring, deleteRecurring } = useOps()
+  const { jobs, archivedJobs, recurring, projects, clients, tasks, createJob, updateJob, deleteJob, setJobStatus, archiveJob, restoreJob, createRecurring, deleteRecurring } = useOps()
   const [searchParams, setSearchParams] = useSearchParams()
   const [modal, setModal]   = useState(null)
   const [editJob, setEditJob] = useState(null)
@@ -103,6 +103,7 @@ export default function JobsPage() {
                 key={job.id}
                 job={job}
                 projects={projects}
+                gangId={tasks.find(t => t.job_id === job.id && t.gang_id)?.gang_id || null}
                 today={today}
                 isMobile={isMobile}
                 onToggleStatus={() => setJobStatus(job.id,
@@ -176,7 +177,7 @@ export default function JobsPage() {
 }
 
 /* ─── JOB ROW ───────────────────────────────────────────────────────────── */
-function JobRow({ job, projects, today, isMobile, onToggleStatus, onEdit, onDelete, onArchive, onRestore }) {
+function JobRow({ job, projects, gangId, today, isMobile, onToggleStatus, onEdit, onDelete, onArchive, onRestore }) {
   const type      = JOB_TYPES.find(t => t.id === job.job_type)
   const project   = projects.find(p => p.id === job.project_id)
   const assignees = peopleForIds(job.assigned_users)
@@ -186,6 +187,17 @@ function JobRow({ job, projects, today, isMobile, onToggleStatus, onEdit, onDele
   const isDone    = job.status === 'done' || isArchived
 
   // Fertiggestellt → per Bestätigung ins Archiv; archiviert → wiederherstellen
+  // Pflege-Einsatz aus dem LV → Abschluss-Dialog im Pflege-Tab (Checkliste,
+  // Stunden je Teilnehmer, Material) statt bloßem Status-Umschalten.
+  const navigate = useNavigate()
+  const abschlussBtn = gangId && !isDone ? (
+    <button onClick={e => { e.stopPropagation(); navigate(`/pflege?abschluss=${gangId}`) }}
+      title="Einsatz abschließen — Aufgaben, Stunden und Material erfassen" className="lu-btn-ghost"
+      style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 6, background: `color-mix(in srgb, ${OK} 10%, transparent)`, border: `1px solid color-mix(in srgb, ${OK} 30%, transparent)`, color: OK, cursor: 'pointer', fontSize: 11, flexShrink: 0, whiteSpace: 'nowrap' }}>
+      <Check size={12} /> Abschließen
+    </button>
+  ) : null
+
   const confirmBtn = job.status === 'done' ? (
     <button onClick={e => { e.stopPropagation(); onArchive() }} title="Einsatz bestätigen → Archiv" className="lu-btn-ghost"
       style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 6, background: `color-mix(in srgb, ${OK} 10%, transparent)`, border: `1px solid color-mix(in srgb, ${OK} 30%, transparent)`, color: OK, cursor: 'pointer', fontSize: 11, flexShrink: 0, whiteSpace: 'nowrap' }}>
@@ -248,7 +260,9 @@ function JobRow({ job, projects, today, isMobile, onToggleStatus, onEdit, onDele
           {/* Status badge */}
           <Badge color={STATUS_COLORS[job.status]}>{STATUS_LABELS[job.status]}</Badge>
 
-          {confirmBtn}
+          {abschlussBtn}
+          {abschlussBtn}
+      {confirmBtn}
 
           {/* Assignee avatars */}
           <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>

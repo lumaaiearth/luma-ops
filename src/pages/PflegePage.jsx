@@ -194,7 +194,7 @@ Auftraggeber                          Auftragnehmer`
 
 export default function PflegePage() {
   const isMobile = useIsMobile()
-  const { projects, clients, jobs, createJob } = useOps()
+  const { projects, clients, jobs, createJob, setJobStatus } = useOps()
   const { entries, hourRules, rates, costs, logTime, updateEntry, deleteEntry, addCost, deleteCost } = useTime()
   const { isAdmin, profile } = useAuth()
 
@@ -233,10 +233,11 @@ export default function PflegePage() {
   // Dialog für genau diesen Gang, sobald die Gänge geladen sind.
   useEffect(() => {
     const gid = searchParams.get('gang')
-    if (!gid || !gaenge.length) return
-    const g = gaenge.find((x) => x.id === gid)
-    if (g) { setGangModal(g); setJahr(g.jahr) }
-    searchParams.delete('gang')
+    const aid = searchParams.get('abschluss')
+    if ((!gid && !aid) || !gaenge.length) return
+    const g = gaenge.find((x) => x.id === (gid || aid))
+    if (g) { setJahr(g.jahr); if (gid) setGangModal(g); else setErledigenModal(g) }
+    searchParams.delete('gang'); searchParams.delete('abschluss')
     setSearchParams(searchParams, { replace: true })
   }, [searchParams, gaenge])
 
@@ -279,8 +280,34 @@ export default function PflegePage() {
   // Erledigt-Setzen läuft über die Aufgaben-Checkliste (Restanten, Kap. 6.1):
   // Unerledigtes wird am Gang markiert und taucht im Abschluss-Tab auf.
   function markErledigt(gang) {
-    if ((gang.aufgaben || []).length) setErledigenModal(gang)
-    else updateGang(gang.id, { status: 'erledigt' })
+    setErledigenModal(gang)
+  }
+
+  // Einsatz abschließen: Stunden und Material wandern in die Erfassung
+  // (mit job_id verknüpft), danach hakt sich die Kette selbst ab —
+  // Gang → Aufgabenkarte → Statistik/Stundenkonten → Leistungsnachweis.
+  function abschliessen(gang, v) {
+    const plan = plaene.find((p) => p.id === gang.plan_id)
+    const geleistet = (v.aufgaben || []).filter((a) => !a.offen).map((a) => a.titel).join(', ')
+    for (const [uid, h] of Object.entries(v.zeiten || {})) {
+      if (!Number(h)) continue
+      logTime({
+        user_id: uid, project_id: plan?.project_id || null, job_id: gang.job_id || null,
+        date: v.datum, hours: round2(Number(h)),
+        description: geleistet || `Pflegegang KW ${gang.kw}`,
+        start_time: v.start || null, end_time: v.ende || null,
+      })
+    }
+    if (v.material && Number(v.material.amount) > 0) {
+      addCost({
+        project_id: plan?.project_id || null, date: v.datum,
+        description: v.material.description || 'Material',
+        amount_net: Number(v.material.amount),
+      })
+    }
+    updateGang(gang.id, { status: 'erledigt', aufgaben: v.aufgaben })
+    if (gang.job_id) setJobStatus(gang.job_id, 'done')
+    setErledigenModal(null)
   }
 
   // Gang terminieren → echter Einsatz (job) mit Soll-Stunden, Gang verlinkt.
@@ -456,7 +483,7 @@ export default function PflegePage() {
       ) : (
         <>
           {tab === 'erfassung' && (
-            <TabErfassung {...{ jahr, entries, costs, projects, clients, projById, clientById, profile, isAdmin, logTime, updateEntry, deleteEntry, addCost, deleteCost }} />
+            <TabErfassung {...{ jahr, entries, costs, projects, clients, projById, clientById, jobById, profile, isAdmin, logTime, updateEntry, deleteEntry, addCost, deleteCost }} />
           )}
           {tab === 'statistik' && (
             <TabStatistik plans={yearPlans}
@@ -492,8 +519,9 @@ export default function PflegePage() {
       )}
       {erledigenModal && (
         <ErledigenModal gang={erledigenModal} label={planLabel(plaene.find((p) => p.id === erledigenModal.plan_id) || {})}
+          job={erledigenModal.job_id ? jobById[erledigenModal.job_id] : null}
           onClose={() => setErledigenModal(null)}
-          onSubmit={(neueAufgaben) => { updateGang(erledigenModal.id, { status: 'erledigt', aufgaben: neueAufgaben }); setErledigenModal(null) }} />
+          onSubmit={(werte) => abschliessen(erledigenModal, werte)} />
       )}
     </div>
   )
@@ -532,7 +560,7 @@ function SaisonBar({ gaenge }) {
    zentrale Zeiterfassung (time_entries) — alles fließt automatisch in
    Statistik, Stundenkonten und Leistungsnachweise. */
 
-function TabErfassung({ jahr, entries, costs, projects, clients, projById, clientById, profile, isAdmin, logTime, updateEntry, deleteEntry, addCost, deleteCost }) {
+function TabErfassung({ jahr, entries, costs, projects, clients, projById, clientById, jobById, profile, isAdmin, logTime, updateEntry, deleteEntry, addCost, deleteCost }) {
   const people = allPeople()
   const emptyForm = () => ({
     typ: 'person', user_id: profile?.team_id || people[0]?.id || '',
@@ -768,6 +796,12 @@ function TabErfassung({ jahr, entries, costs, projects, clients, projById, clien
                     {proj ? (proj.flaeche_code || proj.name) : '—'}
                   </div>
                   <div style={{ fontSize: 12.5, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.description || ''}>
+                    {r.job_id && jobById?.[r.job_id] && (
+                      <span title="Beim Abschluss eines Einsatzes erfasst"
+                        style={{ fontFamily: MONO, fontSize: 9, color: A, background: `color-mix(in srgb, ${A} 10%, transparent)`, border: `1px solid color-mix(in srgb, ${A} 30%, transparent)`, padding: '1px 5px', borderRadius: 4, marginRight: 6 }}>
+                        Einsatz
+                      </span>
+                    )}
                     {r.description || <span style={{ color: MUTED }}>—</span>}
                   </div>
                   <div style={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
@@ -1430,37 +1464,127 @@ function TerminModal({ gang, label, onClose, onSubmit }) {
 
 /* ─── Modal: Gang abschließen (Restanten-Checkliste) ──────────── */
 
-function ErledigenModal({ gang, label, onClose, onSubmit }) {
+function ErledigenModal({ gang, label, job, onClose, onSubmit }) {
   const items = gang.aufgaben || []
+  const people = allPeople()
   const [done, setDone] = useState(() => new Set(items.map((_, i) => i)))
+  const [datum, setDatum] = useState(job?.date || isoToday())
+  const [start, setStart] = useState(job?.start_time || '')
+  const [ende, setEnde] = useState(job?.end_time || '')
+  const [material, setMaterial] = useState({ amount: '', description: '' })
+
+  // Teilnehmer: das Team des Einsatzes; ohne Einsatz alle Personen zur Auswahl
+  const teilnehmer = job?.assigned_users?.length
+    ? people.filter((p) => job.assigned_users.includes(p.id))
+    : people
+  // Vorbelegung: Dauer aus Start/Ende, sonst Soll-Stunden auf die Crew verteilt
+  const vorschlag = () => {
+    const ausZeit = start && ende ? hoursFromTimes(start, ende) : null
+    if (ausZeit != null) return round2(ausZeit)
+    const crew = Math.max(1, teilnehmer.length || gang.crew_size || 2)
+    return round2(Number(gang.soll_stunden || 0) / crew)
+  }
+  const [zeiten, setZeiten] = useState(() =>
+    Object.fromEntries(teilnehmer.map((p) => [p.id, job?.assigned_users?.length ? '' : ''])))
+
+  // Start/Ende geändert → leere Felder mit dem neuen Vorschlag füllen
+  const vs = vorschlag()
+  const setH = (id, v) => setZeiten((prev) => ({ ...prev, [id]: v }))
+  const effH = (id) => (zeiten[id] !== '' ? Number(zeiten[id]) : (job?.assigned_users?.length ? vs : 0))
+  const summeH = teilnehmer.reduce((s, p) => s + (Number.isFinite(effH(p.id)) ? effH(p.id) : 0), 0)
+  const offen = items.length - done.size
   const toggle = (i) => setDone((prev) => {
     const next = new Set(prev)
     if (next.has(i)) next.delete(i); else next.add(i)
     return next
   })
-  const offen = items.length - done.size
+  const SEL = { ...INPUT_STYLE, padding: '8px 10px', fontSize: 13 }
 
   return (
-    <Modal eyebrow="Einsatz abschließen" title={`${label} · KW ${gang.kw}`} onClose={onClose} maxWidth={520}>
+    <Modal eyebrow="Einsatz abschließen" title={`${label} · KW ${gang.kw}`} onClose={onClose} maxWidth={620}>
       <form onSubmit={(e) => {
         e.preventDefault()
-        onSubmit(items.map((a, i) => ({ ...a, offen: !done.has(i) || undefined })))
-      }} style={{ padding: '18px 24px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ fontSize: 13, color: MUTED }}>Was wurde geschafft? Nicht Abgehaktes landet als „offen" im Abschluss-Tab und kann in den nächsten Einsatz übernommen werden.</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {items.map((a, i) => (
-            <label key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13, color: FG }}>
-              <input type="checkbox" checked={done.has(i)} onChange={() => toggle(i)} />
-              <span style={{ flex: 1, textDecoration: done.has(i) ? 'none' : 'none', opacity: done.has(i) ? 1 : 0.75 }}>{a.titel}</span>
-              <span style={{ fontFamily: MONO, fontSize: 11, color: MUTED }}>{hrs(a.stunden)}</span>
-            </label>
-          ))}
-        </div>
-        {offen > 0 && (
-          <div style={{ fontSize: 12, color: WARN }}>
-            {offen} Aufgabe{offen === 1 ? '' : 'n'} bleib{offen === 1 ? 't' : 'en'} offen.
+        onSubmit({
+          aufgaben: items.map((a, i) => ({ ...a, offen: !done.has(i) || undefined })),
+          datum, start, ende,
+          zeiten: Object.fromEntries(teilnehmer.map((p) => [p.id, effH(p.id)]).filter(([, h]) => h > 0)),
+          material: Number(material.amount) > 0 ? material : null,
+        })
+      }} style={{ padding: '18px 24px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+        {/* 1 — Was wurde geschafft */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <SectionLabel>Aufgaben</SectionLabel>
+          <div style={{ fontSize: 12.5, color: MUTED }}>Nicht Abgehaktes bleibt als „offen" stehen und taucht im Abschluss-Tab auf.</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {items.map((a, i) => (
+              <label key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13, color: FG }}>
+                <input type="checkbox" checked={done.has(i)} onChange={() => toggle(i)} />
+                <span style={{ flex: 1, opacity: done.has(i) ? 1 : 0.75 }}>{a.titel}</span>
+                <span style={{ fontFamily: MONO, fontSize: 11, color: MUTED }}>{hrs(a.stunden)}</span>
+              </label>
+            ))}
+            {!items.length && <div style={{ fontSize: 13, color: MUTED }}>Keine Einzelleistungen hinterlegt.</div>}
           </div>
-        )}
+          {offen > 0 && (
+            <div style={{ fontSize: 12, color: WARN }}>
+              {offen} Aufgabe{offen === 1 ? '' : 'n'} bleib{offen === 1 ? 't' : 'en'} offen.
+            </div>
+          )}
+        </div>
+
+        {/* 2 — Zeiten: wandern direkt in die Erfassung, verknüpft mit dem Einsatz */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <SectionLabel>Stunden</SectionLabel>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8 }}>
+            <div>
+              <label style={LABEL_STYLE}>Datum</label>
+              <DateInput value={datum} onChange={setDatum} required />
+            </div>
+            <div>
+              <label style={LABEL_STYLE}>Start</label>
+              <input type="time" value={start} onChange={(e) => setStart(e.target.value)} style={SEL} />
+            </div>
+            <div>
+              <label style={LABEL_STYLE}>Ende</label>
+              <input type="time" value={ende} onChange={(e) => setEnde(e.target.value)} style={SEL} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {teilnehmer.map((p) => (
+              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ flex: 1, fontSize: 13, color: FG }}>{p.name}</span>
+                <input type="number" step="0.25" min="0" value={zeiten[p.id]} placeholder={String(vs)}
+                  onChange={(e) => setH(p.id, e.target.value)}
+                  style={{ ...SEL, width: 92, fontFamily: MONO, textAlign: 'right' }} />
+                <span style={{ fontFamily: MONO, fontSize: 11, color: MUTED, width: 12 }}>h</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: MONO, fontSize: 11.5, color: MUTED }}>
+            <span>Plan: {hrs(Number(gang.soll_stunden || 0))} vor Ort</span>
+            <span style={{ color: summeH > 0 ? FG : MUTED }}>Ist: {hrs(summeH)}</span>
+          </div>
+        </div>
+
+        {/* 3 — Material (optional) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <SectionLabel>Material / Kosten (optional)</SectionLabel>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+            <div style={{ flex: 1 }}>
+              <label style={LABEL_STYLE}>Beschreibung</label>
+              <input value={material.description} onChange={(e) => setMaterial((m) => ({ ...m, description: e.target.value }))}
+                placeholder="z. B. Entsorgung Schnittgut" style={SEL} />
+            </div>
+            <div style={{ width: 120 }}>
+              <label style={LABEL_STYLE}>Netto (€)</label>
+              <input type="number" step="0.01" min="0" value={material.amount}
+                onChange={(e) => setMaterial((m) => ({ ...m, amount: e.target.value }))}
+                style={{ ...SEL, fontFamily: MONO, textAlign: 'right' }} />
+            </div>
+          </div>
+        </div>
+
         <ModalActions onCancel={onClose} submitLabel="Einsatz abschließen" />
       </form>
     </Modal>
