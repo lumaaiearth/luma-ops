@@ -12,7 +12,7 @@ import { isoToday, formatDate } from '../lib/storage.js'
 import TaskModal from '../components/TaskModal.jsx'
 import BoardModal from '../components/BoardModal.jsx'
 import { useBreakpoint } from '../lib/useBreakpoint.js'
-import { Plus, Trash2, LayoutGrid, List as ListIcon, ListChecks, Star, User, CalendarClock, MapPin, Settings2, Layers, CheckSquare, AlertTriangle, RotateCcw, Check } from 'lucide-react'
+import { Plus, Trash2, LayoutGrid, List as ListIcon, ListChecks, Star, User, CalendarClock, MapPin, Settings2, Layers, CheckSquare, AlertTriangle, RotateCcw, Check, CalendarPlus, Sprout } from 'lucide-react'
 
 // Aufgabentypen, die im Freien stattfinden → wetterabhängig
 const OUTDOOR_TYPES = ['installation', 'pflege', 'giessen', 'maehen', 'beikraut', 'pflanzung', 'reinigung', 'monitoring']
@@ -421,6 +421,12 @@ function TaskCard({ task, projects, clients, boards, today, navigate, weatherFor
         {client && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: client.color || A, background: `color-mix(in srgb, ${client.color || A} 10%, transparent)`, padding: '1px 6px', borderRadius: 4 }}>{client.name.split(' ')[0]}</span>}
         {project && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, background: A06, padding: '1px 6px', borderRadius: 4 }}>{project.name}</span>}
         {type && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: type.color, padding: '1px 4px' }}>{type.label}</span>}
+        {task.gang_id && (
+          <span title="Aus dem Leistungsverzeichnis abgeleitet — Änderungen am LV ziehen automatisch nach"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: "'Space Mono', monospace", fontSize: 9, color: A, background: A06, border: `1px solid ${A}30`, padding: '1px 6px', borderRadius: 4 }}>
+            <Sprout size={9} />LV{task.summary ? ` · ${task.summary}` : ''}
+          </span>
+        )}
       </div>
 
       {(zr || (task.location || (task.lat && task.lng))) && (
@@ -442,6 +448,13 @@ function TaskCard({ task, projects, clients, boards, today, navigate, weatherFor
           </span>
         )}
         {eff && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: eff.color }}>{eff.label}</span>}
+        {task.gang_id && !task.job_id && !done && (
+          <button onClick={e => { e.stopPropagation(); navigate(`/pflege?gang=${task.gang_id}`) }}
+            title="Aus der Ankündigung einen festen Einsatz machen"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 10, background: A06, border: `1px solid ${A}35`, color: A, cursor: 'pointer', fontFamily: "'Space Mono', monospace", fontSize: 9 }}>
+            <CalendarPlus size={10} />Terminieren
+          </button>
+        )}
         <div style={{ marginLeft: 'auto' }}><People ownerId={task.owner_id} collaborators={task.assigned_users} size={20} /></div>
       </div>
     </div>

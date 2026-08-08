@@ -14,8 +14,9 @@ import { useState, useEffect, useMemo } from 'react'
 import {
   Sprout, Scale, FileText, Plus, Copy, Trash2, Check, Pencil,
   ChevronDown, ChevronRight, AlertTriangle, CalendarPlus, RotateCcw, RefreshCw,
-  Printer, Mail, ArrowRightCircle,
+  Printer, Mail, ArrowRightCircle, Search, X,
 } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import { sb } from '../lib/supabase.js'
 import { useOps } from '../context/OpsContext.jsx'
 import { useTime } from '../context/TimeContext.jsx'
@@ -209,6 +210,7 @@ export default function PflegePage() {
   const [aufgabeModal, setAufgabeModal] = useState(null)    // { plan, aufgabe|null }
   const [erledigenModal, setErledigenModal] = useState(null) // Gang mit Aufgaben-Checkliste
   const [busyCarry, setBusyCarry] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
 
   async function loadAll() {
     try {
@@ -226,6 +228,17 @@ export default function PflegePage() {
     setLoading(false)
   }
   useEffect(() => { loadAll() }, [])
+
+  // Deep-Link aus Offene Aufgaben: /pflege?gang=<id> öffnet den Terminieren-
+  // Dialog für genau diesen Gang, sobald die Gänge geladen sind.
+  useEffect(() => {
+    const gid = searchParams.get('gang')
+    if (!gid || !gaenge.length) return
+    const g = gaenge.find((x) => x.id === gid)
+    if (g) { setGangModal(g); setJahr(g.jahr) }
+    searchParams.delete('gang')
+    setSearchParams(searchParams, { replace: true })
+  }, [searchParams, gaenge])
 
   const projById = useMemo(() => Object.fromEntries((projects || []).map((p) => [p.id, p])), [projects])
   const clientById = useMemo(() => Object.fromEntries((clients || []).map((c) => [c.id, c])), [clients])
@@ -530,6 +543,10 @@ function TabErfassung({ jahr, entries, costs, projects, clients, projById, clien
   const [editId, setEditId] = useState(null)
   const [fPerson, setFPerson] = useState('alle')
   const [fClient, setFClient] = useState('alle')
+  const [fProject, setFProject] = useState('alle')
+  const [fMonat, setFMonat] = useState('alle')
+  const [fTyp, setFTyp] = useState('alle')
+  const [suche, setSuche] = useState('')
 
   const set = (changes) => setForm((f) => ({ ...f, ...changes }))
   const autoHours = form.start_time && form.end_time ? hoursFromTimes(form.start_time, form.end_time) : null
@@ -571,13 +588,28 @@ function TabErfassung({ jahr, entries, costs, projects, clients, projById, clien
     const mat = isAdmin ? (costs || [])
       .filter((c) => c.date?.startsWith(String(jahr)))
       .map((c) => ({ id: c.id, typ: 'material', user_id: null, date: c.date, hours: null, amount: c.amount_net, project_id: c.project_id, description: c.description })) : []
+    const q = suche.trim().toLowerCase()
     return [...zeit, ...mat]
+      .filter((r) => fTyp === 'alle' || r.typ === fTyp)
       .filter((r) => fPerson === 'alle' || r.user_id === fPerson)
       .filter((r) => fClient === 'alle' || projById[r.project_id]?.client_id === fClient)
+      .filter((r) => fProject === 'alle' || r.project_id === fProject)
+      .filter((r) => fMonat === 'alle' || (r.date || '').slice(5, 7) === fMonat)
+      .filter((r) => !q || (r.description || '').toLowerCase().includes(q)
+        || (projById[r.project_id]?.flaeche_code || '').toLowerCase().includes(q))
       .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
-  }, [entries, costs, jahr, fPerson, fClient, isAdmin, projById])
+  }, [entries, costs, jahr, fPerson, fClient, fProject, fMonat, fTyp, suche, isAdmin, projById])
 
   const sumH = rows.reduce((s, r) => s + Number(r.hours || 0), 0)
+  const sumEur = rows.reduce((s, r) => s + Number(r.amount || 0), 0)
+  // Flächen zur Auswahl: an den Auftraggeber-Filter gekoppelt, sonst alle
+  const filterProjects = projects.filter((p) => fClient === 'alle' || p.client_id === fClient)
+  const filterAktiv = fPerson !== 'alle' || fClient !== 'alle' || fProject !== 'alle'
+    || fMonat !== 'alle' || fTyp !== 'alle' || suche.trim() !== ''
+  function filterReset() {
+    setFPerson('alle'); setFClient('alle'); setFProject('alle')
+    setFMonat('alle'); setFTyp('alle'); setSuche('')
+  }
   const personName = (id) => people.find((p) => p.id === id)?.name || id || '—'
   const SELECT = { ...INPUT_STYLE, padding: '8px 10px', fontSize: 13 }
 
@@ -663,18 +695,47 @@ function TabErfassung({ jahr, entries, costs, projects, clients, projById, clien
         </form>
       </Card>
 
-      {/* Filter + Summe */}
+      {/* Filter + Summe — die Summe rechnet immer über das Gefilterte */}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <select value={fPerson} onChange={(e) => setFPerson(e.target.value)} style={{ ...SELECT, width: 'auto' }}>
           <option value="alle">Alle Personen</option>
           {people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
-        <select value={fClient} onChange={(e) => setFClient(e.target.value)} style={{ ...SELECT, width: 'auto' }}>
+        <select value={fClient} onChange={(e) => { setFClient(e.target.value); setFProject('alle') }} style={{ ...SELECT, width: 'auto' }}>
           <option value="alle">Alle Auftraggeber</option>
           {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
+        <select value={fProject} onChange={(e) => setFProject(e.target.value)} style={{ ...SELECT, width: 'auto' }}>
+          <option value="alle">Alle Flächen</option>
+          {filterProjects.map((p) => <option key={p.id} value={p.id}>{p.flaeche_code || p.name}</option>)}
+        </select>
+        <select value={fMonat} onChange={(e) => setFMonat(e.target.value)} style={{ ...SELECT, width: 'auto' }}>
+          <option value="alle">Ganzes Jahr</option>
+          {MONATE.map((m, i) => (
+            <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>
+          ))}
+        </select>
+        {isAdmin && (
+          <select value={fTyp} onChange={(e) => setFTyp(e.target.value)} style={{ ...SELECT, width: 'auto' }}>
+            <option value="alle">Stunden & Material</option>
+            <option value="person">Nur Stunden</option>
+            <option value="material">Nur Material</option>
+          </select>
+        )}
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+          <Search size={13} style={{ position: 'absolute', left: 9, color: MUTED, pointerEvents: 'none' }} />
+          <input value={suche} onChange={(e) => setSuche(e.target.value)} placeholder="Tätigkeit suchen…"
+            style={{ ...SELECT, width: 'auto', minWidth: 170, paddingLeft: 28, paddingRight: suche ? 26 : 10 }} />
+          {suche && (
+            <button type="button" onClick={() => setSuche('')} title="Suche leeren"
+              style={{ position: 'absolute', right: 6, background: 'transparent', border: 'none', color: MUTED, cursor: 'pointer', padding: 2, display: 'flex' }}><X size={12} /></button>
+          )}
+        </div>
+        {filterAktiv && (
+          <Button variant="ghost" icon={RotateCcw} onClick={filterReset} style={{ padding: '5px 10px', fontSize: 12 }}>Zurücksetzen</Button>
+        )}
         <span style={{ marginLeft: 'auto', fontFamily: MONO, fontSize: 12, color: MUTED }}>
-          {rows.length} Einträge · {hrs(sumH)}
+          {rows.length} {rows.length === 1 ? 'Eintrag' : 'Einträge'} · {hrs(sumH)}{sumEur > 0 ? ` · ${eur(sumEur)}` : ''}
         </span>
       </div>
 
