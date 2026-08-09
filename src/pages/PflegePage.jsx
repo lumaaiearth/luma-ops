@@ -33,6 +33,8 @@ import { normalizeRule, kontostand, hoursFromTimes } from '../lib/hourAccounts.j
 import { isoToday } from '../lib/storage.js'
 import { normalisiereZeiteintraege, buildLeistungsnachweis } from '../lib/leistungsnachweis.js'
 import { druckeLeistungsnachweis } from '../lib/printNachweis.js'
+import JahresTimeline from '../components/JahresTimeline.jsx'
+import { useWeather } from '../context/WeatherContext.jsx'
 import { baueNachweisEmail } from '../lib/nachweisEmail.js'
 import { sendeEmail, versandProtokoll } from '../lib/email.js'
 
@@ -49,7 +51,6 @@ const SAISONS = [
   { key: 'herbst', label: 'Herbst', kurz: 'H', von: 36, bis: 48, color: WARN },
 ]
 const WINTER = { key: 'winter', label: 'Winter', kurz: 'W', color: MUTED }
-const DAY_NAMES = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 const saisonForKw = (kw) => SAISONS.find((s) => kw >= s.von && kw <= s.bis) || WINTER
 
 function isoWeek(date = new Date()) {
@@ -194,7 +195,8 @@ Auftraggeber                          Auftragnehmer`
 
 export default function PflegePage() {
   const isMobile = useIsMobile()
-  const { projects, clients, jobs, createJob, setJobStatus } = useOps()
+  const { projects, clients, jobs, createJob, updateJob, setJobStatus } = useOps()
+  const forecast = useWeather()
   const { entries, hourRules, rates, costs, logTime, updateEntry, deleteEntry, addCost, deleteCost } = useTime()
   const { isAdmin, profile } = useAuth()
 
@@ -281,6 +283,20 @@ export default function PflegePage() {
   // Unerledigtes wird am Gang markiert und taucht im Abschluss-Tab auf.
   function markErledigt(gang) {
     setErledigenModal(gang)
+  }
+
+  // Karte auf der Zeitachse verschoben: Vorschlag → neue Kalenderwoche.
+  // Die Aufgabenkarte folgt automatisch (DB-Trigger auf pflege_gaenge).
+  function verschiebeGang(gang, jahr, kw) {
+    updateGang(gang.id, { jahr, kw })
+  }
+
+  // Terminierter Einsatz verschoben: Einsatzdatum ändern und den Gang auf
+  // dieselbe Woche ziehen, damit Zeitachse, Einsatz und Karte übereinstimmen.
+  function verschiebeJob(gang, job, datum) {
+    updateJob(job.id, { date: datum })
+    const d = new Date(datum + 'T00:00:00')
+    updateGang(gang.id, { jahr: d.getFullYear(), kw: isoWeek(d) })
   }
 
   // Einsatz abschließen: Stunden und Material wandern in die Erfassung
@@ -477,7 +493,7 @@ export default function PflegePage() {
       <Tabs tabs={TABS} active={tab} onChange={setTab} isMobile={isMobile} />
       {loading ? (
         <EmptyState icon={Sprout} title="lädt…" />
-      ) : !yearPlans.length && ['standorte', 'jahresplan'].includes(tab) ? (
+      ) : !yearPlans.length && tab === 'standorte' ? (
         <EmptyState icon={Sprout} title={`Keine Pflegepläne für ${jahr}`}
           hint={years.length ? `Vorhandene Jahre: ${years.join(', ')} — über „${jahr - 1}" auswählen und „${jahr} vorbereiten" übernehmen.` : 'Import: node scripts/gen-pflege-import.mjs'} />
       ) : (
@@ -490,8 +506,11 @@ export default function PflegePage() {
               {...{ jahr, entries, jobs, hourRules, gaengeByPlan, planLabel, planHours, projById, updatePlan, updateGang, clients }} />
           )}
           {tab === 'jahresplan' && (
-            <TabJahresplan plans={yearPlans}
-              {...{ jahr, gaengeByPlan, jobById, jobs, planLabel, projById, hourRules, markErledigt, onTerminieren: setGangModal }} />
+            <JahresTimeline
+              plaene={plaene} gaenge={gaenge} jobById={jobById} projById={projById}
+              clientById={clientById} clients={clients} forecast={forecast}
+              onTerminieren={setGangModal} onErledigt={markErledigt}
+              onVerschiebeGang={verschiebeGang} onVerschiebeJob={verschiebeJob} />
           )}
           {tab === 'standorte' && (
             <TabStandorte isMobile={isMobile} plans={yearPlans}
@@ -1075,350 +1094,6 @@ function TabStandorte({ isMobile, plans, jahr, aufgabenByPlan, gaengeByPlan, job
         )
       })}
     </div>
-  )
-}
-
-/* ─── Tab: Jahresplan (Belegung Standorte × KW + Kapazität) ───── */
-
-function TabJahresplan({ plans, jahr, gaengeByPlan, jobById, jobs, planLabel, projById, hourRules, markErledigt, onTerminieren }) {
-  const curKW = jahr === new Date().getFullYear() ? isoWeek() : jahr < new Date().getFullYear() ? 53 : 0
-  // Zoomstufen: Jahr (Überblick) → Saison (KW breit, mit Stunden) → Monat
-  // (echter Kalender mit terminierten Einsätzen und offenen Gängen je Woche)
-  const [zoom, setZoom] = useState('jahr')
-  const [monat, setMonat] = useState(() => Math.min(11, Math.max(3, new Date().getMonth() + 1)))
-  const season = SAISONS.find((s) => s.key === zoom)
-  const KWS = []
-  for (let k = season ? season.von : SAISONS[0].von; k <= (season ? season.bis : SAISONS[2].bis); k += 1) KWS.push(k)
-
-  const sorted = [...plans].sort((a, b) => planLabel(a).localeCompare(planLabel(b)))
-  const faellig = plans.flatMap((p) => (gaengeByPlan[p.id] || [])
-    .filter((g) => g.status === 'geplant' && g.kw <= curKW + 2)
-    .map((g) => ({ ...g, planRef: p }))).sort((a, b) => a.kw - b.kw)
-  const winterGaenge = plans.flatMap((p) => (gaengeByPlan[p.id] || [])
-    .filter((g) => saisonForKw(g.kw).key === 'winter' && g.status !== 'entfallen')
-    .map((g) => ({ ...g, planRef: p }))).sort((a, b) => a.kw - b.kw)
-
-  // Einsatztage je KW (1 Gang ≈ 1 Einsatztag)
-  const tageJeKw = {}
-  for (const p of plans) for (const g of gaengeByPlan[p.id] || []) {
-    if (g.status !== 'entfallen') tageJeKw[g.kw] = (tageJeKw[g.kw] || 0) + 1
-  }
-
-  const CELL = season ? 58 : 20
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <Chips value={zoom} onChange={setZoom}
-          options={[['jahr', 'Jahr'], ['fruehjahr', 'Frühjahr'], ['sommer', 'Sommer'], ['herbst', 'Herbst'], ['monat', 'Monat']]} />
-        {zoom === 'monat' && (
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <Button variant="ghost" style={{ padding: '4px 10px' }} onClick={() => setMonat((m) => Math.max(1, m - 1))}>‹</Button>
-            <select value={monat} onChange={(e) => setMonat(Number(e.target.value))} style={{ ...INPUT_STYLE, width: 'auto', padding: '7px 10px', fontSize: 13 }}>
-              {MONATE.map((m, i) => <option key={m} value={i + 1}>{m} {jahr}</option>)}
-            </select>
-            <Button variant="ghost" style={{ padding: '4px 10px' }} onClick={() => setMonat((m) => Math.min(12, m + 1))}>›</Button>
-          </div>
-        )}
-      </div>
-
-      {faellig.length > 0 && (
-        <Card accent={WARN} padding="12px 16px">
-          <SectionLabel style={{ marginBottom: 8 }}>Fällig (bis KW {curKW + 2})</SectionLabel>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            {faellig.map((g) => (
-              <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <span style={{ fontFamily: MONO, fontSize: 11, color: g.kw < curKW ? DANGER : MUTED, width: 46 }}>KW {g.kw}</span>
-                <span style={{ fontSize: 13, color: FG, flex: 1, minWidth: 140 }}>{planLabel(g.planRef)}</span>
-                <span style={{ fontFamily: MONO, fontSize: 11, color: MUTED }}>{hrs(Number(g.soll_stunden) + Number(g.fahrt_stunden || 0))}</span>
-                <Button variant="ghost" icon={CalendarPlus} style={{ padding: '3px 9px', fontSize: 11 }} onClick={() => onTerminieren(g)}>Terminieren</Button>
-                <Button variant="ghost" icon={Check} style={{ padding: '3px 9px', fontSize: 11 }} onClick={() => markErledigt(g)}>Erledigt</Button>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
-      {zoom === 'monat' ? (
-        <MonatsKalender {...{ jahr, monat, plans, gaengeByPlan, jobs, projById, planLabel, onTerminieren, markErledigt, curKW }} />
-      ) : (
-      <Card padding="14px 16px">
-        <SectionLabel style={{ marginBottom: 10 }}>
-          Belegung {jahr} · KW {KWS[0]}–{KWS[KWS.length - 1]}{zoom === 'jahr' ? ' (Dez–Feb Pflegepause)' : ` · ${season.label}spflege`}
-        </SectionLabel>
-        <div style={{ overflowX: 'auto' }}>
-          <div style={{ minWidth: KWS.length * CELL + 170 }}>
-            {/* Saison-Band */}
-            <div style={{ display: 'flex', marginLeft: 170, marginBottom: 4 }}>
-              {SAISONS.filter((s) => !season || s.key === season.key).map((s) => (
-                <div key={s.key} style={{
-                  width: (s.bis - s.von + 1) * CELL, textAlign: 'center',
-                  fontFamily: MONO, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase',
-                  color: s.color, borderBottom: `2px solid color-mix(in srgb, ${s.color} 55%, transparent)`, paddingBottom: 2,
-                }}>{s.label}</div>
-              ))}
-            </div>
-            {/* KW-Skala */}
-            <div style={{ display: 'flex', marginLeft: 170, marginBottom: 6 }}>
-              {KWS.map((k) => (
-                <div key={k} style={{ width: CELL, textAlign: 'center', fontFamily: MONO, fontSize: season ? 10 : 8, color: k === curKW ? FG : MUTED, fontWeight: k === curKW ? 700 : 400 }}>
-                  {season ? `KW ${k}` : (k % 2 === 0 ? k : '')}
-                </div>
-              ))}
-            </div>
-            {/* Zeilen je Standort */}
-            {sorted.map((p) => {
-              const byKw = {}
-              for (const g of gaengeByPlan[p.id] || []) {
-                if (g.status !== 'entfallen' && saisonForKw(g.kw).key !== 'winter') (byKw[g.kw] = byKw[g.kw] || []).push(g)
-              }
-              return (
-                <div key={p.id} style={{ display: 'flex', alignItems: 'center', height: season ? 30 : 26 }}>
-                  <div style={{ width: 170, fontSize: 12, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 10 }}>{planLabel(p)}</div>
-                  {KWS.map((k) => {
-                    const cell = byKw[k] || []
-                    if (!cell.length) return <div key={k} style={{ width: CELL, textAlign: 'center', color: `color-mix(in srgb, ${MUTED} 22%, transparent)`, fontSize: 9 }}>·</div>
-                    const g = cell[0]
-                    const late = g.status === 'geplant' && g.kw < curKW
-                    const c = late ? DANGER : g.status === 'erledigt' ? OK : g.status === 'terminiert' ? INFO : MUTED
-                    const job = g.job_id ? jobById[g.job_id] : null
-                    const aufg = (g.aufgaben || []).map((a) => a.titel).slice(0, 5).join(' · ')
-                    const tip = `${planLabel(p)} · KW ${g.kw} · ${hrs(Number(g.soll_stunden) + Number(g.fahrt_stunden || 0))}${job?.date ? ` · ${fmtDate(job.date)}` : ''} · ${late ? 'überfällig' : g.status}${aufg ? `\n${aufg}` : ''}`
-                    const dim = g.status === 'geplant' && !late
-                    return (
-                      <div key={k} style={{ width: CELL, display: 'flex', justifyContent: 'center' }}>
-                        <button type="button" title={tip}
-                          onClick={() => { if (g.status === 'geplant') onTerminieren(g) }}
-                          style={{
-                            width: season ? CELL - 10 : 13, height: season ? 20 : 13,
-                            borderRadius: season ? 6 : '50%', border: 'none', padding: 0,
-                            cursor: g.status === 'geplant' ? 'pointer' : 'default',
-                            background: dim ? `color-mix(in srgb, ${MUTED} 40%, transparent)` : c,
-                            outline: cell.length > 1 ? `2px solid color-mix(in srgb, ${c} 45%, transparent)` : 'none',
-                            fontFamily: MONO, fontSize: 9.5, fontWeight: 700,
-                            color: season ? (dim ? FG : 'var(--luma-on-a)') : 'transparent',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          }}>
-                          {season ? `${round2(Number(g.soll_stunden) + Number(g.fahrt_stunden || 0)).toLocaleString('de-DE')}h` : ''}
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
-              )
-            })}
-            {/* Summenzeile: Einsatztage je KW */}
-            <div style={{ display: 'flex', alignItems: 'center', height: 24, borderTop: `1px solid ${BORDER}`, marginTop: 4, paddingTop: 3 }}>
-              <div style={{ width: 170, ...LABEL_STYLE, marginBottom: 0 }}>Einsatztage</div>
-              {KWS.map((k) => (
-                <div key={k} style={{ width: CELL, textAlign: 'center', fontFamily: MONO, fontSize: 9, color: (tageJeKw[k] || 0) > 2 ? WARN : MUTED }}>
-                  {tageJeKw[k] || ''}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 14, marginTop: 10, flexWrap: 'wrap' }}>
-          {[['geplant', `color-mix(in srgb, ${MUTED} 40%, transparent)`], ['terminiert', INFO], ['erledigt', OK], ['überfällig', DANGER]].map(([l, c]) => (
-            <span key={l} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: MONO, fontSize: 10, color: MUTED }}>
-              <span style={{ width: 10, height: 10, borderRadius: '50%', background: c }} /> {l}
-            </span>
-          ))}
-          <span style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>Klick auf geplanten Punkt = Terminieren · Tooltip zeigt die Aufgaben</span>
-        </div>
-      </Card>
-      )}
-
-      {winterGaenge.length > 0 && (
-        <Card padding="12px 16px">
-          <SectionLabel style={{ marginBottom: 8 }}>Winter-Einsätze (Ausnahmen von der Pflegepause)</SectionLabel>
-          {winterGaenge.map((g) => (
-            <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0' }}>
-              <span style={{ fontFamily: MONO, fontSize: 11, color: MUTED, width: 46 }}>KW {g.kw}</span>
-              <span style={{ fontSize: 12.5, color: FG, flex: 1 }}>{planLabel(g.planRef)}</span>
-              <Badge color={GANG_STATUS[g.status]}>{g.status}</Badge>
-              <span style={{ fontFamily: MONO, fontSize: 11, color: MUTED }}>{hrs(g.soll_stunden)}</span>
-            </div>
-          ))}
-        </Card>
-      )}
-
-      <Kapazitaet plans={plans} gaengeByPlan={gaengeByPlan} hourRules={hourRules} />
-    </div>
-  )
-}
-
-/* ─── Monatskalender (Zoomstufe „Monat" der Jahresplanung) ─────
-   Echte Tage: terminierte Pflege-Einsätze liegen auf ihrem Datum
-   (Tooltip = Aufgabenliste aus den Einsatz-Notizen), offene Gänge der
-   jeweiligen KW stehen rechts neben der Woche und sind direkt
-   terminierbar. */
-
-function MonatsKalender({ jahr, monat, plans, gaengeByPlan, jobs, projById, planLabel, onTerminieren, markErledigt, curKW }) {
-  const first = new Date(jahr, monat - 1, 1)
-  const daysInMonth = new Date(jahr, monat, 0).getDate()
-  const lead = (first.getDay() + 6) % 7
-  const cells = [...Array(lead).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)]
-  while (cells.length % 7) cells.push(null)
-  const weeks = []
-  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7))
-  const iso = (d) => `${jahr}-${String(monat).padStart(2, '0')}-${String(d).padStart(2, '0')}`
-  const today = isoToday()
-
-  const monthPrefix = `${jahr}-${String(monat).padStart(2, '0')}`
-  const pflegeJobs = (jobs || []).filter((j) => j.job_type === 'pflege' && (j.date || '').startsWith(monthPrefix) && j.status !== 'cancelled')
-
-  const openByKw = {}
-  for (const p of plans) {
-    for (const g of gaengeByPlan[p.id] || []) {
-      if (g.status === 'geplant') (openByKw[g.kw] = openByKw[g.kw] || []).push({ ...g, planRef: p })
-    }
-  }
-
-  const JOB_C = { planned: INFO, in_progress: WARN, done: OK }
-
-  return (
-    <Card padding="14px 16px">
-      <SectionLabel style={{ marginBottom: 10 }}>{MONATE[monat - 1]} {jahr} — Einsätze & offene Gänge</SectionLabel>
-      <div style={{ overflowX: 'auto' }}>
-        <div style={{ minWidth: 860 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '44px repeat(7, 1fr) 190px', gap: 5, marginBottom: 5 }}>
-            <div />
-            {DAY_NAMES.map((d) => (
-              <div key={d} style={{ fontFamily: MONO, fontSize: 10, color: MUTED, textTransform: 'uppercase', textAlign: 'center' }}>{d}</div>
-            ))}
-            <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, textTransform: 'uppercase' }}>Offen (KW)</div>
-          </div>
-          {weeks.map((week, wi) => {
-            const firstDay = week.find((d) => d != null)
-            const kw = firstDay ? isoWeek(new Date(jahr, monat - 1, firstDay)) : null
-            const open = kw != null ? openByKw[kw] || [] : []
-            return (
-              <div key={wi} style={{ display: 'grid', gridTemplateColumns: '44px repeat(7, 1fr) 190px', gap: 5, marginBottom: 5 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: kw === curKW ? FG : MUTED, fontWeight: kw === curKW ? 700 : 400, alignSelf: 'center' }}>
-                  {kw != null ? `KW ${kw}` : ''}
-                </div>
-                {week.map((d, di) => {
-                  const dayIso = d != null ? iso(d) : null
-                  const dayJobs = dayIso ? pflegeJobs.filter((j) => j.date === dayIso) : []
-                  const isToday = dayIso === today
-                  return (
-                    <div key={di} style={{
-                      minHeight: 58, borderRadius: 8, padding: 4,
-                      border: `1px solid ${isToday ? A : BORDER}`,
-                      background: d == null ? `color-mix(in srgb, ${MUTED} 5%, transparent)` : isToday ? `color-mix(in srgb, ${A} 7%, transparent)` : SURFACE,
-                      display: 'flex', flexDirection: 'column', gap: 3,
-                    }}>
-                      {d != null && <div style={{ fontFamily: MONO, fontSize: 9.5, color: isToday ? A : MUTED, fontWeight: isToday ? 700 : 400 }}>{d}</div>}
-                      {dayJobs.map((j) => {
-                        const proj = projById[j.project_id]
-                        return (
-                          <div key={j.id} title={`${j.title}${j.planned_hours ? ` · ${hrs(j.planned_hours)}` : ''}${j.notes ? `\n${j.notes}` : ''}`}
-                            style={{
-                              fontSize: 10.5, fontWeight: 600, color: FG, padding: '2px 5px', borderRadius: 4,
-                              background: `color-mix(in srgb, ${JOB_C[j.status] || MUTED} 14%, transparent)`,
-                              borderLeft: `2px solid ${JOB_C[j.status] || MUTED}`,
-                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                            }}>
-                            {proj?.flaeche_code || proj?.name || j.title}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )
-                })}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 3, justifyContent: 'center' }}>
-                  {open.map((g) => (
-                    <button key={g.id} type="button" onClick={() => onTerminieren(g)}
-                      title={`${planLabel(g.planRef)} · ${hrs(Number(g.soll_stunden) + Number(g.fahrt_stunden || 0))} · ${(g.aufgaben || []).map((a) => a.titel).slice(0, 5).join(' · ')}\nKlick = terminieren`}
-                      style={{
-                        textAlign: 'left', fontSize: 10.5, color: FG, padding: '3px 7px', borderRadius: 5,
-                        background: `color-mix(in srgb, ${kw < curKW ? DANGER : MUTED} 12%, transparent)`,
-                        border: `1px dashed color-mix(in srgb, ${kw < curKW ? DANGER : MUTED} 45%, transparent)`,
-                        cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      }}>
-                      {planLabel(g.planRef)} · {round2(Number(g.soll_stunden) + Number(g.fahrt_stunden || 0)).toLocaleString('de-DE')}h
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-      <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, marginTop: 8 }}>
-        Farbige Chips = terminierte Einsätze (Tooltip zeigt die Aufgaben) · gestrichelt = offene Gänge der KW, Klick = terminieren
-      </div>
-    </Card>
-  )
-}
-
-/* ─── Kapazität (Bestandteil des Jahresplans) ─────────────────── */
-
-function Kapazitaet({ plans, gaengeByPlan, hourRules }) {
-  // 'gesamt' = Jahresbild (alle Gänge außer entfallen); 'offen' = nur geplant/terminiert
-  const [mode, setMode] = useState('gesamt')
-  const demand = Array(12).fill(0)
-  for (const p of plans) {
-    for (const g of gaengeByPlan[p.id] || []) {
-      const m = monthOf(g.kw)
-      if (m < 0 || g.status === 'entfallen') continue
-      if (mode === 'offen' && g.status === 'erledigt') continue
-      demand[m] += Number(g.soll_stunden || 0) + Number(g.fahrt_stunden || 0)
-    }
-  }
-  const rules = Object.values(hourRules || {})
-  const monthlyCap = rules.reduce((s, r) => {
-    if (r.rule_type === 'monthly') return s + Number(r.monthly_hours || 0)
-    if (r.rule_type === 'weekly') return s + Number(r.weekly_hours || 0) * 4.33
-    return s
-  }, 0)
-  const capPeople = rules.filter((r) => r.rule_type === 'monthly' || r.rule_type === 'weekly').map((r) => r.team_id).join(', ')
-  const maxVal = Math.max(monthlyCap, ...demand, 1)
-  const overMonths = demand.map((d, i) => ({ m: i, delta: monthlyCap - d })).filter((x) => x.delta < -0.01)
-
-  return (
-    <>
-      <Card padding="14px 16px">
-        <SectionLabel style={{ marginBottom: 10 }} action={
-          <Chips options={[['gesamt', 'Jahresbild'], ['offen', 'Nur offen']]} value={mode} onChange={setMode} />
-        }>Kapazität: Bedarf (inkl. Fahrt) vs. verfügbare Stunden</SectionLabel>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-          {MONATE.map((m, i) => {
-            const d = demand[i]
-            const over = d > monthlyCap + 0.01
-            return (
-              <div key={m} style={{ display: 'grid', gridTemplateColumns: '34px 1fr 130px', gap: 10, alignItems: 'center' }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, textTransform: 'uppercase' }}>{m}</div>
-                <div style={{ position: 'relative', height: 14, background: `color-mix(in srgb, ${MUTED} 8%, transparent)`, borderRadius: 5, overflow: 'hidden' }}>
-                  <div style={{ position: 'absolute', inset: 0, width: `${Math.min(100, (d / maxVal) * 100)}%`, background: over ? `color-mix(in srgb, ${DANGER} 55%, transparent)` : `color-mix(in srgb, ${A} 55%, transparent)`, borderRadius: 5 }} />
-                  <div title={`verfügbar: ${hrs(monthlyCap)}`} style={{ position: 'absolute', top: 0, bottom: 0, left: `${(monthlyCap / maxVal) * 100}%`, width: 2, background: FG, opacity: 0.65 }} />
-                </div>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: over ? DANGER : FG, textAlign: 'right' }}>
-                  {round2(d).toLocaleString('de-DE')} / {round2(monthlyCap).toLocaleString('de-DE')} h
-                </div>
-              </div>
-            )
-          })}
-        </div>
-        <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, marginTop: 10 }}>
-          Verfügbar = Stundenkonto-Regeln ({capPeople || '—'}) · Bedarf = Einsätze inkl. Fahrt-/Rüstzeit
-        </div>
-      </Card>
-
-      {overMonths.length > 0 && (
-        <Card accent={WARN} padding="12px 16px">
-          <SectionLabel style={{ marginBottom: 8 }}>Team-/Springer-Bedarf</SectionLabel>
-          {overMonths.map(({ m, delta }) => (
-            <div key={m} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: FG, padding: '2px 0' }}>
-              <AlertTriangle size={13} color={WARN} />
-              <strong>{MONATE[m]}:</strong> {hrs(-delta)} zusätzlich nötig
-              <span style={{ fontFamily: MONO, fontSize: 11, color: MUTED }}>≈ {Math.ceil(-delta / 10)} Personen-Tage à 10 h</span>
-            </div>
-          ))}
-        </Card>
-      )}
-    </>
   )
 }
 

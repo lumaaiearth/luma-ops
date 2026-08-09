@@ -1,0 +1,551 @@
+// ════════════════════════════════════════════════════════════════════
+// Jahres-Zeitachse der Pflegeplanung
+//
+// Eine Zeile je Projektfläche, waagerecht endlos durch die Jahre. Darin
+// liegen alle Pflegegänge als Karten: erledigte gefüllt, terminierte
+// kräftig, Vorschläge aus dem LV blass und gestrichelt. Jahreszeiten
+// hinterlegen die Fläche, die Wetterprognose sitzt im Kopf, „Heute" ist
+// eine Linie. Karten lassen sich mit der Maus verschieben — das schreibt
+// die neue Woche zurück, und die Aufgabenkarte folgt automatisch.
+//
+// Positioniert wird nach echtem Datum (x = Tage seit Bereichsanfang ×
+// Tagesbreite), nicht nach Wochen-Index — sonst driften Jahre mit 53
+// Kalenderwochen auseinander.
+// ════════════════════════════════════════════════════════════════════
+import { useState, useRef, useEffect, useMemo, useLayoutEffect } from 'react'
+import { A, BG, SURFACE, BORDER, FG, MUTED, OK, WARN, DANGER, INFO, A06 } from '../lib/theme.js'
+import { MONO } from './ui.jsx'
+import { getWeatherForDate, STATUS_COLOR } from '../lib/weather.js'
+import {
+  CalendarPlus, Check, ChevronLeft, ChevronRight, ZoomIn, ZoomOut,
+  Sun, Cloud, CloudRain, CloudSnow, X, Sprout,
+} from 'lucide-react'
+
+const TAG_MS = 86400000
+const MONATE = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
+
+// Jahreszeiten nach Kalenderwoche (Winter = Pflegepause)
+const SAISON_BANDS = [
+  { key: 'fruehjahr', label: 'Frühjahr', vonKw: 10, bisKw: 21, color: OK },
+  { key: 'sommer',    label: 'Sommer',   vonKw: 22, bisKw: 35, color: A },
+  { key: 'herbst',    label: 'Herbst',   vonKw: 36, bisKw: 48, color: WARN },
+  { key: 'winter1',   label: 'Winter',   vonKw: 1,  bisKw: 9,  color: INFO },
+  { key: 'winter2',   label: 'Winter',   vonKw: 49, bisKw: 52, color: INFO },
+]
+
+const ZOOMS = [
+  { id: 'jahr',   label: 'Jahr',   tagW: 3.6 },
+  { id: 'saison', label: 'Saison', tagW: 6.5 },
+  { id: 'monat',  label: 'Monat',  tagW: 12 },
+]
+
+const WETTER_ICON = { sun: Sun, cloudsun: Cloud, cloud: Cloud, drizzle: CloudRain, rain: CloudRain, snow: CloudSnow }
+
+const utc = (y, m, d) => new Date(Date.UTC(y, m, d))
+const isoStr = (d) => d.toISOString().slice(0, 10)
+const parseISO = (s) => new Date(s + 'T00:00:00Z')
+const tageZwischen = (a, b) => Math.round((b - a) / TAG_MS)
+
+// Montag der ISO-Kalenderwoche (der 4. Januar liegt immer in KW 1)
+function montagVonKw(jahr, kw) {
+  const jan4 = utc(jahr, 0, 4)
+  const dow = jan4.getUTCDay() || 7
+  const montag1 = new Date(jan4.getTime() - (dow - 1) * TAG_MS)
+  return new Date(montag1.getTime() + (kw - 1) * 7 * TAG_MS)
+}
+
+function kwVonDatum(d) {
+  const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
+  const dow = t.getUTCDay() || 7
+  t.setUTCDate(t.getUTCDate() + 4 - dow)
+  const jahresAnfang = utc(t.getUTCFullYear(), 0, 1)
+  return { jahr: t.getUTCFullYear(), kw: Math.ceil(((t - jahresAnfang) / TAG_MS + 1) / 7) }
+}
+
+const hrs = (n) => `${Number(n || 0).toLocaleString('de-DE', { maximumFractionDigits: 1 })} h`
+
+/* ─── Eine Karte auf der Zeitachse ──────────────────────────────── */
+
+function GangKarte({ item, tagW, links, breite, luecke, onDrag, onOpen, aktiv }) {
+  const [zieht, setZieht] = useState(false)
+  const [versatz, setVersatz] = useState(0)
+  const startX = useRef(0)
+
+  const beweglich = item.status === 'geplant' || item.status === 'terminiert'
+
+  function down(e) {
+    if (!beweglich || e.button !== 0) return
+    e.stopPropagation()
+    startX.current = e.clientX
+    setZieht(true)
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+  function move(e) {
+    if (!zieht) return
+    setVersatz(e.clientX - startX.current)
+  }
+  function up(e) {
+    if (!zieht) return
+    setZieht(false)
+    const tage = Math.round(versatz / tagW)
+    setVersatz(0)
+    if (Math.abs(versatz) < 4) { onOpen(item); return }   // kaum bewegt = Klick
+    if (tage !== 0) onDrag(item, tage)
+    e.currentTarget.releasePointerCapture?.(e.pointerId)
+  }
+
+  const vorschlag = item.status === 'geplant'
+  const erledigt = item.status === 'erledigt'
+  const farbe = erledigt ? OK : item.status === 'terminiert' ? INFO : item.ueberfaellig ? DANGER : A
+  const beschriftungInnen = breite > 84
+
+  const balken = (
+    <div
+      onPointerDown={down} onPointerMove={move} onPointerUp={up}
+      title={`${item.titel} · ${hrs(item.stunden)} · ${item.datumText}`}
+      style={{
+        position: 'absolute', left: links + versatz, top: 11, width: Math.max(breite, 15), height: 28,
+        borderRadius: 7, display: 'flex', alignItems: 'center', gap: 5, padding: '0 7px',
+        cursor: beweglich ? (zieht ? 'grabbing' : 'grab') : 'pointer',
+        background: vorschlag ? `color-mix(in srgb, ${farbe} 12%, transparent)` : `color-mix(in srgb, ${farbe} 88%, transparent)`,
+        border: vorschlag ? `1.5px dashed color-mix(in srgb, ${farbe} 55%, transparent)` : `1px solid color-mix(in srgb, ${farbe} 92%, transparent)`,
+        color: vorschlag ? farbe : '#fff',
+        opacity: zieht ? 0.85 : erledigt ? 0.92 : 1,
+        boxShadow: zieht ? '0 8px 20px rgba(0,0,0,0.22)' : aktiv ? `0 0 0 2px ${BG}, 0 0 0 3.5px ${farbe}` : 'none',
+        zIndex: zieht ? 40 : aktiv ? 20 : 5,
+        transition: zieht ? 'none' : 'box-shadow 0.15s, opacity 0.15s',
+        userSelect: 'none', overflow: 'hidden', whiteSpace: 'nowrap',
+      }}>
+      {erledigt && <Check size={12} style={{ flexShrink: 0 }} />}
+      {beschriftungInnen && (
+        <span style={{ fontSize: 11, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {item.kurz}
+        </span>
+      )}
+      {beschriftungInnen && breite > 165 && (
+        <span style={{ fontFamily: MONO, fontSize: 9.5, opacity: 0.75, marginLeft: 'auto' }}>{hrs(item.stunden)}</span>
+      )}
+    </div>
+  )
+
+  // Schmale Balken bekommen ihre Beschriftung daneben statt hinein
+  const dahinter = !beschriftungInnen && (
+    <span style={{
+      position: 'absolute', left: links + Math.max(breite, 15) + 7 + versatz, top: 17,
+      maxWidth: Math.max(0, luecke - 12), overflow: 'hidden', textOverflow: 'ellipsis',
+      fontSize: 10.5, color: erledigt ? MUTED : farbe, whiteSpace: 'nowrap',
+      pointerEvents: 'none', opacity: zieht ? 0.5 : 0.92, zIndex: 4,
+    }}>
+      {item.kurz} <span style={{ fontFamily: MONO, opacity: 0.7 }}>{hrs(item.stunden)}</span>
+    </span>
+  )
+
+  return <>{balken}{dahinter}</>
+}
+
+/* ─── Zeitachse ─────────────────────────────────────────────────── */
+
+export default function JahresTimeline({
+  plaene, gaenge, jobById, projById, clientById, clients, forecast,
+  onTerminieren, onErledigt, onVerschiebeGang, onVerschiebeJob,
+}) {
+  const heute = useMemo(() => {
+    const n = new Date()
+    return utc(n.getFullYear(), n.getMonth(), n.getDate())
+  }, [])
+
+  const [zoom, setZoom] = useState(1)
+  const tagW = ZOOMS[zoom].tagW
+  const [bereich, setBereich] = useState(() => ({ von: heute.getUTCFullYear() - 1, bis: heute.getUTCFullYear() + 1 }))
+  const [fClient, setFClient] = useState('alle')
+  const [zeige, setZeige] = useState({ geplant: true, terminiert: true, erledigt: true })
+  const [wetterAn, setWetterAn] = useState(true)
+  const [popover, setPopover] = useState(null)
+
+  const scroller = useRef(null)
+  const startDatum = useMemo(() => utc(bereich.von, 0, 1), [bereich.von])
+  const endDatum = useMemo(() => utc(bereich.bis, 11, 31), [bereich.bis])
+  const gesamtTage = tageZwischen(startDatum, endDatum) + 1
+  const gesamtBreite = gesamtTage * tagW
+  const x = (d) => tageZwischen(startDatum, d) * tagW
+
+  /* Zeilen: eine je Projektfläche, über alle Jahre hinweg */
+  const zeilen = useMemo(() => {
+    const planById = Object.fromEntries(plaene.map((p) => [p.id, p]))
+    const proj = {}
+    for (const g of gaenge) {
+      const plan = planById[g.plan_id]
+      if (!plan) continue
+      const p = projById[plan.project_id]
+      if (!p) continue
+      if (fClient !== 'alle' && p.client_id !== fClient) continue
+      if (!zeige[g.status] && g.status !== 'entfallen') continue
+      if (g.status === 'entfallen') continue
+
+      const job = g.job_id ? jobById[g.job_id] : null
+      const von = job?.date ? parseISO(job.date) : montagVonKw(g.jahr, g.kw)
+      const tage = job?.date ? 1 : 5                     // fester Einsatz = 1 Tag, Vorschlag = KW-Fenster
+      const stunden = Number(g.soll_stunden || 0) + Number(g.fahrt_stunden || 0)
+      const kurzTitel = (g.titel || 'Pflegegang').replace(/\s*\(KW\s*\d+\)\s*$/, '')
+
+      ;(proj[p.id] = proj[p.id] || { projekt: p, items: [] }).items.push({
+        id: g.id, gang: g, job, status: g.status, von, tage, stunden,
+        kurz: kurzTitel,
+        titel: `${kurzTitel} · ${p.flaeche_code || p.name}`,
+        datumText: job?.date
+          ? von.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' })
+          : `KW ${g.kw} / ${g.jahr}`,
+        ueberfaellig: g.status === 'geplant' && von < heute,
+      })
+    }
+    for (const z of Object.values(proj)) z.items.sort((a, b) => a.von - b.von)
+    return Object.values(proj).sort((a, b) => {
+      const ka = clientById[a.projekt.client_id]?.name || ''
+      const kb = clientById[b.projekt.client_id]?.name || ''
+      return ka.localeCompare(kb) || (a.projekt.flaeche_code || a.projekt.name).localeCompare(b.projekt.flaeche_code || b.projekt.name)
+    })
+  }, [plaene, gaenge, jobById, projById, clientById, fClient, zeige, heute])
+
+  /* Endloses Scrollen: an den Rändern ein Jahr anhängen.
+     Während eigener Sprünge gesperrt — sonst löst das Scrollen zum
+     Heute-Datum unterwegs ein Anhängen aus und verschiebt sich selbst. */
+  const nachPrepend = useRef(null)
+  const gesperrt = useRef(true)
+
+  function beiScroll(e) {
+    if (gesperrt.current) return
+    const el = e.currentTarget
+    if (el.scrollLeft < 300) {
+      gesperrt.current = true
+      nachPrepend.current = { scrollLeft: el.scrollLeft, breite: el.scrollWidth }
+      setBereich((b) => ({ ...b, von: b.von - 1 }))
+    } else if (el.scrollLeft + el.clientWidth > el.scrollWidth - 300) {
+      gesperrt.current = true
+      setBereich((b) => ({ ...b, bis: b.bis + 1 }))
+      setTimeout(() => { gesperrt.current = false }, 120)
+    }
+  }
+
+  // Beim Anhängen nach links die Scrollposition ausgleichen, sonst springt die Ansicht
+  useLayoutEffect(() => {
+    const el = scroller.current
+    if (!el || !nachPrepend.current) return
+    el.scrollLeft = nachPrepend.current.scrollLeft + (el.scrollWidth - nachPrepend.current.breite)
+    nachPrepend.current = null
+    setTimeout(() => { gesperrt.current = false }, 120)
+  }, [bereich.von])
+
+  function zuHeute(weich = true) {
+    const el = scroller.current
+    if (!el) return
+    gesperrt.current = true
+    const ziel = Math.max(0, x(heute) - el.clientWidth / 3)
+    el.scrollTo({ left: ziel, behavior: weich ? 'smooth' : 'auto' })
+    setTimeout(() => { gesperrt.current = false }, weich ? 700 : 150)
+  }
+
+  // Erster Aufschlag: ohne Animation direkt auf heute, damit das Nachladen
+  // der Jahre nicht mitten in der Bewegung greift.
+  const startPos = useRef(false)
+  useLayoutEffect(() => {
+    if (startPos.current) return
+    startPos.current = true
+    zuHeute(false)
+  }, [])
+  useEffect(() => { if (startPos.current) zuHeute(false) }, [zoom])
+
+  /* Monats- und Wochenraster */
+  const monate = useMemo(() => {
+    const out = []
+    for (let j = bereich.von; j <= bereich.bis; j++) {
+      for (let m = 0; m < 12; m++) {
+        const von = utc(j, m, 1)
+        const bis = utc(j, m + 1, 0)
+        out.push({ key: `${j}-${m}`, label: MONATE[m], jahr: j, monat: m, links: x(von), breite: (tageZwischen(von, bis) + 1) * tagW })
+      }
+    }
+    return out
+  }, [bereich, tagW])
+
+  const wochen = useMemo(() => {
+    const out = []
+    for (let j = bereich.von; j <= bereich.bis; j++) {
+      for (let kw = 1; kw <= 53; kw++) {
+        const mo = montagVonKw(j, kw)
+        if (mo.getUTCFullYear() !== j && kw > 50) continue
+        if (mo < startDatum || mo > endDatum) continue
+        out.push({ key: `${j}-${kw}`, kw, jahr: j, links: x(mo), breite: 7 * tagW })
+      }
+    }
+    return out
+  }, [bereich, tagW])
+
+  const saisonFlaechen = useMemo(() => {
+    const out = []
+    for (let j = bereich.von; j <= bereich.bis; j++) {
+      for (const s of SAISON_BANDS) {
+        const von = montagVonKw(j, s.vonKw)
+        const bis = new Date(montagVonKw(j, s.bisKw).getTime() + 6 * TAG_MS)
+        out.push({ key: `${j}-${s.key}`, label: s.label, color: s.color, links: x(von), breite: tageZwischen(von, bis) * tagW })
+      }
+    }
+    return out
+  }, [bereich, tagW])
+
+  const wetterTage = useMemo(() => {
+    if (!wetterAn || !forecast?.length) return []
+    return forecast.map((tag) => ({ ...tag, links: x(parseISO(tag.date)) })).filter((t) => t.links >= 0)
+  }, [forecast, wetterAn, tagW, startDatum])
+
+  /* Verschieben: neue Woche bzw. neues Datum zurückschreiben */
+  function verschiebe(item, tage) {
+    const neu = new Date(item.von.getTime() + tage * TAG_MS)
+    if (item.job) onVerschiebeJob(item.gang, item.job, isoStr(neu))
+    else {
+      const { jahr, kw } = kwVonDatum(neu)
+      onVerschiebeGang(item.gang, jahr, kw)
+    }
+  }
+
+  const ZEILE_H = 50
+  const KOPF_H = wetterAn ? 76 : 56
+  const SPALTE_W = 208
+
+  const chip = (an, setzen, label, farbe) => (
+    <button onClick={setzen} style={{
+      padding: '4px 10px', borderRadius: 999, cursor: 'pointer', fontSize: 11.5,
+      border: `1px solid ${an ? `color-mix(in srgb, ${farbe} 45%, transparent)` : BORDER}`,
+      background: an ? `color-mix(in srgb, ${farbe} 12%, transparent)` : 'transparent',
+      color: an ? farbe : MUTED, fontFamily: 'inherit',
+    }}>{label}</button>
+  )
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+      {/* Werkzeugleiste */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <button onClick={zuHeute} style={{
+          padding: '6px 14px', borderRadius: 8, border: `1px solid ${BORDER}`, background: SURFACE,
+          color: FG, cursor: 'pointer', fontSize: 12.5, fontFamily: 'inherit', fontWeight: 500,
+        }}>Heute</button>
+        <div style={{ display: 'flex', border: `1px solid ${BORDER}`, borderRadius: 8, overflow: 'hidden' }}>
+          <button onClick={() => scroller.current?.scrollBy({ left: -420, behavior: 'smooth' })}
+            style={{ padding: '6px 9px', background: SURFACE, border: 'none', borderRight: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', display: 'flex' }}><ChevronLeft size={15} /></button>
+          <button onClick={() => scroller.current?.scrollBy({ left: 420, behavior: 'smooth' })}
+            style={{ padding: '6px 9px', background: SURFACE, border: 'none', color: MUTED, cursor: 'pointer', display: 'flex' }}><ChevronRight size={15} /></button>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2, border: `1px solid ${BORDER}`, borderRadius: 8, background: SURFACE, padding: 2 }}>
+          <button onClick={() => setZoom((z) => Math.max(0, z - 1))} disabled={zoom === 0}
+            style={{ padding: '4px 7px', background: 'transparent', border: 'none', color: zoom === 0 ? BORDER : MUTED, cursor: zoom === 0 ? 'default' : 'pointer', display: 'flex' }}><ZoomOut size={14} /></button>
+          <span style={{ fontFamily: MONO, fontSize: 10.5, color: MUTED, minWidth: 44, textAlign: 'center' }}>{ZOOMS[zoom].label}</span>
+          <button onClick={() => setZoom((z) => Math.min(ZOOMS.length - 1, z + 1))} disabled={zoom === ZOOMS.length - 1}
+            style={{ padding: '4px 7px', background: 'transparent', border: 'none', color: zoom === ZOOMS.length - 1 ? BORDER : MUTED, cursor: zoom === ZOOMS.length - 1 ? 'default' : 'pointer', display: 'flex' }}><ZoomIn size={14} /></button>
+        </div>
+
+        <select value={fClient} onChange={(e) => setFClient(e.target.value)} style={{
+          padding: '6px 10px', borderRadius: 8, border: `1px solid ${BORDER}`, background: SURFACE,
+          color: FG, fontSize: 12.5, fontFamily: 'inherit', cursor: 'pointer',
+        }}>
+          <option value="alle">Alle Auftraggeber</option>
+          {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+
+        <div style={{ display: 'flex', gap: 5, marginLeft: 4 }}>
+          {chip(zeige.geplant, () => setZeige((z) => ({ ...z, geplant: !z.geplant })), 'Vorschläge', A)}
+          {chip(zeige.terminiert, () => setZeige((z) => ({ ...z, terminiert: !z.terminiert })), 'Terminiert', INFO)}
+          {chip(zeige.erledigt, () => setZeige((z) => ({ ...z, erledigt: !z.erledigt })), 'Erledigt', OK)}
+          {chip(wetterAn, () => setWetterAn((w) => !w), 'Wetter', WARN)}
+        </div>
+      </div>
+
+      {/* Zeitachse */}
+      <div style={{ border: `1px solid ${BORDER}`, borderRadius: 14, background: SURFACE, overflow: 'hidden', position: 'relative' }}>
+        <div style={{ display: 'flex' }}>
+
+          {/* Feste linke Spalte */}
+          <div style={{ width: SPALTE_W, flexShrink: 0, borderRight: `1px solid ${BORDER}`, background: SURFACE, zIndex: 30, position: 'relative', boxShadow: '2px 0 8px -4px rgba(0,0,0,0.18)' }}>
+            <div style={{ height: KOPF_H, borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'flex-end', padding: '0 14px 8px' }}>
+              <span style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Standort</span>
+            </div>
+            {zeilen.map((z) => {
+              const kunde = clientById[z.projekt.client_id]
+              return (
+                <div key={z.projekt.id} style={{
+                height: ZEILE_H, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 14px',
+                borderBottom: `1px solid color-mix(in srgb, ${BORDER} 45%, transparent)`,
+                background: zeilen.indexOf(z) % 2 ? `color-mix(in srgb, ${FG} 2%, transparent)` : 'transparent',
+              }}>
+                  <div style={{ fontSize: 12.5, color: FG, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {z.projekt.flaeche_code || z.projekt.name}
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 9.5, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {kunde?.name || '—'} · {z.items.length} Einsätze
+                  </div>
+                </div>
+              )
+            })}
+            {!zeilen.length && <div style={{ padding: '22px 14px', fontSize: 13, color: MUTED }}>Keine Einsätze im Filter.</div>}
+          </div>
+
+          {/* Scrollbare Zeitachse */}
+          <div ref={scroller} onScroll={beiScroll} className="lu-scroll-x"
+            style={{ flex: 1, overflowX: 'auto', overflowY: 'hidden', position: 'relative' }}>
+            <div style={{ width: gesamtBreite, position: 'relative' }}>
+
+              {/* Kopf: Monate, Wochen, Wetter */}
+              <div style={{ height: KOPF_H, borderBottom: `1px solid ${BORDER}`, position: 'sticky', top: 0, background: SURFACE, zIndex: 12 }}>
+                {saisonFlaechen.map((s) => (
+                  <div key={s.key} style={{
+                    position: 'absolute', left: s.links, width: s.breite, top: 0, bottom: 0,
+                    background: `color-mix(in srgb, ${s.color} 13%, transparent)`,
+                    borderTop: `2px solid color-mix(in srgb, ${s.color} 55%, transparent)`,
+                  }}>
+                    {s.breite > 90 && (
+                      <span style={{
+                        position: 'absolute', top: 3, left: 0, right: 0, textAlign: 'center', fontFamily: MONO, fontSize: 8.5,
+                        letterSpacing: '0.14em', textTransform: 'uppercase',
+                        color: `color-mix(in srgb, ${s.color} 85%, transparent)`, whiteSpace: 'nowrap',
+                      }}>{s.label}</span>
+                    )}
+                  </div>
+                ))}
+                {monate.map((m) => (
+                  <div key={m.key} style={{
+                    position: 'absolute', left: m.links, width: m.breite, top: 14, height: 22,
+                    borderLeft: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', paddingLeft: 8,
+                    fontSize: 12, fontWeight: 600, color: FG, whiteSpace: 'nowrap', overflow: 'hidden', letterSpacing: '0.01em',
+                  }}>
+                    {m.breite > 60 ? (m.monat === 0 ? `${m.label} ${m.jahr}` : m.label) : ''}
+                  </div>
+                ))}
+                {wochen.map((w) => (
+                  <div key={w.key} style={{
+                    position: 'absolute', left: w.links, width: w.breite, top: 34, height: 18,
+                    borderLeft: `1px solid color-mix(in srgb, ${BORDER} 55%, transparent)`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontFamily: MONO, fontSize: 8.5, color: MUTED, opacity: 0.75,
+                  }}>
+                    {w.breite > 26 ? w.kw : ''}
+                  </div>
+                ))}
+                {wetterAn && wetterTage.map((t) => {
+                  const Icon = WETTER_ICON[t.icon] || Cloud
+                  const farbe = STATUS_COLOR[t.status] || MUTED
+                  const titel = `${t.label} · ${t.tempMax}°/${t.tempMin}° · ${t.precip} mm Regen`
+                  // Eng: farbiger Tagesstreifen. Weit: Symbol mit Höchsttemperatur.
+                  return tagW >= 10 ? (
+                    <div key={t.date} title={titel}
+                      style={{ position: 'absolute', left: t.links, width: tagW, top: 48, height: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                      <Icon size={11} style={{ color: farbe }} />
+                      <span style={{ fontFamily: MONO, fontSize: 8, color: MUTED }}>{t.tempMax}°</span>
+                    </div>
+                  ) : (
+                    <div key={t.date} title={titel}
+                      style={{ position: 'absolute', left: t.links + 0.5, width: Math.max(tagW - 1, 2), top: 56, height: 7, borderRadius: 2, background: farbe, opacity: 0.85 }} />
+                  )
+                })}
+              </div>
+
+              {/* Zeilen */}
+              <div style={{ position: 'relative' }}>
+                {/* Jahreszeiten und Wochenraster hinter den Karten */}
+                {saisonFlaechen.map((s) => (
+                  <div key={s.key} style={{
+                    position: 'absolute', left: s.links, width: s.breite, top: 0, height: zeilen.length * ZEILE_H,
+                    background: `color-mix(in srgb, ${s.color} 7%, transparent)`, pointerEvents: 'none',
+                  }} />
+                ))}
+                {monate.map((m) => (
+                  <div key={m.key} style={{
+                    position: 'absolute', left: m.links, top: 0, width: 1, height: zeilen.length * ZEILE_H,
+                    background: BORDER, pointerEvents: 'none',
+                  }} />
+                ))}
+
+                {/* Heute-Linie */}
+                <div style={{ position: 'absolute', left: x(heute), top: 0, bottom: 0, width: 2, background: `color-mix(in srgb, ${DANGER} 85%, transparent)`, zIndex: 25, pointerEvents: 'none' }}>
+                  <div style={{
+                    position: 'absolute', top: -5, left: -4, width: 10, height: 10,
+                    borderRadius: '50%', background: DANGER, border: `2px solid ${SURFACE}`,
+                  }} />
+                </div>
+
+                {zeilen.map((z, i) => (
+                  <div key={z.projekt.id} style={{
+                    height: ZEILE_H, position: 'relative',
+                    borderBottom: `1px solid color-mix(in srgb, ${BORDER} 45%, transparent)`,
+                    background: i % 2 ? `color-mix(in srgb, ${FG} 2%, transparent)` : 'transparent',
+                  }}>
+                    {z.items.map((item, k) => {
+                      const links = x(item.von)
+                      const breite = item.tage * tagW
+                      const naechster = z.items[k + 1]
+                      const luecke = naechster ? x(naechster.von) - (links + breite) : 260
+                      return (
+                        <GangKarte key={item.id} item={item} tagW={tagW}
+                          links={links} breite={breite} luecke={luecke}
+                          aktiv={popover?.id === item.id}
+                          onDrag={verschiebe}
+                          onOpen={(it) => setPopover(it)} />
+                      )
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Legende */}
+        <div style={{ borderTop: `1px solid ${BORDER}`, padding: '7px 14px', display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center', background: BG }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: MUTED }}>
+            <span style={{ width: 16, height: 9, borderRadius: 3, border: `1.5px dashed color-mix(in srgb, ${A} 55%, transparent)`, background: `color-mix(in srgb, ${A} 12%, transparent)` }} />Vorschlag aus dem LV
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: MUTED }}>
+            <span style={{ width: 16, height: 9, borderRadius: 3, background: INFO }} />terminierter Einsatz
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: MUTED }}>
+            <span style={{ width: 16, height: 9, borderRadius: 3, background: OK }} />erledigt
+          </span>
+          <span style={{ fontSize: 11, color: MUTED, marginLeft: 'auto' }}>
+            Karten lassen sich ziehen — die Aufgabenkarte folgt automatisch.
+          </span>
+        </div>
+      </div>
+
+      {/* Detailkarte zum angeklickten Einsatz */}
+      {popover && (
+        <div style={{
+          border: `1px solid ${BORDER}`, borderRadius: 12, background: SURFACE, padding: '12px 14px',
+          display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
+        }}>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontSize: 13.5, color: FG, fontWeight: 500 }}>{popover.titel}</div>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: MUTED, marginTop: 2 }}>
+              {popover.datumText} · {hrs(popover.stunden)} · {popover.status}
+              {popover.ueberfaellig ? ' · überfällig' : ''}
+            </div>
+          </div>
+          {popover.status === 'geplant' && (
+            <button onClick={() => { onTerminieren(popover.gang); setPopover(null) }} style={{
+              display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8,
+              border: `1px solid color-mix(in srgb, ${A} 35%, transparent)`, background: A06, color: A,
+              cursor: 'pointer', fontSize: 12, fontFamily: 'inherit',
+            }}><CalendarPlus size={13} />Terminieren</button>
+          )}
+          {popover.status !== 'erledigt' && (
+            <button onClick={() => { onErledigt(popover.gang); setPopover(null) }} style={{
+              display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8,
+              border: `1px solid color-mix(in srgb, ${OK} 35%, transparent)`,
+              background: `color-mix(in srgb, ${OK} 10%, transparent)`, color: OK,
+              cursor: 'pointer', fontSize: 12, fontFamily: 'inherit',
+            }}><Check size={13} />Abschließen</button>
+          )}
+          <button onClick={() => setPopover(null)} style={{ background: 'transparent', border: 'none', color: MUTED, cursor: 'pointer', display: 'flex', padding: 4 }}><X size={15} /></button>
+        </div>
+      )}
+    </div>
+  )
+}
