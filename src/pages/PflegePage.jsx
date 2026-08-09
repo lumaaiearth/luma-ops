@@ -34,6 +34,7 @@ import { isoToday } from '../lib/storage.js'
 import { normalisiereZeiteintraege, buildLeistungsnachweis } from '../lib/leistungsnachweis.js'
 import { druckeLeistungsnachweis } from '../lib/printNachweis.js'
 import JahresTimeline from '../components/JahresTimeline.jsx'
+import JobPhotos from '../components/JobPhotos.jsx'
 import { useWeather } from '../context/WeatherContext.jsx'
 import { baueNachweisEmail } from '../lib/nachweisEmail.js'
 import { sendeEmail, versandProtokoll } from '../lib/email.js'
@@ -538,7 +539,7 @@ export default function PflegePage() {
       )}
       {erledigenModal && (
         <ErledigenModal gang={erledigenModal} label={planLabel(plaene.find((p) => p.id === erledigenModal.plan_id) || {})}
-          job={erledigenModal.job_id ? jobById[erledigenModal.job_id] : null}
+          job={erledigenModal.job_id ? jobById[erledigenModal.job_id] : null} profil={profile}
           onClose={() => setErledigenModal(null)}
           onSubmit={(werte) => abschliessen(erledigenModal, werte)} />
       )}
@@ -1139,7 +1140,7 @@ function TerminModal({ gang, label, onClose, onSubmit }) {
 
 /* ─── Modal: Gang abschließen (Restanten-Checkliste) ──────────── */
 
-function ErledigenModal({ gang, label, job, onClose, onSubmit }) {
+function ErledigenModal({ gang, label, job, profil, onClose, onSubmit }) {
   const items = gang.aufgaben || []
   const people = allPeople()
   const [done, setDone] = useState(() => new Set(items.map((_, i) => i)))
@@ -1242,7 +1243,19 @@ function ErledigenModal({ gang, label, job, onClose, onSubmit }) {
           </div>
         </div>
 
-        {/* 3 — Material (optional) */}
+        {/* 3 — Fotodokumentation (nur bei terminiertem Einsatz möglich,
+             weil Fotos am Einsatz hängen und so im Kundenportal landen) */}
+        {job?.id ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <SectionLabel>Fotos</SectionLabel>
+            <div style={{ fontSize: 12.5, color: MUTED }}>
+              Vorher und Nachher — erscheint im Kundenportal bei dieser Fläche.
+            </div>
+            <JobPhotos jobId={job.id} uploadedBy={profil?.team_id || 'unknown'} />
+          </div>
+        ) : null}
+
+        {/* 4 — Material (optional) */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <SectionLabel>Material / Kosten (optional)</SectionLabel>
           <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>

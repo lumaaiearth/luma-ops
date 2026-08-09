@@ -27,12 +27,13 @@ async function compressImage(file) {
   })
 }
 
-export default function JobPhotos({ jobId, uploadedBy }) {
+export default function JobPhotos({ jobId, uploadedBy, kompakt = false }) {
   const [photos, setPhotos] = useState([])
   const [uploading, setUploading] = useState(false)
   const [lightbox, setLightbox] = useState(null)
   const [uploadError, setUploadError] = useState(null)
   const fileRef = useRef()
+  const phaseRef = useRef(null)   // 'vorher' | 'nachher' | null
 
   useEffect(() => {
     if (!jobId) return
@@ -65,7 +66,7 @@ export default function JobPhotos({ jobId, uploadedBy }) {
       let blob
       try { blob = await compressImage(file) } catch { blob = file }
       const path = `${jobId}/${photoId}.jpg`
-      const row = { id: photoId, job_id: jobId, photo_id: photoId, uploaded_by: uploadedBy, created_at: new Date().toISOString() }
+      const row = { id: photoId, job_id: jobId, photo_id: photoId, uploaded_by: uploadedBy, phase: phaseRef.current, created_at: new Date().toISOString() }
       try {
         const url = await sbUploadPhoto(jobId, photoId, blob)
         const full = { ...row, url }
@@ -81,6 +82,30 @@ export default function JobPhotos({ jobId, uploadedBy }) {
     if (anyFailed) setUploadError('Upload fehlgeschlagen — Supabase Bucket "job-photos" prüfen')
     setUploading(false)
   }
+
+  // Kamera/Dateiwahl für eine bestimmte Phase öffnen
+  function waehle(phase) {
+    phaseRef.current = phase
+    fileRef.current?.click()
+  }
+
+  const gruppen = [
+    { key: 'vorher',  label: 'Vorher'  },
+    { key: 'nachher', label: 'Nachher' },
+  ]
+  const ohnePhase = photos.filter((p) => !p.phase)
+
+
+  const Kachel = ({ photo }) => (
+    <div key={photo.id}
+      style={{ position: 'relative', aspectRatio: '1', borderRadius: 6, overflow: 'hidden', background: SURFACE, border: `1px solid ${BORDER}`, cursor: 'pointer' }}
+      onClick={() => setLightbox(photo)}>
+      <img src={photo.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+      {photo._pending && (
+        <span style={{ position: 'absolute', bottom: 3, right: 3, fontFamily: "'Space Mono', monospace", fontSize: 8, color: '#fff', background: 'rgba(0,0,0,0.55)', padding: '1px 4px', borderRadius: 3 }}>wartet</span>
+      )}
+    </div>
+  )
 
   async function handleDelete(photo) {
     try {
@@ -99,16 +124,13 @@ export default function JobPhotos({ jobId, uploadedBy }) {
         <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
           Fotos {photos.length > 0 && `(${photos.length})`}
         </span>
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          disabled={uploading}
-          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 5, border: `1px solid ${BORDER}`, background: 'transparent', color: uploading ? MUTED : A, cursor: uploading ? 'default' : 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif" }}
-        >
-          {uploading ? <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Camera size={13} />}
-          {uploading ? 'Hochladen…' : 'Foto hinzufügen'}
-        </button>
-        <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => handleFiles(e.target.files)} />
+        {uploading && (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: MUTED }}>
+            <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} />Hochladen…
+          </span>
+        )}
+        <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }}
+          onChange={e => { handleFiles(e.target.files); e.target.value = '' }} />
       </div>
       {uploadError && (
         <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: '#ef4444', marginTop: 4, padding: '4px 8px', background: 'rgba(239,68,68,0.1)', borderRadius: 4, border: '1px solid rgba(239,68,68,0.25)' }}>
@@ -116,36 +138,46 @@ export default function JobPhotos({ jobId, uploadedBy }) {
         </div>
       )}
 
-      {photos.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: 6 }}>
-          {photos.map(photo => (
-            <div
-              key={photo.id}
-              style={{ position: 'relative', aspectRatio: '1', borderRadius: 6, overflow: 'hidden', background: SURFACE, border: `1px solid ${BORDER}`, cursor: 'pointer', group: true }}
-              onClick={() => setLightbox(photo)}
-            >
-              <img src={photo.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
-              <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0)', transition: 'background 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,0,0,0.45)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0)'}
-              >
-                <ZoomIn size={14} color="#fff" style={{ opacity: 0, transition: 'opacity 0.15s' }}
-                  onMouseEnter={e => { e.currentTarget.style.opacity = 1; e.currentTarget.parentElement.style.background = 'rgba(0,0,0,0.45)' }}
-                />
+      {/* Vorher und Nachher getrennt — das ist die Dokumentation, die der
+          Kunde im Portal gegenübergestellt sieht. */}
+      <div style={{ display: 'grid', gridTemplateColumns: kompakt ? '1fr' : '1fr 1fr', gap: 10 }}>
+        {gruppen.map((g) => {
+          const bilder = photos.filter((p) => p.phase === g.key)
+          return (
+            <div key={g.key}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9.5, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                  {g.label} {bilder.length > 0 && `(${bilder.length})`}
+                </span>
+                <button type="button" onClick={() => waehle(g.key)} disabled={uploading}
+                  style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 5, border: `1px solid ${BORDER}`, background: 'transparent', color: uploading ? MUTED : A, cursor: uploading ? 'default' : 'pointer', fontSize: 11, fontFamily: "'Space Grotesk', sans-serif" }}>
+                  <Camera size={11} />{g.label}
+                </button>
               </div>
+              {bilder.length ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(72px, 1fr))', gap: 5 }}>
+                  {bilder.map((photo) => <Kachel key={photo.id} photo={photo} />)}
+                </div>
+              ) : (
+                <div onClick={() => waehle(g.key)}
+                  style={{ border: `1px dashed ${BORDER}`, borderRadius: 6, padding: '14px 8px', textAlign: 'center', cursor: 'pointer', color: MUTED, fontSize: 11, fontFamily: "'Space Mono', monospace" }}>
+                  {g.label}-Foto
+                </div>
+              )}
             </div>
-          ))}
-        </div>
-      )}
+          )
+        })}
+      </div>
 
-      {photos.length === 0 && !uploading && (
-        <div
-          onClick={() => fileRef.current?.click()}
-          style={{ border: `1px dashed ${BORDER}`, borderRadius: 6, padding: '20px', textAlign: 'center', cursor: 'pointer', color: MUTED, fontSize: 12, fontFamily: "'Space Mono', monospace" }}
-          onMouseEnter={e => e.currentTarget.style.borderColor = `color-mix(in srgb, ${A} 38%, transparent)`}
-          onMouseLeave={e => e.currentTarget.style.borderColor = BORDER}
-        >
-          Fotos tippen oder ablegen
+      {/* Fotos ohne Zuordnung (älter oder ohne Phase hochgeladen) */}
+      {ohnePhase.length > 0 && (
+        <div style={{ marginTop: 10 }}>
+          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9.5, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+            Ohne Zuordnung ({ohnePhase.length})
+          </span>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(72px, 1fr))', gap: 5, marginTop: 5 }}>
+            {ohnePhase.map((photo) => <Kachel key={photo.id} photo={photo} />)}
+          </div>
         </div>
       )}
 

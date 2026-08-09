@@ -103,7 +103,7 @@ export function normalisiereZeiteintraege(eintraege = []) {
  * @param {Array}    opts.leistungen  Zeilen { project_id, date, stunden, leistungen }
  * @param {Array}    opts.projekte    Zeilen { id, name, location? }
  * @param {Array}   [opts.plaene]     Zeilen { project_id, jahr, soll_stunden, gaenge_gesamt, gaenge_erledigt }
- * @param {Array}   [opts.fotos]      Zeilen { project_id, url, einsatz_datum? , created_at? }
+ * @param {Array}   [opts.fotos]      Zeilen { project_id, url, einsatz_datum?, created_at?, phase? }
  * @param {number}  [opts.jahr]       Nur dieses Jahr (Default: alle)
  * @param {string}  [opts.projectId]  Nur diese Fläche (Default: alle)
  * @param {string}  [opts.von]        ISO-Datum, inklusive
@@ -199,7 +199,7 @@ export function buildLeistungsnachweis({
     if (jahr && jahrVon(d) !== jahr) continue
     if (von && d < von) continue
     if (bis && d > bis) continue
-    o.fotos.push({ url: f.url, datum: d, titel: f.einsatz_titel || '' })
+    o.fotos.push({ url: f.url, datum: d, titel: f.einsatz_titel || '', phase: f.phase || null })
   }
 
   // 5) Aufräumen und sortieren

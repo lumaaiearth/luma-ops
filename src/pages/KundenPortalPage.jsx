@@ -416,16 +416,7 @@ function ObjektKarte({ objekt: o, offen, onToggle, anteilJahr, erwartet }) {
           <div style={{ marginTop: 18 }}>
             <SectionTitle>Fotodokumentation</SectionTitle>
             {o.fotos.length > 0 ? (
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-                {o.fotos.map((f, i) => (
-                  <a key={i} href={f.url} target="_blank" rel="noreferrer"
-                     style={{ display: 'block', width: 104 }}>
-                    <img src={f.url} alt="" loading="lazy"
-                      style={{ width: 104, height: 78, objectFit: 'cover', borderRadius: 7, border: `1px solid ${BORDER}`, display: 'block' }} />
-                    {f.datum && <div style={{ fontSize: 9.5, color: MUTED, marginTop: 3, textAlign: 'center' }}>{formatDatum(f.datum)}</div>}
-                  </a>
-                ))}
-              </div>
+              <FotoGalerie fotos={o.fotos} />
             ) : (
               // Platzhalter, solange keine Einsatzfotos vorliegen. Erkennbar
               // generiert und beschriftet — ein Bild, das wie ein echtes Foto
@@ -722,6 +713,62 @@ function SectionTitle({ children }) {
   return (
     <div style={{ fontSize: 10.5, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
       {children}
+    </div>
+  )
+}
+
+/* ─── Fotodokumentation: je Einsatz Vorher neben Nachher ───────────── */
+function FotoGalerie({ fotos }) {
+  // Nach Einsatztag bündeln — ein Pflegegang ist eine Geschichte
+  const tage = {}
+  for (const f of fotos) (tage[f.datum || 'ohne'] = tage[f.datum || 'ohne'] || []).push(f)
+  const sortiert = Object.entries(tage).sort((a, b) => (a[0] < b[0] ? 1 : -1))
+
+  const Bild = ({ f, marke }) => (
+    <a href={f.url} target="_blank" rel="noreferrer" style={{ display: 'block', width: 104, position: 'relative' }}>
+      <img src={f.url} alt="" loading="lazy"
+        style={{ width: 104, height: 78, objectFit: 'cover', borderRadius: 7, border: `1px solid ${BORDER}`, display: 'block' }} />
+      {marke && (
+        <span style={{ position: 'absolute', top: 4, left: 4, fontSize: 8.5, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#fff', background: 'rgba(0,0,0,0.55)', padding: '1px 5px', borderRadius: 4 }}>
+          {marke}
+        </span>
+      )}
+    </a>
+  )
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 10 }}>
+      {sortiert.map(([tag, bilder]) => {
+        const vorher = bilder.filter((f) => f.phase === 'vorher')
+        const nachher = bilder.filter((f) => f.phase === 'nachher')
+        const rest = bilder.filter((f) => !f.phase)
+        return (
+          <div key={tag}>
+            {tag !== 'ohne' && (
+              <div style={{ fontSize: 11, color: MUTED, marginBottom: 6 }}>{formatDatum(tag)}</div>
+            )}
+            {(vorher.length > 0 || nachher.length > 0) ? (
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                {[['Vorher', vorher], ['Nachher', nachher]].map(([titel, gruppe]) => (
+                  gruppe.length > 0 && (
+                    <div key={titel}>
+                      <div style={{ fontSize: 10, color: MUTED, marginBottom: 4, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{titel}</div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {gruppe.map((f, i) => <Bild key={i} f={f} marke={null} />)}
+                      </div>
+                    </div>
+                  )
+                ))}
+              </div>
+            ) : null}
+            {rest.length > 0 && (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: vorher.length || nachher.length ? 8 : 0 }}>
+                {rest.map((f, i) => <Bild key={i} f={f} marke={null} />)}
+              </div>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
