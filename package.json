@@ -8,7 +8,7 @@
     "build": "vite build",
     "test": "node scripts/test-leistungsnachweis.mjs && node scripts/test-sensor-series.mjs && node scripts/test-biome-format.mjs",
     "lint": "eslint .",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "node scripts/typecheck.mjs",
     "migration:test": "bash scripts/test-migration.sh",
     "abnahme": "playwright test",
     "abnahme:mobil": "playwright test --project=mobil",
@@ -19,7 +19,8 @@
     "open:ios": "npx cap open ios",
     "icons": "npm i --no-save sharp && node scripts/gen-icons.mjs && npx cap sync",
     "tiles": "node scripts/upload-tiles.mjs",
-    "fortschritt": "node scripts/fortschritt.mjs"
+    "fortschritt": "node scripts/fortschritt.mjs",
+    "fixture:export": "node scripts/fixture-export.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.1",
@@ -46,11 +47,14 @@
     "three": "^0.185.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@capacitor/cli": "^8.4.1",
     "@eslint/js": "^9.39.5",
     "@playwright/test": "^1.62.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "axe-core": "^4.13.0",
     "eslint": "^9.39.5",
+    "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",
     "globals": "^17.9.0",

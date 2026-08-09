@@ -40,6 +40,7 @@ const ManaPage         = lazy(() => import('./pages/ManaPage.jsx'))
 const EarthPage        = lazy(() => import('./pages/EarthPage.jsx'))
 const ClimateDashboardPage = lazy(() => import('./pages/ClimateDashboardPage.jsx'))
 const PflegePage       = lazy(() => import('./pages/PflegePage.jsx'))
+const BiomeBaeumePage  = lazy(() => import('./pages/BiomeBaeumePage.jsx'))
 
 // Alte Einzelrouten (/calendar, /wochenplan, /jobs) leiten auf den Einsätze-Hub
 // um — Query-Parameter (z.B. ?open=<id>, ?date=…) bleiben dabei erhalten.
@@ -131,6 +132,7 @@ function AppRoutes() {
       <Route path="/tasks" element={<Protected><TasksPage /></Protected>} />
       <Route path="/pflege" element={<Protected><PflegePage /></Protected>} />
       <Route path="/mana" element={<Protected><ManaPage /></Protected>} />
+      <Route path="/biome/baeume" element={<Protected><BiomeBaeumePage /></Protected>} />
       <Route path="/sensors" element={<Protected><SensorsPage /></Protected>} />
       {/* Klima-Dashboard: Gebiets-Scope + Sensorik-Auswertung (auch für Kunden) */}
       <Route path="/klima" element={<RequireAuth kundeOk><Layout><ErrorBoundary><Suspense fallback={<PageLoader />}><ClimateDashboardPage /></Suspense></ErrorBoundary></Layout></RequireAuth>} />

@@ -25,6 +25,8 @@
     "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
+    // import.meta.env stammt von Vite.
+    "types": ["vite/client"],
     "resolveJsonModule": true,
     "allowImportingTsExtensions": false,
     "isolatedModules": true,

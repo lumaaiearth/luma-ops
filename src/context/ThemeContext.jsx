@@ -100,7 +100,7 @@ export const THEMES = [
       '--luma-border':        'rgba(16,24,32,0.11)',
       '--luma-border-strong': 'rgba(16,24,32,0.20)',
       '--luma-fg':            '#15181b',
-      '--luma-muted':         'rgba(21,24,27,0.56)',
+      '--luma-muted':         'rgba(21,24,27,0.62)',  // 4,9:1 auf Weiß — 0.56 ergab nur 4,07:1
       '--luma-faint':         'rgba(21,24,27,0.38)',
       ...SEMANTIC_LIGHT,
       ...ELEV_LIGHT,
@@ -121,7 +121,7 @@ export const THEMES = [
       '--luma-border':        'rgba(60,40,20,0.13)',
       '--luma-border-strong': 'rgba(60,40,20,0.24)',
       '--luma-fg':            '#241c14',
-      '--luma-muted':         'rgba(36,28,20,0.57)',
+      '--luma-muted':         'rgba(36,28,20,0.63)',  // dito für das warme helle Thema
       '--luma-faint':         'rgba(36,28,20,0.38)',
       ...SEMANTIC_LIGHT,
       ...ELEV_LIGHT,

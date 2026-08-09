@@ -7,6 +7,7 @@
 import js from '@eslint/js'
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
+import react from 'eslint-plugin-react'
 
 export default [
   {
@@ -28,10 +29,16 @@ export default [
       globals: { ...globals.browser, ...globals.es2021 },
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
-    plugins: { 'react-hooks': reactHooks },
+    plugins: { 'react-hooks': reactHooks, react },
+    settings: { react: { version: 'detect' } },
     rules: {
       ...js.configs.recommended.rules,
       ...reactHooks.configs.recommended.rules,
+      // Ohne diese beiden Regeln hält no-unused-vars jede Komponente für
+      // ungenutzt, die nur in JSX vorkommt — und der ganze Lint-Lauf wird zu
+      // Rauschen, in dem echte Funde untergehen.
+      'react/jsx-uses-vars': 'error',
+      'react/jsx-uses-react': 'error',
       // Ungenutzte Variablen sind meist Reste eines halben Umbaus. Mit
       // Unterstrich am Anfang bewusst behalten.
       'no-unused-vars': ['error', {

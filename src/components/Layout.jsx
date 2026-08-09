@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { LayoutDashboard, CalendarDays, Radio, Users, Settings, LogOut, Clock, Map, Database, FolderOpen, MoreHorizontal, BarChart2, Flower2, ListTodo, UserCircle, Search, PanelLeftOpen, PanelLeftClose, Radar, Sprout, Thermometer } from 'lucide-react'
+import { LayoutDashboard, CalendarDays, Radio, Users, Settings, LogOut, Clock, Map, Database, FolderOpen, MoreHorizontal, BarChart2, Flower2, ListTodo, UserCircle, Search, PanelLeftOpen, PanelLeftClose, Radar, Sprout, Thermometer, TreeDeciduous } from 'lucide-react'
 import { A, BG, SURFACE, BORDER, FG, MUTED, A14 } from '../lib/theme.js'
 import { Avatar, MONO, SANS } from './ui.jsx'
 import GlobalSearch from './GlobalSearch.jsx'
@@ -25,6 +25,7 @@ const NAV_GROUPS = [
     label: 'Feld & Analyse',
     items: [
       { to: '/map',      icon: Map,      label: 'BIOME™' },
+      { to: '/biome/baeume', icon: TreeDeciduous, label: 'Baumkataster' },
       { to: '/analyse',  icon: BarChart2, label: 'Analysen' },
       { to: '/planning', icon: Flower2,  label: 'Florales™' },
       { to: '/sensors',  icon: Radio,    label: 'Sensoren' },

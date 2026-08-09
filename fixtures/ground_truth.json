@@ -1,0 +1,791 @@
+{
+  "erzeugt_aus": "fixtures/ground_truth.sql",
+  "standorte": [
+    {
+      "id": "50000000-0000-4000-8000-000000000001",
+      "name": "Marzahner Promenade Nord",
+      "kuerzel": "MPN",
+      "adresse": "Marzahner Promenade, 12679 Berlin",
+      "crs": "EPSG:4326",
+      "flaeche_m2": 2140,
+      "geometrie": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              13.543,
+              52.5455
+            ],
+            [
+              13.5452,
+              52.5455
+            ],
+            [
+              13.5452,
+              52.5468
+            ],
+            [
+              13.543,
+              52.5468
+            ],
+            [
+              13.543,
+              52.5455
+            ]
+          ]
+        ]
+      }
+    }
+  ],
+  "personen": [
+    {
+      "id": "a0000000-0000-4000-8000-000000000002",
+      "name": "Jonas Feldmann",
+      "organisation": "LUMA",
+      "qualifikation": "Fachagrarwirt Baumpflege, SKT-A"
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000001",
+      "name": "Malte Larsen",
+      "organisation": "LUMA",
+      "qualifikation": "Geschäftsführung"
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000003",
+      "name": "Rieke Sander",
+      "organisation": "LUMA",
+      "qualifikation": "Landschaftsgärtnerin"
+    }
+  ],
+  "methoden": [
+    {
+      "id": "M-BAUM-REGELKONTROLLE",
+      "name": "Regelkontrolle, Sichtkontrolle vom Boden",
+      "beschreibung": "Fachlich qualifizierte Inaugenscheinnahme vom Boden aus, jeder Baum einzeln und von allen Seiten, Bereiche Krone, Stamm und Wurzel.",
+      "einheit": null,
+      "erfassungsart": "person_vor_ort",
+      "standard_id": "BAUM-DE-11"
+    },
+    {
+      "id": "M-BAUM-UMFANG",
+      "name": "Stammumfang mit Maßband in 1,30 m Höhe",
+      "beschreibung": "Messung des Stammumfangs mit dem Umfangmaßband in 1,30 m Höhe über dem Erdboden. Liegt der Kronenansatz darunter, wird unmittelbar unter dem Kronenansatz gemessen und dies vermerkt.",
+      "einheit": "cm",
+      "erfassungsart": "person_vor_ort",
+      "standard_id": "BAUM-BE-06"
+    },
+    {
+      "id": "M-BAUM-VITALITAET",
+      "name": "Vitalitätsbeurteilung nach Roloff",
+      "beschreibung": "Beurteilung der Oberkrone anhand von Verzweigungsentwicklung und Kronenstruktur, Einstufung nach VS 0 bis VS 3 beziehungsweise S oder K.",
+      "einheit": null,
+      "erfassungsart": "person_vor_ort",
+      "standard_id": "BAUM-DE-10"
+    },
+    {
+      "id": "M-TAXON-GBIF",
+      "name": "Artbestimmung mit Abgleich gegen GBIF Backbone",
+      "beschreibung": "Bestimmung im Feld, anschließend Abgleich des wissenschaftlichen Namens gegen die GBIF Backbone Taxonomy; usageKey, scientificName, confidence und matchType werden übernommen.",
+      "einheit": null,
+      "erfassungsart": "person_vor_ort",
+      "standard_id": "BAUM-INT-14"
+    }
+  ],
+  "standards": [
+    {
+      "id": "BAUM-BE-06",
+      "kurzname": "Stammumfang — Messhöhe 1,30 m",
+      "herausgeber": "Land Berlin, Baumschutzverordnung (BaumSchVO) vom 11. Januar 1982, Wiedergabe in FAOLEX",
+      "quelle_url": "https://faolex.fao.org/docs/pdf/ger74205.pdf",
+      "abgerufen_am": "2026-08-09",
+      "zitat": "Geschützt sind: 1. alle Laubbäume, 2. die Nadelgehölzart Waldkiefer sowie 3. die Obstbaumarten Walnuss und Türkischer Baumhasel, jeweils mit einem Stammumfang ab 80 cm, gemessen in einer Höhe von 1,30 m über dem Erdboden. Liegt der Kronenansatz unter dieser Höhe, ist der Stammumfang unmittelbar unter dem Kronenansatz maßgebend."
+    },
+    {
+      "id": "BAUM-DE-10",
+      "kurzname": "Roloff-Vitalitätsstufen VS 0–3 plus S und K",
+      "herausgeber": "Andreas Roloff, TU Dresden; veröffentlicht von der Deutschen Dendrologischen Gesellschaft",
+      "quelle_url": "https://ddg-web.de/files/DDG-Championtrees/ChT-Downloads/Vitalitaetsbeurteilung%20von%20Champion%20Trees.pdf",
+      "abgerufen_am": "2026-08-09",
+      "zitat": "Folgende Vitalitätsstufen (VS) werden unterschieden (Beurteilung der Oberkrone). Damit wird das längerfristige Wuchspotenzial beurteilt, im Unterschied zur Bewertung der Kronentransparenz („Laubverlust\"), die kurzfristige Veränderungen der Blattfläche/Kronendichte erfasst."
+    },
+    {
+      "id": "BAUM-DE-11",
+      "kurzname": "Regelkontrolle als fachlich qualifizierte Inaugenscheinnahme",
+      "herausgeber": "BADK und GALK-Arbeitskreis Stadtbäume, Musterdienstanweisung für Baumkontrollen 2021",
+      "quelle_url": "https://galk.de/arbeitskreise/stadtbaeume/themenuebersicht/musterdienstanweisung-fuer-regelkontrollen-von-baeumen/",
+      "abgerufen_am": "2026-08-09",
+      "zitat": "Die Regelkontrolle erfolgt als Sichtkontrolle in Form der „fachlich qualifizierten Inaugenscheinnahme\" vom Boden aus. Dabei ist jeder Baum einzeln und von allen Seiten im Kronen-, Stamm- und Wurzelbereich visuell zu kontrollieren."
+    },
+    {
+      "id": "BAUM-INT-14",
+      "kurzname": "GBIF Backbone Taxonomy als Namensreferenz",
+      "herausgeber": "GBIF Secretariat (Global Biodiversity Information Facility)",
+      "quelle_url": "https://api.gbif.org/v1/species/match",
+      "abgerufen_am": "2026-08-09",
+      "zitat": "The GBIF Backbone Taxonomy is a single, synthetic management classification with the goal of covering all names GBIF is dealing with. Lizenz CC BY 4.0, DOI 10.15468/39omei, pubDate 2023-08-28."
+    }
+  ],
+  "baeume": [
+    {
+      "id": "b0000000-0000-4000-8000-000000000001",
+      "standort_id": "50000000-0000-4000-8000-000000000001",
+      "baumnummer": "B-001",
+      "art_wissenschaftlich": "Tilia cordata Mill.",
+      "art_deutsch": "Winterlinde",
+      "taxon_quelle": "GBIF Backbone Taxonomy",
+      "taxon_id": "3152047",
+      "gepflanzt_jahr": 1998,
+      "position": {
+        "type": "Point",
+        "coordinates": [
+          13.5432,
+          52.5457
+        ]
+      },
+      "crs": "EPSG:4326",
+      "lagegenauigkeit_m": 3,
+      "standorttyp": "strasse",
+      "messungen": [
+        {
+          "id": "c0000000-0000-4000-8000-000000000001",
+          "merkmal": "stammumfang",
+          "wert": 92,
+          "einheit": "cm",
+          "messhoehe_cm": 130,
+          "messgeraet": "Umfangmaßband",
+          "methode_id": "M-BAUM-UMFANG",
+          "datum": "2026-04-14",
+          "erfasst_von": "a0000000-0000-4000-8000-000000000003",
+          "erfasst_am": "2026-08-09T16:34:54.456503+00:00",
+          "ersetzt_id": null,
+          "korrektur_grund": null,
+          "vorzustand": null
+        }
+      ],
+      "bewertungen": [
+        {
+          "id": "e0000000-0000-4000-8000-000000000001",
+          "skala_id": "SK-ROLOFF-VS",
+          "stufe": "0",
+          "begruendung": "Oberkrone netzartig verzweigt, Langtriebe dominieren.",
+          "methode_id": "M-BAUM-VITALITAET",
+          "datum": "2026-05-12",
+          "erfasst_von": "a0000000-0000-4000-8000-000000000002",
+          "ersetzt_id": null
+        }
+      ],
+      "kontrollen": [
+        {
+          "id": "d0000000-0000-4000-8000-000000000001",
+          "art": "regelkontrolle",
+          "datum": "2026-05-12",
+          "durchgefuehrt_von": "a0000000-0000-4000-8000-000000000002",
+          "qualifikation": "Fachagrarwirt Baumpflege, SKT-A",
+          "belaubungszustand": "belaubt",
+          "ergebnis_text": "Krone, Stamm und Wurzelbereich ohne Befund.",
+          "massnahme_empfohlen": false,
+          "methode_id": "M-BAUM-REGELKONTROLLE",
+          "ersetzt_id": null
+        }
+      ]
+    },
+    {
+      "id": "b0000000-0000-4000-8000-000000000002",
+      "standort_id": "50000000-0000-4000-8000-000000000001",
+      "baumnummer": "B-002",
+      "art_wissenschaftlich": "Tilia cordata Mill.",
+      "art_deutsch": "Winterlinde",
+      "taxon_quelle": "GBIF Backbone Taxonomy",
+      "taxon_id": "3152047",
+      "gepflanzt_jahr": 1998,
+      "position": {
+        "type": "Point",
+        "coordinates": [
+          13.5434,
+          52.5458
+        ]
+      },
+      "crs": "EPSG:4326",
+      "lagegenauigkeit_m": 3,
+      "standorttyp": "strasse",
+      "messungen": [
+        {
+          "id": "c0000000-0000-4000-8000-000000000002",
+          "merkmal": "stammumfang",
+          "wert": 88,
+          "einheit": "cm",
+          "messhoehe_cm": 130,
+          "messgeraet": "Umfangmaßband",
+          "methode_id": "M-BAUM-UMFANG",
+          "datum": "2026-04-14",
+          "erfasst_von": "a0000000-0000-4000-8000-000000000003",
+          "erfasst_am": "2026-08-09T16:34:54.456503+00:00",
+          "ersetzt_id": null,
+          "korrektur_grund": null,
+          "vorzustand": null
+        }
+      ],
+      "bewertungen": [],
+      "kontrollen": [
+        {
+          "id": "d0000000-0000-4000-8000-000000000102",
+          "art": "regelkontrolle",
+          "datum": "2025-06-03",
+          "durchgefuehrt_von": "a0000000-0000-4000-8000-000000000002",
+          "qualifikation": "Fachagrarwirt Baumpflege, SKT-A",
+          "belaubungszustand": "belaubt",
+          "ergebnis_text": "Ohne Befund.",
+          "massnahme_empfohlen": false,
+          "methode_id": "M-BAUM-REGELKONTROLLE",
+          "ersetzt_id": null
+        }
+      ]
+    },
+    {
+      "id": "b0000000-0000-4000-8000-000000000003",
+      "standort_id": "50000000-0000-4000-8000-000000000001",
+      "baumnummer": "B-003",
+      "art_wissenschaftlich": "Tilia cordata Mill.",
+      "art_deutsch": "Winterlinde",
+      "taxon_quelle": "GBIF Backbone Taxonomy",
+      "taxon_id": "3152047",
+      "gepflanzt_jahr": 1998,
+      "position": {
+        "type": "Point",
+        "coordinates": [
+          13.5436,
+          52.5459
+        ]
+      },
+      "crs": "EPSG:4326",
+      "lagegenauigkeit_m": 3,
+      "standorttyp": "strasse",
+      "messungen": [],
+      "bewertungen": [
+        {
+          "id": "e0000000-0000-4000-8000-000000000003",
+          "skala_id": "SK-ROLOFF-VS",
+          "stufe": "1",
+          "begruendung": "Außen zerfranste Krone, spießartige Zweigstrukturen.",
+          "methode_id": "M-BAUM-VITALITAET",
+          "datum": "2026-05-12",
+          "erfasst_von": "a0000000-0000-4000-8000-000000000002",
+          "ersetzt_id": null
+        }
+      ],
+      "kontrollen": [
+        {
+          "id": "d0000000-0000-4000-8000-000000000003",
+          "art": "regelkontrolle",
+          "datum": "2026-05-12",
+          "durchgefuehrt_von": "a0000000-0000-4000-8000-000000000002",
+          "qualifikation": "Fachagrarwirt Baumpflege, SKT-A",
+          "belaubungszustand": "belaubt",
+          "ergebnis_text": "Trockenäste im oberen Kronendrittel.",
+          "massnahme_empfohlen": true,
+          "methode_id": "M-BAUM-REGELKONTROLLE",
+          "ersetzt_id": null
+        }
+      ]
+    },
+    {
+      "id": "b0000000-0000-4000-8000-000000000004",
+      "standort_id": "50000000-0000-4000-8000-000000000001",
+      "baumnummer": "B-004",
+      "art_wissenschaftlich": "Tilia cordata Mill.",
+      "art_deutsch": "Winterlinde",
+      "taxon_quelle": "GBIF Backbone Taxonomy",
+      "taxon_id": "3152047",
+      "gepflanzt_jahr": 1998,
+      "position": {
+        "type": "Point",
+        "coordinates": [
+          13.5438,
+          52.546
+        ]
+      },
+      "crs": "EPSG:4326",
+      "lagegenauigkeit_m": 3,
+      "standorttyp": "strasse",
+      "messungen": [
+        {
+          "id": "c0000000-0000-4000-8000-000000000004",
+          "merkmal": "stammumfang",
+          "wert": 95,
+          "einheit": "cm",
+          "messhoehe_cm": 130,
+          "messgeraet": "Umfangmaßband",
+          "methode_id": "M-BAUM-UMFANG",
+          "datum": "2026-04-14",
+          "erfasst_von": "a0000000-0000-4000-8000-000000000003",
+          "erfasst_am": "2026-08-09T16:34:54.456503+00:00",
+          "ersetzt_id": null,
+          "korrektur_grund": null,
+          "vorzustand": null
+        }
+      ],
+      "bewertungen": [],
+      "kontrollen": [
+        {
+          "id": "d0000000-0000-4000-8000-000000000004",
+          "art": "regelkontrolle",
+          "datum": "2026-05-12",
+          "durchgefuehrt_von": "a0000000-0000-4000-8000-000000000002",
+          "qualifikation": "Fachagrarwirt Baumpflege, SKT-A",
+          "belaubungszustand": "belaubt",
+          "ergebnis_text": "Ohne Befund.",
+          "massnahme_empfohlen": false,
+          "methode_id": "M-BAUM-REGELKONTROLLE",
+          "ersetzt_id": null
+        }
+      ]
+    },
+    {
+      "id": "b0000000-0000-4000-8000-000000000005",
+      "standort_id": "50000000-0000-4000-8000-000000000001",
+      "baumnummer": "B-005",
+      "art_wissenschaftlich": "Acer platanoides L.",
+      "art_deutsch": "Spitzahorn",
+      "taxon_quelle": "GBIF Backbone Taxonomy",
+      "taxon_id": "3189866",
+      "gepflanzt_jahr": 2004,
+      "position": {
+        "type": "Point",
+        "coordinates": [
+          13.544,
+          52.5461
+        ]
+      },
+      "crs": "EPSG:4326",
+      "lagegenauigkeit_m": 3,
+      "standorttyp": "strasse",
+      "messungen": [
+        {
+          "id": "c0000000-0000-4000-8000-000000000005",
+          "merkmal": "stammumfang",
+          "wert": 61,
+          "einheit": "cm",
+          "messhoehe_cm": 130,
+          "messgeraet": "Umfangmaßband",
+          "methode_id": "M-BAUM-UMFANG",
+          "datum": "2026-04-14",
+          "erfasst_von": "a0000000-0000-4000-8000-000000000003",
+          "erfasst_am": "2026-08-09T16:34:54.456503+00:00",
+          "ersetzt_id": null,
+          "korrektur_grund": null,
+          "vorzustand": null
+        }
+      ],
+      "bewertungen": [],
+      "kontrollen": [
+        {
+          "id": "d0000000-0000-4000-8000-000000000105",
+          "art": "regelkontrolle",
+          "datum": "2025-06-03",
+          "durchgefuehrt_von": "a0000000-0000-4000-8000-000000000002",
+          "qualifikation": "Fachagrarwirt Baumpflege, SKT-A",
+          "belaubungszustand": "belaubt",
+          "ergebnis_text": "Ohne Befund.",
+          "massnahme_empfohlen": false,
+          "methode_id": "M-BAUM-REGELKONTROLLE",
+          "ersetzt_id": null
+        }
+      ]
+    },
+    {
+      "id": "b0000000-0000-4000-8000-000000000006",
+      "standort_id": "50000000-0000-4000-8000-000000000001",
+      "baumnummer": "B-006",
+      "art_wissenschaftlich": "Acer platanoides L.",
+      "art_deutsch": "Spitzahorn",
+      "taxon_quelle": "GBIF Backbone Taxonomy",
+      "taxon_id": "3189866",
+      "gepflanzt_jahr": 2004,
+      "position": {
+        "type": "Point",
+        "coordinates": [
+          13.5442,
+          52.5462
+        ]
+      },
+      "crs": "EPSG:4326",
+      "lagegenauigkeit_m": 3,
+      "standorttyp": "strasse",
+      "messungen": [
+        {
+          "id": "c0000000-0000-4000-8000-000000000006",
+          "merkmal": "stammumfang",
+          "wert": 58,
+          "einheit": "cm",
+          "messhoehe_cm": 130,
+          "messgeraet": "Umfangmaßband",
+          "methode_id": "M-BAUM-UMFANG",
+          "datum": "2026-04-14",
+          "erfasst_von": "a0000000-0000-4000-8000-000000000003",
+          "erfasst_am": "2026-08-09T16:34:54.456503+00:00",
+          "ersetzt_id": null,
+          "korrektur_grund": null,
+          "vorzustand": null
+        }
+      ],
+      "bewertungen": [],
+      "kontrollen": [
+        {
+          "id": "d0000000-0000-4000-8000-000000000006",
+          "art": "regelkontrolle",
+          "datum": "2026-05-13",
+          "durchgefuehrt_von": "a0000000-0000-4000-8000-000000000002",
+          "qualifikation": "Fachagrarwirt Baumpflege, SKT-A",
+          "belaubungszustand": "belaubt",
+          "ergebnis_text": "Rindenverletzung am Stammfuß, überwallt.",
+          "massnahme_empfohlen": false,
+          "methode_id": "M-BAUM-REGELKONTROLLE",
+          "ersetzt_id": null
+        }
+      ]
+    },
+    {
+      "id": "b0000000-0000-4000-8000-000000000007",
+      "standort_id": "50000000-0000-4000-8000-000000000001",
+      "baumnummer": "B-007",
+      "art_wissenschaftlich": "Acer platanoides L.",
+      "art_deutsch": "Spitzahorn",
+      "taxon_quelle": "GBIF Backbone Taxonomy",
+      "taxon_id": "3189866",
+      "gepflanzt_jahr": 2004,
+      "position": {
+        "type": "Point",
+        "coordinates": [
+          13.5444,
+          52.5463
+        ]
+      },
+      "crs": "EPSG:4326",
+      "lagegenauigkeit_m": 3,
+      "standorttyp": "strasse",
+      "messungen": [
+        {
+          "id": "c0000000-0000-4000-8000-000000000077",
+          "merkmal": "stammumfang",
+          "wert": 85,
+          "einheit": "cm",
+          "messhoehe_cm": 130,
+          "messgeraet": "Umfangmaßband",
+          "methode_id": "M-BAUM-UMFANG",
+          "datum": "2026-04-14",
+          "erfasst_von": "a0000000-0000-4000-8000-000000000002",
+          "erfasst_am": "2026-08-09T16:34:54.456503+00:00",
+          "ersetzt_id": "c0000000-0000-4000-8000-000000000007",
+          "korrektur_grund": "Zahlendreher bei der Eingabe: 850 cm statt 85 cm. Nachgemessen am 2026-04-22 durch J. Feldmann, Wert bestätigt.",
+          "vorzustand": {
+            "id": "c0000000-0000-4000-8000-000000000007",
+            "wert": 850,
+            "datum": "2026-04-14",
+            "baum_id": "b0000000-0000-4000-8000-000000000007",
+            "einheit": "cm",
+            "merkmal": "stammumfang",
+            "bemerkung": null,
+            "erfasst_am": "2026-08-09T16:34:54.456503+00:00",
+            "ersetzt_id": null,
+            "messgeraet": "Umfangmaßband",
+            "methode_id": "M-BAUM-UMFANG",
+            "vorzustand": null,
+            "erfasst_von": "a0000000-0000-4000-8000-000000000003",
+            "kontrolle_id": null,
+            "messhoehe_cm": 130,
+            "korrektur_grund": null
+          }
+        },
+        {
+          "id": "c0000000-0000-4000-8000-000000000007",
+          "merkmal": "stammumfang",
+          "wert": 850,
+          "einheit": "cm",
+          "messhoehe_cm": 130,
+          "messgeraet": "Umfangmaßband",
+          "methode_id": "M-BAUM-UMFANG",
+          "datum": "2026-04-14",
+          "erfasst_von": "a0000000-0000-4000-8000-000000000003",
+          "erfasst_am": "2026-08-09T16:34:54.456503+00:00",
+          "ersetzt_id": null,
+          "korrektur_grund": null,
+          "vorzustand": null
+        }
+      ],
+      "bewertungen": [],
+      "kontrollen": [
+        {
+          "id": "d0000000-0000-4000-8000-000000000007",
+          "art": "regelkontrolle",
+          "datum": "2026-05-13",
+          "durchgefuehrt_von": "a0000000-0000-4000-8000-000000000002",
+          "qualifikation": "Fachagrarwirt Baumpflege, SKT-A",
+          "belaubungszustand": "belaubt",
+          "ergebnis_text": "Ohne Befund.",
+          "massnahme_empfohlen": false,
+          "methode_id": "M-BAUM-REGELKONTROLLE",
+          "ersetzt_id": null
+        }
+      ]
+    },
+    {
+      "id": "b0000000-0000-4000-8000-000000000008",
+      "standort_id": "50000000-0000-4000-8000-000000000001",
+      "baumnummer": "B-008",
+      "art_wissenschaftlich": "Quercus robur L.",
+      "art_deutsch": "Stieleiche",
+      "taxon_quelle": "GBIF Backbone Taxonomy",
+      "taxon_id": "2878688",
+      "gepflanzt_jahr": 1972,
+      "position": {
+        "type": "Point",
+        "coordinates": [
+          13.5446,
+          52.5464
+        ]
+      },
+      "crs": "EPSG:4326",
+      "lagegenauigkeit_m": 3,
+      "standorttyp": "park",
+      "messungen": [
+        {
+          "id": "c0000000-0000-4000-8000-000000000008",
+          "merkmal": "stammumfang",
+          "wert": 214,
+          "einheit": "cm",
+          "messhoehe_cm": 130,
+          "messgeraet": "Umfangmaßband",
+          "methode_id": "M-BAUM-UMFANG",
+          "datum": "2026-04-15",
+          "erfasst_von": "a0000000-0000-4000-8000-000000000003",
+          "erfasst_am": "2026-08-09T16:34:54.456503+00:00",
+          "ersetzt_id": null,
+          "korrektur_grund": null,
+          "vorzustand": null
+        }
+      ],
+      "bewertungen": [],
+      "kontrollen": [
+        {
+          "id": "d0000000-0000-4000-8000-000000000108",
+          "art": "regelkontrolle",
+          "datum": "2025-11-18",
+          "durchgefuehrt_von": "a0000000-0000-4000-8000-000000000002",
+          "qualifikation": "Fachagrarwirt Baumpflege, SKT-A",
+          "belaubungszustand": "unbelaubt",
+          "ergebnis_text": "Ohne Befund.",
+          "massnahme_empfohlen": false,
+          "methode_id": "M-BAUM-REGELKONTROLLE",
+          "ersetzt_id": null
+        }
+      ]
+    },
+    {
+      "id": "b0000000-0000-4000-8000-000000000009",
+      "standort_id": "50000000-0000-4000-8000-000000000001",
+      "baumnummer": "B-009",
+      "art_wissenschaftlich": null,
+      "art_deutsch": null,
+      "taxon_quelle": null,
+      "taxon_id": null,
+      "gepflanzt_jahr": null,
+      "position": {
+        "type": "Point",
+        "coordinates": [
+          13.5448,
+          52.5465
+        ]
+      },
+      "crs": "EPSG:4326",
+      "lagegenauigkeit_m": 3,
+      "standorttyp": "park",
+      "messungen": [
+        {
+          "id": "c0000000-0000-4000-8000-000000000009",
+          "merkmal": "stammumfang",
+          "wert": 47,
+          "einheit": "cm",
+          "messhoehe_cm": 130,
+          "messgeraet": "Umfangmaßband",
+          "methode_id": "M-BAUM-UMFANG",
+          "datum": "2026-04-15",
+          "erfasst_von": "a0000000-0000-4000-8000-000000000003",
+          "erfasst_am": "2026-08-09T16:34:54.456503+00:00",
+          "ersetzt_id": null,
+          "korrektur_grund": null,
+          "vorzustand": null
+        }
+      ],
+      "bewertungen": [],
+      "kontrollen": [
+        {
+          "id": "d0000000-0000-4000-8000-000000000009",
+          "art": "regelkontrolle",
+          "datum": "2026-05-13",
+          "durchgefuehrt_von": "a0000000-0000-4000-8000-000000000002",
+          "qualifikation": "Fachagrarwirt Baumpflege, SKT-A",
+          "belaubungszustand": "belaubt",
+          "ergebnis_text": "Ohne Befund. Art im Feld nicht sicher bestimmbar.",
+          "massnahme_empfohlen": false,
+          "methode_id": "M-BAUM-REGELKONTROLLE",
+          "ersetzt_id": null
+        }
+      ]
+    },
+    {
+      "id": "b0000000-0000-4000-8000-000000000010",
+      "standort_id": "50000000-0000-4000-8000-000000000001",
+      "baumnummer": "B-010",
+      "art_wissenschaftlich": "Quercus robur L.",
+      "art_deutsch": "Stieleiche",
+      "taxon_quelle": "GBIF Backbone Taxonomy",
+      "taxon_id": "2878688",
+      "gepflanzt_jahr": 1972,
+      "position": {
+        "type": "Point",
+        "coordinates": [
+          13.545,
+          52.5466
+        ]
+      },
+      "crs": "EPSG:4326",
+      "lagegenauigkeit_m": 3,
+      "standorttyp": "park",
+      "messungen": [
+        {
+          "id": "c0000000-0000-4000-8000-000000000010",
+          "merkmal": "stammumfang",
+          "wert": 236,
+          "einheit": "cm",
+          "messhoehe_cm": 130,
+          "messgeraet": "Umfangmaßband",
+          "methode_id": "M-BAUM-UMFANG",
+          "datum": "2026-04-15",
+          "erfasst_von": "a0000000-0000-4000-8000-000000000003",
+          "erfasst_am": "2026-08-09T16:34:54.456503+00:00",
+          "ersetzt_id": null,
+          "korrektur_grund": null,
+          "vorzustand": null
+        }
+      ],
+      "bewertungen": [
+        {
+          "id": "e0000000-0000-4000-8000-000000000010",
+          "skala_id": "SK-ROLOFF-VS",
+          "stufe": "2",
+          "begruendung": "Innere Kronenlücken, büschelige Belaubung.",
+          "methode_id": "M-BAUM-VITALITAET",
+          "datum": "2026-05-13",
+          "erfasst_von": "a0000000-0000-4000-8000-000000000002",
+          "ersetzt_id": null
+        }
+      ],
+      "kontrollen": [
+        {
+          "id": "d0000000-0000-4000-8000-000000000010",
+          "art": "regelkontrolle",
+          "datum": "2026-05-13",
+          "durchgefuehrt_von": "a0000000-0000-4000-8000-000000000002",
+          "qualifikation": "Fachagrarwirt Baumpflege, SKT-A",
+          "belaubungszustand": "belaubt",
+          "ergebnis_text": "Höhlung im Starkast, weiter beobachten.",
+          "massnahme_empfohlen": true,
+          "methode_id": "M-BAUM-REGELKONTROLLE",
+          "ersetzt_id": null
+        }
+      ]
+    },
+    {
+      "id": "b0000000-0000-4000-8000-000000000011",
+      "standort_id": "50000000-0000-4000-8000-000000000001",
+      "baumnummer": "B-011",
+      "art_wissenschaftlich": "Betula pendula Roth",
+      "art_deutsch": "Sandbirke",
+      "taxon_quelle": "GBIF Backbone Taxonomy",
+      "taxon_id": "5332048",
+      "gepflanzt_jahr": 2011,
+      "position": {
+        "type": "Point",
+        "coordinates": [
+          13.5449,
+          52.5467
+        ]
+      },
+      "crs": "EPSG:4326",
+      "lagegenauigkeit_m": 3,
+      "standorttyp": "park",
+      "messungen": [
+        {
+          "id": "c0000000-0000-4000-8000-000000000011",
+          "merkmal": "stammumfang",
+          "wert": 74,
+          "einheit": "cm",
+          "messhoehe_cm": 130,
+          "messgeraet": "Umfangmaßband",
+          "methode_id": "M-BAUM-UMFANG",
+          "datum": "2026-04-15",
+          "erfasst_von": "a0000000-0000-4000-8000-000000000003",
+          "erfasst_am": "2026-08-09T16:34:54.456503+00:00",
+          "ersetzt_id": null,
+          "korrektur_grund": null,
+          "vorzustand": null
+        }
+      ],
+      "bewertungen": [],
+      "kontrollen": [
+        {
+          "id": "d0000000-0000-4000-8000-000000000111",
+          "art": "regelkontrolle",
+          "datum": "2025-11-18",
+          "durchgefuehrt_von": "a0000000-0000-4000-8000-000000000002",
+          "qualifikation": "Fachagrarwirt Baumpflege, SKT-A",
+          "belaubungszustand": "unbelaubt",
+          "ergebnis_text": "Ohne Befund.",
+          "massnahme_empfohlen": false,
+          "methode_id": "M-BAUM-REGELKONTROLLE",
+          "ersetzt_id": null
+        }
+      ]
+    },
+    {
+      "id": "b0000000-0000-4000-8000-000000000012",
+      "standort_id": "50000000-0000-4000-8000-000000000001",
+      "baumnummer": "B-012",
+      "art_wissenschaftlich": "Platanus × hispanica Mill. ex Münchh.",
+      "art_deutsch": "Platane",
+      "taxon_quelle": "GBIF Backbone Taxonomy",
+      "taxon_id": "5361896",
+      "gepflanzt_jahr": 1965,
+      "position": {
+        "type": "Point",
+        "coordinates": [
+          13.5447,
+          52.5467
+        ]
+      },
+      "crs": "EPSG:4326",
+      "lagegenauigkeit_m": 3,
+      "standorttyp": "park",
+      "messungen": [
+        {
+          "id": "c0000000-0000-4000-8000-000000000012",
+          "merkmal": "stammumfang",
+          "wert": 298,
+          "einheit": "cm",
+          "messhoehe_cm": 130,
+          "messgeraet": "Umfangmaßband",
+          "methode_id": "M-BAUM-UMFANG",
+          "datum": "2026-04-15",
+          "erfasst_von": "a0000000-0000-4000-8000-000000000003",
+          "erfasst_am": "2026-08-09T16:34:54.456503+00:00",
+          "ersetzt_id": null,
+          "korrektur_grund": null,
+          "vorzustand": null
+        }
+      ],
+      "bewertungen": [],
+      "kontrollen": []
+    }
+  ],
+  "stichdatum": "2026-08-09"
+}
