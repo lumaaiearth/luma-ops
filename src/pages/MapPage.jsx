@@ -17,6 +17,7 @@ const TASK_P = Object.fromEntries(TASK_PRIORITIES.map(p => [p.id, p]))
 const TASK_S = Object.fromEntries(TASK_STATUSES.map(s => [s.id, s]))
 import { isoToday, addDays, genId } from '../lib/storage.js'
 import { compressImage } from '../lib/images.js'
+import { ROLOFF_VS, KONTROLLE_HINWEIS, schutzschwelleErreicht } from '../biome/baumStandards.js'
 import { useIsMobile } from '../lib/useIsMobile.js'
 import TreeQuickForm from '../components/TreeQuickForm.jsx'
 import FeaturePanel from '../components/FeaturePanel.jsx'
@@ -97,20 +98,63 @@ const PROJECT_COLORS = [
 ]
 
 const FEATURE_MODES = [
-  { id: 'tree',  label: 'Baum',          icon: '🌳', color: '#22c55e', desc: 'Einzelbaum mit FLL-Daten' },
+  { id: 'tree',  label: 'Baum',          icon: '🌳', color: '#22c55e', desc: 'Einzelbaum mit Kataster- und Kontrolldaten' },
   { id: 'area',  label: 'Projektfläche', icon: '📐', color: '#60a5fa', desc: 'Gesamte Projektfläche' },
   { id: 'bed',   label: 'Beet / Fläche', icon: '🌿', color: '#a3e635', desc: 'Beet, Stauden, Gehölze' },
   { id: 'point', label: 'Punkt',         icon: '📍', color: '#f59e0b', desc: 'Freier Standortpunkt' },
   { id: 'line',  label: 'Linie',         icon: '〰️', color: '#c084fc', desc: 'Weg, Grenze, Achse' },
 ]
 
-const VITALITAET_OPTIONS = [
-  { value: '0', label: '0 — Keine Einschränkung' },
-  { value: '1', label: '1 — Leichte Einschränkung' },
-  { value: '2', label: '2 — Mäßige Einschränkung' },
-  { value: '3', label: '3 — Starke Einschränkung' },
-  { value: '4', label: '4 — Abgestorben' },
-]
+// Die Vitalitätsstufen kommen aus dem Standards-Register, nicht aus dieser
+// Datei. Bis 2026-08-09 stand hier eine fünfstufige Skala unter der
+// Beschriftung „Roloff" — Roloff kennt vier reguläre Stufen plus zwei
+// Sonderausprägungen. Siehe src/biome/baumStandards.js.
+const VITALITAET_OPTIONS = ROLOFF_VS.stufen.map(s => ({
+  value: s.stufe,
+  label: `${s.kurz} — ${s.bezeichnung}`,
+}))
+
+// Der Schutzstatus wird nicht mehr von Hand gesetzt, sondern aus dem
+// gemessenen Stammumfang abgeleitet — und ausdrücklich als Berechnung
+// gekennzeichnet. Eine handgesetzte Auswahl konnte der Messung widersprechen,
+// ohne dass jemand es merkt.
+function SchutzstatusHinweis({ stammumfangCm, mehrstaemmig }) {
+  const box = {
+    fontSize: 12, lineHeight: 1.45, padding: '8px 10px', borderRadius: 7,
+    border: `1px solid ${BORDER}`, background: 'color-mix(in srgb, var(--luma-fg) 3%, transparent)',
+  }
+  const ergebnis = schutzschwelleErreicht({ stammumfangCm, mehrstaemmig })
+
+  if (!ergebnis) {
+    return (
+      <div style={{ ...box, color: MUTED }}>
+        Ohne Stammumfang keine Aussage. Der Schutz nach § 2 BaumSchVO knüpft an
+        den Umfang in 1,30 m Höhe an.
+      </div>
+    )
+  }
+
+  const erreicht = ergebnis.status === 'erreicht'
+  return (
+    <div style={{ ...box, color: FG }}>
+      <div style={{ fontWeight: 600, marginBottom: 3 }}>
+        Umfangsschwelle {erreicht ? 'erreicht' : 'nicht erreicht'}
+        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, marginLeft: 7, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          berechnet
+        </span>
+      </div>
+      <div style={{ color: MUTED }}>
+        {stammumfangCm} cm gegen Schwelle {ergebnis.schwelleCm} cm
+        {mehrstaemmig ? ' (mehrstämmig, je Stamm)' : ' (einstämmig)'}.
+        Ob der Baum tatsächlich geschützt ist, hängt zusätzlich von der Baumart
+        und den Ausnahmen in § 2 Abs. 3 ab. Das ist keine Rechtsauskunft.{' '}
+        <a href={ergebnis.quelle.url} target="_blank" rel="noreferrer" style={{ color: A }}>
+          {ergebnis.quelle.kurzname}
+        </a>
+      </div>
+    </div>
+  )
+}
 
 function makePin(color, size = 14) {
   return L.divIcon({
@@ -358,12 +402,19 @@ function FeatureForm({ mode, project, color, existingFeature, draft, onSave, onC
               </datalist>
             </div>
             <div>
-              <label style={labelStyle}>Stammumfang (cm, 1m Höhe)</label>
+              <label style={labelStyle}>Stammumfang (cm, in 1,30 m Höhe)</label>
               <input style={inputStyle} type="number" value={form.stammumfang_cm || ''} onChange={e => set('stammumfang_cm', e.target.value)} placeholder="z.B. 85" />
+              <label style={{ ...labelStyle, textTransform: 'none', letterSpacing: 0, marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <input type="checkbox" checked={!!form.umfang_unter_kronenansatz}
+                  onChange={e => set('umfang_unter_kronenansatz', e.target.checked)} />
+                unter dem Kronenansatz gemessen
+              </label>
             </div>
             <div>
-              <label style={labelStyle}>BHD (cm, 1,3m Höhe)</label>
+              <label style={labelStyle}>BHD (cm)</label>
               <input style={inputStyle} type="number" value={form.bhd_cm || ''} onChange={e => set('bhd_cm', e.target.value)} placeholder="z.B. 27" />
+              <input style={{ ...inputStyle, marginTop: 4 }} type="number" value={form.bhd_messhoehe_m || ''}
+                onChange={e => set('bhd_messhoehe_m', e.target.value)} placeholder="Messhöhe in m, z.B. 1,3" />
             </div>
             <div>
               <label style={labelStyle}>Baumhöhe (m)</label>
@@ -382,43 +433,40 @@ function FeatureForm({ mode, project, color, existingFeature, draft, onSave, onC
               <input style={inputStyle} type="number" value={form.pflanzjahr || ''} onChange={e => set('pflanzjahr', e.target.value)} placeholder="z.B. 1985" />
             </div>
             <div style={{ gridColumn: '1/-1' }}>
-              <label style={labelStyle}>Vitalität (Roloff-Skala)</label>
+              <label style={labelStyle}>Vitalitätsstufe nach Roloff</label>
               <select style={{ ...inputStyle }} value={form.vitalitaet || ''} onChange={e => set('vitalitaet', e.target.value)}>
                 <option value="">— wählen —</option>
                 {VITALITAET_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
+              <div style={{ fontSize: 11, color: MUTED, marginTop: 4, lineHeight: 1.4 }}>
+                {ROLOFF_VS.abgrenzung}{' '}
+                <a href={ROLOFF_VS.quelle.url} target="_blank" rel="noreferrer" style={{ color: A }}>
+                  Quelle: {ROLOFF_VS.quelle.kurzname}
+                </a>
+              </div>
+            </div>
+            {/* Keine Auswahlliste „Verkehrssicherheit" und keine EPS-Befallsstärke:
+                für beide Einteilungen gibt es kein Dokument, gegen das sie sich
+                verteidigen ließen. Der Befund der Kontrolle steht im Freitext,
+                die Maßnahmenempfehlung ist eine Empfehlung der kontrollierenden
+                Person. Siehe src/biome/baumStandards.js und BLOCKED.md. */}
+            <div style={{ gridColumn: '1/-1' }}>
+              <label style={labelStyle}>Befund / Beobachtung</label>
+              <input style={inputStyle} value={form.schaedlinge || ''} onChange={e => set('schaedlinge', e.target.value)}
+                placeholder="Freitext, z.B. Schleimfluss am Stammfuß, Gespinstnester im Kronenansatz" />
+              <div style={{ fontSize: 11, color: MUTED, marginTop: 4, lineHeight: 1.4 }}>{KONTROLLE_HINWEIS}</div>
             </div>
             <div style={{ gridColumn: '1/-1' }}>
-              <label style={labelStyle}>Verkehrssicherheit</label>
-              <select style={{ ...inputStyle }} value={form.verkehrssicherheit || ''} onChange={e => set('verkehrssicherheit', e.target.value)}>
-                <option value="">— wählen —</option>
-                <option value="sicher">Sicher</option>
-                <option value="eingeschraenkt">Eingeschränkt</option>
-                <option value="gefaehrdet">Gefährdet — Maßnahme nötig</option>
-                <option value="gefaellung">Fällung empfohlen</option>
-              </select>
-            </div>
-            <div>
-              <label style={labelStyle}>EPS-Befall</label>
-              <select style={{ ...inputStyle }} value={form.eps_befall || ''} onChange={e => set('eps_befall', e.target.value)}>
-                <option value="">—</option>
-                <option value="kein">Kein</option>
-                <option value="gering">Gering</option>
-                <option value="mittel">Mittel</option>
-                <option value="stark">Stark</option>
-              </select>
-            </div>
-            <div>
-              <label style={labelStyle}>Schutzstatus (BSchVO)</label>
-              <select style={{ ...inputStyle }} value={form.schutzstatus || ''} onChange={e => set('schutzstatus', e.target.value)}>
-                <option value="">—</option>
-                <option value="geschuetzt">Geschützt</option>
-                <option value="nicht_geschuetzt">Nicht geschützt</option>
-              </select>
-            </div>
-            <div style={{ gridColumn: '1/-1' }}>
-              <label style={labelStyle}>Schädlinge / Krankheiten</label>
-              <input style={inputStyle} value={form.schaedlinge || ''} onChange={e => set('schaedlinge', e.target.value)} placeholder="Freitext, z.B. Schleimfluss, Rußtau" />
+              <label style={labelStyle}>Schutzstatus nach Baumschutzverordnung</label>
+              <SchutzstatusHinweis
+                stammumfangCm={Number(form.stammumfang_cm) || null}
+                mehrstaemmig={!!form.mehrstaemmig}
+              />
+              <label style={{ ...labelStyle, textTransform: 'none', letterSpacing: 0, marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <input type="checkbox" checked={!!form.mehrstaemmig}
+                  onChange={e => set('mehrstaemmig', e.target.checked)} />
+                mehrstämmig
+              </label>
             </div>
             <div style={{ gridColumn: '1/-1' }}>
               <label style={labelStyle}>Standorttyp</label>
