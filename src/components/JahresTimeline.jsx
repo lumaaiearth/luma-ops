@@ -16,6 +16,7 @@ import { useState, useRef, useEffect, useMemo, useLayoutEffect } from 'react'
 import { A, BG, SURFACE, BORDER, FG, MUTED, OK, WARN, DANGER, INFO, A06 } from '../lib/theme.js'
 import { MONO } from './ui.jsx'
 import { getWeatherForDate, STATUS_COLOR } from '../lib/weather.js'
+import { useBreakpoint } from '../lib/useBreakpoint.js'
 import {
   CalendarPlus, Check, ChevronLeft, ChevronRight, ZoomIn, ZoomOut,
   Sun, Cloud, CloudRain, CloudSnow, X, Sprout,
@@ -66,32 +67,54 @@ const hrs = (n) => `${Number(n || 0).toLocaleString('de-DE', { maximumFractionDi
 
 /* ─── Eine Karte auf der Zeitachse ──────────────────────────────── */
 
-function GangKarte({ item, tagW, links, breite, luecke, onDrag, onOpen, aktiv }) {
+function GangKarte({ item, tagW, links, breite, luecke, kompakt, onDrag, onOpen, aktiv }) {
   const [zieht, setZieht] = useState(false)
   const [versatz, setVersatz] = useState(0)
   const startX = useRef(0)
+  const halten = useRef(null)
 
   const beweglich = item.status === 'geplant' || item.status === 'terminiert'
 
   function down(e) {
-    if (!beweglich || e.button !== 0) return
-    e.stopPropagation()
+    if (!beweglich) return
+    if (e.pointerType === 'mouse' && e.button !== 0) return
     startX.current = e.clientX
-    setZieht(true)
-    e.currentTarget.setPointerCapture(e.pointerId)
+    const ziel = e.currentTarget
+    const pid = e.pointerId
+    if (e.pointerType === 'touch') {
+      // Am Finger erst nach kurzem Halten greifen, damit Wischen die
+      // Zeitachse scrollt statt versehentlich Einsätze zu verschieben.
+      halten.current = setTimeout(() => {
+        halten.current = null
+        setZieht(true)
+        ziel.setPointerCapture?.(pid)
+        navigator.vibrate?.(8)
+      }, 350)
+    } else {
+      e.stopPropagation()
+      setZieht(true)
+      ziel.setPointerCapture?.(pid)
+    }
   }
   function move(e) {
-    if (!zieht) return
+    if (!zieht) {
+      // Bewegt sich der Finger vor dem Greifen, ist es eine Wischgeste
+      if (halten.current && Math.abs(e.clientX - startX.current) > 6) {
+        clearTimeout(halten.current); halten.current = null
+      }
+      return
+    }
     setVersatz(e.clientX - startX.current)
   }
   function up(e) {
-    if (!zieht) return
+    if (halten.current) { clearTimeout(halten.current); halten.current = null }
+    if (!zieht) { onOpen(item); return }                 // Tippen = Details
     setZieht(false)
     const tage = Math.round(versatz / tagW)
     setVersatz(0)
+    e.currentTarget.releasePointerCapture?.(e.pointerId)
     if (Math.abs(versatz) < 4) { onOpen(item); return }   // kaum bewegt = Klick
     if (tage !== 0) onDrag(item, tage)
-    e.currentTarget.releasePointerCapture?.(e.pointerId)
   }
 
   const vorschlag = item.status === 'geplant'
@@ -115,6 +138,7 @@ function GangKarte({ item, tagW, links, breite, luecke, onDrag, onOpen, aktiv })
         zIndex: zieht ? 40 : aktiv ? 20 : 5,
         transition: zieht ? 'none' : 'box-shadow 0.15s, opacity 0.15s',
         userSelect: 'none', overflow: 'hidden', whiteSpace: 'nowrap',
+        touchAction: zieht ? 'none' : 'auto',
       }}>
       {erledigt && <Check size={12} style={{ flexShrink: 0 }} />}
       {beschriftungInnen && (
@@ -129,7 +153,7 @@ function GangKarte({ item, tagW, links, breite, luecke, onDrag, onOpen, aktiv })
   )
 
   // Schmale Balken bekommen ihre Beschriftung daneben statt hinein
-  const dahinter = !beschriftungInnen && (
+  const dahinter = !beschriftungInnen && !kompakt && (
     <span style={{
       position: 'absolute', left: links + Math.max(breite, 15) + 7 + versatz, top: 17,
       maxWidth: Math.max(0, luecke - 12), overflow: 'hidden', textOverflow: 'ellipsis',
@@ -154,7 +178,10 @@ export default function JahresTimeline({
     return utc(n.getFullYear(), n.getMonth(), n.getDate())
   }, [])
 
-  const [zoom, setZoom] = useState(1)
+  const bp = useBreakpoint()
+  const kompakt = bp === 'xs' || bp === 'sm'
+
+  const [zoom, setZoom] = useState(kompakt ? 0 : 1)
   const tagW = ZOOMS[zoom].tagW
   const [bereich, setBereich] = useState(() => ({ von: heute.getUTCFullYear() - 1, bis: heute.getUTCFullYear() + 1 }))
   const [fClient, setFClient] = useState('alle')
@@ -307,13 +334,14 @@ export default function JahresTimeline({
     }
   }
 
-  const ZEILE_H = 50
-  const KOPF_H = wetterAn ? 76 : 56
-  const SPALTE_W = 208
+  const ZEILE_H = kompakt ? 44 : 50
+  const KOPF_H = (wetterAn ? 76 : 56) - (kompakt ? 8 : 0)
+  const SPALTE_W = kompakt ? 88 : 208
 
   const chip = (an, setzen, label, farbe) => (
     <button onClick={setzen} style={{
-      padding: '4px 10px', borderRadius: 999, cursor: 'pointer', fontSize: 11.5,
+      padding: kompakt ? '4px 8px' : '4px 10px', borderRadius: 999, cursor: 'pointer',
+      fontSize: kompakt ? 11 : 11.5, whiteSpace: 'nowrap', flexShrink: 0,
       border: `1px solid ${an ? `color-mix(in srgb, ${farbe} 45%, transparent)` : BORDER}`,
       background: an ? `color-mix(in srgb, ${farbe} 12%, transparent)` : 'transparent',
       color: an ? farbe : MUTED, fontFamily: 'inherit',
@@ -324,35 +352,41 @@ export default function JahresTimeline({
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 
       {/* Werkzeugleiste */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      <div className={kompakt ? 'lu-scroll-x' : undefined} style={{
+        display: 'flex', alignItems: 'center', gap: kompakt ? 6 : 8,
+        flexWrap: kompakt ? 'nowrap' : 'wrap',
+        overflowX: kompakt ? 'auto' : 'visible',
+        paddingBottom: kompakt ? 4 : 0,
+      }}>
         <button onClick={zuHeute} style={{
           padding: '6px 14px', borderRadius: 8, border: `1px solid ${BORDER}`, background: SURFACE,
-          color: FG, cursor: 'pointer', fontSize: 12.5, fontFamily: 'inherit', fontWeight: 500,
+          color: FG, cursor: 'pointer', fontSize: 12.5, fontFamily: 'inherit', fontWeight: 500, flexShrink: 0,
         }}>Heute</button>
-        <div style={{ display: 'flex', border: `1px solid ${BORDER}`, borderRadius: 8, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', border: `1px solid ${BORDER}`, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
           <button onClick={() => scroller.current?.scrollBy({ left: -420, behavior: 'smooth' })}
             style={{ padding: '6px 9px', background: SURFACE, border: 'none', borderRight: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', display: 'flex' }}><ChevronLeft size={15} /></button>
           <button onClick={() => scroller.current?.scrollBy({ left: 420, behavior: 'smooth' })}
             style={{ padding: '6px 9px', background: SURFACE, border: 'none', color: MUTED, cursor: 'pointer', display: 'flex' }}><ChevronRight size={15} /></button>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 2, border: `1px solid ${BORDER}`, borderRadius: 8, background: SURFACE, padding: 2 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2, border: `1px solid ${BORDER}`, borderRadius: 8, background: SURFACE, padding: 2, flexShrink: 0 }}>
           <button onClick={() => setZoom((z) => Math.max(0, z - 1))} disabled={zoom === 0}
             style={{ padding: '4px 7px', background: 'transparent', border: 'none', color: zoom === 0 ? BORDER : MUTED, cursor: zoom === 0 ? 'default' : 'pointer', display: 'flex' }}><ZoomOut size={14} /></button>
-          <span style={{ fontFamily: MONO, fontSize: 10.5, color: MUTED, minWidth: 44, textAlign: 'center' }}>{ZOOMS[zoom].label}</span>
+          {!kompakt && <span style={{ fontFamily: MONO, fontSize: 10.5, color: MUTED, minWidth: 44, textAlign: 'center' }}>{ZOOMS[zoom].label}</span>}
           <button onClick={() => setZoom((z) => Math.min(ZOOMS.length - 1, z + 1))} disabled={zoom === ZOOMS.length - 1}
             style={{ padding: '4px 7px', background: 'transparent', border: 'none', color: zoom === ZOOMS.length - 1 ? BORDER : MUTED, cursor: zoom === ZOOMS.length - 1 ? 'default' : 'pointer', display: 'flex' }}><ZoomIn size={14} /></button>
         </div>
 
         <select value={fClient} onChange={(e) => setFClient(e.target.value)} style={{
           padding: '6px 10px', borderRadius: 8, border: `1px solid ${BORDER}`, background: SURFACE,
-          color: FG, fontSize: 12.5, fontFamily: 'inherit', cursor: 'pointer',
+          color: FG, fontSize: 12.5, fontFamily: 'inherit', cursor: 'pointer', flexShrink: 0,
+          maxWidth: kompakt ? 140 : 'none',
         }}>
           <option value="alle">Alle Auftraggeber</option>
           {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
 
-        <div style={{ display: 'flex', gap: 5, marginLeft: 4 }}>
+        <div style={{ display: 'flex', gap: 5, marginLeft: 4, flexShrink: 0 }}>
           {chip(zeige.geplant, () => setZeige((z) => ({ ...z, geplant: !z.geplant })), 'Vorschläge', A)}
           {chip(zeige.terminiert, () => setZeige((z) => ({ ...z, terminiert: !z.terminiert })), 'Terminiert', INFO)}
           {chip(zeige.erledigt, () => setZeige((z) => ({ ...z, erledigt: !z.erledigt })), 'Erledigt', OK)}
@@ -366,22 +400,26 @@ export default function JahresTimeline({
 
           {/* Feste linke Spalte */}
           <div style={{ width: SPALTE_W, flexShrink: 0, borderRight: `1px solid ${BORDER}`, background: SURFACE, zIndex: 30, position: 'relative', boxShadow: '2px 0 8px -4px rgba(0,0,0,0.18)' }}>
-            <div style={{ height: KOPF_H, borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'flex-end', padding: '0 14px 8px' }}>
-              <span style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Standort</span>
+            <div style={{ height: KOPF_H, borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'flex-end', padding: kompakt ? '0 8px 8px' : '0 14px 8px' }}>
+              <span style={{ fontFamily: MONO, fontSize: kompakt ? 9 : 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                {kompakt ? 'Ort' : 'Standort'}
+              </span>
             </div>
             {zeilen.map((z) => {
               const kunde = clientById[z.projekt.client_id]
               return (
                 <div key={z.projekt.id} style={{
-                height: ZEILE_H, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 14px',
+                height: ZEILE_H, display: 'flex', flexDirection: 'column', justifyContent: 'center',
+                padding: kompakt ? '0 8px' : '0 14px',
                 borderBottom: `1px solid color-mix(in srgb, ${BORDER} 45%, transparent)`,
                 background: zeilen.indexOf(z) % 2 ? `color-mix(in srgb, ${FG} 2%, transparent)` : 'transparent',
               }}>
-                  <div style={{ fontSize: 12.5, color: FG, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontSize: kompakt ? 12 : 12.5, color: FG, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {z.projekt.flaeche_code || z.projekt.name}
                   </div>
-                  <div style={{ fontFamily: MONO, fontSize: 9.5, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {kunde?.name || '—'} · {z.items.length} Einsätze
+                  <div title={kunde?.name || ''}
+                    style={{ fontFamily: MONO, fontSize: 9.5, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {kompakt ? `${z.items.length}×` : `${kunde?.name || '—'} · ${z.items.length} Einsätze`}
                   </div>
                 </div>
               )
@@ -402,7 +440,7 @@ export default function JahresTimeline({
                     background: `color-mix(in srgb, ${s.color} 13%, transparent)`,
                     borderTop: `2px solid color-mix(in srgb, ${s.color} 55%, transparent)`,
                   }}>
-                    {s.breite > 90 && (
+                    {s.breite > 90 && !kompakt && (
                       <span style={{
                         position: 'absolute', top: 3, left: 0, right: 0, textAlign: 'center', fontFamily: MONO, fontSize: 8.5,
                         letterSpacing: '0.14em', textTransform: 'uppercase',
@@ -427,7 +465,7 @@ export default function JahresTimeline({
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontFamily: MONO, fontSize: 8.5, color: MUTED, opacity: 0.75,
                   }}>
-                    {w.breite > 26 ? w.kw : ''}
+                    {w.breite > 19 ? w.kw : ''}
                   </div>
                 ))}
                 {wetterAn && wetterTage.map((t) => {
@@ -484,7 +522,7 @@ export default function JahresTimeline({
                       const naechster = z.items[k + 1]
                       const luecke = naechster ? x(naechster.von) - (links + breite) : 260
                       return (
-                        <GangKarte key={item.id} item={item} tagW={tagW}
+                        <GangKarte key={item.id} item={item} tagW={tagW} kompakt={kompakt}
                           links={links} breite={breite} luecke={luecke}
                           aktiv={popover?.id === item.id}
                           onDrag={verschiebe}
@@ -499,7 +537,7 @@ export default function JahresTimeline({
         </div>
 
         {/* Legende */}
-        <div style={{ borderTop: `1px solid ${BORDER}`, padding: '7px 14px', display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center', background: BG }}>
+        <div style={{ borderTop: `1px solid ${BORDER}`, padding: kompakt ? '6px 10px' : '7px 14px', display: 'flex', gap: kompakt ? 10 : 16, flexWrap: 'wrap', alignItems: 'center', background: BG }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: MUTED }}>
             <span style={{ width: 16, height: 9, borderRadius: 3, border: `1.5px dashed color-mix(in srgb, ${A} 55%, transparent)`, background: `color-mix(in srgb, ${A} 12%, transparent)` }} />Vorschlag aus dem LV
           </span>
@@ -509,9 +547,11 @@ export default function JahresTimeline({
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: MUTED }}>
             <span style={{ width: 16, height: 9, borderRadius: 3, background: OK }} />erledigt
           </span>
-          <span style={{ fontSize: 11, color: MUTED, marginLeft: 'auto' }}>
-            Karten lassen sich ziehen — die Aufgabenkarte folgt automatisch.
-          </span>
+          {!kompakt && (
+            <span style={{ fontSize: 11, color: MUTED, marginLeft: 'auto' }}>
+              Karten lassen sich ziehen — die Aufgabenkarte folgt automatisch.
+            </span>
+          )}
         </div>
       </div>
 
