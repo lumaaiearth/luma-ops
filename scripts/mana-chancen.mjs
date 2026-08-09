@@ -49,7 +49,7 @@ async function loadProfil() {
 
 const leadId = (l) => createHash('sha1').update(String(l.url || l.titel)).digest('hex').slice(0, 24)
 
-function buildPrompt(profil) {
+function buildPrompt(_profil) {
   const focus = typeof args.focus === 'string' ? `\nZusätzlicher Fokus diese Woche: ${args.focus}` : ''
   return `Recherchiere im Web AKTUELLE Geschäftschancen für LUMA in Deutschland (Schwerpunkt: letzte 4-6 Wochen). Drei Kategorien:
 
