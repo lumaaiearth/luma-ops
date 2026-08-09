@@ -1043,12 +1043,18 @@ DECLARE
 BEGIN
   SELECT * INTO f FROM biome_wirkungsfrage WHERE id = NEW.wirkungsfrage_id;
 
-  IF f.behandelte_flaeche_id IS NULL THEN l := l || 'behandelte_flaeche'; END IF;
-  IF f.referenzflaeche_id   IS NULL THEN l := l || 'referenzflaeche';    END IF;
-  IF f.baseline_von IS NULL OR f.baseline_bis IS NULL THEN l := l || 'baseline'; END IF;
-  IF f.wirkung_von  IS NULL OR f.wirkung_bis  IS NULL THEN l := l || 'wirkungszeitraum'; END IF;
+  -- array_append statt ||: ein untypisiertes Literal würde Postgres als Array
+  -- lesen und mit „malformed array literal" abbrechen.
+  IF f.id IS NULL THEN
+    RAISE EXCEPTION 'Wirkungsfrage % existiert nicht.', NEW.wirkungsfrage_id
+      USING ERRCODE = 'foreign_key_violation';
+  END IF;
+  IF f.behandelte_flaeche_id IS NULL THEN l := array_append(l, 'behandelte_flaeche'); END IF;
+  IF f.referenzflaeche_id    IS NULL THEN l := array_append(l, 'referenzflaeche');    END IF;
+  IF f.baseline_von IS NULL OR f.baseline_bis IS NULL THEN l := array_append(l, 'baseline'); END IF;
+  IF f.wirkung_von  IS NULL OR f.wirkung_bis  IS NULL THEN l := array_append(l, 'wirkungszeitraum'); END IF;
   IF f.baseline_bis IS NOT NULL AND f.wirkung_von IS NOT NULL AND f.baseline_bis > f.wirkung_von THEN
-    l := l || 'zeitbezug';
+    l := array_append(l, 'zeitbezug');
   END IF;
 
   NEW.fehlende_bausteine := l;

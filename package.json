@@ -18,7 +18,8 @@
     "open:android": "npx cap open android",
     "open:ios": "npx cap open ios",
     "icons": "npm i --no-save sharp && node scripts/gen-icons.mjs && npx cap sync",
-    "tiles": "node scripts/upload-tiles.mjs"
+    "tiles": "node scripts/upload-tiles.mjs",
+    "fortschritt": "node scripts/fortschritt.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.1",

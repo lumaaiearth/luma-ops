@@ -21,20 +21,24 @@ cd "$ROOT"
 GRUEN=$'\033[32m'; ROT=$'\033[31m'; GELB=$'\033[33m'; AUS=$'\033[0m'
 FEHLER=0
 declare -a BERICHT=()
+declare -a JSON=()
 
 schritt() {
   local name="$1"; shift
   printf '\n── %s ─────────────────────────────────────────\n' "$name"
   if "$@"; then
     BERICHT+=("${GRUEN}grün${AUS}       $name")
+    JSON+=("{\"name\":\"$name\",\"status\":\"gruen\"}")
   else
     BERICHT+=("${ROT}ROT${AUS}        $name")
+    JSON+=("{\"name\":\"$name\",\"status\":\"rot\"}")
     FEHLER=1
   fi
 }
 
 uebersprungen() {
   BERICHT+=("${GELB}übersprungen${AUS} $1 — $2")
+  JSON+=("{\"name\":\"$1\",\"status\":\"offen\",\"grund\":\"$2\"}")
   printf '\n── %s: übersprungen (%s)\n' "$1" "$2"
 }
 
@@ -56,6 +60,13 @@ if [ -d tests ] && compgen -G "tests/*.spec.js" >/dev/null; then
 else
   uebersprungen "6 Abnahme (Playwright)" "noch keine Abnahme-Tests unter tests/"
 fi
+
+{
+  printf '{"zeit":"%s","gruen":%s,"schritte":[' \
+    "$(date --iso-8601=seconds)" "$([ "$FEHLER" -eq 0 ] && echo true || echo false)"
+  printf '%s' "$(IFS=,; echo "${JSON[*]}")"
+  printf ']}\n'
+} > "$ROOT/.gate-status.json"
 
 printf '\n══ Merge-Gate ══════════════════════════════════════\n'
 for z in "${BERICHT[@]}"; do printf '  %s\n' "$z"; done
