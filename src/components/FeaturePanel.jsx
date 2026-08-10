@@ -426,6 +426,7 @@ const KNOWN_KEYS = new Set([
   'photos', 'notizen', 'baumnummer', 'baummarke', 'baumart_deutsch', 'baumart_latein',
   'stammumfang_cm', 'bhd_cm', 'baumhoehe_m', 'kronendurchmesser_m', 'kronenansatz_m',
   'pflanzjahr', 'vitalitaet', 'mehrstaemmig', 'umfang_unter_kronenansatz', 'bhd_messhoehe_m',
+  'umfang_messhoehe_cm',
   'schaedlinge', 'standorttyp', 'letzte_kontrolle', 'opacity', 'image_url', 'filename',
   'tiles_url', 'slug', 'minZoom', 'maxZoom', 'tms', 'sonnenanalyse', 'starkregen',
 ])
@@ -530,8 +531,15 @@ export default function FeaturePanel({
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
             {/* Ein Stammumfang ohne Messhöhe ist keine Zahl, sondern eine
                 Behauptung — deshalb steht die Höhe am Wert. */}
+            {/* Nur behaupten, was erfasst ist. Bäume aus der Zeit vor dieser
+                Änderung haben keine gespeicherte Messhöhe — dann steht das da
+                und nicht „130 cm Höhe". */}
             <Stat
-              label={p.umfang_unter_kronenansatz ? 'Umfang (unter Kronenansatz)' : `Umfang (${STAMMUMFANG.messhoeheCm} cm Höhe)`}
+              label={
+                p.umfang_unter_kronenansatz ? 'Umfang (unter Kronenansatz)'
+                  : p.umfang_messhoehe_cm ? `Umfang (${p.umfang_messhoehe_cm} cm Höhe)`
+                    : 'Umfang (Messhöhe unbekannt)'
+              }
               value={p.stammumfang_cm} unit="cm" />
             <Stat
               label={p.bhd_messhoehe_m ? `BHD (${p.bhd_messhoehe_m} m Höhe)` : 'BHD (Messhöhe fehlt)'}

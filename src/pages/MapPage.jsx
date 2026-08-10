@@ -17,7 +17,7 @@ const TASK_P = Object.fromEntries(TASK_PRIORITIES.map(p => [p.id, p]))
 const TASK_S = Object.fromEntries(TASK_STATUSES.map(s => [s.id, s]))
 import { isoToday, addDays, genId } from '../lib/storage.js'
 import { compressImage } from '../lib/images.js'
-import { ROLOFF_VS, KONTROLLE_HINWEIS, schutzschwelleErreicht } from '../biome/baumStandards.js'
+import { ROLOFF_VS, STAMMUMFANG, KONTROLLE_HINWEIS, schutzschwelleErreicht } from '../biome/baumStandards.js'
 import { useIsMobile } from '../lib/useIsMobile.js'
 import TreeQuickForm from '../components/TreeQuickForm.jsx'
 import FeaturePanel from '../components/FeaturePanel.jsx'
@@ -403,7 +403,15 @@ function FeatureForm({ mode, project, color, existingFeature, draft, onSave, onC
             </div>
             <div>
               <label style={labelStyle}>Stammumfang (cm, in 1,30 m Höhe)</label>
-              <input style={inputStyle} type="number" value={form.stammumfang_cm || ''} onChange={e => set('stammumfang_cm', e.target.value)} placeholder="z.B. 85" />
+              <input style={inputStyle} type="number" value={form.stammumfang_cm || ''}
+                onChange={e => {
+                  set('stammumfang_cm', e.target.value)
+                  // Die Messhöhe wandert mit in den Datensatz. Steht sie nur im
+                  // Formularlabel, weiß später niemand, ob 1,30 m gemeint war —
+                  // genau daran krankt der Altbestand.
+                  set('umfang_messhoehe_cm', e.target.value ? STAMMUMFANG.messhoeheCm : undefined)
+                }}
+                placeholder="z.B. 85" />
               <label style={{ ...labelStyle, textTransform: 'none', letterSpacing: 0, marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <input type="checkbox" checked={!!form.umfang_unter_kronenansatz}
                   onChange={e => set('umfang_unter_kronenansatz', e.target.checked)} />

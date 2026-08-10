@@ -32,6 +32,9 @@ export default function TreeQuickForm({ project, suggestedNumber, savedCount = 0
       baumart_deutsch: m?.name || art || undefined,
       baumart_latein: m?.latin || undefined,
       stammumfang_cm: umfang || undefined,
+      // Ohne Messhöhe ist der Umfang später nicht einzuordnen. Die
+      // Schnellerfassung misst in 1,30 m; das steht jetzt im Datensatz.
+      umfang_messhoehe_cm: umfang ? 130 : undefined,
     }
     if (m || art) rememberSpecies(m?.name || art, m?.latin || '')
     return { label: m?.name || art || nummer || 'Baum', properties }
@@ -86,7 +89,7 @@ export default function TreeQuickForm({ project, suggestedNumber, savedCount = 0
             </datalist>
           </div>
           <div>
-            <label style={LABEL}>Umfang cm</label>
+            <label style={LABEL}>Umfang cm (1,30 m)</label>
             <input style={INPUT} type="number" inputMode="numeric" value={umfang} onChange={e => setUmfang(e.target.value)} placeholder="85" />
           </div>
         </div>
