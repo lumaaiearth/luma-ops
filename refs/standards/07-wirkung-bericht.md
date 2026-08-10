@@ -260,6 +260,47 @@
   - **Kein Wort zu Nachweisführung, Erfolgskontrolle, Kontrollintervallen oder Unterhaltungszeiträumen.** Die Seite beschreibt ein Verwaltungskataster, keine Monitoringpflicht. Der Unterhaltungszeitraum bleibt damit einzelfallbezogen nach § 15 Abs. 4 BNatSchG (WIRK-05).
   - Kein Attributschema, keine Feldliste, keine Wertelisten des KIS.
 
+### WIRK-14 · BACI-Kontrast — die Rechenrichtung, aus dem Quelltext belegt
+- **Herausgeber:** Space4Restoration, R-Paket `spatialBACI` (die Software zu WIRK-01)
+- **Quelle:** https://raw.githubusercontent.com/Space4Restoration/spatialBACI/main/R/BACI_contrast.R
+- **Abgerufen:** 2026-08-10 (HTTP 200)
+- **Warum der Quelltext:** WIRK-01 belegt die vier Datenpunkte und den Namen
+  „difference-in-difference", aber **die Formel liegt im Aufsatz als Grafik vor**
+  (`inline-graphic M1.gif`), nicht als Text. Die Rechenrichtung war damit aus dem
+  Aufsatz nicht belegbar. Der Quelltext des zugehörigen Pakets rechnet sie aus —
+  und ist ein zitierbares Dokument.
+- **Wörtlich** (Bildung der Veränderung je Einheit, Zeilen 67–68):
+  „data_effect <- data_merge[, grep(".after", names(data_merge), value=TRUE), with=FALSE] -
+      data_merge[, grep(".before", names(data_merge), value=TRUE), with=FALSE]"
+- **Wörtlich** (der Kontrast selbst, in `calc_contrast_p`, Zeile 135):
+  „contrast = mean(.SD[get(colname.treatment)==0, get(effect_name_i)]) - mean(.SD[get(colname.treatment)==1, get(effect_name_i)])"
+- **Wörtlich** (die Zuordnung der Kennzeichnung, Zeile 78 — hier stehen die
+  behandelten Einheiten in der Ausgabe):
+  „out.data <- merge(matches[get(colname.treatment)==1],"
+- **Wörtlich** (die Formelquelle, die das Paket selbst nennt):
+  „Meroni, M., Schucknecht, A., Fasbender, D., Rembold, F., Fava, F., Mauclaire, M., Goffner, D., Di Lucchio, L.M., Leonardi, U., 2017. Remote sensing monitoring of land restoration interventions in semi-arid environments with a before–after control-impact statistical design. International Journal of Applied Earth Observation and Geoinformation 59, 42–52."
+- **Deckt in BIOME — und das ist ein Vorzeichen, das man nicht raten darf:**
+  - `treatment == 1` ist die **behandelte** Einheit, `treatment == 0` die
+    **Referenz**. Die Veränderung je Einheit ist `nachher − vorher`.
+  - Damit rechnet das Paket:
+    **Kontrast = (Referenz nachher − Referenz vorher) − (behandelt nachher − behandelt vorher)**
+  - Das ist **Referenz minus behandelt**, nicht umgekehrt. Ein **negativer**
+    Kontrast bedeutet in dieser Schreibweise: die behandelte Fläche hat sich
+    **stärker verbessert** als die Referenz — also hat die Maßnahme gewirkt.
+  - Beispiel: Referenz 30 → 40 (+10), behandelt 30 → 55 (+25).
+    Kontrast = 10 − 25 = **−15**. Die Maßnahme hat gewirkt, die Zahl ist negativ.
+  - **Folge für die Oberfläche:** Wer diese Schreibweise übernimmt, darf das
+    Vorzeichen niemals unkommentiert mit einem Pfeil oder einer Farbe verbinden.
+    Ein Minus mit rotem Abwärtspfeil bei einer gelungenen Maßnahme wäre genau
+    die Art Fehler, gegen die BIOME gebaut ist.
+- **Deckt ausdrücklich nicht:**
+  - Dass diese Richtung die einzig übliche ist. Sie ist die des Pakets aus
+    WIRK-01. Die umgekehrte Schreibweise (behandelt minus Referenz) kommt in der
+    Literatur ebenfalls vor; geprüft ist sie hier nicht.
+  - Meroni et al. 2017 selbst wurde **nicht abgerufen** — belegt ist nur, dass
+    das Paket sich darauf beruft.
+  - Welche Kennzahl in einem konkreten Fall zulässig ist (siehe „Offene Fragen").
+
 ## Nicht zugänglich
 
 | Norm/Quelle | Warum | Status | Was dadurch in BIOME NICHT belegbar ist |
@@ -271,14 +312,18 @@
 Vier davon sind im Text oben schon als offen markiert; hier stehen sie
 zusammen, damit sie nicht in den Einträgen untergehen.
 
-- **Vorzeichenrichtung des BACI-Kontrasts.** WIRK-01 belegt die vier Indizes
-  (C, I, B, A) und die Bezeichnung „difference-in-difference". Die Formel selbst
-  liegt in der Quelle als Grafik vor, nicht als Text — die **Rechenrichtung** ist
-  damit nicht belegt. Praktisch heißt das: BIOME weiß, dass zwei Differenzen
-  voneinander abzuziehen sind, aber nicht aus dieser Quelle, welche von welcher.
-  Bevor die erste Wirkungszahl gerendert wird, muss das aus einer Quelle
-  festgelegt werden, die die Formel als Text führt. Bis dahin: **keine
-  Kontrastzahl**, nur die vier Messwerte nebeneinander.
+- **Vorzeichenrichtung des BACI-Kontrasts — am 2026-08-10 geklärt, aber eine
+  Entscheidung bleibt.** Die Rechenrichtung ist jetzt belegt (WIRK-14, aus dem
+  Quelltext des Pakets): das Paket rechnet **Referenz minus behandelt**, ein
+  negativer Kontrast heißt also „Maßnahme hat gewirkt".
+
+  Offen ist damit nicht mehr die Belegfrage, sondern eine Produktentscheidung:
+  Übernimmt BIOME diese Schreibweise, oder dreht es sie um, damit „mehr ist
+  besser" gilt? Für das Übernehmen spricht die Vergleichbarkeit mit Auswertungen
+  aus dem Paket. Dagegen spricht, dass „−15 = gut" auf einem Bildschirm
+  regelmäßig falsch gelesen wird. **Meine Empfehlung: umdrehen** (behandelt
+  minus Referenz) und die Abweichung von `spatialBACI` an der Zahl ausweisen —
+  so wie die Messhöhe 1,30 m als Festlegung von LUMA ausgewiesen ist.
 
 - **Geltungsstand der RL (EU) 2024/825.** Eine Richtlinie gilt nicht
   unmittelbar. Belegt ist der Richtlinientext (WIRK-07 bis WIRK-09), nicht der
