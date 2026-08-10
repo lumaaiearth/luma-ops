@@ -1,6 +1,6 @@
 # BIOME: vom Karten-Feature zum Datenkern
 
-Stand 2026-08-09. Diese Datei beantwortet eine Frage, die beim Lesen des
+Stand 2026-08-09, Datenkern in Betrieb. Diese Datei beantwortet eine Frage, die beim Lesen des
 Repositories sofort aufkommt: Es gibt jetzt zwei Orte, an denen ein Baum leben
 kann. Das ist ein Zwischenzustand, kein Entwurf.
 
@@ -82,9 +82,35 @@ vorweggenommen**. Fällt sie auf „1,30 m", kann eine spätere Migration die
 Altwerte gezielt in echte Messungen überführen; bis dahin stehen sie als das
 da, was sie sind.
 
-**Noch nicht angewendet:** Die Migrationen liegen als Dateien vor und sind auf
-einem lokalen PostgreSQL geprüft. Auf der Produktionsdatenbank sind sie nicht
-ausgeführt — das gehört zum Merge nach `main`, nicht auf einen Arbeitsbranch.
+## Angewendet am 2026-08-09
+
+Beide Migrationen laufen auf der Produktionsdatenbank
+(Supabase-Projekt `eqwoyfsfyohtcibithak`). Nachgeprüft:
+
+| Prüfung | Ergebnis |
+|---|---|
+| `biome_*`-Tabellen | 39 (38 Datenkern + `biome_altbestand_baum`) |
+| davon mit Row Level Security | 39 |
+| Append-only-Trigger | 11 |
+| Sichten `v_biome_*` | 7 |
+| Übernommene Bäume | 2 — B-0001 *Liquidambar styraciflua*, B-0002 *Malus spec.* |
+| Messungen, Bewertungen, Kontrollen aus Altdaten | 0, 0, 0 |
+| `taxon_quelle`, `gepflanzt_jahr`, `lagegenauigkeit_m` der Altbäume | jeweils NULL — nichts erfunden |
+| `map_features` mit `feature_type='tree'` | unverändert 2 |
+
+Was Supabase gespeichert hat, ist byteweise die Repo-Datei: die md5-Summen der
+Migrationstexte in `supabase_migrations.schema_migrations` stimmen mit denen der
+Dateien überein.
+
+**Die Regeln greifen auch in der Produktion**, nicht nur auf dem Prüfstand. In
+einer zurückgerollten Transaktion geprüft:
+
+- `UPDATE` auf `biome_baum_messung` — abgewiesen
+- `DELETE` auf `biome_baum_messung` — abgewiesen
+- Stammumfang ohne Messhöhe — abgewiesen
+- Messwert mit einer Methode der Erfassungsart `modell` — abgewiesen
+
+Danach kontrolliert: kein Prüfdatensatz zurückgeblieben.
 
 ## Warum überhaupt ein neuer Datenkern
 
