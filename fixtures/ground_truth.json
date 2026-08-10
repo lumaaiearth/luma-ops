@@ -57,7 +57,7 @@
       "qualifikation": "Landschaftsgärtnerin"
     },
     {
-      "id": "b81cb6c9-a847-41cd-bac4-7ab7cee3588c",
+      "id": "d979bf05-63d4-4bf1-821a-e71deb30bee4",
       "name": "Systemübernahme",
       "organisation": "LUMA",
       "qualifikation": "Maschinelle Übernahme, keine Person vor Ort"
@@ -156,6 +156,10 @@
       "art_deutsch": "Winterlinde",
       "taxon_quelle": "GBIF Backbone Taxonomy",
       "taxon_id": "3152047",
+      "taxon_confidence": 100,
+      "taxon_matchtype": "EXACT",
+      "taxon_status": "ACCEPTED",
+      "taxon_abgerufen_am": "2026-08-10",
       "gepflanzt_jahr": 1998,
       "position": {
         "type": "Point",
@@ -170,7 +174,7 @@
       "mehrstaemmig": false,
       "standorttyp": "strasse",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-10T13:12:55.42488+00:00",
+      "created_at": "2026-08-10T18:06:35.003834+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000001",
@@ -183,7 +187,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-14",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
+          "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -224,6 +228,10 @@
       "art_deutsch": "Winterlinde",
       "taxon_quelle": "GBIF Backbone Taxonomy",
       "taxon_id": "3152047",
+      "taxon_confidence": 100,
+      "taxon_matchtype": "EXACT",
+      "taxon_status": "ACCEPTED",
+      "taxon_abgerufen_am": "2026-08-10",
       "gepflanzt_jahr": 1998,
       "position": {
         "type": "Point",
@@ -238,7 +246,7 @@
       "mehrstaemmig": false,
       "standorttyp": "strasse",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-10T13:12:55.42488+00:00",
+      "created_at": "2026-08-10T18:06:35.003834+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000002",
@@ -251,7 +259,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-14",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
+          "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -281,6 +289,10 @@
       "art_deutsch": "Winterlinde",
       "taxon_quelle": "GBIF Backbone Taxonomy",
       "taxon_id": "3152047",
+      "taxon_confidence": 100,
+      "taxon_matchtype": "EXACT",
+      "taxon_status": "ACCEPTED",
+      "taxon_abgerufen_am": "2026-08-10",
       "gepflanzt_jahr": 1998,
       "position": {
         "type": "Point",
@@ -295,7 +307,7 @@
       "mehrstaemmig": false,
       "standorttyp": "strasse",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-10T13:12:55.42488+00:00",
+      "created_at": "2026-08-10T18:06:35.003834+00:00",
       "messungen": [],
       "bewertungen": [
         {
@@ -332,6 +344,10 @@
       "art_deutsch": "Winterlinde",
       "taxon_quelle": "GBIF Backbone Taxonomy",
       "taxon_id": "3152047",
+      "taxon_confidence": 100,
+      "taxon_matchtype": "EXACT",
+      "taxon_status": "ACCEPTED",
+      "taxon_abgerufen_am": "2026-08-10",
       "gepflanzt_jahr": 1998,
       "position": {
         "type": "Point",
@@ -346,7 +362,7 @@
       "mehrstaemmig": false,
       "standorttyp": "strasse",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-10T13:12:55.42488+00:00",
+      "created_at": "2026-08-10T18:06:35.003834+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000004",
@@ -359,7 +375,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-14",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
+          "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -388,7 +404,11 @@
       "art_wissenschaftlich": "Acer platanoides L.",
       "art_deutsch": "Spitzahorn",
       "taxon_quelle": "GBIF Backbone Taxonomy",
-      "taxon_id": "3189866",
+      "taxon_id": "3189846",
+      "taxon_confidence": 100,
+      "taxon_matchtype": "EXACT",
+      "taxon_status": "ACCEPTED",
+      "taxon_abgerufen_am": "2026-08-10",
       "gepflanzt_jahr": 2004,
       "position": {
         "type": "Point",
@@ -403,7 +423,7 @@
       "mehrstaemmig": false,
       "standorttyp": "strasse",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-10T13:12:55.42488+00:00",
+      "created_at": "2026-08-10T18:06:35.003834+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000005",
@@ -416,7 +436,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-14",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
+          "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -445,7 +465,11 @@
       "art_wissenschaftlich": "Acer platanoides L.",
       "art_deutsch": "Spitzahorn",
       "taxon_quelle": "GBIF Backbone Taxonomy",
-      "taxon_id": "3189866",
+      "taxon_id": "3189846",
+      "taxon_confidence": 100,
+      "taxon_matchtype": "EXACT",
+      "taxon_status": "ACCEPTED",
+      "taxon_abgerufen_am": "2026-08-10",
       "gepflanzt_jahr": 2004,
       "position": {
         "type": "Point",
@@ -460,7 +484,7 @@
       "mehrstaemmig": false,
       "standorttyp": "strasse",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-10T13:12:55.42488+00:00",
+      "created_at": "2026-08-10T18:06:35.003834+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000006",
@@ -473,7 +497,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-14",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
+          "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -502,7 +526,11 @@
       "art_wissenschaftlich": "Acer platanoides L.",
       "art_deutsch": "Spitzahorn",
       "taxon_quelle": "GBIF Backbone Taxonomy",
-      "taxon_id": "3189866",
+      "taxon_id": "3189846",
+      "taxon_confidence": 100,
+      "taxon_matchtype": "EXACT",
+      "taxon_status": "ACCEPTED",
+      "taxon_abgerufen_am": "2026-08-10",
       "gepflanzt_jahr": 2004,
       "position": {
         "type": "Point",
@@ -517,7 +545,7 @@
       "mehrstaemmig": false,
       "standorttyp": "strasse",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-10T13:12:55.42488+00:00",
+      "created_at": "2026-08-10T18:06:35.003834+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000007",
@@ -530,7 +558,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-14",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
+          "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -546,7 +574,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-22",
           "erfasst_von": "a0000000-0000-4000-8000-000000000002",
-          "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
+          "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
           "ersetzt_id": "c0000000-0000-4000-8000-000000000007",
           "korrektur_grund": "Zahlendreher bei der Eingabe am 14.04.2026: 850 cm statt 85 cm. Am 22.04.2026 nachgemessen, Wert bestätigt.",
           "vorzustand": {
@@ -558,7 +586,7 @@
             "merkmal": "stammumfang",
             "stamm_nr": null,
             "bemerkung": null,
-            "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
+            "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
             "ersetzt_id": null,
             "messgeraet": "Umfangmaßband",
             "methode_id": "M-BAUM-UMFANG",
@@ -594,6 +622,10 @@
       "art_deutsch": "Stieleiche",
       "taxon_quelle": "GBIF Backbone Taxonomy",
       "taxon_id": "2878688",
+      "taxon_confidence": 100,
+      "taxon_matchtype": "EXACT",
+      "taxon_status": "ACCEPTED",
+      "taxon_abgerufen_am": "2026-08-10",
       "gepflanzt_jahr": 1972,
       "position": {
         "type": "Point",
@@ -608,7 +640,7 @@
       "mehrstaemmig": false,
       "standorttyp": "park",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-10T13:12:55.42488+00:00",
+      "created_at": "2026-08-10T18:06:35.003834+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000008",
@@ -621,7 +653,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-15",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
+          "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -651,6 +683,10 @@
       "art_deutsch": null,
       "taxon_quelle": null,
       "taxon_id": null,
+      "taxon_confidence": null,
+      "taxon_matchtype": null,
+      "taxon_status": null,
+      "taxon_abgerufen_am": null,
       "gepflanzt_jahr": null,
       "position": {
         "type": "Point",
@@ -665,7 +701,7 @@
       "mehrstaemmig": false,
       "standorttyp": "park",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-10T13:12:55.42488+00:00",
+      "created_at": "2026-08-10T18:06:35.003834+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000009",
@@ -678,7 +714,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-15",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
+          "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -708,6 +744,10 @@
       "art_deutsch": "Stieleiche",
       "taxon_quelle": "GBIF Backbone Taxonomy",
       "taxon_id": "2878688",
+      "taxon_confidence": 100,
+      "taxon_matchtype": "EXACT",
+      "taxon_status": "ACCEPTED",
+      "taxon_abgerufen_am": "2026-08-10",
       "gepflanzt_jahr": 1972,
       "position": {
         "type": "Point",
@@ -722,7 +762,7 @@
       "mehrstaemmig": false,
       "standorttyp": "park",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-10T13:12:55.42488+00:00",
+      "created_at": "2026-08-10T18:06:35.003834+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000010",
@@ -735,7 +775,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-15",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
+          "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -775,7 +815,11 @@
       "art_wissenschaftlich": "Betula pendula Roth",
       "art_deutsch": "Sandbirke",
       "taxon_quelle": "GBIF Backbone Taxonomy",
-      "taxon_id": "5332048",
+      "taxon_id": "5331916",
+      "taxon_confidence": 100,
+      "taxon_matchtype": "EXACT",
+      "taxon_status": "ACCEPTED",
+      "taxon_abgerufen_am": "2026-08-10",
       "gepflanzt_jahr": 2011,
       "position": {
         "type": "Point",
@@ -790,7 +834,7 @@
       "mehrstaemmig": true,
       "standorttyp": "park",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-10T13:12:55.42488+00:00",
+      "created_at": "2026-08-10T18:06:35.003834+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000113",
@@ -803,7 +847,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-15",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
+          "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -819,7 +863,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-15",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
+          "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -835,7 +879,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-15",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
+          "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -864,7 +908,11 @@
       "art_wissenschaftlich": "Platanus × hispanica Mill. ex Münchh.",
       "art_deutsch": "Platane",
       "taxon_quelle": "GBIF Backbone Taxonomy",
-      "taxon_id": "5361896",
+      "taxon_id": "7400250",
+      "taxon_confidence": 100,
+      "taxon_matchtype": "EXACT",
+      "taxon_status": "ACCEPTED",
+      "taxon_abgerufen_am": "2026-08-10",
       "gepflanzt_jahr": 1965,
       "position": {
         "type": "Point",
@@ -879,7 +927,7 @@
       "mehrstaemmig": null,
       "standorttyp": "park",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-10T13:12:55.42488+00:00",
+      "created_at": "2026-08-10T18:06:35.003834+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000012",
@@ -892,7 +940,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-15",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
+          "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null

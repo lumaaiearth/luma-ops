@@ -76,6 +76,8 @@ select json_build_object(
       'id', b.id, 'standort_id', b.standort_id, 'baumnummer', b.baumnummer,
       'art_wissenschaftlich', b.art_wissenschaftlich, 'art_deutsch', b.art_deutsch,
       'taxon_quelle', b.taxon_quelle, 'taxon_id', b.taxon_id,
+      'taxon_confidence', b.taxon_confidence, 'taxon_matchtype', b.taxon_matchtype,
+      'taxon_status', b.taxon_status, 'taxon_abgerufen_am', b.taxon_abgerufen_am,
       'gepflanzt_jahr', b.gepflanzt_jahr, 'position', b.position, 'crs', b.crs,
       'lagegenauigkeit_m', b.lagegenauigkeit_m,
       'lagegenauigkeit_bezug', b.lagegenauigkeit_bezug,

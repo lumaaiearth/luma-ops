@@ -40,164 +40,20 @@
  *   · LUMA-Mint nur als Fläche und Marker, nie als Textfarbe.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { TreeDeciduous, Download, X, ChevronRight } from 'lucide-react'
-import { SURFACE, BORDER, FG, MUTED, CARD, WARN } from '../lib/theme.js'
+import { TreeDeciduous, Download, ChevronRight } from 'lucide-react'
+import { BORDER, FG, MUTED, WARN } from '../lib/theme.js'
+import { MONO, SANS, LABEL, TIPPZIEL, Karte, Wert, HerkunftsTafel, Zeile } from '../biome/ui/bausteine.jsx'
 import {
   ladeDatenstand, messung, ersetzteMessung, letzteKontrolle, kontrollstand,
   vitalitaet, artenverteilung, nachschlagen, staerksterStamm,
 } from '../biome/daten.js'
-import { FEHLT, datum as fmtDatum, mitEinheit, koordinate, zahl, LAGE_BEZUG } from '../biome/format.js'
-import { ROLOFF_VS, KONTROLLE_HINWEIS } from '../biome/baumStandards.js'
-
-const MONO = "'Space Mono', monospace"
-const SANS = "'Space Grotesk', sans-serif"
-
-const LABEL = {
-  fontFamily: MONO, fontSize: 9, letterSpacing: '0.09em',
-  textTransform: 'uppercase', color: MUTED,
-}
-
-/** Mindestgröße für Tippziele nach WCAG 2.1 AA. */
-const TIPPZIEL = 44
-
-const KONTROLLART = {
-  regelkontrolle: 'Regelkontrolle',
-  anlasskontrolle: 'Zusatzkontrolle',
-  eingehende_untersuchung: 'Eingehende Untersuchung',
-}
-
-function Karte({ children, ...rest }) {
-  return (
-    <div {...rest} style={{
-      background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12,
-      padding: 14, ...(rest.style || {}),
-    }}>{children}</div>
-  )
-}
-
-/**
- * Ein angezeigter Wert, der seine Herkunft kennt.
- *
- * Jeder Wert auf dieser Seite geht durch diese Komponente. Damit ist die
- * Zwei-Klick-Regel keine Eigenschaft einzelner Stellen mehr, sondern des
- * Bauteils: wer einen Wert anzeigt, zeigt zwangsläufig auch den Weg dorthin.
- */
-function Wert({ text, fehlt, onOeffnen, beschriftung, monospace = true }) {
-  if (fehlt) {
-    return (
-      <span style={{ color: MUTED, fontStyle: 'italic', fontFamily: SANS, fontSize: 13 }}>
-        {FEHLT}
-      </span>
-    )
-  }
-  return (
-    <button type="button" onClick={ev => onOeffnen(ev)} aria-label={beschriftung} data-herkunft="1"
-      style={{
-        font: 'inherit', fontFamily: monospace ? MONO : SANS, fontSize: 13,
-        fontWeight: monospace ? 700 : 400, color: FG,
-        background: 'transparent', border: 'none', borderBottom: `1px dashed ${MUTED}`,
-        // 44 px Trefferfläche, ohne die Zeile auseinanderzuziehen: die Polsterung
-        // wächst nach oben und unten, der Text bleibt, wo er ist.
-        padding: '11px 4px', margin: '-11px -4px', minHeight: TIPPZIEL,
-        display: 'inline-flex', alignItems: 'center',
-        cursor: 'pointer', textAlign: 'left',
-      }}>
-      {text}
-    </button>
-  )
-}
-
-/** Der zweite Klick: alles, was einen Wert überprüfbar macht. */
-function HerkunftsTafel({ eintrag, onSchliessen }) {
-  const ref = useRef(null)
-
-  useEffect(() => {
-    if (!eintrag) return
-    const el = ref.current
-    el?.querySelector('button')?.focus()
-    function taste(e) {
-      if (e.key === 'Escape') { onSchliessen(); return }
-      if (e.key !== 'Tab' || !el) return
-      // Fokusfalle: der Dialog behält den Fokus, solange er offen ist.
-      const ziele = [...el.querySelectorAll('a[href], button, [tabindex]:not([tabindex="-1"])')]
-        .filter(z => z.offsetParent !== null)
-      if (!ziele.length) return
-      const erste = ziele[0], letzte = ziele[ziele.length - 1]
-      if (e.shiftKey && document.activeElement === erste) { e.preventDefault(); letzte.focus() }
-      else if (!e.shiftKey && document.activeElement === letzte) { e.preventDefault(); erste.focus() }
-    }
-    document.addEventListener('keydown', taste)
-    return () => document.removeEventListener('keydown', taste)
-  }, [eintrag, onSchliessen])
-
-  if (!eintrag) return null
-
-  return (
-    <div role="dialog" aria-modal="true" aria-label={`Herkunft: ${eintrag.titel}`}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 2000, display: 'flex',
-        alignItems: 'flex-end', justifyContent: 'center', background: 'rgba(0,0,0,0.45)',
-      }}
-      onClick={onSchliessen}>
-      <div ref={ref} onClick={e => e.stopPropagation()} data-test="herkunftstafel" style={{
-        background: CARD, border: `1px solid ${BORDER}`, borderRadius: '14px 14px 0 0',
-        width: 'min(560px, 100%)', maxHeight: '86vh', overflowY: 'auto',
-        padding: 18, paddingBottom: 'calc(18px + env(safe-area-inset-bottom))',
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
-          <div>
-            <div style={LABEL}>Herkunft</div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: FG, fontFamily: SANS }}>{eintrag.titel}</div>
-          </div>
-          <button type="button" onClick={onSchliessen} aria-label="Schließen"
-            style={{
-              width: TIPPZIEL, height: TIPPZIEL, borderRadius: 8, border: `1px solid ${BORDER}`,
-              background: 'transparent', color: FG, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            }}>
-            <X size={16} />
-          </button>
-        </div>
-
-        <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 700, color: FG, marginBottom: 14, lineHeight: 1.25 }}>
-          {eintrag.wert}
-        </div>
-
-        <dl style={{ margin: 0, display: 'grid', gridTemplateColumns: 'minmax(120px, auto) 1fr', gap: '8px 14px', fontSize: 13 }}>
-          {eintrag.zeilen.map((z, i) => (
-            <div key={i} style={{ display: 'contents' }}>
-              <dt style={LABEL}>{z.k}</dt>
-              <dd style={{ margin: 0, color: z.v === FEHLT ? MUTED : FG, fontStyle: z.v === FEHLT ? 'italic' : 'normal' }}>
-                {z.v}
-                {z.hinweis && <div style={{ color: MUTED, fontSize: 12, marginTop: 2, fontStyle: 'normal' }}>{z.hinweis}</div>}
-                {z.url && (
-                  <div style={{ marginTop: 2 }}>
-                    <a href={z.url} target="_blank" rel="noreferrer" style={{ color: FG, fontSize: 12, wordBreak: 'break-all' }}>{z.url}</a>
-                  </div>
-                )}
-              </dd>
-            </div>
-          ))}
-        </dl>
-
-        {eintrag.korrektur && (
-          <div style={{
-            marginTop: 14, padding: '10px 12px', borderRadius: 8,
-            border: `1px solid ${BORDER}`, background: 'color-mix(in srgb, var(--luma-fg) 4%, transparent)',
-          }}>
-            <div style={{ ...LABEL, color: WARN, marginBottom: 6 }}>Dieser Wert wurde korrigiert</div>
-            <div style={{ fontSize: 13, color: FG }}>{eintrag.korrektur.vorher}</div>
-            <div style={{ fontSize: 13, color: MUTED, marginTop: 6, lineHeight: 1.45 }}>{eintrag.korrektur.grund}</div>
-            <div style={{ fontSize: 12, color: MUTED, marginTop: 6 }}>
-              Der ursprüngliche Datensatz ist nicht gelöscht. Er bleibt als ersetzt erhalten,
-              mit Zeitstempel und Person.
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
+import { FEHLT, datum as fmtDatum, mitEinheit, koordinate, zahl, LAGE_BEZUG, crsUri, CRS_ENSEMBLE_HINWEIS } from '../biome/format.js'
+import { ROLOFF_VS, KONTROLLE_HINWEIS, KONTROLLE_FESTLEGUNG, KONTROLLART_NAME as KONTROLLART } from '../biome/baumStandards.js'
+import { herkunftBauer } from '../biome/herkunft.js'
+import { karteninhalt, ebenenBilanz } from '../biome/ebenen.js'
+import Karteninhalt from '../biome/ui/Karteninhalt.jsx'
+import Inspector from '../biome/ui/Inspector.jsx'
+import Statusleiste from '../biome/ui/Statusleiste.jsx'
 
 export default function BiomeBaeumePage() {
   const [stand, setStand] = useState(null)
@@ -205,6 +61,11 @@ export default function BiomeBaeumePage() {
   const [filter, setFilter] = useState('alle')
   const [herkunft, setHerkunft] = useState(null)
   const [offenId, setOffenId] = useState(null)
+  // Karteninhalt links, Inspector rechts — die Rollentrennung aus GE-02.
+  // `sichtbarkeit` gehört zur Ebene, `auswahl` zum Inspector; beides bewusst
+  // getrennt, weil eine sichtbare Ebene nicht die ausgewählte ist.
+  const [sichtbarkeit, setSichtbarkeit] = useState(/** @type {Record<string,boolean>} */ ({}))
+  const [auswahl, setAuswahl] = useState(/** @type {any} */ (null))
   // Merkt sich, von wo die Herkunftstafel geöffnet wurde. Ohne das landet der
   // Fokus beim Schließen auf BODY, und der Weg zurück zum Auslöser kostet
   // vierzig Tastendrücke.
@@ -231,6 +92,33 @@ export default function BiomeBaeumePage() {
 
   const stichjahr = stand ? Number(stand.stichdatum.slice(0, 4)) : new Date().getFullYear()
   const nachschlag = useMemo(() => (stand ? nachschlagen(stand) : null), [stand])
+
+  const ebenen = useMemo(() => karteninhalt(stand), [stand])
+  const bilanz = useMemo(() => ebenenBilanz(ebenen), [ebenen])
+
+  // Ausgangssichtbarkeit einmal aus dem Katalog übernehmen. Danach gehört sie
+  // dem Nutzer; ein Datenstand-Neuladen darf seine Auswahl nicht überschreiben.
+  const ebenenGesetzt = useRef(false)
+  useEffect(() => {
+    if (ebenenGesetzt.current || !stand) return
+    ebenenGesetzt.current = true
+    setSichtbarkeit(Object.fromEntries(ebenen.flatMap(g => g.ebenen.map(e => [e.id, e.sichtbar]))))
+  }, [stand, ebenen])
+
+  /** GE-30: der Schaltmodus der Gruppe entscheidet, was ein Klick bewirkt. */
+  function sichtbarkeitSetzen(id, an, gruppe) {
+    setSichtbarkeit(vorher => {
+      if (gruppe.schaltmodus === 'genau_eine' && an) {
+        // Genau eine: die Geschwister gehen aus. Zwei Darstellungen derselben
+        // Fläche würden einander widersprechen.
+        const neu = { ...vorher }
+        for (const e of gruppe.ebenen) neu[e.id] = e.id === id
+        return neu
+      }
+      if (gruppe.schaltmodus === 'nur_abwaehlbar' && an) return vorher
+      return { ...vorher, [id]: an }
+    })
+  }
 
   const gruppen = useMemo(() => {
     if (!stand) return null
@@ -278,219 +166,74 @@ export default function BiomeBaeumePage() {
     { id: 'unbestimmt', text: 'Art unbestimmt', n: gruppen.unbestimmt.length },
   ]
 
-  /* ── Herkunft je Werttyp ───────────────────────────────────────────────
-     Eine Stelle, an der entschieden wird, was ein Wert über sich preisgibt.
-     Wo eine Angabe im Datenbestand fehlt, steht das hier als FEHLT und nicht
-     als weggelassene Zeile — eine fehlende Herkunftsangabe ist selbst eine
-     Information. */
+  /* Die Herkunftsfunktionen liegen in src/biome/herkunft.js — eine Stelle für
+     alle Ansichten. Solange sie hier als Closures standen, war die
+     Zwei-Klick-Regel an diese eine Seite gebunden. */
+  const h = herkunftBauer(nachschlag)
 
-  function personZeile(id) {
-    const p = nachschlag.person(id)
-    return {
-      k: 'Person', v: p ? p.name : FEHLT,
-      hinweis: p?.qualifikation
-        ? `Angegebene Qualifikation: ${p.qualifikation}. Selbstauskunft der Person, von BIOME nicht geprüft.`
-        : undefined,
-    }
-  }
-
-  function methodeZeilen(methodeId) {
-    const m = nachschlag.methode(methodeId)
-    const s = nachschlag.standardZuMethode(methodeId)
-    const zeilen = [{ k: 'Verfahren', v: m ? m.name : FEHLT, hinweis: m?.beschreibung }]
-    zeilen.push(
-      s
-        ? {
-            k: 'Quelle',
-            v: s.kurzname,
-            hinweis: `${s.herausgeber} · abgerufen ${fmtDatum(s.abgerufen_am)}`,
-            url: s.quelle_url,
-          }
-        : { k: 'Quelle', v: FEHLT, hinweis: 'Für dieses Verfahren ist im Standards-Register keine Quelle hinterlegt.' },
-    )
-    return zeilen
-  }
-
-  function herkunftStammumfang(baum) {
-    const m = messung(baum, 'stammumfang')
-    if (!m) return null
-    const alt = ersetzteMessung(baum, m)
-    const altPerson = alt ? nachschlag.person(alt.erfasst_von) : null
-    return {
-      titel: `Stammumfang ${baum.baumnummer}`,
-      wert: mitEinheit(m.wert, m.einheit),
-      zeilen: [
-        { k: 'Datum', v: fmtDatum(m.datum) },
-        {
-          k: 'Messhöhe',
-          v: m.messhoehe_cm != null ? mitEinheit(m.messhoehe_cm, 'cm') : FEHLT,
-          hinweis: m.messhoehe_cm === 130
-            ? 'Entspricht der Höhe, in der die Berliner Baumschutzverordnung den Stammumfang für den Schutzstatus bemisst. Die Verordnung schreibt keine Katastererfassung vor — die Übereinstimmung ist eine Festlegung von LUMA, damit beide Werte vergleichbar bleiben.'
-            : undefined,
-        },
-        ...methodeZeilen(m.methode_id),
-        { k: 'Messgerät', v: m.messgeraet || FEHLT },
-        personZeile(m.erfasst_von),
-        { k: 'Erfasst am', v: fmtDatum(m.erfasst_am) },
-      ],
-      korrektur: alt
-        ? {
-            vorher: `Vorher: ${mitEinheit(alt.wert, alt.einheit)} · erfasst am ${fmtDatum(alt.datum)}${altPerson ? ` von ${altPerson.name}` : ''}`,
-            grund: m.korrektur_grund,
-          }
-        : null,
-    }
-  }
-
-  /**
-   * Herkunft eines Einzelstamm-Umfangs. Eigene Tafel, weil hier eine Angabe
-   * mehr zu machen ist als beim Gesamtbaum: welcher Stamm gemeint ist und wie
-   * viele überhaupt erfasst wurden. Ohne die zweite Zahl ist nicht zu
-   * erkennen, ob am stärksten Stamm gemessen oder nur einer erwischt wurde.
-   */
-  function herkunftStamm(baum, s) {
-    const m = s.messung
-    return {
-      titel: `Stärkster Stamm ${baum.baumnummer}`,
-      wert: mitEinheit(m.wert, m.einheit),
-      zeilen: [
-        { k: 'Stamm', v: `Nr. ${m.stamm_nr} von ${s.anzahlStaemme} erfassten` },
-        { k: 'Datum', v: fmtDatum(m.datum) },
-        { k: 'Messhöhe', v: m.messhoehe_cm != null ? mitEinheit(m.messhoehe_cm, 'cm') : FEHLT },
-        ...methodeZeilen(m.methode_id),
-        { k: 'Messgerät', v: m.messgeraet || FEHLT },
-        personZeile(m.erfasst_von),
-        {
-          k: 'Maßgeblich', v: 'stärkster Einzelstamm',
-          hinweis: 'Die Baumschutzverordnung schützt mehrstämmige Bäume, „wenn mindestens einer der Stämme einen Mindestumfang von 50 cm aufweist". Maßgeblich ist deshalb der stärkste Stamm — nicht die Summe und nicht der Mittelwert.',
-        },
-      ],
-    }
-  }
-
-  function herkunftVitalitaet(baum) {
-    const b = vitalitaet(baum)
-    if (!b) return null
-    const stufe = ROLOFF_VS.stufen.find(s => s.stufe === b.stufe)
-    return {
-      titel: `Vitalität ${baum.baumnummer}`,
-      wert: stufe ? `${stufe.kurz} · ${stufe.bezeichnung}` : b.stufe,
-      zeilen: [
-        { k: 'Skala', v: ROLOFF_VS.name, hinweis: ROLOFF_VS.bezug },
-        { k: 'Abgrenzung', v: ROLOFF_VS.abgrenzung },
-        { k: 'Datum', v: fmtDatum(b.datum) },
-        ...methodeZeilen(b.methode_id),
-        personZeile(b.erfasst_von),
-        { k: 'Begründung', v: b.begruendung || FEHLT },
-        // Eine Einstufung ohne Kalibrierhilfe ist eine Schätzung. Das gehört
-        // an den Wert und nicht ins Kleingedruckte: die Bildreihen zu VS 0–3
-        // stehen in Roloffs Buchveröffentlichungen und liegen BIOME nicht vor
-        // (refs/standards/01-baeume.md, Abschnitt „Nicht zugänglich").
-        {
-          k: 'Kalibrierung', v: FEHLT,
-          hinweis: 'BIOME zeigt keine Vergleichsbilder zu den Stufen. Die Abbildungen zu VS 0–3 stammen aus Roloffs Buchveröffentlichungen und sind nicht frei verfügbar. Die Einstufung beruht damit allein auf der Erfahrung der beurteilenden Person; zwischen zwei Personen ist sie nicht abgeglichen.',
-        },
-      ],
-    }
-  }
-
-  function herkunftKontrolle(baum) {
-    const k = letzteKontrolle(baum)
-    if (!k) return null
-    return {
-      titel: `Letzte Kontrolle ${baum.baumnummer}`,
-      wert: fmtDatum(k.datum),
-      zeilen: [
-        { k: 'Art', v: KONTROLLART[k.art] || k.art },
-        ...methodeZeilen(k.methode_id),
-        { k: 'Belaubung', v: k.belaubungszustand || FEHLT },
-        personZeile(k.durchgefuehrt_von),
-        { k: 'Befund', v: k.ergebnis_text || FEHLT },
-        {
-          k: 'Maßnahme', v: k.massnahme_empfohlen ? 'von der kontrollierenden Person empfohlen' : 'keine empfohlen',
-          hinweis: k.massnahme_empfohlen
-            ? 'Eine Empfehlung ist noch keine geplante Maßnahme. Vor der Durchführung ist die Artenschutzprüfung nach § 44 BNatSchG erforderlich; sie ist an dieser Kontrolle nicht dokumentiert.'
-            : undefined,
-        },
-      ],
-    }
-  }
-
-  function herkunftStammdatum(baum, feld) {
-    const p = nachschlag.person(baum.angelegt_von)
-    const gemeinsam = [
-      { k: 'Datensatz', v: `Baum ${baum.baumnummer}, Stammdaten` },
-      { k: 'Angelegt am', v: fmtDatum(baum.created_at) },
-      { k: 'Person', v: p ? p.name : FEHLT },
-      {
-        k: 'Verfahren', v: FEHLT,
-        hinweis: 'Für Stammdaten ist im Datenbestand keine Erfassungsmethode hinterlegt. Sie stammen aus der Eigenerfassung im Feld; woher der einzelne Wert kommt, ist nicht festgehalten.',
-      },
-    ]
-    if (feld === 'pflanzjahr') {
-      return {
-        titel: `Pflanzjahr ${baum.baumnummer}`,
-        wert: baum.gepflanzt_jahr != null ? String(baum.gepflanzt_jahr) : FEHLT,
-        zeilen: gemeinsam,
-      }
-    }
-    if (feld === 'position') {
-      return {
-        titel: `Standort ${baum.baumnummer}`,
-        wert: koordinate(
-          baum.position ? { lat: baum.position.coordinates[1], lng: baum.position.coordinates[0] } : null,
-          { crs: baum.crs, genauigkeitM: baum.lagegenauigkeit_m, bezug: baum.lagegenauigkeit_bezug },
-        ),
-        zeilen: [
-          { k: 'Bezugssystem', v: baum.crs },
-          {
-            k: 'Lagegenauigkeit',
-            v: baum.lagegenauigkeit_m != null && baum.lagegenauigkeit_bezug
-              ? `${mitEinheit(baum.lagegenauigkeit_m, 'm')} · ${LAGE_BEZUG[baum.lagegenauigkeit_bezug] || baum.lagegenauigkeit_bezug}`
-              : FEHLT,
-            hinweis: baum.lagegenauigkeit_m != null && baum.lagegenauigkeit_bezug
-              ? 'Mittlerer Abstand zwischen gemessener und als wahr angenommener Position. Die Bezugsebene sagt, über welche Menge von Positionen gemittelt wurde.'
-              : 'Für diesen Baum ist keine Lagegenauigkeit erhoben. Eine Meterangabe ohne Bezugsebene wird nicht angezeigt: aus ihr geht nicht hervor, ob sie für diesen Baum, für alle Bäume oder für den ganzen Datensatz gilt.',
-          },
-          ...gemeinsam,
-        ],
-      }
-    }
-    // Taxonomie
-    return {
-      titel: `Artname ${baum.baumnummer}`,
-      wert: baum.art_wissenschaftlich || 'Art unbestimmt',
-      zeilen: [
-        { k: 'Referenz', v: baum.taxon_quelle || FEHLT },
-        { k: 'Kennung', v: baum.taxon_id || FEHLT },
-        {
-          k: 'Zitat', v: baum.taxon_quelle === 'GBIF Backbone Taxonomy'
-            ? 'GBIF Secretariat (2023). GBIF Backbone Taxonomy. Checklist dataset https://doi.org/10.15468/39omei'
-            : FEHLT,
-          url: baum.taxon_quelle === 'GBIF Backbone Taxonomy' ? 'https://doi.org/10.15468/39omei' : undefined,
-        },
-        {
-          k: 'Trefferqualität', v: FEHLT,
-          hinweis: 'confidence und matchType aus der Namensauflösung sind im Datenbestand nicht gespeichert. Ohne sie ist der Treffer nicht überprüfbar.',
-        },
-        {
-          k: 'Deutscher Name', v: baum.art_deutsch || FEHLT,
-          hinweis: 'Deutsche Trivialnamen sind nicht normiert. Die Referenz liefert keine; dieser Name ist eine Eingabe ohne Quelle.',
-        },
-        ...gemeinsam,
-      ],
-    }
-  }
+  /** Die im Inspector gewählte Ebene, falls eine gewählt ist. */
+  const gewaehlteEbene = auswahl?.art === 'ebene' ? auswahl.ebene.id : null
 
   return (
-    <div style={{ padding: '18px 16px 60px', maxWidth: 1080, margin: '0 auto', fontFamily: SANS }}>
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: 'minmax(0, 1fr)',
+      gridTemplateRows: '1fr auto',
+      minHeight: 'calc(100dvh - 56px)',
+      fontFamily: SANS,
+    }}>
+      {/* Die Dreiteilung aus GE-02: links Karteninhalt (was ist geladen),
+          Mitte der Bestand, rechts der Inspector (was ist ausgewählt).
+          Bei schmalen Fenstern klappen die Seitenflächen unter den Inhalt —
+          MD-10/MD-11 belegen nur die Zweiteilung, mehr behauptet BIOME nicht. */}
+      <div className="biome-flaechen" style={{ display: 'flex', minHeight: 0, alignItems: 'stretch' }}>
+        {/* Sprunglink: die Ebenenleiste bringt Tabstopps mit, und ohne diesen
+            Link muss sie auf jeder Seite neu durchtabbt werden. Der Mangel
+            stand seit Runde 2 im Verdikt. */}
+        <a href="#biome-bestand" className="biome-sprunglink"
+          style={{
+            position: 'absolute', left: -9999, top: 0, zIndex: 50,
+            padding: '10px 14px', background: 'var(--luma-card)',
+            border: `1px solid ${FG}`, borderRadius: 8, color: FG, fontSize: 13,
+          }}>
+          Zum Bestand springen
+        </a>
+
+        <aside
+          aria-label="Karteninhalt"
+          className="biome-seitenflaeche"
+          style={{
+            width: 260, flexShrink: 0, borderRight: `1px solid ${BORDER}`,
+            overflowY: 'auto',
+          }}
+        >
+          <div style={{ ...LABEL, padding: '12px 12px 8px' }}>Karteninhalt</div>
+          <Karteninhalt
+            gruppen={ebenen}
+            sichtbarkeit={sichtbarkeit}
+            aufSichtbarkeit={sichtbarkeitSetzen}
+            gewaehlt={gewaehlteEbene}
+            aufWahl={id => {
+              const e = ebenen.flatMap(g => g.ebenen).find(x => x.id === id)
+              setAuswahl(e ? { art: 'ebene', ebene: e } : null)
+            }}
+          />
+        </aside>
+
+        {/* Kein zweites <main>: Layout.jsx führt bereits die main-Landmarke.
+            Ein benannter Bereich reicht und bleibt für Screenreader
+            ansteuerbar. */}
+        <section id="biome-bestand" aria-label="Bestand" style={{
+          flex: 1, minWidth: 0, overflowY: 'auto',
+          padding: '18px 16px 24px',
+        }}>
       <header style={{ marginBottom: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 3 }}>
           <TreeDeciduous size={18} color={FG} aria-hidden />
           <h1 style={{ margin: 0, fontSize: 19, fontWeight: 600, color: FG }}>Baumkataster</h1>
         </div>
         <p style={{ margin: 0, fontFamily: MONO, fontSize: 11, color: MUTED }}>
-          {standort ? standort.name : 'Kein Standort'} · Stand {fmtDatum(stand.stichdatum)} ·{' '}
+          {standort ? standort.name : 'Kein Standort'} · Stichtag {fmtDatum(stand.stichdatum)} ·{' '}
           {zahl(gruppen.alle.length)} Bäume
         </p>
       </header>
@@ -592,7 +335,7 @@ export default function BiomeBaeumePage() {
                     <Wert monospace={false}
                       text={<em>{b.art_wissenschaftlich}</em>}
                       beschriftung={`Herkunft des Artnamens von ${b.baumnummer} anzeigen`}
-                      onOeffnen={ev => herkunftOeffnen(herkunftStammdatum(b, 'taxon'), ev)} />
+                      onOeffnen={ev => herkunftOeffnen(h.stammdatum(b, 'taxon'), ev)} />
                   ) : (
                     <span data-test="art-unbestimmt" style={{ color: MUTED, fontStyle: 'italic', fontSize: 14 }}>
                       Art unbestimmt
@@ -601,7 +344,10 @@ export default function BiomeBaeumePage() {
                 </div>
 
                 <div style={{ minWidth: 150 }}>
-                  <div style={LABEL}>Stammumfang</div>
+                  {/* Zwei Bezugsgrößen mit zwei verschiedenen Rechtsschwellen
+                      (80 cm gegen 50 cm) dürfen nicht unter derselben
+                      Überschrift stehen. Die Zeile sagt, was sie zeigt. */}
+                  <div style={LABEL}>{!u && stamm ? 'Stärkster Stamm' : 'Stammumfang'}</div>
                   {/* Ein mehrstämmiger Baum hat in 1,30 m keinen einen Umfang.
                       „Keine Angabe" wäre hier falsch: gemessen wurde sehr wohl,
                       nur je Stamm. */}
@@ -609,13 +355,13 @@ export default function BiomeBaeumePage() {
                     <Wert
                       text={`${mitEinheit(stamm.messung.wert, 'cm')} @ ${stamm.messung.messhoehe_cm} cm`}
                       beschriftung={`Herkunft des stärksten Stamms von ${b.baumnummer} anzeigen`}
-                      onOeffnen={ev => herkunftOeffnen(herkunftStamm(b, stamm), ev)} />
+                      onOeffnen={ev => herkunftOeffnen(h.stamm(b, stamm), ev)} />
                   ) : (
                     <Wert
                       fehlt={!u}
                       text={u ? `${mitEinheit(u.wert, u.einheit)}${u.messhoehe_cm != null ? ` @ ${u.messhoehe_cm} cm` : ''}` : ''}
                       beschriftung={`Herkunft des Stammumfangs von ${b.baumnummer} anzeigen`}
-                      onOeffnen={ev => herkunftOeffnen(herkunftStammumfang(b), ev)} />
+                      onOeffnen={ev => herkunftOeffnen(h.stammumfang(b), ev)} />
                   )}
                   {!u && stamm && (
                     <div style={{ color: MUTED, fontSize: 12 }} data-test="stamm-hinweis">
@@ -635,7 +381,7 @@ export default function BiomeBaeumePage() {
                       <Wert
                         text={fmtDatum(k?.datum)}
                         beschriftung={`Herkunft der letzten Kontrolle von ${b.baumnummer} anzeigen`}
-                        onOeffnen={ev => herkunftOeffnen(herkunftKontrolle(b), ev)} />
+                        onOeffnen={ev => herkunftOeffnen(h.kontrolle(b), ev)} />
                       {zustand === 'jahr_ohne' && (
                         <div style={{ color: MUTED, fontSize: 12 }}>
                           keine Kontrolle in {stichjahr}
@@ -651,7 +397,7 @@ export default function BiomeBaeumePage() {
                     fehlt={!stufeInfo}
                     text={stufeInfo ? `${stufeInfo.kurz} · ${stufeInfo.bezeichnung}` : ''}
                     beschriftung={`Herkunft der Vitalitätsstufe von ${b.baumnummer} anzeigen`}
-                    onOeffnen={ev => herkunftOeffnen(herkunftVitalitaet(b), ev)} />
+                    onOeffnen={ev => herkunftOeffnen(h.vitalitaet(b), ev)} />
                   {/* Eine Vitalitätsstufe ohne Datum ist zeitlos — und damit
                       wertlos. VS 1 von 2019 und VS 1 von gestern sahen in
                       dieser Spalte bis 2026-08-10 gleich aus. */}
@@ -662,7 +408,15 @@ export default function BiomeBaeumePage() {
                   )}
                 </div>
 
-                <button type="button" onClick={() => setOffenId(offenId === b.id ? null : b.id)}
+                <button type="button"
+                  onClick={() => {
+                    const auf = offenId === b.id
+                    setOffenId(auf ? null : b.id)
+                    // Auswahl und Aufklappen gehen zusammen: der Inspector
+                    // zeigt dasselbe Objekt, nur vollständiger und an einem
+                    // festen Ort. Zuklappen hebt die Auswahl auf.
+                    setAuswahl(auf ? null : { art: 'baum', baum: b })
+                  }}
                   aria-expanded={offenId === b.id} aria-label={`Details zu ${b.baumnummer}`}
                   style={{
                     width: TIPPZIEL, height: TIPPZIEL, borderRadius: 8, border: `1px solid ${BORDER}`,
@@ -683,14 +437,14 @@ export default function BiomeBaeumePage() {
                         { crs: b.crs, genauigkeitM: b.lagegenauigkeit_m, bezug: b.lagegenauigkeit_bezug },
                       )}
                       beschriftung={`Herkunft des Standorts von ${b.baumnummer} anzeigen`}
-                      onOeffnen={ev => herkunftOeffnen(herkunftStammdatum(b, 'position'), ev)} />
+                      onOeffnen={ev => herkunftOeffnen(h.stammdatum(b, 'position'), ev)} />
                   </Zeile>
                   <Zeile k="Pflanzjahr">
                     <Wert
                       fehlt={b.gepflanzt_jahr == null}
                       text={String(b.gepflanzt_jahr)}
                       beschriftung={`Herkunft des Pflanzjahrs von ${b.baumnummer} anzeigen`}
-                      onOeffnen={ev => herkunftOeffnen(herkunftStammdatum(b, 'pflanzjahr'), ev)} />
+                      onOeffnen={ev => herkunftOeffnen(h.stammdatum(b, 'pflanzjahr'), ev)} />
                   </Zeile>
                   {/* Ohne die Stammform ist die Schutzschwelle nicht
                       bestimmbar: 80 cm einstämmig, 50 cm am stärksten Stamm
@@ -727,6 +481,13 @@ export default function BiomeBaeumePage() {
                   <p style={{ margin: '4px 0 0', fontSize: 12, color: MUTED, lineHeight: 1.5 }}>
                     {KONTROLLE_HINWEIS}
                   </p>
+                  {/* Getrennter Absatz, weil es eine getrennte Art von Aussage
+                      ist: oben steht, was in den Quellen steht, hier steht,
+                      was LUMA entschieden hat. */}
+                  <p data-test="luma-festlegung"
+                    style={{ margin: '2px 0 0', fontSize: 12, color: MUTED, lineHeight: 1.5, fontStyle: 'italic' }}>
+                    {KONTROLLE_FESTLEGUNG}
+                  </p>
                 </div>
               )}
             </Karte>
@@ -734,19 +495,31 @@ export default function BiomeBaeumePage() {
         })}
       </div>
 
+        </section>
+
+        <Inspector
+          auswahl={auswahl}
+          stichjahr={stichjahr}
+          h={h}
+          aufHerkunft={herkunftOeffnen}
+          aufSchliessen={() => setAuswahl(null)}
+        />
+      </div>
+
+      {/* Provenienz permanent statt auf Anfrage — der übernehmenswerteste Zug
+          des Vorbilds (GE-03). Worauf sich alles auf dem Schirm bezieht, steht
+          unten und kostet keinen Platz im Layout. */}
+      <Statusleiste
+        standort={standort}
+        stichdatum={stand.stichdatum}
+        ebenenBilanz={bilanz}
+      />
+
       <HerkunftsTafel eintrag={herkunft} onSchliessen={herkunftSchliessen} />
     </div>
   )
 }
 
-function Zeile({ k, children }) {
-  return (
-    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'baseline' }}>
-      <span style={{ ...LABEL, minWidth: 150 }}>{k}</span>
-      <span style={{ color: FG, flex: 1, minWidth: 180 }}>{children}</span>
-    </div>
-  )
-}
 
 /**
  * Liste als CSV. Der Kopf sagt, was die Datei ist, was sie nicht ist, und
@@ -756,6 +529,8 @@ function Zeile({ k, children }) {
  * @param {import('../biome/daten.js').Baum[]} auswahl
  * @param {{id: string, text: string}|undefined} chip
  */
+const KEIN_WERT = 'kein Wert erfasst'
+
 function exportCsv(stand, auswahl, chip) {
   const standort = stand.standorte[0]
   const stichjahr = Number(stand.stichdatum.slice(0, 4))
@@ -783,14 +558,23 @@ function exportCsv(stand, auswahl, chip) {
     '#',
     '# "kein Wert erfasst" bedeutet: kein Wert vorhanden. Es bedeutet nicht null.',
     '#',
-    '# Bei mehrstämmigen Bäumen bleibt "Stammumfang cm" leer: in 1,30 m Höhe gibt',
-    '# es dort keinen einzelnen Umfang. Maßgeblich für den Schutz nach § 2',
-    '# BaumSchVO ist der stärkste Einzelstamm ab 50 cm, nicht die Summe.',
+    '# Bei mehrstämmigen Bäumen steht in "Stammumfang cm" nicht "kein Wert erfasst",',
+    '# sondern "je Stamm erfasst": in 1,30 m Höhe gibt es dort keinen einzelnen',
+    '# Gesamtumfang, gemessen wurde aber sehr wohl. Die Werte stehen in',
+    '# "Stärkster Stamm cm" und "Erfasste Stämme". Maßgeblich für den Schutz nach',
+    '# § 2 BaumSchVO ist der stärkste Einzelstamm ab 50 cm, nicht die Summe.',
+    '#',
+    '# Das CRS steht als HTTP-URI, nicht als Freitext "EPSG:4326". Diese',
+    '# Schreibweise ist in den GDI-DE-Konventionen für Exporte vorgeschrieben.',
+    '#',
+    '# Taxon-Kennungen tragen Trefferqualität, Trefferart und Auflösungsdatum.',
+    '# Eine Kennung ohne diese drei ist keine Referenz, sondern nur eine Zahl.',
   ].join('\n')
 
   const spalten = [
     'Baumnummer', 'Art wissenschaftlich', 'Art deutsch (nicht normiert)', 'Taxonomie-Referenz',
-    'Taxon-Kennung', 'Stammumfang cm', 'Messhöhe cm', 'Pflanzjahr',
+    'Taxon-Kennung', 'Trefferqualität 0-100', 'Trefferart', 'Namensstatus', 'Taxon aufgelöst am',
+    'Stammumfang cm', 'Messhöhe cm', 'Pflanzjahr',
     'Stammform', 'Stärkster Stamm cm', 'Erfasste Stämme',
     'Letzte Kontrolle', 'Art der Kontrolle', `Kontrolle im Jahr ${stichjahr}`,
     'Breitengrad', 'Längengrad', 'CRS', 'Lagegenauigkeit m', 'Bezugsebene Lagegenauigkeit',
@@ -804,23 +588,34 @@ function exportCsv(stand, auswahl, chip) {
     return [
       b.baumnummer,
       b.art_wissenschaftlich || 'unbestimmt',
-      b.art_deutsch || '',
-      b.taxon_quelle || '',
-      b.taxon_id || '',
-      u ? String(u.wert) : 'kein Wert erfasst',
-      u?.messhoehe_cm != null ? String(u.messhoehe_cm) : 'kein Wert erfasst',
-      b.gepflanzt_jahr != null ? String(b.gepflanzt_jahr) : 'kein Wert erfasst',
+      // B-009 hatte hier drei leere Zellen, obwohl die Datei im Kopf ihre
+      // eigene Konvention für Fehlwerte erklärt. Leere Zelle heißt jetzt
+      // nirgends mehr „nicht erfasst".
+      b.art_deutsch || KEIN_WERT,
+      b.taxon_quelle || KEIN_WERT,
+      b.taxon_id || KEIN_WERT,
+      b.taxon_confidence != null ? String(b.taxon_confidence) : KEIN_WERT,
+      b.taxon_matchtype || KEIN_WERT,
+      b.taxon_status || KEIN_WERT,
+      b.taxon_abgerufen_am ? fmtDatum(b.taxon_abgerufen_am) : KEIN_WERT,
+      // „kein Wert erfasst" wäre bei einem mehrstämmigen Baum eine falsche
+      // Aussage: gemessen wurde, nur nicht am Gesamtbaum.
+      u ? String(u.wert) : stamm ? 'je Stamm erfasst' : KEIN_WERT,
+      u?.messhoehe_cm != null ? String(u.messhoehe_cm)
+        : stamm?.messung.messhoehe_cm != null ? String(stamm.messung.messhoehe_cm)
+          : KEIN_WERT,
+      b.gepflanzt_jahr != null ? String(b.gepflanzt_jahr) : KEIN_WERT,
       b.mehrstaemmig == null ? 'nicht erhoben' : b.mehrstaemmig ? 'mehrstämmig' : 'einstämmig',
-      stamm ? String(stamm.messung.wert) : 'kein Wert erfasst',
-      stamm ? String(stamm.anzahlStaemme) : 'kein Wert erfasst',
-      z === 'nie_kontrolliert' ? 'noch nie kontrolliert' : (k?.datum || 'kein Wert erfasst'),
-      k ? (KONTROLLART[k.art] || k.art) : 'kein Wert erfasst',
+      stamm ? String(stamm.messung.wert) : KEIN_WERT,
+      stamm ? String(stamm.anzahlStaemme) : KEIN_WERT,
+      z === 'nie_kontrolliert' ? 'noch nie kontrolliert' : (k?.datum || KEIN_WERT),
+      k ? (KONTROLLART[k.art] || k.art) : KEIN_WERT,
       z === 'kontrolliert' ? 'dokumentiert' : z === 'nie_kontrolliert' ? 'noch nie kontrolliert' : 'nicht dokumentiert',
-      b.position ? String(b.position.coordinates[1]) : '',
-      b.position ? String(b.position.coordinates[0]) : '',
-      b.crs,
-      b.lagegenauigkeit_m != null && b.lagegenauigkeit_bezug ? String(b.lagegenauigkeit_m) : 'kein Wert erfasst',
-      b.lagegenauigkeit_bezug || 'kein Wert erfasst',
+      b.position ? String(b.position.coordinates[1]) : KEIN_WERT,
+      b.position ? String(b.position.coordinates[0]) : KEIN_WERT,
+      crsUri(b.crs),
+      b.lagegenauigkeit_m != null && b.lagegenauigkeit_bezug ? String(b.lagegenauigkeit_m) : KEIN_WERT,
+      b.lagegenauigkeit_bezug || KEIN_WERT,
     ]
   })
 

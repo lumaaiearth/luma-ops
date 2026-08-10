@@ -343,6 +343,56 @@ SELECT pg_temp.muss_gelten(
    WHERE id = 'c0000000-0000-4000-8000-000000000077'),
   'Ground Truth: die Korrektur an B-007 trägt den Tag der Nachmessung und die nachmessende Person');
 
+-- ── Taxonschlüssel ohne Nachweis ihrer Auflösung ─────────────────────────
+
+SELECT pg_temp.muss_scheitern($$
+  UPDATE biome_baum SET taxon_confidence = NULL WHERE baumnummer = 'B-001'
+$$, 'Taxonschlüssel ohne Trefferqualität wird abgewiesen');
+
+SELECT pg_temp.muss_scheitern($$
+  UPDATE biome_baum SET taxon_matchtype = NULL WHERE baumnummer = 'B-001'
+$$, 'Taxonschlüssel ohne Trefferart wird abgewiesen');
+
+SELECT pg_temp.muss_scheitern($$
+  UPDATE biome_baum SET taxon_abgerufen_am = NULL WHERE baumnummer = 'B-001'
+$$, 'Taxonschlüssel ohne Auflösungsdatum wird abgewiesen');
+
+SELECT pg_temp.muss_scheitern($$
+  UPDATE biome_baum SET taxon_confidence = 101 WHERE baumnummer = 'B-001'
+$$, 'Trefferqualität über 100 wird abgewiesen');
+
+-- Der unbestimmte Baum darf gar keinen Nachweis brauchen: kein Schlüssel,
+-- keine Pflicht. Sonst zwingt die Regel dazu, etwas zu erfinden.
+SELECT pg_temp.muss_gelten(
+  (SELECT taxon_id IS NULL AND taxon_confidence IS NULL
+     FROM biome_baum WHERE baumnummer = 'B-009'),
+  'B-009 ist unbestimmt und trägt deshalb keinen Taxonnachweis');
+
+-- Die drei Schlüssel, die bis 2026-08-10 auf eine andere Art zeigten.
+SELECT pg_temp.muss_gelten(
+  (SELECT count(*) = 0 FROM biome_baum
+    WHERE taxon_id IN ('3189866','5332048','5361896')),
+  'Keiner der drei widerlegten Taxonschlüssel steht mehr im Bestand');
+
+SELECT pg_temp.muss_gelten(
+  (SELECT taxon_id = '3189846' FROM biome_baum WHERE baumnummer = 'B-005'),
+  'Acer platanoides traegt den aufgeloesten Schluessel 3189846');
+
+SELECT pg_temp.muss_gelten(
+  (SELECT taxon_id = '5331916' FROM biome_baum WHERE baumnummer = 'B-011'),
+  'Betula pendula traegt den aufgeloesten Schluessel 5331916');
+
+SELECT pg_temp.muss_gelten(
+  (SELECT taxon_id = '7400250' FROM biome_baum WHERE baumnummer = 'B-012'),
+  'Platanus x hispanica traegt den aufgeloesten Schluessel 7400250');
+
+SELECT pg_temp.muss_gelten(
+  (SELECT bool_and(taxon_confidence = 100 AND taxon_matchtype = 'EXACT'
+                   AND taxon_status = 'ACCEPTED' AND taxon_abgerufen_am = DATE '2026-08-10')
+     FROM biome_baum WHERE taxon_id IS NOT NULL
+       AND standort_id = '50000000-0000-4000-8000-000000000001'),
+  'Jeder Schluessel im Bestand traegt seinen vollstaendigen Auflösungsnachweis');
+
 \echo ''
 \echo 'Alle Regeltests grün.'
 \echo ''

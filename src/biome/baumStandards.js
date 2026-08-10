@@ -101,6 +101,14 @@ export const ROLOFF_VS = {
   quelle: QUELLEN['BAUM-DE-10'],
   bezug: 'Beurteilt wird die Oberkrone an Verzweigungsentwicklung und Kronenstruktur.',
   abgrenzung: 'Misst das längerfristige Wuchspotenzial, nicht den Laubverlust. Nicht in Kronenverlichtung umrechenbar.',
+  /**
+   * Der Rang der Quelle gehört an die Stufe. Das Dokument heißt wörtlich
+   * „Vitalitätsbeurteilung von Champion Trees (Vorschlag)" und ist laut
+   * Register „eine Kurzbeschreibung des Verfahrens durch den Urheber, nicht um
+   * eine Norm". Ohne diesen Hinweis steht die Einstufung verbindlicher da, als
+   * ihre Quelle sie trägt.
+   */
+  quellenstatus: 'Verfahrensvorschlag des Urhebers („Vitalitätsbeurteilung von Champion Trees (Vorschlag)"), keine Norm und kein Regelwerk.',
   stufen: [
     { stufe: '0', kurz: 'VS 0', bezeichnung: 'vollkommen vital', rang: 0 },
     { stufe: '1', kurz: 'VS 1', bezeichnung: 'geringfügig verminderte Vitalität', rang: 1 },
@@ -116,6 +124,13 @@ export const BELAUBUNG = [
   { wert: 'belaubt', bezeichnung: 'belaubt' },
   { wert: 'unbelaubt', bezeichnung: 'unbelaubt' },
 ]
+
+/** Anzeigenamen der Kontrollarten, für Tabellen und Tafeln. */
+export const KONTROLLART_NAME = {
+  regelkontrolle: 'Regelkontrolle',
+  anlasskontrolle: 'Zusatzkontrolle',
+  eingehende_untersuchung: 'Eingehende Untersuchung',
+}
 
 /** Kontrollarten aus der Musterdienstanweisung. */
 export const KONTROLLARTEN = [
@@ -135,11 +150,48 @@ export const KONTROLLARTEN = [
  * es nicht — es gibt eine Begründungs- und Dokumentationspflicht. Der Satz
  * sagt jetzt das, was in der Quelle steht.
  *
- * Was bleibt: Fernerkundung und Sensorik ersetzen die Inaugenscheinnahme
- * nicht (BAUM-DE-11). Das ist die Aussage, die BIOME zu machen hat.
+ * In Runde 4 fiel dann auch der Rest des Satzes — „Auswertungen, Sensorwerte
+ * und Fernerkundung können sie nicht ersetzen". Er stand hier mit
+ * Quellenanspruch, und den hatte er nicht: BAUM-DE-11 sagt, was **genügt**,
+ * nicht was nicht genügt. Er steht jetzt als `KONTROLLE_FESTLEGUNG` weiter
+ * unten, beschriftet als das, was er ist.
  */
 export const KONTROLLE_HINWEIS =
-  'Die Regelkontrolle ist eine visuelle Inaugenscheinnahme durch eine fachlich qualifizierte Person vom Boden aus. Auswertungen, Sensorwerte und Fernerkundung können sie nicht ersetzen. Das Kontrollintervall richtet sich nach Sicherheitserwartung, Baumzustand und Entwicklungsphase; längere wie kürzere Intervalle sind in begründeten und zu dokumentierenden Fällen zulässig.'
+  'Die Regelkontrolle ist eine visuelle Inaugenscheinnahme durch eine fachlich qualifizierte Person vom Boden aus. Das Kontrollintervall richtet sich nach Sicherheitserwartung, Baumzustand und Entwicklungsphase; längere wie kürzere Intervalle sind in begründeten und zu dokumentierenden Fällen zulässig.'
+
+/**
+ * Was BIOME selbst festlegt — ausdrücklich getrennt vom Belegten.
+ *
+ * Bis 2026-08-10 stand mitten im Quellensatz oben: „Auswertungen, Sensorwerte
+ * und Fernerkundung können sie nicht ersetzen." Der Methoden-Critic hat das zu
+ * Recht beanstandet: Beide zugänglichen Quellen sagen, was **genügt** („Hierfür
+ * genügen Regelkontrollen in Form von Sichtkontrollen …"), keine sagt, was
+ * nicht genügt. Fernerkundung und Sensorik kommen in keiner davon vor. Der Satz
+ * stand also mit Quellenanspruch da und hatte keine.
+ *
+ * Gelöscht ist er trotzdem nicht, sondern umgezogen — denn er ist als Aussage
+ * über BIOME wahr: Wir bieten so etwas nicht an. Das ist eine Produkt-
+ * entscheidung, keine fachliche Feststellung, und steht deshalb hier, mit
+ * genau dieser Beschriftung. Dieselbe Trennung wie bei der Messhöhe 1,30 m,
+ * die ebenfalls als „Festlegung von LUMA" ausgewiesen ist.
+ */
+export const KONTROLLE_FESTLEGUNG =
+  'Festlegung von LUMA, nicht aus einer Quelle: BIOME bietet weder Auswertung noch Sensorwert noch Fernerkundung als Ersatz für diese Kontrolle an. Ob eine solche Angabe fachlich an ihre Stelle treten könnte, sagt keines der geprüften Dokumente — deshalb sagt BIOME es auch nicht.'
+
+/**
+ * Gehölzarbeiten und Sperrfrist — § 39 Abs. 5 Satz 1 Nr. 2 BNatSchG (BNAT-03).
+ *
+ * Steht an jeder Maßnahmenempfehlung. Wörtlich aus dem Gesetzestext, samt der
+ * Ausnahme, unter die eine Verkehrssicherungsmaßnahme fallen **kann** — ob sie
+ * es tut, entscheidet BIOME nicht.
+ *
+ * Der Zusatz zu Berlin ist keine Vorsicht, sondern Registerlage: § 39 Abs. 5
+ * Satz 3 ermächtigt die Länder, den Zeitraum zu erweitern oder zu verschieben.
+ * Ob Berlin davon Gebrauch gemacht hat, ist nicht geprüft — BIOME darf den
+ * Bundesfall deshalb nur als Bundesfall zeigen.
+ */
+export const GEHOELZSCHNITT_HINWEIS =
+  'Eine Empfehlung ist noch keine geplante Maßnahme. Für Gehölzarbeiten gilt § 39 Abs. 5 BNatSchG: Bäume außerhalb des Waldes „in der Zeit vom 1. März bis zum 30. September abzuschneiden, auf den Stock zu setzen oder zu beseitigen" ist verboten; „zulässig sind schonende Form- und Pflegeschnitte zur Beseitigung des Zuwachses der Pflanzen oder zur Gesunderhaltung von Bäumen". Das Verbot gilt nicht für Maßnahmen, „die im öffentlichen Interesse nicht auf andere Weise oder zu anderer Zeit durchgeführt werden können", wenn sie unter anderem „der Gewährleistung der Verkehrssicherheit dienen". Ob dieser Fall hier vorliegt, entscheidet BIOME nicht. Angezeigt ist der bundesrechtliche Grundfall: die Länder dürfen den Zeitraum erweitern oder verschieben, ob Berlin das getan hat, ist hier nicht geprüft.'
 
 /**
  * Ableitung des Schutzstatus nach Berliner Baumschutzverordnung.

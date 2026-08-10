@@ -243,6 +243,25 @@ Der Fachtext dazu fehlt weiterhin und wird nicht erfunden.
 
 ---
 
+## 9 · Sitzungslimit bricht Critic-Läufe ab
+
+**Blockiert:** einzelne Critic-Runden, nicht das Produkt.
+
+**Befund:** Mehrere Critic-Läufe sind mit „You've hit your session limit"
+abgebrochen — in Runde 3 vier von fünf, in Runde 4 der Zugänglichkeits-Critic
+mitten in der Messung. Er war bis zum Fokusring im Dialog gekommen (17,82:1)
+und hatte noch kein Urteil abgegeben.
+
+**Warum das zählt:** Ein abgebrochener Critic ist **kein bestandener Bar.** Ein
+Lauf ohne Urteil wird als `"verdikt": "blockiert"` abgelegt und muss wiederholt
+werden. Er darf nie als „keine Befunde" gelesen werden.
+
+**Umgang:** Wiederholen, sobald das Limit zurückgesetzt ist. Die Critics laufen
+gegen einen bereits gebauten Fixture-Server, damit der Lauf nicht jedes Mal
+einen Build mitbezahlt.
+
+---
+
 ## Entscheidungen, die nur Malte treffen kann
 
 1. **Welche Zustandsskala ist die Leitskala für Bäume?**

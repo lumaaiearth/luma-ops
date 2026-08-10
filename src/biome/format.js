@@ -164,6 +164,44 @@ function zuDate(wert) {
 }
 
 /**
+ * Der CRS-Identifikator in der vorgeschriebenen Schreibweise.
+ *
+ * CRS-ID (`refs/standards/00-standort-geodaten.md`) zitiert die GDI-DE-
+ * Konventionen wörtlich: „Für beide Varianten wird analog zu den
+ * INSPIRE-Vorgaben als Identifier der HTTP URI Identifier für das
+ * opengis.net-Repository **vorgeschrieben**" und „… ist für den genannten
+ * HTTP URI Identifier `http://www.opengis.net/def/crs/EPSG/0/[EPSG-Code]` zu
+ * verwenden". Der Registereintrag zieht daraus für BIOME: „nicht ‚EPSG:25833'
+ * als Freitext … **Gilt für Exporte** und für jede Metadatenausgabe."
+ *
+ * Bis 2026-08-10 stand in der CSV-Spalte `CRS` genau der Freitext, den die
+ * Quelle ausschließt.
+ *
+ * @param {string|null|undefined} crs z. B. 'EPSG:25833'
+ * @returns {string} der URI, oder der Eingabewert, wenn er kein EPSG-Code ist
+ */
+export function crsUri(crs) {
+  if (istFehlend(crs)) return FEHLT
+  const m = /^EPSG:(\d+)$/.exec(String(crs).trim())
+  return m ? `http://www.opengis.net/def/crs/EPSG/0/${m[1]}` : String(crs)
+}
+
+/**
+ * Warum BIOME zu seinen Koordinaten keine Genauigkeit behauptet.
+ *
+ * DATUM-ETRS89 wörtlich: ETRS89 und WGS 84 sind beide ein `"Type": "ensemble"`,
+ * das mehrere Realisierungen „without distinction" zusammenfasst. Solange nur
+ * „WGS 84" gespeichert ist und keine Realisierung und keine Epoche, „darf die
+ * Oberfläche keine Lagegenauigkeit unterhalb der Ensemble-Unschärfe
+ * behaupten" — und eine Zahl für diese Unschärfe gibt die Quelle nicht her.
+ *
+ * Der Satz steht an der Koordinate, weil fünf Nachkommastellen sonst für sich
+ * genommen eine Genauigkeit von etwa einem Meter nahelegen.
+ */
+export const CRS_ENSEMBLE_HINWEIS =
+  'Das Bezugssystem ist ein Datum-Ensemble: es fasst mehrere Realisierungen ohne Unterscheidung zusammen. Die Nachkommastellen geben wieder, was gespeichert ist — sie sind keine Aussage über die Genauigkeit der Position.'
+
+/**
  * Bezugsebenen einer Lagegenauigkeit — die wörtlich belegten Reporting scopes
  * aus QUAL-LAGE (`refs/standards/00-standort-geodaten.md`).
  */

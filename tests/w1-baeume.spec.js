@@ -185,8 +185,11 @@ test.describe('Recht', () => {
     // Inaugenscheinnahme nicht. Ein Verlängerungsverbot behauptet BIOME nicht
     // mehr — BAUM-DE-12 lässt längere wie kürzere Intervalle ausdrücklich zu,
     // solange sie begründet und dokumentiert sind. Siehe die Runde-3-Tests.
-    await expect(page.locator('[data-test="baum-B-001"]'))
-      .toContainText('Auswertungen, Sensorwerte und Fernerkundung können sie nicht ersetzen')
+    // Der Satz steht jetzt getrennt und ist als LUMA-Festlegung ausgewiesen:
+    // keine der Quellen sagt, was die Kontrolle NICHT ersetzen kann — sie sagen
+    // nur, was genügt. Siehe die Runde-4-Tests.
+    await expect(page.locator('[data-test="baum-B-001"] [data-test="luma-festlegung"]'))
+      .toContainText('Festlegung von LUMA, nicht aus einer Quelle')
   })
 
   test('führt keine nicht belegte Zustandsskala', async ({ page }) => {
@@ -374,8 +377,11 @@ test.describe('Runde 3 · nichts Unbelegtes auf dem Schirm', () => {
     // können jedoch sowohl längere als auch kürzere Kontrollintervalle möglich
     // sein." Ein Verlängerungsverbot gibt es also nicht.
     await expect(zeile).not.toContainText('Kontrollintervall verlängern')
-    await expect(zeile).toContainText('nicht ersetzen')
     await expect(zeile).toContainText('begründeten und zu dokumentierenden Fällen')
+    // Der Ersatz-Satz steht seit Runde 4 getrennt und als Festlegung von LUMA
+    // beschriftet — die Quellen sagen, was genügt, nicht was nicht genügt.
+    await expect(zeile.locator('[data-test="luma-festlegung"]'))
+      .toContainText('als Ersatz für diese Kontrolle an')
   })
 
   test('die Vitalitätsstufe trägt ihr Datum in der Liste', async ({ page }) => {
@@ -446,5 +452,258 @@ test.describe('Runde 3 · Mehrstämmigkeit', () => {
     await expect(b011).toContainText('mehrstämmig')
     await expect(b011).toContainText('3 Stämme erfasst')
     await expect(b011).toContainText('stärkster 58 cm')
+  })
+})
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Runde 4 — Befunde des Methoden-Critics gegen den Stand von Runde 3.
+
+   Der schwerste: drei von fünf Taxonschlüsseln zeigten auf eine andere Art.
+   3189866 ist *Acer negundo*, nicht *Acer platanoides*. Gegen den belegten
+   GBIF-Endpunkt nachgeprüft, nicht geglaubt.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+test.describe('Runde 4 · Taxonschlüssel tragen ihren Nachweis', () => {
+  test('die widerlegten Kennungen sind nirgends mehr zu sehen', async ({ page }) => {
+    await seiteOeffnen(page)
+    for (const nr of ['B-001', 'B-005', 'B-011', 'B-012']) {
+      await page.locator(`[data-test="baum-${nr}"]`).getByRole('button', {
+        name: new RegExp(`Herkunft des Artnamens von ${nr}`),
+      }).click()
+      const tafel = page.getByRole('dialog', { name: /Herkunft/ })
+      const text = await tafel.innerText()
+      for (const falsch of ['3189866', '5332048', '5361896']) {
+        expect(text, `Widerlegte Kennung ${falsch} steht bei ${nr}`).not.toContain(falsch)
+      }
+      await page.keyboard.press('Escape')
+    }
+  })
+
+  test('Acer platanoides trägt den aufgelösten Schlüssel samt Trefferqualität', async ({ page }) => {
+    await seiteOeffnen(page)
+    await page.locator('[data-test="baum-B-005"]').getByRole('button', {
+      name: /Herkunft des Artnamens von B-005/,
+    }).click()
+    const tafel = page.getByRole('dialog', { name: /Herkunft/ })
+    await expect(tafel).toContainText('3189846')
+    await expect(tafel).toContainText('100 von 100')
+    await expect(tafel).toContainText('EXACT')
+    await expect(tafel).toContainText('ACCEPTED')
+    await expect(tafel).toContainText('10.08.2026')
+    // Das Zitat trägt das Abrufdatum, wie die Quelle es vorschreibt.
+    await expect(tafel).toContainText('accessed via GBIF.org on')
+  })
+
+  test('ein unbestimmter Baum bekommt keinen Nachweis angedichtet', async ({ page }) => {
+    await seiteOeffnen(page)
+    const b009 = page.locator('[data-test="baum-B-009"]')
+    await expect(b009.locator('[data-test="art-unbestimmt"]')).toBeVisible()
+    await expect(b009.getByRole('button', { name: /Herkunft des Artnamens/ })).toHaveCount(0)
+  })
+})
+
+test.describe('Runde 4 · keine Rechtsaussage ohne Quelle', () => {
+  test('nennt keine Artenschutzprüfung nach § 44', async ({ page }) => {
+    await seiteOeffnen(page)
+    await page.locator('[data-test="baum-B-003"]').getByRole('button', {
+      name: /Herkunft der letzten Kontrolle von B-003/,
+    }).click()
+    const tafel = page.getByRole('dialog', { name: /Herkunft/ })
+    // Das Wort kommt im gesamten Standards-Register nicht vor; § 44 enthält
+    // Verbote, keinen Verfahrensschritt.
+    await expect(tafel).not.toContainText('Artenschutzprüfung')
+    await expect(tafel).not.toContainText('§ 44')
+  })
+
+  test('nennt stattdessen die belegte Sperrfrist samt Ausnahme', async ({ page }) => {
+    await seiteOeffnen(page)
+    await page.locator('[data-test="baum-B-003"]').getByRole('button', {
+      name: /Herkunft der letzten Kontrolle von B-003/,
+    }).click()
+    const tafel = page.getByRole('dialog', { name: /Herkunft/ })
+    await expect(tafel).toContainText('§ 39 Abs. 5 BNatSchG')
+    await expect(tafel).toContainText('1. März bis zum 30. September')
+    await expect(tafel).toContainText('Gewährleistung der Verkehrssicherheit')
+    // Der bundesrechtliche Grundfall wird als solcher benannt.
+    await expect(tafel).toContainText('bundesrechtliche Grundfall')
+  })
+
+  test('die Vitalitätstafel nennt den Rang ihrer Quelle', async ({ page }) => {
+    await seiteOeffnen(page)
+    await page.locator('[data-test="baum-B-001"]').getByRole('button', {
+      name: /Herkunft der Vitalitätsstufe von B-001/,
+    }).click()
+    const tafel = page.getByRole('dialog', { name: /Herkunft/ })
+    await expect(tafel).toContainText('Verfahrensvorschlag des Urhebers')
+    await expect(tafel).toContainText('keine Norm')
+  })
+})
+
+test.describe('Runde 4 · Koordinaten und Bezugssystem', () => {
+  test('das Bezugssystem nennt die vorgeschriebene Schreibweise', async ({ page }) => {
+    await seiteOeffnen(page)
+    await page.locator('[data-test="baum-B-001"]').getByRole('button', { name: /Details zu B-001/ }).click()
+    await page.locator('[data-test="baum-B-001"]').getByRole('button', {
+      name: /Herkunft des Standorts von B-001/,
+    }).click()
+    const tafel = page.getByRole('dialog', { name: /Herkunft/ })
+    await expect(tafel).toContainText('http://www.opengis.net/def/crs/EPSG/0/4326')
+  })
+
+  test('die Nachkommastellen werden nicht als Genauigkeit ausgegeben', async ({ page }) => {
+    await seiteOeffnen(page)
+    await page.locator('[data-test="baum-B-001"]').getByRole('button', { name: /Details zu B-001/ }).click()
+    await page.locator('[data-test="baum-B-001"]').getByRole('button', {
+      name: /Herkunft des Standorts von B-001/,
+    }).click()
+    const tafel = page.getByRole('dialog', { name: /Herkunft/ })
+    await expect(tafel).toContainText('Datum-Ensemble')
+    await expect(tafel).toContainText('keine Aussage über die Genauigkeit')
+  })
+})
+
+test.describe('Runde 4 · die Spalte sagt, was sie zeigt', () => {
+  test('B-011 steht unter „Stärkster Stamm", nicht unter „Stammumfang"', async ({ page }) => {
+    await seiteOeffnen(page)
+    const b011 = page.locator('[data-test="baum-B-011"]')
+    await expect(b011).toContainText('Stärkster Stamm')
+    // Zwei Bezugsgrößen mit zwei Rechtsschwellen dürfen nicht dieselbe
+    // Überschrift tragen.
+    await expect(b011).not.toContainText('STAMMUMFANG')
+    const b001 = page.locator('[data-test="baum-B-001"]')
+    await expect(b001).toContainText('Stammumfang')
+  })
+
+  test('der Kopf nennt einen Stichtag, keinen Stand', async ({ page }) => {
+    await seiteOeffnen(page)
+    const kopf = page.locator('header')
+    await expect(kopf).toContainText('Stichtag')
+    await expect(kopf).not.toContainText('Stand ')
+  })
+})
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Die drei Flächen — Umbau nach dem Vorbild aus refs/design/google-earth.md.
+
+   GE-02 trennt die Rollen: links Karteninhalt (was ist geladen), rechts
+   Inspector (was ist ausgewählt), Mitte der Inhalt. GE-03 setzt die
+   Provenienz permanent nach unten. Die Tests halten diese Rollentrennung
+   fest — sie ist der Grund für den Umbau, nicht seine Verzierung.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+test.describe('Karteninhalt · alle elf Domänen, auch die leeren', () => {
+  test('nennt jede Domäne, auch die ohne Daten', async ({ page }) => {
+    await seiteOeffnen(page)
+    const inhalt = page.locator('[data-test="karteninhalt"]')
+    await expect(inhalt).toBeVisible()
+    for (const name of ['Bäume', 'Vegetationsflächen', 'Boden und Bodenleben',
+      'Fauna und Habitatstrukturen', 'Klima und Sensorik', 'Fernerkundung',
+      'Maßnahmen und Wirkung']) {
+      await expect(inhalt).toContainText(name)
+    }
+  })
+
+  test('eine leere Ebene sagt „nichts erfasst" statt zu fehlen', async ({ page }) => {
+    await seiteOeffnen(page)
+    // Gruppen ohne Daten sind zugeklappt — der Gruppenname steht trotzdem da.
+    await page.locator('[data-test="ebenengruppe-g-vegetation"] summary').click()
+    const veg = page.locator('[data-test="ebene-e-vegetation"]')
+    await expect(veg).toContainText('nichts erfasst')
+    // Und sie lässt sich nicht einschalten — es gibt nichts einzuschalten.
+    await expect(veg.getByRole('switch')).toBeDisabled()
+  })
+
+  test('die bespielte Ebene trägt Zahl und Stichtag an der Zeile', async ({ page }) => {
+    await seiteOeffnen(page)
+    const baeume = page.locator('[data-test="ebene-e-baeume"]')
+    await expect(baeume).toContainText('12 Bäume')
+    await expect(baeume).toContainText('Stichtag')
+    await expect(baeume.getByRole('switch')).toBeEnabled()
+  })
+
+  test('eine Gruppe mit sich ausschließenden Ebenen sagt das', async ({ page }) => {
+    await seiteOeffnen(page)
+    const boden = page.locator('[data-test="ebenengruppe-g-boden"]')
+    await expect(boden).toContainText('Nur eine Ebene gleichzeitig')
+  })
+})
+
+test.describe('Inspector · eine Fläche für beide Auswahlfälle', () => {
+  test('sagt im Leerzustand, wozu er da ist', async ({ page }) => {
+    await seiteOeffnen(page)
+    await expect(page.locator('[data-test="inspector-leer"]')).toContainText('Nichts ausgewählt')
+  })
+
+  test('eine gewählte leere Ebene nennt den Grund', async ({ page }) => {
+    await seiteOeffnen(page)
+    await page.locator('[data-test="ebenengruppe-g-vegetation"] summary').click()
+    await page.getByRole('button', { name: /Vegetationsflächen im Inspector öffnen/ }).click()
+    const insp = page.locator('[data-test="inspector"]')
+    await expect(insp).toContainText('Ebene')
+    await expect(insp.locator('[data-test="ebene-leer"]')).toContainText('Welle 2')
+  })
+
+  test('ein gewählter Baum steht mit denselben Werten wie in der Liste', async ({ page }) => {
+    await seiteOeffnen(page)
+    await page.locator('[data-test="baum-B-001"]').getByRole('button', { name: /Details zu B-001/ }).click()
+    const insp = page.locator('[data-test="inspector"]')
+    await expect(insp).toContainText('B-001')
+    await expect(insp).toContainText('92 cm')
+    await expect(insp).toContainText('VS 0')
+    await expect(insp).toContainText('einstämmig')
+  })
+
+  test('auch im Inspector führt jeder Wert zu seiner Herkunft', async ({ page }) => {
+    await seiteOeffnen(page)
+    await page.locator('[data-test="baum-B-001"]').getByRole('button', { name: /Details zu B-001/ }).click()
+    const insp = page.locator('[data-test="inspector"]')
+    // Dieselbe Regel wie in der Liste — es sind dieselben Bauteile.
+    const werte = insp.locator('[data-herkunft="1"]')
+    expect(await werte.count()).toBeGreaterThanOrEqual(3)
+    await werte.first().click()
+    await expect(page.getByRole('dialog', { name: /Herkunft/ })).toBeVisible()
+  })
+
+  test('ein mehrstämmiger Baum zeigt auch hier den stärksten Stamm', async ({ page }) => {
+    await seiteOeffnen(page)
+    await page.locator('[data-test="baum-B-011"]').getByRole('button', { name: /Details zu B-011/ }).click()
+    const insp = page.locator('[data-test="inspector"]')
+    await expect(insp).toContainText('Stärkster Stamm')
+    await expect(insp).toContainText('58 cm')
+    await expect(insp).toContainText('mehrstämmig')
+  })
+})
+
+test.describe('Statusleiste · Provenienz permanent', () => {
+  test('nennt Standort, Stichtag, Bezugssystem und Ebenenbilanz', async ({ page }) => {
+    await seiteOeffnen(page)
+    const leiste = page.locator('[data-test="statusleiste"]')
+    await expect(leiste).toContainText('Stichtag')
+    await expect(leiste).toContainText('EPSG:4326')
+    // Die Bilanz sagt, wie viel vom Datenkern bespielt ist. Ohne sie wirkt
+    // eine Oberfläche mit einer gefüllten Ebene vollständiger, als sie ist.
+    await expect(leiste).toContainText('Ebenen mit Daten')
+    await expect(leiste).toContainText('von 11')
+  })
+})
+
+test.describe('Sprunglink', () => {
+  test('ist erst sichtbar, wenn er den Fokus hat — und zeigt dann auf den Bestand', async ({ page }) => {
+    await seiteOeffnen(page)
+    const link = page.getByRole('link', { name: 'Zum Bestand springen' })
+
+    // Ohne Fokus liegt er außerhalb des Bildschirms und stört niemanden.
+    const vorher = await link.boundingBox()
+    expect(vorher?.x ?? 0, 'Der Sprunglink steht sichtbar im Weg').toBeLessThan(0)
+
+    await link.focus()
+    await expect(link).toBeFocused()
+    const nachher = await link.boundingBox()
+    expect(nachher?.x ?? -1, 'Der Sprunglink bleibt bei Fokus unsichtbar').toBeGreaterThanOrEqual(0)
+
+    // Und er führt an der Ebenenleiste vorbei, nicht irgendwohin.
+    await expect(link).toHaveAttribute('href', '#biome-bestand')
+    await expect(page.locator('#biome-bestand')).toBeVisible()
   })
 })

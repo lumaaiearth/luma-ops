@@ -363,3 +363,46 @@ a { transition: color var(--lu-base) var(--lu-ease), background var(--lu-base) v
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BIOME — die drei Flächen.
+
+   Aufbau nach dem Vorbild aus refs/design/google-earth.md, GE-02: links
+   Karteninhalt, Mitte der Inhalt, rechts der Inspector. Die Maße sind
+   BIOME-Entscheidungen — Google dokumentiert zu den Breiten nichts (GE-02,
+   „Deckt ausdrücklich nicht"), und das Erfinden einer Zahl mit Verweis auf
+   Google wäre genau das, was dieses Produkt nicht tut.
+
+   Die Grenze bei 1024 px stützt sich auf MD-10 (Fenstergrößenklassen). Belegt
+   ist dort nur eine Zweiteilung, und mehr wird hier auch nicht gemacht: über
+   der Grenze drei Spalten, darunter untereinander.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Sprunglink: unsichtbar, bis er den Fokus bekommt. Ohne ihn muss die
+   Ebenenleiste auf jeder Seite neu durchtabbt werden — der Mangel stand seit
+   Runde 2 im Verdikt. */
+.biome-sprunglink:focus,
+.biome-sprunglink:focus-visible {
+  left: 12px !important;
+  top: 12px !important;
+}
+
+@media (max-width: 1023px) {
+  /* Unter der Grenze stapeln sich die Flächen. Der Inhalt steht oben, weil er
+     die Aufgabe trägt; Ebenen und Inspector folgen. Reihenfolge im DOM bleibt
+     unverändert — `order` verschiebt nur die Darstellung, und die Tabfolge
+     führt weiterhin über den Sprunglink am Anfang. */
+  .biome-flaechen {
+    flex-direction: column;
+  }
+  .biome-flaechen > aside {
+    width: auto !important;
+    border-right: none !important;
+    border-left: none !important;
+    border-top: 1px solid var(--luma-border);
+    max-height: 46vh;
+  }
+  .biome-flaechen > section {
+    order: -1;
+  }
+}

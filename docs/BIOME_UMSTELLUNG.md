@@ -37,6 +37,82 @@ Nicht neu gebaut, sondern am Bestand:
 | `ui.css` | Fokusring unterschritt in hellen Themes die 3:1 aus WCAG 1.4.11 |
 | `Layout.jsx` | Inhaltsbereich ist jetzt eine `main`-Landmarke |
 
+## Der Umbau der Oberfläche, 2026-08-10
+
+Malte: „wir sollten uns an den Vorgaben von Google Earth orientieren und das
+ganze Interface danach umbauen, sodass es viel übersichtlicher wird."
+
+Die Vorgaben sind nicht aus dem Gedächtnis übernommen, sondern recherchiert und
+belegt: `refs/design/google-earth.md`, 35 Einträge, 49 abgerufene Quellen, jede
+mit HTTP-Status und wörtlichem Zitat. Der Abschnitt „Nicht zugänglich" nennt,
+was nicht zu holen war — unter anderem existiert zur Knowledge Card **keine
+einzige Maßangabe**, und `m3.material.io` liefert nur ein leeres
+JavaScript-Gerüst. Wo BIOME eine Zahl setzt, die Google nicht dokumentiert,
+steht das im Code an der Stelle.
+
+**Die tragende Vorgabe ist GE-02, die Dreiteilung mit harten Rollen:**
+
+| Fläche | Rolle | Wörtlich belegt |
+|---|---|---|
+| links | **Karteninhalt** — was ist geladen, was ist sichtbar | „Suchen Sie im Bereich Karteninhalt links in Ihrem Projekt nach der Datenebene, die Sie anpassen möchten." |
+| Mitte | der Bestand | — |
+| rechts | **Inspector** — was ist ausgewählt | „Rechts wird der Inspector geöffnet, in dem Details zu dieser Funktion aus der Datenebene angezeigt werden." |
+| unten | **Statusleiste** — Provenienz, permanent | „… um das Datum oder den Zeitraum der Aufnahme der Bilder in der unteren Statusleiste zu sehen." (GE-03) |
+
+Eine Abweichung vom Vorbild ist bewusst: Google führt rechts **zwei**
+konkurrierende Flächen, die Knowledge Card (GE-06) und den Inspector (GE-07).
+BIOME zieht beides zu einer zusammen. Zwei rechte Panels sind eine Altlast,
+kein Vorbild.
+
+**Was der Karteninhalt zeigt:** alle elf Domänen des Datenkerns — auch die
+sieben, zu denen nichts erfasst ist. Sie stehen mit „nichts erfasst" da und
+sagen im Inspector, warum. Das ist dieselbe Regel wie beim einzelnen Wert: eine
+Ebene, die es im Datenmodell gibt, aber nicht in der Liste, ist für den Nutzer
+eine Lücke ohne Namen.
+
+**Der wertvollste Fund der Recherche** ist GE-30, die vier KML-Schaltmodi. Sie
+lösen ein Problem, das BIOME ohnehin hat: zwei Bodenkennzahlen übereinander
+ergeben eine Karte, die zwei verschiedene Dinge gleichzeitig behauptet. Die
+Bodengruppe steht deshalb auf `genau_eine`, Fernerkundung auf
+`nur_abwaehlbar` (Rasterebenen sind zu schwer, um sie alle einzuschalten). Der
+Modus steht **an der Gruppe**, nicht in einer Hilfe — wer nicht weiß, warum
+sich zwei Ebenen ausschließen, hält es für einen Fehler.
+
+**Nebenbei geschlossen:** der Sprunglink, den das Verdikt aus Runde 2 als Lücke
+benannt hatte („Wer mit der Tastatur arbeitet, tabbt die neunzehn Links der
+Navigationsschiene auf jeder Seite erneut durch"). Ohne ihn hätte die neue
+Ebenenleiste die Lücke noch vergrößert.
+
+**Nicht übernommen:** Googles deutsche Fassung übersetzt „feature" durchgehend
+als „Funktion" („Details zu dieser Funktion"). Gemeint ist das Geoobjekt. In
+BIOME heißt es „Objekt".
+
+### Aufräumen, das dazugehörte
+
+Die Seite war ein einzelnes File mit 912 Zeilen, davon eine Komponente mit 588.
+Die Herkunftsfunktionen lagen als Closures in ihrem Rumpf — damit war „jede Zahl
+führt in zwei Klicks zu ihrer Herkunft" an **diese eine Seite** gebunden, und
+der Inspector hätte sie nachbauen müssen. Ein Nachbau weicht ab.
+
+| Neu | Was drin liegt |
+|---|---|
+| `src/biome/herkunft.js` | die Herkunftsfunktionen, als Bauer über einen Datenstand |
+| `src/biome/ui/bausteine.jsx` | `Wert`, `HerkunftsTafel`, `Karte`, `Zeile`, Tokens |
+| `src/biome/ui/Karteninhalt.jsx` | der Ebenenbaum mit Schaltmodi |
+| `src/biome/ui/Inspector.jsx` | die rechte Fläche, für Ebene und Objekt |
+| `src/biome/ui/Statusleiste.jsx` | die untere Leiste |
+| `src/biome/ebenen.js` | der Ebenenkatalog aus dem Datenstand |
+
+Liste und Inspector zeigen dieselben Werte, weil es dieselben Bauteile sind —
+nicht, weil zwei Stellen dasselbe tun sollen.
+
+### Was am Umbau noch fehlt
+
+Die Mitte zeigt den Bestand als Liste, noch nicht die Karte. Der Rahmen ist so
+gebaut, dass die Karte in die Mitte rutscht, ohne dass links, rechts oder unten
+etwas umzieht. Damit ist Schritt 4 unten — „eine Ansicht" — vorbereitet, aber
+nicht erledigt: `/map` und `/biome/baeume` sind weiterhin zwei Menüpunkte.
+
 ## Was noch aussteht: die Zusammenführung
 
 Die Karte schreibt weiterhin nach `map_features.properties`. Solange das so
@@ -108,6 +184,53 @@ nahm deshalb stillschweigend Einstämmigkeit an und rechnete gegen 80 cm. Neu:
 `biome_baum.mehrstaemmig` (dreiwertig, ohne Vorgabewert), `biome_baum_messung.stamm_nr`
 und die Sicht `v_biome_baum_staerkster_stamm`. Ist die Stammform nicht erhoben,
 rechnet BIOME nicht, sondern sagt, was fehlt.
+
+## Nachtrag 2026-08-10, zweite Runde — drei Schlüssel zeigten woandershin
+
+Der Methoden-Critic hat gegen den Stand nach dem ersten Nachtrag erneut mit
+`incumbent` geurteilt. Der schwerste Befund war keiner der Darstellung, sondern
+der Daten.
+
+**Drei von fünf Taxonschlüsseln waren erfunden.** Am belegten Endpunkt selbst
+nachgeprüft, nicht dem Critic geglaubt:
+
+| stand an | Kennung | ist tatsächlich | richtig wäre |
+|---|---|---|---|
+| *Acer platanoides* L. | 3189866 | *Acer negundo* L. | 3189846 |
+| *Betula pendula* Roth | 5332048 | *Betula procurva* subsp. *schugnanica*, SYNONYM | 5331916 |
+| *Platanus × hispanica* | 5361896 | *Ficus trigonata* L., Moraceae | 7400250 |
+
+Die beiden richtigen Schlüssel waren genau die, die im Register wörtlich
+abgedruckt stehen. Die drei falschen waren die, die dort fehlen — sie sahen aus
+wie Referenzwerte, ohne je aus einer Auflösung zu stammen.
+
+Auffallen konnte das nicht, weil der Datensatz nichts mitführte, woran sich
+eine Auflösung erkennen lässt. BAUM-INT-14 verlangt genau das: „Ein Treffer
+ohne diese beiden Werte ist nicht überprüfbar." Seit
+`20260810_biome_taxon_nachweis.sql` ist ein `taxon_id` ohne Quelle,
+Trefferqualität, Trefferart und Abrufdatum nicht mehr speicherbar.
+
+**Vier weitere Befunde, alle behoben:**
+
+| Was dastand | Warum es weg musste |
+|---|---|
+| „Vor der Durchführung ist die Artenschutzprüfung nach § 44 BNatSchG erforderlich" | Das Wort kommt im Register nirgends vor. § 44 enthält Verbote, keinen Verfahrensschritt, und das Register verbietet BIOME ausdrücklich Aussagen zu Verfahrensschritten. Ersetzt durch die wörtlich belegte Sperrfrist aus § 39 Abs. 5 samt Verkehrssicherheits-Ausnahme. |
+| „Auswertungen, Sensorwerte und Fernerkundung können sie nicht ersetzen" | Beide Quellen sagen, was **genügt**, keine sagt, was nicht genügt; Fernerkundung kommt in keiner vor. Der Satz steht jetzt getrennt und beschriftet als Festlegung von LUMA — er ist wahr als Aussage über unser Produkt, nicht als fachliche Feststellung. |
+| `CRS;EPSG:4326` im Export | CRS-ID schreibt den HTTP-URI vor, ausdrücklich „für Exporte". |
+| B-011: `Messhöhe cm = kein Wert erfasst` | Die Oberfläche zeigt für denselben Baum 130 cm. Die Datei behauptete nach ihrer eigenen Legende ein Fehlen, das es nicht gibt. |
+
+Dazu aus den nicht blockierenden Notizen: der Rang der Roloff-Quelle steht
+jetzt an der Stufe („Verfahrensvorschlag des Urhebers, keine Norm"), die
+Ensemble-Grenze an der Koordinate, „Stand" heißt „Stichtag", leere Zellen im
+Export heißen „kein Wert erfasst", und bei einem mehrstämmigen Baum heißt die
+Spalte „Stärkster Stamm" statt „Stammumfang" — zwei Bezugsgrößen mit zwei
+Rechtsschwellen gehören nicht unter dieselbe Überschrift.
+
+**Offen und benannt:** Die vom Critic genannte größte Lücke ist eine
+Erfassungslücke, keine Beleglücke. BAUM-DE-12 liefert für Entwicklungsphase,
+Sicherheitserwartung und Zustand abgeschlossene, wörtlich belegte Wertelisten;
+der Datenkern führt sie nicht. Solange das so ist, kann BIOME kein
+Regelintervall ableiten.
 
 ## Angewendet am 2026-08-09
 
