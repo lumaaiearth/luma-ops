@@ -50,19 +50,41 @@ Messhöhe, Methode und Person, keine registrierte Zustandsskala.
 2. **Schreiben umstellen.** `TreeQuickForm` und das Vollformular legen
    `biome_baum` plus `biome_baum_messung` an statt `properties` zu füllen. Ab
    hier entsteht kein neuer Altbestand mehr.
-3. **Bestand überführen.** Eine Migration liest die vorhandenen
-   `map_features`-Bäume und legt sie im Datenkern an — mit
-   `methode_id = 'M-IMPORT-ALTBESTAND'` und ohne erfundene Messhöhe. Wo die
-   Altdaten eine Angabe nicht hergeben, bleibt sie leer und wird als fehlend
-   angezeigt. Nichts wird geraten, nichts wird gelöscht.
+3. **Bestand überführen.** ✔ Erledigt:
+   `supabase/migrations/20260810_biome_altbestand_uebernahme.sql`.
+
+   Die Migration überführt die **Identität** der Altbäume in `biome_baum`
+   (Nummer, Art, Lage) und legt ihre **Fachangaben** wörtlich in
+   `biome_altbestand_baum` ab — außerhalb des Nachweiskerns.
+
+   Warum getrennt: Die Altdaten haben zu keinem Wert eine Methode, eine
+   Messhöhe oder eine Person, und ihre Zustandsstufen stammen aus den
+   entfernten Skalen. Sie in den Nachweiskern zu schreiben hieße, das
+   Fehlende zu erfinden — in genau der Tabelle, deren Zweck es ist, keine
+   erfundenen Werte zu enthalten. Also: Identität ja, Werte nein.
+
+   Verloren geht dabei nichts. Auch betrieblich wichtige Altangaben bleiben
+   lesbar — bei `B-0001` etwa `verkehrssicherheit = "gefaellung"` —, nur eben
+   als Altangabe ohne Verfahren und ohne Person. `v_biome_baum_altangaben`
+   trennt sie nach „unbelegte Stufe" und „Zahl ohne Verfahren", damit die
+   Oberfläche beides kennzeichnen kann.
+
+   Geprüft mit 17 Regeltests (`fixtures/regeltests-altbestand.sql`): nichts
+   erfunden, nichts verloren, `map_features` unangetastet, rücknehmbar,
+   wiederholbar.
 4. **Eine Ansicht.** Karte und Liste sind zwei Sichten auf denselben Bestand,
    nicht zwei Bestände. Der Menüpunkt „Baumkataster" verschwindet wieder in
    „BIOME™", sobald die Karte alles kann.
 
-Punkt 3 braucht eine Entscheidung von Malte, die in `BLOCKED.md` steht: Soll
-ein übernommener Katasterwert als „in 1,30 m gemessen" gelten oder als
-„Messhöhe unbekannt"? Davon hängt ab, ob Altwerte mit neuen Messungen
-vergleichbar sind.
+Die Entscheidung aus `BLOCKED.md` — gilt ein übernommener Katasterwert als
+„in 1,30 m gemessen" oder als „Messhöhe unbekannt"? — ist damit **nicht
+vorweggenommen**. Fällt sie auf „1,30 m", kann eine spätere Migration die
+Altwerte gezielt in echte Messungen überführen; bis dahin stehen sie als das
+da, was sie sind.
+
+**Noch nicht angewendet:** Die Migrationen liegen als Dateien vor und sind auf
+einem lokalen PostgreSQL geprüft. Auf der Produktionsdatenbank sind sie nicht
+ausgeführt — das gehört zum Merge nach `main`, nicht auf einen Arbeitsbranch.
 
 ## Warum überhaupt ein neuer Datenkern
 

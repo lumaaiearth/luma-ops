@@ -20,6 +20,10 @@ export PGHOST PGPORT PGUSER
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 UP="$ROOT/supabase/migrations/20260809_biome_datenkern.sql"
 DOWN="$ROOT/supabase/migrations/down/20260809_biome_datenkern.down.sql"
+ALT_UP="$ROOT/supabase/migrations/20260810_biome_altbestand_uebernahme.sql"
+ALT_DOWN="$ROOT/supabase/migrations/down/20260810_biome_altbestand_uebernahme.down.sql"
+ALT_FIXTURE="$ROOT/fixtures/altbestand.sql"
+ALT_TESTS="$ROOT/fixtures/regeltests-altbestand.sql"
 BOOTSTRAP="$ROOT/fixtures/00_bootstrap.sql"
 GROUND="$ROOT/fixtures/ground_truth.sql"
 REGELN="$ROOT/fixtures/regeltests.sql"
@@ -74,10 +78,36 @@ else
 fi
 
 if [ -f "$REGELN" ]; then
-  echo "6/6 Regeltests"
+  echo "6/8 Regeltests"
   psql -v ON_ERROR_STOP=1 -q -d "$DB" -f "$REGELN"
 else
-  echo "6/6 Regeltests fehlen — übersprungen"
+  echo "6/8 Regeltests fehlen — übersprungen"
+fi
+
+# ── Übernahme des Altbestands, ebenfalls vor und zurück ───────────────────
+if [ -f "$ALT_UP" ]; then
+  echo "7/8 Altbestand: Fixture, Übernahme vorwärts"
+  lauf "$ALT_FIXTURE"
+  lauf "$ALT_UP"
+
+  echo "8/8 Altbestand: Regeltests, dann rückwärts und erneut vorwärts"
+  psql -v ON_ERROR_STOP=1 -q -d "$DB" -f "$ALT_TESTS"
+
+  BAEUME_VOR=$(psql -tAq -d "$DB" -c "select count(*) from biome_baum")
+  lauf "$ALT_DOWN"
+  REST=$(psql -tAq -d "$DB" -c \
+    "select count(*) from pg_tables where schemaname='public' and tablename='biome_altbestand_baum'")
+  [ "$REST" = "0" ] || { rot "FEHLER: biome_altbestand_baum blieb nach der Rücknahme stehen"; exit 1; }
+  QUELLE=$(psql -tAq -d "$DB" -c "select count(*) from map_features where feature_type='tree'")
+  [ "$QUELLE" = "2" ] || { rot "FEHLER: die Rücknahme hat den Ursprung in map_features angetastet ($QUELLE statt 2)"; exit 1; }
+
+  lauf "$ALT_UP"
+  BAEUME_NACH=$(psql -tAq -d "$DB" -c "select count(*) from biome_baum")
+  [ "$BAEUME_NACH" = "$BAEUME_VOR" ] || {
+    rot "FEHLER: zweiter Übernahmelauf ergibt $BAEUME_NACH statt $BAEUME_VOR Bäume"; exit 1; }
+  echo "    Übernahme ist rücknehmbar und wiederholbar ($BAEUME_NACH Bäume)"
+else
+  echo "7/8 Altbestands-Übernahme fehlt — übersprungen"
 fi
 
 gruen "Migrations-Prüfstand grün."

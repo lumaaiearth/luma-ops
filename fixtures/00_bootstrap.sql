@@ -50,7 +50,21 @@ CREATE TABLE IF NOT EXISTS public.clients (
 CREATE TABLE IF NOT EXISTS public.projects (
   id        TEXT PRIMARY KEY,
   name      TEXT,
-  client_id TEXT REFERENCES public.clients(id)
+  client_id TEXT REFERENCES public.clients(id),
+  geojson   JSONB
+);
+
+-- Der Altbestand von BIOME: Bäume liegen bis zur Umstellung als JSON in
+-- properties. Wird für den Test der Übernahme-Migration gebraucht.
+CREATE TABLE IF NOT EXISTS public.map_features (
+  id           TEXT PRIMARY KEY,
+  project_id   TEXT NOT NULL,
+  feature_type TEXT NOT NULL DEFAULT 'area',
+  geometry     JSONB NOT NULL,
+  properties   JSONB NOT NULL DEFAULT '{}'::jsonb,
+  label        TEXT,
+  created_at   TIMESTAMPTZ DEFAULT now(),
+  updated_at   TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS public.jobs (
