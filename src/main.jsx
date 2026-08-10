@@ -29,6 +29,9 @@ requestAnimationFrame(() => {
     if (fill) fill.style.width = '100%'
     setTimeout(() => {
       loader.style.opacity = '0'
+      // Während des Ausblendens nichts mehr abfangen — sonst gehen die
+      // ersten 450 ms an Klicks ins Leere.
+      loader.style.pointerEvents = 'none'
       setTimeout(() => loader.remove(), 450)
     }, 280)
   })

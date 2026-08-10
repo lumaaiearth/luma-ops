@@ -6,3 +6,7 @@ dist/
 
 # LoD2-Kachel-Downloads (Zwischenspeicher des Patch-Generators)
 scripts/.lod2-cache/
+fortschritt/
+.gate-status.json
+.playwright/
+dist-abnahme/

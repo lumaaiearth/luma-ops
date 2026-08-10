@@ -31,6 +31,24 @@ export function AuthProvider({ children }) {
   useEffect(() => { setAvatarRegistry(allProfiles) }, [allProfiles])
 
   useEffect(() => {
+    // Fixture-Modus für die Playwright-Abnahme: keine Anmeldung, kein Netz.
+    //
+    // Die Bedingung ist eine Vite-Konstante. Beim Produktionsbau wird sie durch
+    // `false` ersetzt und der Zweig fällt beim Bündeln weg — in dist/ existiert
+    // dieser Code nicht. Er kann also nicht zur Laufzeit eingeschaltet werden.
+    if (import.meta.env.VITE_BIOME_FIXTURE) {
+      setUser({ id: '00000000-0000-4000-8000-0000000000ff', email: 'abnahme@luma.test' })
+      setProfile({
+        id: '00000000-0000-4000-8000-0000000000ff',
+        name: 'Abnahme', rolle: 'admin',
+        // org_id muss gesetzt sein, sonst hält RequireAuth das Konto für
+        // frisch angelegt und zeigt den Freischaltungsschirm.
+        org_id: '00000000-0000-4000-8000-0000000000fe',
+      })
+      setLoading(false)
+      return
+    }
+
     // Restore session
     sb.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)

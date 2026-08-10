@@ -1,0 +1,40 @@
+{
+  // Typprüfung für neuen BIOME-Code.
+  //
+  // Das Projekt ist reines JavaScript. Eine Typprüfung über alle 38.000 Zeilen
+  // Altbestand auf einmal wäre ein Berg roter Meldungen, den niemand liest.
+  // Deshalb prüft dieser Lauf zunächst nur den BIOME-Datenzugriff und die
+  // Prüfstand-Skripte — also den Code, der Zahlen berechnet und ausgibt, und
+  // bei dem ein Typfehler eine falsche Zahl auf dem Bildschirm bedeutet.
+  //
+  // Der Geltungsbereich wächst mit jeder Welle. Was hier drinsteht, muss
+  // fehlerfrei sein; das ist Teil des Merge-Gates.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": false,
+    "noImplicitAny": false,
+    "strictNullChecks": true,
+    "noUnusedLocals": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    // import.meta.env stammt von Vite.
+    "types": ["vite/client"],
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": false,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": false
+  },
+  "include": [
+    "src/biome/**/*.js",
+    "src/biome/**/*.jsx"
+  ],
+  "exclude": ["node_modules", "dist", "android", "ios"]
+}

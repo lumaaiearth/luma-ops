@@ -2,7 +2,7 @@
 import {
   normalisiereZeiteintraege, buildLeistungsnachweis, nachweisAlsText,
   formatStunden, formatDatum, formatProzent, planAmpel,
-  anteilJahrBisHeute, anteilVonJahr, jahrVon, monatVon, sollBisKW, isoKW,
+  anteilJahrBisHeute, anteilVonJahr, jahrVon, monatVon, sollBisKW,
 } from '../src/lib/leistungsnachweis.js'
 import { baueNachweisEmail } from '../src/lib/nachweisEmail.js'
 

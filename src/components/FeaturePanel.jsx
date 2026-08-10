@@ -1,5 +1,5 @@
 // Detailpanel für alle kartierten Features (Baum, Beet, Fläche, Punkt, Linie):
-// Kopf mit Typ+Projekt, Maße aus der Geometrie, FLL-Daten (Bäume), Notizen,
+// Kopf mit Typ+Projekt, Maße aus der Geometrie, Baumdaten, Notizen,
 // Fotos (Upload + Beispielbilder), Florales™-Verknüpfung, Aktionen.
 // Desktop: rechte Seite · Mobil: Bottom-Sheet.
 import { useState, useRef } from 'react'
@@ -17,6 +17,7 @@ import { fetchBuildingsAround } from '../lib/overpass.js'
 import { fetchAlkisBuildings, fetchBerlinTrees, isInBerlin, radiusBbox } from '../lib/berlinGeo.js'
 import { findLod2Patch } from '../lib/lod2.js'
 import { analyzeSunAsync, SEASONS, LICHT_KLASSEN } from '../lib/solar.js'
+import { ROLOFF_VS, STAMMUMFANG, KONTROLLE_HINWEIS, schutzschwelleErreicht } from '../biome/baumStandards.js'
 import { checkStarkregen, SZENARIEN, AMPEL } from '../lib/starkregen.js'
 
 const MONO = "'Space Mono', monospace"
@@ -30,21 +31,17 @@ const TYPE_INFO = {
   line:  { icon: '〰️', label: 'Linie' },
 }
 
-const VITAL_INFO = {
-  0: { label: '0 · Keine Einschränkung', color: OK },
-  1: { label: '1 · Leichte Einschränkung', color: OK },
-  2: { label: '2 · Mäßige Einschränkung', color: WARN },
-  3: { label: '3 · Starke Einschränkung', color: DANGER },
-  4: { label: '4 · Abgestorben', color: DANGER },
-}
-const SAFETY_INFO = {
-  sicher: { label: 'Sicher', color: OK },
-  eingeschraenkt: { label: 'Eingeschränkt', color: WARN },
-  gefaehrdet: { label: 'Gefährdet — Maßnahme nötig', color: DANGER },
-  gefaellung: { label: 'Fällung empfohlen', color: DANGER },
-}
+// Vitalität: die Stufen kommen aus dem Standards-Register (Roloff VS 0–3 plus
+// die Sonderausprägungen S und K). Bis 2026-08-09 stand hier eine fünfstufige
+// Skala mit eigenen Bezeichnungen, die keiner belegten Quelle entsprach.
+//
+// Die Ampelfarbe ist bewusst weg. Roloff ordnet den Stufen keine Farbe und
+// keine Dringlichkeit zu; eine rote Plakette hätte aus einer Beobachtung eine
+// Handlungsaufforderung gemacht, die das Dokument nicht hergibt.
+const VITAL_INFO = Object.fromEntries(
+  ROLOFF_VS.stufen.map(s => [s.stufe, { label: `${s.kurz} · ${s.bezeichnung}`, color: MUTED }]),
+)
 const STANDORT_LABELS = { park: 'Park / Grünanlage', strasse: 'Straßenbaum', hof: 'Innenhof / Garten', wald: 'Waldrand / Gehölz', dach: 'Dachbegrünung' }
-const EPS_LABELS = { kein: 'Kein', gering: 'Gering', mittel: 'Mittel', stark: 'Stark' }
 const PLAN_STATUS_LABELS = {
   planung: 'Planung', pdf_erstellt: 'PDF erstellt', bestellung: 'Bestellung',
   bestellung_bestaetigt: 'Bestellt', pflanzung_laufend: 'Pflanzung', wachstum: 'Wachstum', maintenance: 'Pflege',
@@ -428,7 +425,7 @@ function RainCheck({ feature, centroid, canCapture, onUpdateProperties }) {
 const KNOWN_KEYS = new Set([
   'photos', 'notizen', 'baumnummer', 'baummarke', 'baumart_deutsch', 'baumart_latein',
   'stammumfang_cm', 'bhd_cm', 'baumhoehe_m', 'kronendurchmesser_m', 'kronenansatz_m',
-  'pflanzjahr', 'vitalitaet', 'verkehrssicherheit', 'eps_befall', 'schutzstatus',
+  'pflanzjahr', 'vitalitaet', 'mehrstaemmig', 'umfang_unter_kronenansatz', 'bhd_messhoehe_m',
   'schaedlinge', 'standorttyp', 'letzte_kontrolle', 'opacity', 'image_url', 'filename',
   'tiles_url', 'slug', 'minZoom', 'maxZoom', 'tms', 'sonnenanalyse', 'starkregen',
 ])
@@ -443,7 +440,9 @@ export default function FeaturePanel({
   const isTree = feature.feature_type === 'tree'
   const info = TYPE_INFO[feature.feature_type] || { icon: '●', label: feature.feature_type }
   const vital = isTree && p.vitalitaet !== undefined && p.vitalitaet !== '' ? VITAL_INFO[p.vitalitaet] : null
-  const safety = isTree && p.verkehrssicherheit ? SAFETY_INFO[p.verkehrssicherheit] : null
+  const schutz = isTree
+    ? schutzschwelleErreicht({ stammumfangCm: Number(p.stammumfang_cm) || null, mehrstaemmig: !!p.mehrstaemmig })
+    : null
   const m = geomMeasures(feature.geometry)
   const canFloralis = (feature.feature_type === 'bed' || feature.feature_type === 'area') && m?.area_m2 > 0
 
@@ -481,13 +480,38 @@ export default function FeaturePanel({
 
       {/* Inhalt */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {/* Status-Badges (Baum) */}
-        {(vital || safety || (isTree && p.eps_befall)) && (
-          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-            {vital && <Badge color={vital.color}>Vitalität {vital.label}</Badge>}
-            {safety && <Badge color={safety.color}>{safety.label}</Badge>}
-            {isTree && p.eps_befall && p.eps_befall !== 'kein' && <Badge color={WARN}>EPS: {EPS_LABELS[p.eps_befall] || p.eps_befall}</Badge>}
-            {isTree && p.schutzstatus === 'geschuetzt' && <Badge color={A}>Geschützt (BSchVO)</Badge>}
+        {/* Zustand (Baum) — mit Quelle, ohne Ampel.
+            Keine Verkehrssicherheits-Plakette: die Plattform stellt keine
+            Verkehrssicherheit fest, und für die frühere vierstufige Einteilung
+            gibt es kein Dokument. Siehe src/biome/baumStandards.js. */}
+        {vital && (
+          <div>
+            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 4 }}>
+              <Badge color={vital.color}>Vitalität {vital.label}</Badge>
+            </div>
+            <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.4 }}>
+              {ROLOFF_VS.abgrenzung}{' '}
+              <a href={ROLOFF_VS.quelle.url} target="_blank" rel="noreferrer" style={{ color: A }}>
+                {ROLOFF_VS.quelle.kurzname}
+              </a>
+            </div>
+          </div>
+        )}
+
+        {/* Schutzschwelle: berechnet, als Berechnung gekennzeichnet, keine
+            Rechtsauskunft. */}
+        {schutz && (
+          <div style={{ fontSize: 12, lineHeight: 1.45, padding: '8px 10px', borderRadius: 7, border: `1px solid ${BORDER}`, background: 'color-mix(in srgb, var(--luma-fg) 3%, transparent)' }}>
+            <div style={{ fontWeight: 600, color: FG, marginBottom: 3 }}>
+              Umfangsschwelle nach BaumSchVO {schutz.status === 'erreicht' ? 'erreicht' : 'nicht erreicht'}
+              <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED, marginLeft: 7, textTransform: 'uppercase', letterSpacing: '0.08em' }}>berechnet</span>
+            </div>
+            <div style={{ color: MUTED }}>
+              {p.stammumfang_cm} cm gegen Schwelle {schutz.schwelleCm} cm. Der tatsächliche
+              Schutz hängt zusätzlich von der Baumart und den Ausnahmen in § 2 Abs. 3 ab.
+              Das ist keine Rechtsauskunft.{' '}
+              <a href={schutz.quelle.url} target="_blank" rel="noreferrer" style={{ color: A }}>{schutz.quelle.kurzname}</a>
+            </div>
           </div>
         )}
 
@@ -501,11 +525,17 @@ export default function FeaturePanel({
           </div>
         )}
 
-        {/* FLL-Maße (Baum) */}
+        {/* Gemessene Größen (Baum) */}
         {isTree && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
-            <Stat label="Umfang" value={p.stammumfang_cm} unit="cm" />
-            <Stat label="BHD" value={p.bhd_cm} unit="cm" />
+            {/* Ein Stammumfang ohne Messhöhe ist keine Zahl, sondern eine
+                Behauptung — deshalb steht die Höhe am Wert. */}
+            <Stat
+              label={p.umfang_unter_kronenansatz ? 'Umfang (unter Kronenansatz)' : `Umfang (${STAMMUMFANG.messhoeheCm} cm Höhe)`}
+              value={p.stammumfang_cm} unit="cm" />
+            <Stat
+              label={p.bhd_messhoehe_m ? `BHD (${p.bhd_messhoehe_m} m Höhe)` : 'BHD (Messhöhe fehlt)'}
+              value={p.bhd_cm} unit="cm" />
             <Stat label="Höhe" value={p.baumhoehe_m} unit="m" />
             <Stat label="Krone Ø" value={p.kronendurchmesser_m} unit="m" />
             <Stat label="Kronenansatz" value={p.kronenansatz_m} unit="m" />
@@ -522,6 +552,14 @@ export default function FeaturePanel({
             {p.schaedlinge && <Row k="Schädlinge" v={p.schaedlinge} />}
             {p.letzte_kontrolle && <Row k="Letzte Kontrolle" v={p.letzte_kontrolle} />}
             {extraProps.map(([k, v]) => <Row key={k} k={k.replace(/_/g, ' ')} v={String(v)} />)}
+          </div>
+        )}
+
+        {/* Bei Bäumen steht vor den Auswertungen, was sie nicht sind. Die Regel
+            gilt am Anzeigeort, nicht in einer Fußnote am Seitenende. */}
+        {isTree && (
+          <div style={{ fontSize: 11, lineHeight: 1.45, color: MUTED, padding: '8px 10px', borderRadius: 7, border: `1px dashed ${BORDER}` }}>
+            {KONTROLLE_HINWEIS}
           </div>
         )}
 
