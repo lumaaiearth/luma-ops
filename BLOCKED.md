@@ -73,11 +73,77 @@ gegen Methode, Recht und Aufgabe geprüft und das Aussetzen im Verdikt vermerkt.
 | FLL ZTV-Baumpflege 2017 | 44,00 € (PDF) | 17-seitige Inhaltsübersicht |
 | FLL-Baumuntersuchungsrichtlinien 2013 | im Paket 70,00 € | nicht abgerufen |
 
-**Unmittelbare Folge für das laufende Produkt:** Die Oberfläche führt heute
-Baumfelder unter der Beschriftung „FLL-Daten" und „Alle FLL-Felder ausfüllen"
-(`src/components/FeaturePanel.jsx`, `src/components/TreeQuickForm.jsx`). Es gibt
-keinen frei belegten FLL-Feldkatalog. Diese Beschriftung ist nicht
-verteidigungsfähig und wird entfernt.
+**Unmittelbare Folge für das laufende Produkt:** Die Beschriftungen „FLL-Daten"
+und „Alle FLL-Felder ausfüllen" waren nicht verteidigungsfähig und sind am
+2026-08-09 entfernt.
+
+### Was ein Kauf konkret bringen würde — geprüft am 2026-08-09
+
+Die Leseproben wurden geöffnet und ihre Verzeichnisse gelesen. Damit ist
+seitengenau bekannt, was hinter der Bezahlschranke liegt.
+
+**Baumkontrollrichtlinien 2020 — 44,00 €. Das ist die lohnendste Anschaffung.**
+
+Die größte offene Lücke aus Welle 1 hat einen Namen und eine Seitenzahl. Der
+Methoden-Critic hat beanstandet, dass BIOME nicht sagen kann, wann eine
+Kontrolle fällig ist, weil Entwicklungsphase, berechtigte Sicherheitserwartung
+und Zustand nicht erfasst sind. Genau davon handelt
+
+> `5.2.1 Faktoren für die Häufigkeit von Baumkontrollen (Regelkontrollen)`,
+> Seiten 20–24
+
+Fünf Seiten, die das Feld erst modellierbar machen. Dazu kommen aus demselben
+Band:
+
+| Abschnitt | Seiten | Warum es uns fehlt |
+|---|---|---|
+| 3.2 Verkehrssicherungspflicht und Artenschutz | 13 | Die Schnittstelle, an der § 44 BNatSchG und Verkehrssicherung aufeinandertreffen |
+| 5.2.2 Umfang, Durchführung | 25–27 | Was eine Kontrolle abdecken muss |
+| 5.2.6 Dokumentation | 30 | Welche Felder ein Kontrolldatensatz führen muss |
+| 5.4 Grenzen von Regelkontrollen | 31 | Genau unsere Rechtsregel: was eine Sichtkontrolle nicht leistet |
+| Anhang A Begriffsbestimmungen | 37–51 | Der Begriffskatalog, den wir sonst nicht haben |
+
+Das Regel-Kontrollintervall selbst (5.2.3, Seite 28) ist **nicht** nötig — es
+liegt über die BADK/GALK-Musterdienstanweisung frei vor (BAUM-DE-12).
+
+**ZTV-Baumpflege 2017 — 44,00 €. Kann warten.**
+
+Die freie 17-seitige Inhaltsübersicht („Informative Inhaltsübersicht; Keine
+vollständige Publikation!") enthält den **vollständigen Maßnahmenwortschatz**:
+Jungbaumpflege (Erziehungs- und Aufbauschnitt), Kronenpflege,
+Lichtraumprofilschnitt, Formschnitt, Kopfbaumschnitt, stark eingreifende
+Schnittmaßnahmen — jeweils im technischen Teil und im Leistungsteil.
+
+Eine Maßnahmen-Auswahlliste lässt sich damit schon heute belegt aufbauen. Was
+fehlt, sind die **Definitionen**: was genau als Kronenpflege gilt und was nicht.
+Solange BIOME nur benennt, reicht die Übersicht. Sobald BIOME beschreibt,
+kalkuliert oder als Leistung nachweist, braucht es den Volltext. Das ist Welle 2
+und später, nicht jetzt.
+
+**Baumuntersuchungsrichtlinien 2013 — nur im Themenpaket gesehen (70,00 €).**
+
+Erst nötig, wenn eingehende Untersuchungen dazukommen (Zugversuch,
+Schalltomografie, Bohrwiderstand) — also wenn die Regelkontrolle an ihre Grenze
+stößt. Als Themenpaket zusammen mit den Baumkontrollrichtlinien kostet es
+70,00 € statt 44,00 € für die Kontrollrichtlinien allein: 26 € Aufpreis für den
+zweiten Band.
+
+**Empfehlung:** Themenpaket für 70,00 €. Die Baumkontrollrichtlinien lösen die
+größte offene Lücke der laufenden Welle, und der zweite Band ist für 26 €
+mitgenommen. ZTV-Baumpflege später, wenn die Maßnahmen-Domäne dran ist.
+
+### Was ein Kauf ausdrücklich NICHT ändert
+
+Im Impressum der Leseprobe steht wörtlich:
+
+> „Alle Rechte vorbehalten. Nachdruck nur in vollständiger Fassung mit
+> ausdrücklicher Genehmigung des Herausgebers."
+
+Das heißt: Der Wortlaut darf ins interne Register unter `refs/standards/`, aber
+**nicht als BIOME-Inhalt ausgeliefert** werden. Die Oberfläche kann dann auf die
+Richtlinie verweisen und ihre Systematik anwenden — sie kann die Definitionen
+nicht abdrucken. Und die PDFs gehören **nicht ins Repository**: das ist auf
+GitHub, der Vertrieb liegt beim Herausgeber.
 
 ---
 
