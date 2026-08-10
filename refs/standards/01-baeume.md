@@ -126,7 +126,7 @@
   „In Berlin stehen grundsätzlich alle Laubbäume, die einen Stammumfang von mindestens 80 Zentimeter in 1,30 Meter Höhe erreicht haben, unter dem besonderen Schutz der Berliner Baumschutzverordnung. Das betrifft auch die Straßenbäume."
 - **Deckt in BIOME:**
   - **Erfassungsmethode Stammumfang:** Messung in 1,30 m Höhe über dem Erdboden; Sonderregel: liegt der Kronenansatz darunter, wird unmittelbar unter dem Kronenansatz gemessen. Ein BIOME-Erfassungsformular für Stammumfang muss diese Messhöhe anzeigen und ein Kennzeichen „abweichend, unter Kronenansatz gemessen" führen.
-  - **Mehrstämmigkeit:** BIOME braucht ein Feld für mehrstämmige Bäume, weil die Schutzschwelle dort auf 50 cm je Stamm wechselt.
+  - **Mehrstämmigkeit:** BIOME braucht ein Feld für mehrstämmige Bäume, weil die Schutzschwelle dort auf 50 cm am stärksten Stamm wechselt — die Verordnung fragt nach „mindestens einer der Stämme“, also nicht nach einer Summe und nicht nach jedem Stamm.
   - **Schwellenwerte für eine Schutzstatus-Anzeige:** 80 cm (einstämmig, Laubbäume + Waldkiefer + Walnuss + Türkischer Baumhasel), 50 cm (mindestens ein Stamm bei Mehrstämmigkeit). Einheit cm — identisch mit `stammumfg` aus BAUM-BE-02, damit direkt rechenbar.
 - **Deckt ausdrücklich nicht:**
   - Diese Messhöhe gilt **rechtlich für den Schutzstatus**, nicht als Vorschrift für Katastererfassung. Ob das GRIS `stammumfg` in genau dieser Höhe erhebt, ist nirgends belegt (siehe „Offene Fragen").

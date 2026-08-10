@@ -29,6 +29,8 @@ Nicht neu gebaut, sondern am Bestand:
 | dito | Messhöhe des Stammumfangs von 1 m auf 1,30 m berichtigt, Sonderregel bei tiefem Kronenansatz ergänzt, BHD hat jetzt ein Messhöhenfeld |
 | dito | Schutzstatus wird nicht mehr von Hand gesetzt, sondern aus dem Umfang abgeleitet und als „berechnet" gekennzeichnet |
 | dito | Beschriftungen „FLL-Daten" und „Alle FLL-Felder" entfernt |
+| `MapPage.jsx`, `FeaturePanel.jsx` | Stammform ist dreiwertig statt einer Ankreuzbox. „Nicht angekreuzt" hieß zugleich „einstämmig" und „niemand hat nachgesehen", und die Schutzschwelle sprang stillschweigend auf 80 cm. Jetzt: nicht erhoben / einstämmig / mehrstämmig, bei mehrstämmig zusätzlich der Umfang des stärksten Stamms |
+| dito | Ist die Schwelle nicht bestimmbar, steht das da — statt einer gerechneten Zahl auf geratener Grundlage |
 | `MapPage.jsx` | `compressImage` war nicht importiert; der Fehler lief in einen leeren `catch`, dadurch wurde jedes Drohnenbild ungedrosselt hochgeladen |
 | `index.html` | Zoom war gesperrt (`user-scalable=no`) — WCAG 1.4.4 |
 | `ThemeContext.jsx` | Gedämpfter Text erreichte in beiden hellen Themes nur 4,07:1 statt 4,5:1 |
@@ -81,6 +83,31 @@ Die Entscheidung aus `BLOCKED.md` — gilt ein übernommener Katasterwert als
 vorweggenommen**. Fällt sie auf „1,30 m", kann eine spätere Migration die
 Altwerte gezielt in echte Messungen überführen; bis dahin stehen sie als das
 da, was sie sind.
+
+## Nachtrag 2026-08-10 — zwei Angaben, die es nicht gab
+
+Der Methoden-Critic hat in Runde 3 zwei Stellen gefunden, an denen die
+Oberfläche etwas behauptete, das im Datenbestand nicht vorkam.
+
+**„± 3 m" hinter jeder Koordinate.** Die Zahl stand in der Ground Truth und
+wurde durchgereicht. Belegt war sie nicht: `00-standort-geodaten.md` hält unter
+DATUM-ETRS89 wörtlich fest, „eine konkrete Meterangabe ist aus dieser Quelle
+nicht belegbar", und QUAL-LAGE verlangt zusätzlich die Bezugsebene — Einzelobjekt,
+Objektart oder Datensatz —, weil sonst nicht erkennbar ist, worüber gemittelt
+wurde.
+
+Der Wert ist entfernt, nicht umformuliert. Damit er nicht wiederkommt, ist die
+Bezugsebene seit `20260810_biome_lagegenauigkeit_und_mehrstaemmigkeit.sql` eine
+Spalte mit Prüfbedingung: eine Meterangabe ohne sie ist nicht speicherbar, in
+drei Tabellen.
+
+**Mehrstämmigkeit gab es gar nicht.** BAUM-BE-06 schützt mehrstämmige Bäume,
+„wenn mindestens einer der Stämme einen Mindestumfang von 50 cm aufweist". Der
+Datenkern kannte weder das Merkmal noch Einzelstämme, und `schutzschwelleErreicht()`
+nahm deshalb stillschweigend Einstämmigkeit an und rechnete gegen 80 cm. Neu:
+`biome_baum.mehrstaemmig` (dreiwertig, ohne Vorgabewert), `biome_baum_messung.stamm_nr`
+und die Sicht `v_biome_baum_staerkster_stamm`. Ist die Stammform nicht erhoben,
+rechnet BIOME nicht, sondern sagt, was fehlt.
 
 ## Angewendet am 2026-08-09
 

@@ -44,9 +44,9 @@ import { TreeDeciduous, Download, X, ChevronRight } from 'lucide-react'
 import { SURFACE, BORDER, FG, MUTED, CARD, WARN } from '../lib/theme.js'
 import {
   ladeDatenstand, messung, ersetzteMessung, letzteKontrolle, kontrollstand,
-  vitalitaet, artenverteilung, nachschlagen,
+  vitalitaet, artenverteilung, nachschlagen, staerksterStamm,
 } from '../biome/daten.js'
-import { FEHLT, datum as fmtDatum, mitEinheit, koordinate, zahl } from '../biome/format.js'
+import { FEHLT, datum as fmtDatum, mitEinheit, koordinate, zahl, LAGE_BEZUG } from '../biome/format.js'
 import { ROLOFF_VS, KONTROLLE_HINWEIS } from '../biome/baumStandards.js'
 
 const MONO = "'Space Mono', monospace"
@@ -239,7 +239,9 @@ export default function BiomeBaeumePage() {
       alle: b,
       ohne_kontrolle: b.filter(x => kontrollstand(x, stichjahr) !== 'kontrolliert'),
       nie: b.filter(x => kontrollstand(x, stichjahr) === 'nie_kontrolliert'),
-      ohne_umfang: b.filter(x => !messung(x, 'stammumfang')),
+      // Ein mehrstämmiger Baum mit Einzelstammwerten ist gemessen, nur eben
+      // nicht am Gesamtbaum. Er gehört nicht in „ohne Stammumfang".
+      ohne_umfang: b.filter(x => !messung(x, 'stammumfang') && !staerksterStamm(x)),
       unbestimmt: b.filter(x => !x.art_wissenschaftlich),
     }
   }, [stand, stichjahr])
@@ -340,6 +342,32 @@ export default function BiomeBaeumePage() {
     }
   }
 
+  /**
+   * Herkunft eines Einzelstamm-Umfangs. Eigene Tafel, weil hier eine Angabe
+   * mehr zu machen ist als beim Gesamtbaum: welcher Stamm gemeint ist und wie
+   * viele überhaupt erfasst wurden. Ohne die zweite Zahl ist nicht zu
+   * erkennen, ob am stärksten Stamm gemessen oder nur einer erwischt wurde.
+   */
+  function herkunftStamm(baum, s) {
+    const m = s.messung
+    return {
+      titel: `Stärkster Stamm ${baum.baumnummer}`,
+      wert: mitEinheit(m.wert, m.einheit),
+      zeilen: [
+        { k: 'Stamm', v: `Nr. ${m.stamm_nr} von ${s.anzahlStaemme} erfassten` },
+        { k: 'Datum', v: fmtDatum(m.datum) },
+        { k: 'Messhöhe', v: m.messhoehe_cm != null ? mitEinheit(m.messhoehe_cm, 'cm') : FEHLT },
+        ...methodeZeilen(m.methode_id),
+        { k: 'Messgerät', v: m.messgeraet || FEHLT },
+        personZeile(m.erfasst_von),
+        {
+          k: 'Maßgeblich', v: 'stärkster Einzelstamm',
+          hinweis: 'Die Baumschutzverordnung schützt mehrstämmige Bäume, „wenn mindestens einer der Stämme einen Mindestumfang von 50 cm aufweist". Maßgeblich ist deshalb der stärkste Stamm — nicht die Summe und nicht der Mittelwert.',
+        },
+      ],
+    }
+  }
+
   function herkunftVitalitaet(baum) {
     const b = vitalitaet(baum)
     if (!b) return null
@@ -354,6 +382,14 @@ export default function BiomeBaeumePage() {
         ...methodeZeilen(b.methode_id),
         personZeile(b.erfasst_von),
         { k: 'Begründung', v: b.begruendung || FEHLT },
+        // Eine Einstufung ohne Kalibrierhilfe ist eine Schätzung. Das gehört
+        // an den Wert und nicht ins Kleingedruckte: die Bildreihen zu VS 0–3
+        // stehen in Roloffs Buchveröffentlichungen und liegen BIOME nicht vor
+        // (refs/standards/01-baeume.md, Abschnitt „Nicht zugänglich").
+        {
+          k: 'Kalibrierung', v: FEHLT,
+          hinweis: 'BIOME zeigt keine Vergleichsbilder zu den Stufen. Die Abbildungen zu VS 0–3 stammen aus Roloffs Buchveröffentlichungen und sind nicht frei verfügbar. Die Einstufung beruht damit allein auf der Erfahrung der beurteilenden Person; zwischen zwei Personen ist sie nicht abgeglichen.',
+        },
       ],
     }
   }
@@ -403,14 +439,18 @@ export default function BiomeBaeumePage() {
         titel: `Standort ${baum.baumnummer}`,
         wert: koordinate(
           baum.position ? { lat: baum.position.coordinates[1], lng: baum.position.coordinates[0] } : null,
-          { crs: baum.crs, genauigkeitM: baum.lagegenauigkeit_m },
+          { crs: baum.crs, genauigkeitM: baum.lagegenauigkeit_m, bezug: baum.lagegenauigkeit_bezug },
         ),
         zeilen: [
           { k: 'Bezugssystem', v: baum.crs },
           {
             k: 'Lagegenauigkeit',
-            v: baum.lagegenauigkeit_m != null ? mitEinheit(baum.lagegenauigkeit_m, 'm') : FEHLT,
-            hinweis: 'Angabe der erfassenden Person, keine gemessene Standardabweichung.',
+            v: baum.lagegenauigkeit_m != null && baum.lagegenauigkeit_bezug
+              ? `${mitEinheit(baum.lagegenauigkeit_m, 'm')} · ${LAGE_BEZUG[baum.lagegenauigkeit_bezug] || baum.lagegenauigkeit_bezug}`
+              : FEHLT,
+            hinweis: baum.lagegenauigkeit_m != null && baum.lagegenauigkeit_bezug
+              ? 'Mittlerer Abstand zwischen gemessener und als wahr angenommener Position. Die Bezugsebene sagt, über welche Menge von Positionen gemittelt wurde.'
+              : 'Für diesen Baum ist keine Lagegenauigkeit erhoben. Eine Meterangabe ohne Bezugsebene wird nicht angezeigt: aus ihr geht nicht hervor, ob sie für diesen Baum, für alle Bäume oder für den ganzen Datensatz gilt.',
           },
           ...gemeinsam,
         ],
@@ -539,6 +579,7 @@ export default function BiomeBaeumePage() {
           const stufe = vitalitaet(b)
           const zustand = kontrollstand(b, stichjahr)
           const stufeInfo = stufe ? ROLOFF_VS.stufen.find(s => s.stufe === stufe.stufe) : null
+          const stamm = staerksterStamm(b)
           return (
             <Karte key={b.id} data-test={`baum-${b.baumnummer}`} style={{ padding: 12 }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'baseline' }}>
@@ -561,11 +602,26 @@ export default function BiomeBaeumePage() {
 
                 <div style={{ minWidth: 150 }}>
                   <div style={LABEL}>Stammumfang</div>
-                  <Wert
-                    fehlt={!u}
-                    text={u ? `${mitEinheit(u.wert, u.einheit)}${u.messhoehe_cm != null ? ` @ ${u.messhoehe_cm} cm` : ''}` : ''}
-                    beschriftung={`Herkunft des Stammumfangs von ${b.baumnummer} anzeigen`}
-                    onOeffnen={ev => herkunftOeffnen(herkunftStammumfang(b), ev)} />
+                  {/* Ein mehrstämmiger Baum hat in 1,30 m keinen einen Umfang.
+                      „Keine Angabe" wäre hier falsch: gemessen wurde sehr wohl,
+                      nur je Stamm. */}
+                  {!u && stamm ? (
+                    <Wert
+                      text={`${mitEinheit(stamm.messung.wert, 'cm')} @ ${stamm.messung.messhoehe_cm} cm`}
+                      beschriftung={`Herkunft des stärksten Stamms von ${b.baumnummer} anzeigen`}
+                      onOeffnen={ev => herkunftOeffnen(herkunftStamm(b, stamm), ev)} />
+                  ) : (
+                    <Wert
+                      fehlt={!u}
+                      text={u ? `${mitEinheit(u.wert, u.einheit)}${u.messhoehe_cm != null ? ` @ ${u.messhoehe_cm} cm` : ''}` : ''}
+                      beschriftung={`Herkunft des Stammumfangs von ${b.baumnummer} anzeigen`}
+                      onOeffnen={ev => herkunftOeffnen(herkunftStammumfang(b), ev)} />
+                  )}
+                  {!u && stamm && (
+                    <div style={{ color: MUTED, fontSize: 12 }} data-test="stamm-hinweis">
+                      stärkster von {stamm.anzahlStaemme} Stämmen
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ minWidth: 170 }}>
@@ -596,6 +652,14 @@ export default function BiomeBaeumePage() {
                     text={stufeInfo ? `${stufeInfo.kurz} · ${stufeInfo.bezeichnung}` : ''}
                     beschriftung={`Herkunft der Vitalitätsstufe von ${b.baumnummer} anzeigen`}
                     onOeffnen={ev => herkunftOeffnen(herkunftVitalitaet(b), ev)} />
+                  {/* Eine Vitalitätsstufe ohne Datum ist zeitlos — und damit
+                      wertlos. VS 1 von 2019 und VS 1 von gestern sahen in
+                      dieser Spalte bis 2026-08-10 gleich aus. */}
+                  {stufe && (
+                    <div style={{ color: MUTED, fontSize: 12 }} data-test="vitalitaet-datum">
+                      beurteilt {fmtDatum(stufe.datum)}
+                    </div>
+                  )}
                 </div>
 
                 <button type="button" onClick={() => setOffenId(offenId === b.id ? null : b.id)}
@@ -616,7 +680,7 @@ export default function BiomeBaeumePage() {
                       fehlt={!b.position}
                       text={koordinate(
                         b.position ? { lat: b.position.coordinates[1], lng: b.position.coordinates[0] } : null,
-                        { crs: b.crs, genauigkeitM: b.lagegenauigkeit_m },
+                        { crs: b.crs, genauigkeitM: b.lagegenauigkeit_m, bezug: b.lagegenauigkeit_bezug },
                       )}
                       beschriftung={`Herkunft des Standorts von ${b.baumnummer} anzeigen`}
                       onOeffnen={ev => herkunftOeffnen(herkunftStammdatum(b, 'position'), ev)} />
@@ -627,6 +691,27 @@ export default function BiomeBaeumePage() {
                       text={String(b.gepflanzt_jahr)}
                       beschriftung={`Herkunft des Pflanzjahrs von ${b.baumnummer} anzeigen`}
                       onOeffnen={ev => herkunftOeffnen(herkunftStammdatum(b, 'pflanzjahr'), ev)} />
+                  </Zeile>
+                  {/* Ohne die Stammform ist die Schutzschwelle nicht
+                      bestimmbar: 80 cm einstämmig, 50 cm am stärksten Stamm
+                      bei Mehrstämmigkeit (BAUM-BE-06). Die Zeile stand bis
+                      2026-08-10 nirgends — der Sachverhalt existierte in
+                      BIOME nicht. */}
+                  <Zeile k="Stammform">
+                    {b.mehrstaemmig == null ? (
+                      <span style={{ color: MUTED, fontStyle: 'italic' }} data-test="stammform-fehlt">
+                        nicht erhoben — davon hängt ab, ob 80 cm oder 50 cm als Schutzschwelle gelten
+                      </span>
+                    ) : b.mehrstaemmig ? (
+                      <span style={{ color: FG }} data-test="stammform">
+                        mehrstämmig
+                        {stamm
+                          ? ` · ${stamm.anzahlStaemme} Stämme erfasst, stärkster ${mitEinheit(stamm.messung.wert, 'cm')}`
+                          : ' · kein Umfang einem Stamm zugeordnet'}
+                      </span>
+                    ) : (
+                      <span style={{ color: FG }} data-test="stammform">einstämmig</span>
+                    )}
                   </Zeile>
                   <Zeile k="Deutscher Name">
                     <span style={{ color: b.art_deutsch ? FG : MUTED, fontStyle: b.art_deutsch ? 'normal' : 'italic' }}>
@@ -697,19 +782,25 @@ function exportCsv(stand, auswahl, chip) {
     '# nicht nach dem Kalenderjahr.',
     '#',
     '# "kein Wert erfasst" bedeutet: kein Wert vorhanden. Es bedeutet nicht null.',
+    '#',
+    '# Bei mehrstämmigen Bäumen bleibt "Stammumfang cm" leer: in 1,30 m Höhe gibt',
+    '# es dort keinen einzelnen Umfang. Maßgeblich für den Schutz nach § 2',
+    '# BaumSchVO ist der stärkste Einzelstamm ab 50 cm, nicht die Summe.',
   ].join('\n')
 
   const spalten = [
     'Baumnummer', 'Art wissenschaftlich', 'Art deutsch (nicht normiert)', 'Taxonomie-Referenz',
     'Taxon-Kennung', 'Stammumfang cm', 'Messhöhe cm', 'Pflanzjahr',
+    'Stammform', 'Stärkster Stamm cm', 'Erfasste Stämme',
     'Letzte Kontrolle', 'Art der Kontrolle', `Kontrolle im Jahr ${stichjahr}`,
-    'Breitengrad', 'Längengrad', 'CRS', 'Lagegenauigkeit m',
+    'Breitengrad', 'Längengrad', 'CRS', 'Lagegenauigkeit m', 'Bezugsebene Lagegenauigkeit',
   ]
 
   const zeilen = auswahl.map(b => {
     const u = messung(b, 'stammumfang')
     const k = letzteKontrolle(b)
     const z = kontrollstand(b, stichjahr)
+    const stamm = staerksterStamm(b)
     return [
       b.baumnummer,
       b.art_wissenschaftlich || 'unbestimmt',
@@ -719,13 +810,17 @@ function exportCsv(stand, auswahl, chip) {
       u ? String(u.wert) : 'kein Wert erfasst',
       u?.messhoehe_cm != null ? String(u.messhoehe_cm) : 'kein Wert erfasst',
       b.gepflanzt_jahr != null ? String(b.gepflanzt_jahr) : 'kein Wert erfasst',
+      b.mehrstaemmig == null ? 'nicht erhoben' : b.mehrstaemmig ? 'mehrstämmig' : 'einstämmig',
+      stamm ? String(stamm.messung.wert) : 'kein Wert erfasst',
+      stamm ? String(stamm.anzahlStaemme) : 'kein Wert erfasst',
       z === 'nie_kontrolliert' ? 'noch nie kontrolliert' : (k?.datum || 'kein Wert erfasst'),
       k ? (KONTROLLART[k.art] || k.art) : 'kein Wert erfasst',
       z === 'kontrolliert' ? 'dokumentiert' : z === 'nie_kontrolliert' ? 'noch nie kontrolliert' : 'nicht dokumentiert',
       b.position ? String(b.position.coordinates[1]) : '',
       b.position ? String(b.position.coordinates[0]) : '',
       b.crs,
-      b.lagegenauigkeit_m != null ? String(b.lagegenauigkeit_m) : '',
+      b.lagegenauigkeit_m != null && b.lagegenauigkeit_bezug ? String(b.lagegenauigkeit_m) : 'kein Wert erfasst',
+      b.lagegenauigkeit_bezug || 'kein Wert erfasst',
     ]
   })
 

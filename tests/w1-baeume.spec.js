@@ -109,10 +109,12 @@ test.describe('w1-zahl-herkunft · ESG-Verantwortliche', () => {
 
     // Der gültige Wert, nicht der ersetzte.
     await expect(tafel).toContainText('85 cm')
-    await expect(tafel).toContainText('14.04.2026')          // Datum
+    // Der Tag der Nachmessung, nicht der Tag der Ersterfassung. Bis 2026-08-10
+    // stand hier 14.04. neben „Jonas Feldmann" — eine Paarung, die es nie gab.
+    await expect(tafel).toContainText('22.04.2026')          // Datum
     await expect(tafel).toContainText('130 cm')              // Messhöhe
     await expect(tafel).toContainText('Stammumfang mit Maßband')  // Verfahren
-    await expect(tafel).toContainText('Rieke Sander')        // Person
+    await expect(tafel).toContainText('Jonas Feldmann')      // Person
     await expect(tafel).toContainText('Baumschutzverordnung') // Quelle
 
     const sekunden = (Date.now() - start) / 1000
@@ -131,6 +133,9 @@ test.describe('w1-zahl-herkunft · ESG-Verantwortliche', () => {
     await expect(tafel).toContainText('850 cm')
     await expect(tafel).toContainText('Zahlendreher')
     await expect(tafel).toContainText('nicht gelöscht')
+    // Der Vorzustand trägt seine eigene Person und sein eigenes Datum.
+    await expect(tafel).toContainText('Rieke Sander')
+    await expect(tafel).toContainText('14.04.2026')
   })
 
   test('zeigt in der Liste den korrigierten Wert, nicht den ersetzten', async ({ page }) => {
@@ -176,8 +181,12 @@ test.describe('Recht', () => {
     await page.locator('[data-test="baum-B-001"]').getByRole('button', { name: /Details zu B-001/ }).click()
     await expect(page.locator('[data-test="baum-B-001"]'))
       .toContainText('visuelle Inaugenscheinnahme durch eine fachlich qualifizierte Person')
+    // Nur der belegte Teil: Fernerkundung und Sensorik ersetzen die
+    // Inaugenscheinnahme nicht. Ein Verlängerungsverbot behauptet BIOME nicht
+    // mehr — BAUM-DE-12 lässt längere wie kürzere Intervalle ausdrücklich zu,
+    // solange sie begründet und dokumentiert sind. Siehe die Runde-3-Tests.
     await expect(page.locator('[data-test="baum-B-001"]'))
-      .toContainText('weder ersetzen noch ein Kontrollintervall verlängern')
+      .toContainText('Auswertungen, Sensorwerte und Fernerkundung können sie nicht ersetzen')
   })
 
   test('führt keine nicht belegte Zustandsskala', async ({ page }) => {
@@ -326,5 +335,116 @@ test.describe('Runde 2 · was die Critics beanstandet haben', () => {
     }
     await page.keyboard.press('Escape')
     await expect(tafel).toHaveCount(0)
+  })
+})
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Runde 3 — Befunde des Methoden-Critics.
+
+   Jeder dieser Tests hält eine Behauptung fest, die die Oberfläche einmal
+   aufgestellt hat, ohne sie belegen zu können. Sie stehen hier, damit sie
+   nicht zurückkommen.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+test.describe('Runde 3 · nichts Unbelegtes auf dem Schirm', () => {
+  test('keine Lagegenauigkeit ohne Bezugsebene', async ({ page }) => {
+    await seiteOeffnen(page)
+    await page.locator('[data-test="baum-B-001"]').getByRole('button', { name: /Details zu B-001/ }).click()
+    const zeile = page.locator('[data-test="baum-B-001"]')
+
+    // „± 3 m" war frei erfunden: das Register hält ausdrücklich fest, dass für
+    // die Berliner Quelle keine Meterangabe belegbar ist.
+    await expect(zeile).not.toContainText('± 3')
+    await expect(zeile).not.toContainText('±\u00a03')
+
+    await zeile.getByRole('button', { name: /Herkunft des Standorts von B-001/ }).click()
+    const tafel = page.getByRole('dialog', { name: /Herkunft/ })
+    await expect(tafel).toContainText('Lagegenauigkeit')
+    await expect(tafel).toContainText('keine Angabe')
+    await expect(tafel).toContainText('ohne Bezugsebene')
+  })
+
+  test('der Kontrollhinweis behauptet kein Verlängerungsverbot', async ({ page }) => {
+    await seiteOeffnen(page)
+    await page.locator('[data-test="baum-B-001"]').getByRole('button', { name: /Details zu B-001/ }).click()
+    const zeile = page.locator('[data-test="baum-B-001"]')
+
+    // BAUM-DE-12 wörtlich: „In begründeten und zu dokumentierenden Fällen
+    // können jedoch sowohl längere als auch kürzere Kontrollintervalle möglich
+    // sein." Ein Verlängerungsverbot gibt es also nicht.
+    await expect(zeile).not.toContainText('Kontrollintervall verlängern')
+    await expect(zeile).toContainText('nicht ersetzen')
+    await expect(zeile).toContainText('begründeten und zu dokumentierenden Fällen')
+  })
+
+  test('die Vitalitätsstufe trägt ihr Datum in der Liste', async ({ page }) => {
+    await seiteOeffnen(page)
+    const b001 = page.locator('[data-test="baum-B-001"]')
+    await expect(b001.locator('[data-test="vitalitaet-datum"]')).toContainText('12.05.2026')
+    // Ein Baum ohne Beurteilung bekommt auch kein Datum angedichtet.
+    await expect(page.locator('[data-test="baum-B-002"] [data-test="vitalitaet-datum"]')).toHaveCount(0)
+  })
+
+  test('die Vitalitätstafel nennt die fehlende Kalibrierhilfe', async ({ page }) => {
+    await seiteOeffnen(page)
+    await page.locator('[data-test="baum-B-001"]').getByRole('button', {
+      name: /Herkunft der Vitalitätsstufe von B-001/,
+    }).click()
+    const tafel = page.getByRole('dialog', { name: /Herkunft/ })
+    await expect(tafel).toContainText('Kalibrierung')
+    await expect(tafel).toContainText('keine Vergleichsbilder')
+    await expect(tafel).toContainText('12.05.2026')
+    await expect(tafel).toContainText('Roloff')
+  })
+})
+
+test.describe('Runde 3 · Mehrstämmigkeit', () => {
+  test('B-011 zeigt den stärksten Stamm statt „keine Angabe"', async ({ page }) => {
+    await seiteOeffnen(page)
+    const b011 = page.locator('[data-test="baum-B-011"]')
+    await expect(b011).toContainText('58 cm')
+    await expect(b011.locator('[data-test="stamm-hinweis"]')).toContainText('stärkster von 3 Stämmen')
+    // Der entfernte Gesamtumfang darf nirgends wieder auftauchen.
+    await expect(b011).not.toContainText('74 cm')
+  })
+
+  test('die Stammtafel nennt Stammnummer, Anzahl und die maßgebliche Regel', async ({ page }) => {
+    await seiteOeffnen(page)
+    await page.locator('[data-test="baum-B-011"]').getByRole('button', {
+      name: /Herkunft des stärksten Stamms von B-011/,
+    }).click()
+    const tafel = page.getByRole('dialog', { name: /Herkunft/ })
+    await expect(tafel).toContainText('Nr. 1 von 3 erfassten')
+    await expect(tafel).toContainText('mindestens einer der Stämme')
+    await expect(tafel).toContainText('nicht die Summe')
+  })
+
+  test('B-011 zählt nicht als Baum ohne Stammumfang', async ({ page }) => {
+    await seiteOeffnen(page)
+    await page.getByRole('button', { name: /Ohne Stammumfang/ }).click()
+    await expect(page.locator('[data-test="liste-status"]')).toContainText('1 von 12')
+    await expect(page.locator('[data-test="baum-B-003"]')).toBeVisible()
+    await expect(page.locator('[data-test="baum-B-011"]')).toHaveCount(0)
+  })
+
+  test('eine nicht erhobene Stammform wird als nicht erhoben gezeigt', async ({ page }) => {
+    await seiteOeffnen(page)
+    await page.locator('[data-test="baum-B-012"]').getByRole('button', { name: /Details zu B-012/ }).click()
+    const b012 = page.locator('[data-test="baum-B-012"]')
+    await expect(b012.locator('[data-test="stammform-fehlt"]')).toContainText('nicht erhoben')
+    await expect(b012.locator('[data-test="stammform-fehlt"]')).toContainText('80 cm oder 50 cm')
+  })
+
+  test('eine erhobene Stammform steht als Tatsache da', async ({ page }) => {
+    await seiteOeffnen(page)
+    await page.locator('[data-test="baum-B-001"]').getByRole('button', { name: /Details zu B-001/ }).click()
+    await expect(page.locator('[data-test="baum-B-001"] [data-test="stammform"]')).toContainText('einstämmig')
+
+    await page.locator('[data-test="baum-B-011"]').getByRole('button', { name: /Details zu B-011/ }).click()
+    const b011 = page.locator('[data-test="baum-B-011"] [data-test="stammform"]')
+    await expect(b011).toContainText('mehrstämmig')
+    await expect(b011).toContainText('3 Stämme erfasst')
+    await expect(b011).toContainText('stärkster 58 cm')
   })
 })

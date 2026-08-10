@@ -80,9 +80,15 @@ export const STAMMUMFANG = {
   einheit: 'cm',
   quelle: QUELLEN['BAUM-BE-06'],
   hinweis: 'Gemessen in 1,30 m Höhe über dem Erdboden. Liegt der Kronenansatz darunter, wird unmittelbar unter dem Kronenansatz gemessen.',
-  /** Schutzschwellen aus § 2 Abs. 1 — einstämmig und je Stamm bei Mehrstämmigkeit. */
+  /**
+   * Schutzschwellen aus § 2 Abs. 1.
+   *
+   * Einstämmig: 80 cm. Mehrstämmig: 50 cm — und zwar wörtlich „wenn mindestens
+   * einer der Stämme einen Mindestumfang von 50 cm aufweist". Also nicht 50 cm
+   * je Stamm und erst recht keine Summe: es entscheidet der stärkste Stamm.
+   */
   schwelleEinstaemmigCm: 80,
-  schwelleMehrstaemmigCm: 50,
+  schwelleStaerksterStammCm: 50,
 }
 
 /**
@@ -121,9 +127,19 @@ export const KONTROLLARTEN = [
 /**
  * Der eine Satz, der an jeder Stelle steht, an der Analytik neben einer
  * Kontrolle auftaucht. Bewusst zentral, damit er nicht an einer Stelle fehlt.
+ *
+ * Bis 2026-08-10 endete er auf „… weder ersetzen noch ein Kontrollintervall
+ * verlängern". Die zweite Hälfte war falsch. BAUM-DE-12 sagt wörtlich: „In
+ * begründeten und zu dokumentierenden Fällen können jedoch sowohl längere als
+ * auch kürzere Kontrollintervalle möglich sein." Ein Verlängerungsverbot gibt
+ * es nicht — es gibt eine Begründungs- und Dokumentationspflicht. Der Satz
+ * sagt jetzt das, was in der Quelle steht.
+ *
+ * Was bleibt: Fernerkundung und Sensorik ersetzen die Inaugenscheinnahme
+ * nicht (BAUM-DE-11). Das ist die Aussage, die BIOME zu machen hat.
  */
 export const KONTROLLE_HINWEIS =
-  'Die Regelkontrolle ist eine visuelle Inaugenscheinnahme durch eine fachlich qualifizierte Person vom Boden aus. Auswertungen, Sensorwerte und Fernerkundung können sie weder ersetzen noch ein Kontrollintervall verlängern.'
+  'Die Regelkontrolle ist eine visuelle Inaugenscheinnahme durch eine fachlich qualifizierte Person vom Boden aus. Auswertungen, Sensorwerte und Fernerkundung können sie nicht ersetzen. Das Kontrollintervall richtet sich nach Sicherheitserwartung, Baumzustand und Entwicklungsphase; längere wie kürzere Intervalle sind in begründeten und zu dokumentierenden Fällen zulässig.'
 
 /**
  * Ableitung des Schutzstatus nach Berliner Baumschutzverordnung.
@@ -132,21 +148,88 @@ export const KONTROLLE_HINWEIS =
  * knüpft den Schutz zusätzlich an die Baumart (alle Laubbäume, Waldkiefer,
  * Walnuss, Türkischer Baumhasel) und nimmt unter anderem Obstbäume,
  * Container- und Baumschulbäume aus. Ohne belegte Artzuordnung liefert die
- * Funktion deshalb `null` statt einer Behauptung.
+ * Funktion deshalb kein Ergebnis statt einer Behauptung.
  *
- * @param {{ stammumfangCm?: number|null, mehrstaemmig?: boolean, artBekannt?: boolean }} baum
- * @returns {{ status: 'erreicht'|'nicht_erreicht', schwelleCm: number, quelle: Quelle }|null}
+ * ── Warum `mehrstaemmig` dreiwertig ist ───────────────────────────────────
+ *
+ * Bis 2026-08-10 stand hier `baum.mehrstaemmig ? 50 : 80`. Das behandelte
+ * „nicht erhoben" wie „einstämmig" und rechnete gegen 80 cm — bei einem
+ * mehrstämmigen Baum die falsche Schwelle, ohne dass irgendwo stand, dass
+ * geraten wurde. Ein 62-cm-Baum ist dann „nicht geschützt", obwohl er es bei
+ * Mehrstämmigkeit wäre.
+ *
+ * Deshalb: `false` rechnet gegen 80, `true` gegen 50 am **stärksten Stamm**,
+ * und `null`/`undefined` liefert `unbestimmbar` samt Grund. Die Oberfläche
+ * zeigt den Grund an, statt eine Zahl zu erfinden.
+ *
+ * @typedef {object} Schutzschwelle
+ * @property {'erreicht'|'nicht_erreicht'|'unbestimmbar'} status
+ * @property {number|null} schwelleCm
+ * @property {number|null} verglichenCm  Der Wert, gegen den geprüft wurde
+ * @property {string|null} grund         Nur bei `unbestimmbar`
+ * @property {Quelle} quelle
+ *
+ * @param {{
+ *   stammumfangCm?: number|null,
+ *   mehrstaemmig?: boolean|null,
+ *   staerksterStammCm?: number|null,
+ *   artBekannt?: boolean
+ * }} baum
+ * @returns {Schutzschwelle|null}
  */
 export function schutzschwelleErreicht(baum) {
+  const unbestimmbar = (/** @type {string} */ grund) => ({
+    status: /** @type {const} */ ('unbestimmbar'),
+    schwelleCm: null,
+    verglichenCm: null,
+    grund,
+    quelle: STAMMUMFANG.quelle,
+  })
+
   const umfang = baum.stammumfangCm
-  if (umfang == null || !Number.isFinite(umfang)) return null
-  if (baum.artBekannt === false) return null
-  const schwelle = baum.mehrstaemmig
-    ? STAMMUMFANG.schwelleMehrstaemmigCm
-    : STAMMUMFANG.schwelleEinstaemmigCm
+  const hatUmfang = umfang != null && Number.isFinite(umfang)
+
+  // Gar kein Umfang: dazu ist nichts zu sagen, auch nicht „unbestimmbar".
+  if (!hatUmfang && baum.staerksterStammCm == null) return null
+
+  if (baum.artBekannt === false) {
+    return unbestimmbar(
+      'Die Verordnung schützt nur bestimmte Arten. Solange die Art unbestimmt ist, ist nicht entscheidbar, ob die Schwelle überhaupt gilt.',
+    )
+  }
+
+  if (baum.mehrstaemmig == null) {
+    return unbestimmbar(
+      'Ob der Baum ein- oder mehrstämmig ist, ist nicht erhoben. Davon hängt ab, ob 80 cm oder 50 cm am stärksten Stamm gelten.',
+    )
+  }
+
+  if (baum.mehrstaemmig === true) {
+    const staerkster = baum.staerksterStammCm
+    if (staerkster == null || !Number.isFinite(staerkster)) {
+      return unbestimmbar(
+        'Der Baum ist mehrstämmig, aber kein Umfang ist einem einzelnen Stamm zugeordnet. Die Verordnung stellt auf den stärksten Stamm ab, nicht auf einen Gesamtwert.',
+      )
+    }
+    const schwelle = STAMMUMFANG.schwelleStaerksterStammCm
+    return {
+      status: staerkster >= schwelle ? 'erreicht' : 'nicht_erreicht',
+      schwelleCm: schwelle,
+      verglichenCm: staerkster,
+      grund: null,
+      quelle: STAMMUMFANG.quelle,
+    }
+  }
+
+  if (!hatUmfang) {
+    return unbestimmbar('Für den Gesamtstamm liegt kein Umfang vor.')
+  }
+  const schwelle = STAMMUMFANG.schwelleEinstaemmigCm
   return {
-    status: umfang >= schwelle ? 'erreicht' : 'nicht_erreicht',
+    status: /** @type {number} */ (umfang) >= schwelle ? 'erreicht' : 'nicht_erreicht',
     schwelleCm: schwelle,
+    verglichenCm: /** @type {number} */ (umfang),
+    grund: null,
     quelle: STAMMUMFANG.quelle,
   }
 }

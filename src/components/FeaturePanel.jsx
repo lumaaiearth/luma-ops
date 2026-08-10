@@ -425,7 +425,8 @@ function RainCheck({ feature, centroid, canCapture, onUpdateProperties }) {
 const KNOWN_KEYS = new Set([
   'photos', 'notizen', 'baumnummer', 'baummarke', 'baumart_deutsch', 'baumart_latein',
   'stammumfang_cm', 'bhd_cm', 'baumhoehe_m', 'kronendurchmesser_m', 'kronenansatz_m',
-  'pflanzjahr', 'vitalitaet', 'mehrstaemmig', 'umfang_unter_kronenansatz', 'bhd_messhoehe_m',
+  'pflanzjahr', 'vitalitaet', 'mehrstaemmig', 'staerkster_stamm_cm',
+  'umfang_unter_kronenansatz', 'bhd_messhoehe_m',
   'umfang_messhoehe_cm',
   'schaedlinge', 'standorttyp', 'letzte_kontrolle', 'opacity', 'image_url', 'filename',
   'tiles_url', 'slug', 'minZoom', 'maxZoom', 'tms', 'sonnenanalyse', 'starkregen',
@@ -441,8 +442,18 @@ export default function FeaturePanel({
   const isTree = feature.feature_type === 'tree'
   const info = TYPE_INFO[feature.feature_type] || { icon: '●', label: feature.feature_type }
   const vital = isTree && p.vitalitaet !== undefined && p.vitalitaet !== '' ? VITAL_INFO[p.vitalitaet] : null
+  // Dreiwertig, nicht `!!`: ein nie erhobenes Merkmal ist kein „nein". Sonst
+  // rechnet die Anzeige bei einem mehrstämmigen Baum gegen die falsche
+  // Schwelle, ohne dass irgendwo steht, dass geraten wurde.
+  const stammform = p.mehrstaemmig === true || p.mehrstaemmig === 'mehrstaemmig' ? true
+    : p.mehrstaemmig === false || p.mehrstaemmig === 'einstaemmig' ? false
+      : null
   const schutz = isTree
-    ? schutzschwelleErreicht({ stammumfangCm: Number(p.stammumfang_cm) || null, mehrstaemmig: !!p.mehrstaemmig })
+    ? schutzschwelleErreicht({
+        stammumfangCm: Number(p.stammumfang_cm) || null,
+        mehrstaemmig: stammform,
+        staerksterStammCm: Number(p.staerkster_stamm_cm) || null,
+      })
     : null
   const m = geomMeasures(feature.geometry)
   const canFloralis = (feature.feature_type === 'bed' || feature.feature_type === 'area') && m?.area_m2 > 0
@@ -503,16 +514,28 @@ export default function FeaturePanel({
             Rechtsauskunft. */}
         {schutz && (
           <div style={{ fontSize: 12, lineHeight: 1.45, padding: '8px 10px', borderRadius: 7, border: `1px solid ${BORDER}`, background: 'color-mix(in srgb, var(--luma-fg) 3%, transparent)' }}>
-            <div style={{ fontWeight: 600, color: FG, marginBottom: 3 }}>
-              Umfangsschwelle nach BaumSchVO {schutz.status === 'erreicht' ? 'erreicht' : 'nicht erreicht'}
-              <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED, marginLeft: 7, textTransform: 'uppercase', letterSpacing: '0.08em' }}>berechnet</span>
-            </div>
-            <div style={{ color: MUTED }}>
-              {p.stammumfang_cm} cm gegen Schwelle {schutz.schwelleCm} cm. Der tatsächliche
-              Schutz hängt zusätzlich von der Baumart und den Ausnahmen in § 2 Abs. 3 ab.
-              Das ist keine Rechtsauskunft.{' '}
-              <a href={schutz.quelle.url} target="_blank" rel="noreferrer" style={{ color: A }}>{schutz.quelle.kurzname}</a>
-            </div>
+            {schutz.status === 'unbestimmbar' ? (
+              <>
+                <div style={{ fontWeight: 600, color: FG, marginBottom: 3 }}>
+                  Umfangsschwelle nach BaumSchVO nicht bestimmbar
+                </div>
+                <div style={{ color: MUTED }}>{schutz.grund}</div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontWeight: 600, color: FG, marginBottom: 3 }}>
+                  Umfangsschwelle nach BaumSchVO {schutz.status === 'erreicht' ? 'erreicht' : 'nicht erreicht'}
+                  <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED, marginLeft: 7, textTransform: 'uppercase', letterSpacing: '0.08em' }}>berechnet</span>
+                </div>
+                <div style={{ color: MUTED }}>
+                  {schutz.verglichenCm} cm gegen Schwelle {schutz.schwelleCm} cm
+                  {stammform ? ' (stärkster Stamm bei Mehrstämmigkeit)' : ' (einstämmig)'}. Der tatsächliche
+                  Schutz hängt zusätzlich von der Baumart und den Ausnahmen in § 2 Abs. 3 ab.
+                  Das ist keine Rechtsauskunft.{' '}
+                  <a href={schutz.quelle.url} target="_blank" rel="noreferrer" style={{ color: A }}>{schutz.quelle.kurzname}</a>
+                </div>
+              </>
+            )}
           </div>
         )}
 

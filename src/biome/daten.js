@@ -26,6 +26,7 @@ export const FIXTURE_MODUS = !!import.meta.env.VITE_BIOME_FIXTURE
  * @property {number} wert
  * @property {string} einheit
  * @property {number|null} messhoehe_cm
+ * @property {number|null} [stamm_nr]  Einzelstamm bei Mehrstämmigkeit; NULL = Gesamtbaum
  * @property {string|null} messgeraet
  * @property {string} methode_id
  * @property {string} datum
@@ -63,6 +64,8 @@ export const FIXTURE_MODUS = !!import.meta.env.VITE_BIOME_FIXTURE
  * @property {{type:string, coordinates:number[]}|null} position
  * @property {string} crs
  * @property {number|null} lagegenauigkeit_m
+ * @property {string|null} [lagegenauigkeit_bezug]  einzelobjekt | objektart | datensatz
+ * @property {boolean|null} [mehrstaemmig]  NULL = nicht erhoben
  * @property {string|null} standorttyp
  * @property {Messung[]} messungen
  * @property {Array<{id:string, skala_id:string, stufe:string, begruendung:string|null, methode_id:string, datum:string, erfasst_von:string, ersetzt_id:string|null}>} bewertungen
@@ -176,9 +179,33 @@ export function nurGueltige(zeilen) {
  * @returns {Messung|null}
  */
 export function messung(baum, merkmal) {
-  const passend = nurGueltige(baum.messungen || []).filter(m => m.merkmal === merkmal)
+  // Einzelstammwerte sind ausdrücklich keine Baumwerte. Ohne diesen Filter
+  // würde bei einem mehrstämmigen Baum der zuletzt erfasste Stamm als „der"
+  // Stammumfang durchgehen — und das ist eine andere Größe.
+  const passend = nurGueltige(baum.messungen || [])
+    .filter(m => m.merkmal === merkmal && m.stamm_nr == null)
   if (!passend.length) return null
   return passend.reduce((a, b) => (a.datum >= b.datum ? a : b))
+}
+
+/**
+ * Der stärkste gültige Einzelstamm eines mehrstämmigen Baums.
+ *
+ * BAUM-BE-06 wörtlich: geschützt, „wenn mindestens einer der Stämme einen
+ * Mindestumfang von 50 cm aufweist". Maßgeblich ist damit das Maximum, nicht
+ * die Summe und nicht der Mittelwert.
+ *
+ * @param {Baum} baum
+ * @returns {{ messung: Messung, anzahlStaemme: number }|null}
+ */
+export function staerksterStamm(baum) {
+  const staemme = nurGueltige(baum.messungen || [])
+    .filter(m => m.merkmal === 'stammumfang' && m.stamm_nr != null && m.einheit === 'cm')
+  if (!staemme.length) return null
+  return {
+    messung: staemme.reduce((a, b) => (a.wert >= b.wert ? a : b)),
+    anzahlStaemme: new Set(staemme.map(m => m.stamm_nr)).size,
+  }
 }
 
 /**

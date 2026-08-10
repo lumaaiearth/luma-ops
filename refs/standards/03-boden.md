@@ -166,3 +166,68 @@
   - **Zwei TOC-Klassen** als Bezugsgröße der organischen Vorsorgewerte: `≤ 4 %` und `> 4 % bis 9 %`. Oberhalb 9 % TOC ist **kein** Vorsorgewert festgesetzt — BIOME darf für Moor- und stark humose Böden keinen Vorsorgewertvergleich anzeigen.
   - **Semantik einer Überschreitung:** „in der Regel zu besorgen" — kein Grenzwert, keine automatische Gefahrenfeststellung. Die Ausnahme nach § 3 Absatz 2 (naturbedingt/siedlungsbedingt erhöhte Gehalte) muss BIOME als Vorbehalt anzeigen, sonst gibt die Oberfläche eine Rechtsfolge aus, die die Verordnung nicht kennt.
 - **Deckt ausdrücklich nicht:** Prüf- und Maßnahmenwerte (Anlage 2) sind in dieser Verordnung ebenfalls enthalten, hier aber nicht wiedergegeben; sie sind wirkungspfad- und nutzungsspezifisch und dürfen nicht mit Vorsorgewerten in dieselbe Skala gelegt werden. Keine Aussage über Bodenwerte in Berlin, keine Messwerte, keine Flächenkulisse.
+
+### BOD-BE-07 · Bodenversiegelung — Definition und Belagsklassen (Berlin)
+- **Herausgeber:** Senatsverwaltung für Stadtentwicklung, Bauen und Wohnen Berlin (Kontaktangabe der Seite), Umweltatlas Berlin, Karte 01.02 „Versiegelung", Ausgabe 2021
+- **Quelle:** https://www.berlin.de/umweltatlas/boden/versiegelung/2021/einleitung/ · https://www.berlin.de/umweltatlas/boden/versiegelung/2021/kartenbeschreibung/
+- **Abgerufen:** 2026-08-10 (HTTP 200 / HTTP 200; erster Versuch auf `kartenbeschreibung` HTTP 429 „Too Many Requests", nach Wartezeit HTTP 200)
+- **Wörtlich** (Einleitung, Abschnitt „Definition"):
+  „Unter Versiegelung wird die Bedeckung des Bodens mit festen Materialien verstanden. Dabei lassen sich versiegelte Flächen in bebaut versiegelte Flächen , also Gebäude aller Art, und unbebaut versiegelte Flächen , also Fahrbahnen, Parkplätze, befestigte Wege usw., trennen."
+  „Neben baulichen Anlagen und mit Asphalt oder Beton vollständig versiegelten Oberflächen werden auch durchlässigere Beläge als versiegelt betrachtet, obwohl diese zum Teil sehr unterschiedliche ökologische Eigenschaften aufweisen. Rasengittersteine oder breitfugiges Pflaster z. B. erlauben noch ein reduziertes Pflanzenwachstum, sind teilweise wasserdurchlässig oder weisen ein wesentlich günstigeres Mikroklima auf."
+- **Wörtlich** (Einleitung, Tab. 1 „Übersicht über die Belagsklassen der unbebaut versiegelten Flächen", vollständig):
+  „Belagsklasse 1: Asphalt, Beton, Pflaster mit Fugenverguß oder Betonunterbau, Kunststoffbeläge — extreme Auswirkung auf den Naturhaushalt"
+  „Belagsklasse 2: Kunststein- u. Plattenbeläge (Kantenlänge > 8 cm), Betonverbundpflaster, Klinker, Mittel- und Großpflaster — hohe Auswirkung auf den Naturhaushalt"
+  „Belagsklasse 3: Klein- und Mosaikpflaster (Kantenlänge < 8 cm) — mittlere Auswirkung auf den Naturhaushalt"
+  „Belagsklasse 4: Rasengittersteine, wassergebundene Decke (z. B. Schlacke, Kies-, Tennenfläche), Schotterrasen — geringe Auswirkung auf den Naturhaushalt"
+- **Wörtlich** (Kartenbeschreibung, erster Absatz — die Bezugsfläche):
+  „In der Karte wird der Grad der Versiegelung , d. h. die Bedeckung der Erdoberfläche mit undurchlässigen Materialien in % der Bezugsfläche (Block(teil)fläche oder Straßenabschnitt) dargestellt."
+- **Wörtlich** (Methode, zur Gewichtung der Belagsklassen):
+  „Die Belagsklassen 1-4 gehen zu 100 % unbebaut versiegelt in die Berechnung des Versiegelungsgrades ein."
+  „Die Klasse "Gleisschotter" wurde als eigenes Datenfeld mitgeführt und konnte wahlweise als unbebaut versiegelte (100 %) oder unbebaut unversiegelte Fläche (0 %) in die Berechnungen einfließen. […] In der dargestellten Karte geht Gleisschotter zu 100 % versiegelt ein."
+- **Deckt in BIOME:**
+  - **Feld `versiegelungsgrad`:** Einheit **Prozent der Bezugsfläche**, Wertebereich 0–100. Die Bezugsfläche ist **nicht** frei wählbar: belegt sind genau zwei — `blockteilflaeche` und `strassenabschnitt`.
+  - **Feld `versiegelungsart`** mit genau zwei belegten Ausprägungen: `bebaut_versiegelt` (Gebäude aller Art) und `unbebaut_versiegelt` (Fahrbahnen, Parkplätze, befestigte Wege). Der Gesamtwert ist definiert als Summe: „VG – gesamt (Summe aus 1+2)".
+  - **Auswahlliste `belagsklasse`** mit den vier wörtlich belegten Klassen 1–4 samt Materialbeispielen und der zugeordneten Auswirkungsstufe (extrem / hoch / mittel / gering). Die Kantenlängen-Grenze **8 cm** trennt Klasse 2 von Klasse 3 und ist damit ein exakt belegtes Kriterium.
+  - **Wichtiger Definitionshinweis für die Oberfläche:** teildurchlässige Beläge (Rasengittersteine, Schotterrasen, wassergebundene Decke) zählen in dieser Systematik **als versiegelt**. BIOME darf „versiegelt" nicht mit „wasserundurchlässig" gleichsetzen.
+  - **Gleisschotter ist ein Sonderfall mit zwei zulässigen Rechenvarianten (0 % oder 100 %).** Ein BIOME-Versiegelungswert braucht deshalb ein Kennzeichen `gleisschotter_gewichtung`, sonst sind zwei Zahlen aus derselben Quelle nicht vergleichbar.
+- **Deckt ausdrücklich nicht:** eine Versiegelungsangabe für einzelne Grundstücke, Baumscheiben oder Flurstücke; die Belagsartenverteilung ist ausdrücklich nicht flächenscharf erhoben (siehe BOD-BE-08).
+
+### BOD-BE-08 · Versiegelungskarte Berlin — Erfassungsmethode, Rasterweite, Stand
+- **Herausgeber:** Senatsverwaltung für Stadtentwicklung, Bauen und Wohnen Berlin, Umweltatlas Berlin
+- **Quelle:** https://www.berlin.de/umweltatlas/boden/versiegelung/2021/methode/ · https://www.berlin.de/umweltatlas/boden/versiegelung/2021/datengrundlage/ · https://www.berlin.de/umweltatlas/boden/versiegelung/2021/zusammenfassung/
+- **Abgerufen:** 2026-08-10 (HTTP 200 / HTTP 200 / HTTP 200)
+- **Wörtlich** (Methode — Rasterweite, das gesuchte Maß):
+  „Auf der Rasterebene von 2,5 m x 2,5 m werden für die unbebaute Fläche zwölf Versiegelungsklassen gezeigt. Des Weiteren werden die Gebäude aus den verschiedenen Gebäudedaten, also die bebaut versiegelte Fläche, sowie Gleisschotterflächen und Schattenflächen abgebildet."
+  „Die Umweltatlaskarte „Versiegelung" (01.02) stellt den mittleren Versiegelungsgrad pro Block(teil)fläche dar."
+- **Wörtlich** (Methode — Verfahren):
+  „Die Versiegelungskartierung der Block(teil)flächen und des Straßenraums wurde separat durch zwei verschiedene Methoden vorgenommen und abschließend zur Gesamtbewertung der Versiegelung zusammengeführt. Gewässerflächen blieben in der Versiegelungskartierung unberücksichtigt."
+  „Das Auswertungsverfahren der Block(teil)flächen beruht auf der Verwendung von ALKIS- und weiteren Gebäudedaten für die bebaut versiegelten Flächen und auf der Analyse von hochauflösenden multispektralen Satellitenbilddaten für die unbebaut versiegelten Flächen"
+  „Es kam eine Sentinel-2B-Szene vom 07. Juni 2021 zum Einsatz."
+  „Es werden drei Versiegelungsgrade (VG) unterschieden: VG – bebaut versiegelte Fläche (Berechnung aus Gebäudedaten), VG – unbebaut versiegelte Fläche (Satellitenbilddatenauswertung), VG – gesamt (Summe aus 1+2)."
+  „Für die Berechnungen wurden die Ergebnisse der pixelbasierten Satellitenbildklassifizierung mit den Block(teil)flächen der Blockkarte ISU5 2020 verschnitten."
+- **Wörtlich** (Methode — bekannte Fehlerquelle, für BIOME wichtig):
+  „Das Problem der lokalen Verdeckung von versiegelten Flächen durch Baumkronen ist über die Auswertung von Satellitenbilddaten, mit dem „Blick von oben", nicht lösbar. Um diesen "Fehler" zu verringern, wurden mit Hilfe der ISU-Daten kontextbezogene Korrekturfaktoren ermittelt und angewendet."
+- **Wörtlich** (Methode — Alter der Belagsartenverteilung):
+  „Die typspezifische Belagsartenverteilung wurde für die vorliegende Karte nicht aktualisiert, jedoch an die neuen ISU-Flächentypen von 2020 angepasst (SenSW 2020b). Sie beruht auf Erhebungen aus dem Jahre 1988 (AGU Arbeitsgemeinschaft Umweltplanung 1988). Die Belagsarten sind in der Karte nicht abgebildet, können aber im Geoportal über die Sachdatenanzeige pro Block(teil)fläche angezeigt werden."
+- **Wörtlich** (Datengrundlage — Stände der Eingangsdaten, vollständige Liste):
+  „Informationssystem Stadt und Umwelt (ISU5) – Raumbezug und Flächennutzungsdaten (Stand 31.12.2020), Amtliches Liegenschaftskatasterinformationssystem – ALKIS (Stand 02/2022), NOT-ALKIS Gebäude (Stand 2021), Karte von Berlin 1 : 5.000 – K5 (Stand 05/2021), Orthophotos 2020 und 2021 (Stand 08/2020 und 02/2021), Versiegelungsdaten der Berliner Wasserbetriebe (Stand 2001), Straßenbefahrungsdaten (Stand 2014), Multispektrale Sentinel 2B-Szene vom 07. Juni 2021."
+- **Wörtlich** (Zusammenfassung — Aktualität und Vergleichbarkeit):
+  „Im Land Berlin lag der gesamte Versiegelungsgrad der Stadt 2021 bei 33,9 Prozent, dabei entfällt jeweils rund ein Drittel auf die Bebauung, die unbebaut versiegelte Fläche sowie die Straßen."
+  „Für die Erhebungen 2005, 2011, 2016 und 2021 wurde ein neues Verfahren genutzt, das einen flächendeckenden Vergleich der Jahre ermöglicht. Die Daten zur Versiegelung aus den Jahren 1990 und 2001 beruhen auf uneinheitlichen Methoden, deshalb ist ein direkter Vergleich nicht möglich."
+  „Die Inhalte dieses Jahrgangs sind aktuell."
+- **Wörtlich** (Kartenbeschreibung — Kennzahlen und Datumsangabe der Tabelle):
+  „Die Block(teil)flächen Berlins (ohne Straßen und Gewässer) sind durchschnittlich zu 29,7 % versiegelt. Davon entfallen 15,3 % auf die bebaut versiegelten Flächen und 14,4 % auf die unbebaut versiegelten Flächen. Inklusive Gewässer und Straßenland ist Berlin zu 33,9 % versiegelt . Davon entfallen 12,7 % auf die bebaut versiegelten Flächen und 12,0 % auf die unbebaut versiegelten Flächen. Bei 9,3 % der Berliner Stadtfläche handelt es sich um versiegelte Straßen."
+  „Der Versiegelungsgrad für Berlin beträgt im Jahre 2021 33,9 % (30.246 ha)"
+  „Stand: 04.10.2022"
+- **Deckt in BIOME:**
+  - **Rasterweite der Zwischenergebnis-Rasterkarte: 2,5 m × 2,5 m**, mit zwölf Versiegelungsklassen für die unbebaute Fläche plus Schatten- und Gleisschotterklasse. Das ist die feinste belegte Auflösung; die publizierte Umweltatlaskarte 01.02 ist **aggregiert** auf Block(teil)flächen.
+  - **Zwei Produktebenen, die BIOME auseinanderhalten muss:** `raster_2_5m_unkorrigiert` (Karte „Versiegelung 2021 (unkorrigierte Versiegelungsgrade, Rasterdaten)") und `blockteilflaeche_korrigiert` (Karte 01.02, mittlerer Versiegelungsgrad je Block(teil)fläche, mit Schattenkorrektur und Korrekturfaktoren). Werte aus beiden dürfen nicht in dieselbe Zeitreihe.
+  - **Stand des Datensatzes:** Bezugsjahr 2021, Satellitenszene 07.06.2021, Kartenstand laut Kartenbeschreibung **04.10.2022**; der Jahrgang ist auf der Seite als „aktuell" gekennzeichnet (Abruf 2026-08-10).
+  - **Vergleichbarkeitsregel für Zeitreihen:** nur 2005, 2011, 2016, 2021 sind untereinander vergleichbar. 1990 und 2001 dürfen in BIOME nicht in dieselbe Trendlinie.
+  - **Erfassungsmethode als Pflichtmetadatum:** hybrid — Gebäudeflächen aus Katasterdaten (ALKIS + NOT-ALKIS), unbebaute Versiegelung aus Sentinel-2B-Klassifizierung, Straßenraum aus Straßenbefahrungsdaten von **2014**.
+  - **Zwei belegte Unsicherheiten, die BIOME anzeigen muss:** (1) Versiegelung unter Baumkronen ist aus Satellitendaten grundsätzlich nicht erfassbar und wird nur über Korrekturfaktoren geschätzt; (2) die Belagsartenverteilung beruht auf Erhebungen von **1988** und wurde für 2021 nicht neu erhoben.
+  - **Gewässerflächen sind aus der Kartierung ausgenommen** — eine BIOME-Flächenbilanz muss das mitführen.
+- **Deckt ausdrücklich nicht:**
+  - Eine parzellenscharfe oder grundstücksbezogene Versiegelungsangabe. Kleinste belastbare Bezugseinheit der publizierten Karte ist die Block(teil)fläche.
+  - Die Wertegrenzen der zwölf Versiegelungsklassen des Rasterzwischenergebnisses — die Seite nennt nur ihre Anzahl, nicht ihre Grenzen (sie stehen in Abbildung 3, einer Grafik).
+  - Der genannte „Abschlussbericht zur Versiegelungskartierung 2021" wurde für dieses Register nicht abgerufen; Angaben daraus sind hier nicht gedeckt.

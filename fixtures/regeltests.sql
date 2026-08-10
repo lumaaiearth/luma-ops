@@ -261,12 +261,87 @@ SELECT pg_temp.muss_gelten(
      AND NOT EXISTS (SELECT 1 FROM v_biome_kontrolle_gueltig k WHERE k.baum_id = b.id)),
   'Ground Truth: genau ein Baum wurde noch nie kontrolliert (B-012)');
 
+-- B-011 misst je Stamm, hat also keinen Gesamtumfang — aber sehr wohl eine
+-- Messung. Deshalb der Zusatz auf stamm_nr: sonst zählte die Sandbirke als
+-- „ohne Stammumfang", und die Oberfläche zeigte „keine Angabe" für einen Baum,
+-- an dem dreimal gemessen wurde.
 SELECT pg_temp.muss_gelten(
   (SELECT array_agg(baumnummer) = ARRAY['B-003'] FROM biome_baum b
    WHERE b.standort_id = '50000000-0000-4000-8000-000000000001'
      AND NOT EXISTS (SELECT 1 FROM v_biome_baum_messung_gueltig m
                      WHERE m.baum_id = b.id AND m.merkmal = 'stammumfang')),
-  'Ground Truth: genau ein Baum ohne Stammumfang (B-003)');
+  'Ground Truth: genau ein Baum ohne jede Umfangsmessung (B-003)');
+
+-- ── Lagegenauigkeit: keine Zahl ohne Bezugsebene ──────────────────────────
+
+SELECT pg_temp.muss_scheitern($$
+  UPDATE biome_baum SET lagegenauigkeit_m = 3
+   WHERE baumnummer = 'B-001'
+$$, 'Lagegenauigkeit ohne Bezugsebene wird abgewiesen');
+
+SELECT pg_temp.muss_gelten(
+  (SELECT count(*) = 0 FROM biome_baum WHERE lagegenauigkeit_m IS NOT NULL),
+  'Ground Truth: zu keinem Baum ist eine Lagegenauigkeit erfunden');
+
+SELECT pg_temp.muss_scheitern($$
+  UPDATE biome_baum SET lagegenauigkeit_m = 3, lagegenauigkeit_bezug = 'ungefaehr'
+   WHERE baumnummer = 'B-001'
+$$, 'Erfundene Bezugsebene wird abgewiesen');
+
+-- Der belegte Fall muss durchgehen, sonst ist der Riegel zu eng.
+UPDATE biome_baum SET lagegenauigkeit_m = 3, lagegenauigkeit_bezug = 'einzelobjekt'
+ WHERE baumnummer = 'B-001';
+SELECT pg_temp.muss_gelten(
+  (SELECT lagegenauigkeit_m = 3 AND lagegenauigkeit_bezug = 'einzelobjekt'
+     FROM biome_baum WHERE baumnummer = 'B-001'),
+  'Lagegenauigkeit mit belegter Bezugsebene wird angenommen');
+UPDATE biome_baum SET lagegenauigkeit_m = NULL, lagegenauigkeit_bezug = NULL
+ WHERE baumnummer = 'B-001';
+
+-- ── Mehrstämmigkeit ───────────────────────────────────────────────────────
+
+SELECT pg_temp.muss_gelten(
+  (SELECT mehrstaemmig IS NULL FROM biome_baum WHERE baumnummer = 'B-012'),
+  'Ground Truth: B-012 ist nie kontrolliert, die Stammform also nicht erhoben');
+
+SELECT pg_temp.muss_gelten(
+  (SELECT array_agg(baumnummer) = ARRAY['B-011'] FROM biome_baum
+   WHERE standort_id = '50000000-0000-4000-8000-000000000001' AND mehrstaemmig),
+  'Ground Truth: genau ein mehrstämmiger Baum (B-011)');
+
+SELECT pg_temp.muss_gelten(
+  (SELECT umfang_cm = 58 AND staemme_erfasst = 3
+   FROM v_biome_baum_staerkster_stamm s
+   JOIN biome_baum b ON b.id = s.baum_id
+   WHERE b.baumnummer = 'B-011'),
+  'Ground Truth: stärkster Stamm von B-011 misst 58 cm bei drei erfassten Stämmen');
+
+-- Die Schwelle entscheidet sich am stärksten Stamm, nicht an der Summe.
+-- Summe wäre 110 cm und damit über 80 — die Sicht darf das nicht liefern.
+SELECT pg_temp.muss_gelten(
+  (SELECT umfang_cm >= 50 FROM v_biome_baum_staerkster_stamm s
+   JOIN biome_baum b ON b.id = s.baum_id WHERE b.baumnummer = 'B-011'),
+  'B-011 erreicht die 50-cm-Schwelle am stärksten Stamm');
+
+SELECT pg_temp.muss_scheitern($$
+  INSERT INTO biome_baum_messung (baum_id, merkmal, wert, einheit, messhoehe_cm, stamm_nr, methode_id, erfasst_von, datum)
+  SELECT id, 'baumhoehe', 12, 'm', NULL, 1, 'M-BAUM-UMFANG', 'a0000000-0000-4000-8000-000000000003', DATE '2026-04-15'
+    FROM biome_baum WHERE baumnummer = 'B-011'
+$$, 'Stammnummer an einem Merkmal ohne Stämme wird abgewiesen');
+
+SELECT pg_temp.muss_scheitern($$
+  INSERT INTO biome_baum_messung (baum_id, merkmal, wert, einheit, messhoehe_cm, stamm_nr, methode_id, erfasst_von, datum)
+  SELECT id, 'stammumfang', 30, 'cm', 130, 0, 'M-BAUM-UMFANG', 'a0000000-0000-4000-8000-000000000003', DATE '2026-04-15'
+    FROM biome_baum WHERE baumnummer = 'B-011'
+$$, 'Stammnummer 0 wird abgewiesen');
+
+-- ── Korrekturkette B-007: Datum und Person müssen zusammenpassen ──────────
+
+SELECT pg_temp.muss_gelten(
+  (SELECT datum = DATE '2026-04-22' AND erfasst_von = 'a0000000-0000-4000-8000-000000000002'
+   FROM biome_baum_messung
+   WHERE id = 'c0000000-0000-4000-8000-000000000077'),
+  'Ground Truth: die Korrektur an B-007 trägt den Tag der Nachmessung und die nachmessende Person');
 
 \echo ''
 \echo 'Alle Regeltests grün.'

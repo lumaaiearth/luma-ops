@@ -55,6 +55,12 @@
       "name": "Rieke Sander",
       "organisation": "LUMA",
       "qualifikation": "Landschaftsgärtnerin"
+    },
+    {
+      "id": "b81cb6c9-a847-41cd-bac4-7ab7cee3588c",
+      "name": "Systemübernahme",
+      "organisation": "LUMA",
+      "qualifikation": "Maschinelle Übernahme, keine Person vor Ort"
     }
   ],
   "methoden": [
@@ -81,6 +87,14 @@
       "einheit": null,
       "erfassungsart": "person_vor_ort",
       "standard_id": "BAUM-DE-10"
+    },
+    {
+      "id": "M-IMPORT-ALTBESTAND",
+      "name": "Übernahme aus dem BIOME-Altbestand",
+      "beschreibung": "Maschinelle Übernahme aus map_features. Erfasst wurde die Identität des Baums (Nummer, Art, Lage). Die Fachangaben der Altdaten sind nicht übernommen, weil ihnen Methode, Messhöhe und Person fehlen.",
+      "einheit": null,
+      "erfassungsart": "fremddaten",
+      "standard_id": "BIOME-ALT-01"
     },
     {
       "id": "M-TAXON-GBIF",
@@ -123,6 +137,14 @@
       "quelle_url": "https://api.gbif.org/v1/species/match",
       "abgerufen_am": "2026-08-09",
       "zitat": "The GBIF Backbone Taxonomy is a single, synthetic management classification with the goal of covering all names GBIF is dealing with. Lizenz CC BY 4.0, DOI 10.15468/39omei, pubDate 2023-08-28."
+    },
+    {
+      "id": "BIOME-ALT-01",
+      "kurzname": "Übernahme des BIOME-Altbestands",
+      "herausgeber": "LUMA (eigene Festlegung, keine externe Norm)",
+      "quelle_url": "docs/BIOME_UMSTELLUNG.md",
+      "abgerufen_am": "2026-08-10",
+      "zitat": "Die Identität eines Altbaums wird in den Datenkern übernommen, seine Fachangaben nicht. Sie bleiben als Altangabe ohne Methode, Messhöhe und Person erhalten und werden als solche gekennzeichnet, weil sie die Anforderungen des Nachweiskerns nicht erfüllen und nicht nachträglich erfüllt werden können."
     }
   ],
   "baeume": [
@@ -143,10 +165,12 @@
         ]
       },
       "crs": "EPSG:4326",
-      "lagegenauigkeit_m": 3,
+      "lagegenauigkeit_m": null,
+      "lagegenauigkeit_bezug": null,
+      "mehrstaemmig": false,
       "standorttyp": "strasse",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-09T16:34:54.456503+00:00",
+      "created_at": "2026-08-10T13:12:55.42488+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000001",
@@ -154,11 +178,12 @@
           "wert": 92,
           "einheit": "cm",
           "messhoehe_cm": 130,
+          "stamm_nr": null,
           "messgeraet": "Umfangmaßband",
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-14",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-09T16:34:54.456503+00:00",
+          "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -208,10 +233,12 @@
         ]
       },
       "crs": "EPSG:4326",
-      "lagegenauigkeit_m": 3,
+      "lagegenauigkeit_m": null,
+      "lagegenauigkeit_bezug": null,
+      "mehrstaemmig": false,
       "standorttyp": "strasse",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-09T16:34:54.456503+00:00",
+      "created_at": "2026-08-10T13:12:55.42488+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000002",
@@ -219,11 +246,12 @@
           "wert": 88,
           "einheit": "cm",
           "messhoehe_cm": 130,
+          "stamm_nr": null,
           "messgeraet": "Umfangmaßband",
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-14",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-09T16:34:54.456503+00:00",
+          "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -262,10 +290,12 @@
         ]
       },
       "crs": "EPSG:4326",
-      "lagegenauigkeit_m": 3,
+      "lagegenauigkeit_m": null,
+      "lagegenauigkeit_bezug": null,
+      "mehrstaemmig": false,
       "standorttyp": "strasse",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-09T16:34:54.456503+00:00",
+      "created_at": "2026-08-10T13:12:55.42488+00:00",
       "messungen": [],
       "bewertungen": [
         {
@@ -311,10 +341,12 @@
         ]
       },
       "crs": "EPSG:4326",
-      "lagegenauigkeit_m": 3,
+      "lagegenauigkeit_m": null,
+      "lagegenauigkeit_bezug": null,
+      "mehrstaemmig": false,
       "standorttyp": "strasse",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-09T16:34:54.456503+00:00",
+      "created_at": "2026-08-10T13:12:55.42488+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000004",
@@ -322,11 +354,12 @@
           "wert": 95,
           "einheit": "cm",
           "messhoehe_cm": 130,
+          "stamm_nr": null,
           "messgeraet": "Umfangmaßband",
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-14",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-09T16:34:54.456503+00:00",
+          "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -365,10 +398,12 @@
         ]
       },
       "crs": "EPSG:4326",
-      "lagegenauigkeit_m": 3,
+      "lagegenauigkeit_m": null,
+      "lagegenauigkeit_bezug": null,
+      "mehrstaemmig": false,
       "standorttyp": "strasse",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-09T16:34:54.456503+00:00",
+      "created_at": "2026-08-10T13:12:55.42488+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000005",
@@ -376,11 +411,12 @@
           "wert": 61,
           "einheit": "cm",
           "messhoehe_cm": 130,
+          "stamm_nr": null,
           "messgeraet": "Umfangmaßband",
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-14",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-09T16:34:54.456503+00:00",
+          "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -419,10 +455,12 @@
         ]
       },
       "crs": "EPSG:4326",
-      "lagegenauigkeit_m": 3,
+      "lagegenauigkeit_m": null,
+      "lagegenauigkeit_bezug": null,
+      "mehrstaemmig": false,
       "standorttyp": "strasse",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-09T16:34:54.456503+00:00",
+      "created_at": "2026-08-10T13:12:55.42488+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000006",
@@ -430,11 +468,12 @@
           "wert": 58,
           "einheit": "cm",
           "messhoehe_cm": 130,
+          "stamm_nr": null,
           "messgeraet": "Umfangmaßband",
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-14",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-09T16:34:54.456503+00:00",
+          "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -473,24 +512,43 @@
         ]
       },
       "crs": "EPSG:4326",
-      "lagegenauigkeit_m": 3,
+      "lagegenauigkeit_m": null,
+      "lagegenauigkeit_bezug": null,
+      "mehrstaemmig": false,
       "standorttyp": "strasse",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-09T16:34:54.456503+00:00",
+      "created_at": "2026-08-10T13:12:55.42488+00:00",
       "messungen": [
+        {
+          "id": "c0000000-0000-4000-8000-000000000007",
+          "merkmal": "stammumfang",
+          "wert": 850,
+          "einheit": "cm",
+          "messhoehe_cm": 130,
+          "stamm_nr": null,
+          "messgeraet": "Umfangmaßband",
+          "methode_id": "M-BAUM-UMFANG",
+          "datum": "2026-04-14",
+          "erfasst_von": "a0000000-0000-4000-8000-000000000003",
+          "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
+          "ersetzt_id": null,
+          "korrektur_grund": null,
+          "vorzustand": null
+        },
         {
           "id": "c0000000-0000-4000-8000-000000000077",
           "merkmal": "stammumfang",
           "wert": 85,
           "einheit": "cm",
           "messhoehe_cm": 130,
+          "stamm_nr": null,
           "messgeraet": "Umfangmaßband",
           "methode_id": "M-BAUM-UMFANG",
-          "datum": "2026-04-14",
+          "datum": "2026-04-22",
           "erfasst_von": "a0000000-0000-4000-8000-000000000002",
-          "erfasst_am": "2026-08-09T16:34:54.456503+00:00",
+          "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
           "ersetzt_id": "c0000000-0000-4000-8000-000000000007",
-          "korrektur_grund": "Zahlendreher bei der Eingabe: 850 cm statt 85 cm. Nachgemessen am 2026-04-22 durch J. Feldmann, Wert bestätigt.",
+          "korrektur_grund": "Zahlendreher bei der Eingabe am 14.04.2026: 850 cm statt 85 cm. Am 22.04.2026 nachgemessen, Wert bestätigt.",
           "vorzustand": {
             "id": "c0000000-0000-4000-8000-000000000007",
             "wert": 850,
@@ -498,8 +556,9 @@
             "baum_id": "b0000000-0000-4000-8000-000000000007",
             "einheit": "cm",
             "merkmal": "stammumfang",
+            "stamm_nr": null,
             "bemerkung": null,
-            "erfasst_am": "2026-08-09T16:34:54.456503+00:00",
+            "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
             "ersetzt_id": null,
             "messgeraet": "Umfangmaßband",
             "methode_id": "M-BAUM-UMFANG",
@@ -509,21 +568,6 @@
             "messhoehe_cm": 130,
             "korrektur_grund": null
           }
-        },
-        {
-          "id": "c0000000-0000-4000-8000-000000000007",
-          "merkmal": "stammumfang",
-          "wert": 850,
-          "einheit": "cm",
-          "messhoehe_cm": 130,
-          "messgeraet": "Umfangmaßband",
-          "methode_id": "M-BAUM-UMFANG",
-          "datum": "2026-04-14",
-          "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-09T16:34:54.456503+00:00",
-          "ersetzt_id": null,
-          "korrektur_grund": null,
-          "vorzustand": null
         }
       ],
       "bewertungen": [],
@@ -559,10 +603,12 @@
         ]
       },
       "crs": "EPSG:4326",
-      "lagegenauigkeit_m": 3,
+      "lagegenauigkeit_m": null,
+      "lagegenauigkeit_bezug": null,
+      "mehrstaemmig": false,
       "standorttyp": "park",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-09T16:34:54.456503+00:00",
+      "created_at": "2026-08-10T13:12:55.42488+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000008",
@@ -570,11 +616,12 @@
           "wert": 214,
           "einheit": "cm",
           "messhoehe_cm": 130,
+          "stamm_nr": null,
           "messgeraet": "Umfangmaßband",
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-15",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-09T16:34:54.456503+00:00",
+          "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -613,10 +660,12 @@
         ]
       },
       "crs": "EPSG:4326",
-      "lagegenauigkeit_m": 3,
+      "lagegenauigkeit_m": null,
+      "lagegenauigkeit_bezug": null,
+      "mehrstaemmig": false,
       "standorttyp": "park",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-09T16:34:54.456503+00:00",
+      "created_at": "2026-08-10T13:12:55.42488+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000009",
@@ -624,11 +673,12 @@
           "wert": 47,
           "einheit": "cm",
           "messhoehe_cm": 130,
+          "stamm_nr": null,
           "messgeraet": "Umfangmaßband",
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-15",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-09T16:34:54.456503+00:00",
+          "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -667,10 +717,12 @@
         ]
       },
       "crs": "EPSG:4326",
-      "lagegenauigkeit_m": 3,
+      "lagegenauigkeit_m": null,
+      "lagegenauigkeit_bezug": null,
+      "mehrstaemmig": false,
       "standorttyp": "park",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-09T16:34:54.456503+00:00",
+      "created_at": "2026-08-10T13:12:55.42488+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000010",
@@ -678,11 +730,12 @@
           "wert": 236,
           "einheit": "cm",
           "messhoehe_cm": 130,
+          "stamm_nr": null,
           "messgeraet": "Umfangmaßband",
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-15",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-09T16:34:54.456503+00:00",
+          "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -732,22 +785,57 @@
         ]
       },
       "crs": "EPSG:4326",
-      "lagegenauigkeit_m": 3,
+      "lagegenauigkeit_m": null,
+      "lagegenauigkeit_bezug": null,
+      "mehrstaemmig": true,
       "standorttyp": "park",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-09T16:34:54.456503+00:00",
+      "created_at": "2026-08-10T13:12:55.42488+00:00",
       "messungen": [
         {
-          "id": "c0000000-0000-4000-8000-000000000011",
+          "id": "c0000000-0000-4000-8000-000000000113",
           "merkmal": "stammumfang",
-          "wert": 74,
+          "wert": 21,
           "einheit": "cm",
           "messhoehe_cm": 130,
+          "stamm_nr": 3,
           "messgeraet": "Umfangmaßband",
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-15",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-09T16:34:54.456503+00:00",
+          "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
+          "ersetzt_id": null,
+          "korrektur_grund": null,
+          "vorzustand": null
+        },
+        {
+          "id": "c0000000-0000-4000-8000-000000000112",
+          "merkmal": "stammumfang",
+          "wert": 31,
+          "einheit": "cm",
+          "messhoehe_cm": 130,
+          "stamm_nr": 2,
+          "messgeraet": "Umfangmaßband",
+          "methode_id": "M-BAUM-UMFANG",
+          "datum": "2026-04-15",
+          "erfasst_von": "a0000000-0000-4000-8000-000000000003",
+          "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
+          "ersetzt_id": null,
+          "korrektur_grund": null,
+          "vorzustand": null
+        },
+        {
+          "id": "c0000000-0000-4000-8000-000000000111",
+          "merkmal": "stammumfang",
+          "wert": 58,
+          "einheit": "cm",
+          "messhoehe_cm": 130,
+          "stamm_nr": 1,
+          "messgeraet": "Umfangmaßband",
+          "methode_id": "M-BAUM-UMFANG",
+          "datum": "2026-04-15",
+          "erfasst_von": "a0000000-0000-4000-8000-000000000003",
+          "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -786,10 +874,12 @@
         ]
       },
       "crs": "EPSG:4326",
-      "lagegenauigkeit_m": 3,
+      "lagegenauigkeit_m": null,
+      "lagegenauigkeit_bezug": null,
+      "mehrstaemmig": null,
       "standorttyp": "park",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-09T16:34:54.456503+00:00",
+      "created_at": "2026-08-10T13:12:55.42488+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000012",
@@ -797,11 +887,12 @@
           "wert": 298,
           "einheit": "cm",
           "messhoehe_cm": 130,
+          "stamm_nr": null,
           "messgeraet": "Umfangmaßband",
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-15",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-09T16:34:54.456503+00:00",
+          "erfasst_am": "2026-08-10T13:12:55.42488+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null

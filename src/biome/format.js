@@ -164,12 +164,38 @@ function zuDate(wert) {
 }
 
 /**
+ * Bezugsebenen einer Lagegenauigkeit — die wörtlich belegten Reporting scopes
+ * aus QUAL-LAGE (`refs/standards/00-standort-geodaten.md`).
+ */
+export const LAGE_BEZUG = {
+  einzelobjekt: 'je Einzelobjekt',
+  objektart: 'je Objektart',
+  datensatz: 'für den Datensatz',
+}
+
+/**
  * Koordinate in Dezimalgrad, deutsche Schreibweise, immer mit Bezugssystem.
  * Fünf Nachkommastellen entsprechen gut einem Meter — mehr täuscht eine
  * Genauigkeit vor, die eine Handy-Ortung nicht hat.
  *
+ * ── Warum die Meterangabe eine Bezugsebene braucht ────────────────────────
+ *
+ * Bis 2026-08-10 hängte diese Funktion jede vorhandene Zahl als „± 3 m" an die
+ * Koordinate. Das war keine belegte Angabe. QUAL-LAGE definiert
+ * Lagegenauigkeit wörtlich als „mean value of the positional uncertainties for
+ * a set of positions" — über eine **Menge** von Positionen, mit einer
+ * Bezugsebene, die „spatial object", „spatial object type" oder „data set"
+ * sein kann. Ohne diese Angabe ist nicht zu erkennen, ob die Zahl für diesen
+ * einen Baum, für alle Bäume oder für den ganzen Bestand gilt — und damit ist
+ * sie nicht interpretierbar.
+ *
+ * Deshalb: eine Meterangabe ohne `bezug` wird nicht ausgegeben. Nicht
+ * umformuliert, nicht relativiert — weggelassen. Der Datenkern lässt sie seit
+ * `20260810_biome_lagegenauigkeit_und_mehrstaemmigkeit.sql` gar nicht mehr
+ * entstehen; diese Prüfung fängt Altbestand und Fremdquellen ab.
+ *
  * @param {{ lat: number, lng: number }|null|undefined} punkt
- * @param {{ crs?: string, genauigkeitM?: number|null }} [opt]
+ * @param {{ crs?: string, genauigkeitM?: number|null, bezug?: string|null }} [opt]
  * @returns {string}
  */
 export function koordinate(punkt, opt = {}) {
@@ -177,7 +203,10 @@ export function koordinate(punkt, opt = {}) {
   const crs = opt.crs || 'EPSG:4326'
   const nord = `${zahl(Math.abs(punkt.lat), { nachkomma: 5 })}°${NNBSP}${punkt.lat >= 0 ? 'N' : 'S'}`
   const ost = `${zahl(Math.abs(punkt.lng), { nachkomma: 5 })}°${NNBSP}${punkt.lng >= 0 ? 'O' : 'W'}`
-  const genau = istFehlend(opt.genauigkeitM) ? '' : ` ±${NBSP}${mitEinheit(opt.genauigkeitM, 'm')}`
+  const bezugText = opt.bezug ? LAGE_BEZUG[/** @type {keyof typeof LAGE_BEZUG} */ (opt.bezug)] : null
+  const genau = istFehlend(opt.genauigkeitM) || !bezugText
+    ? ''
+    : ` ±${NBSP}${mitEinheit(opt.genauigkeitM, 'm')} ${bezugText}`
   return `${nord} ${ost} (${crs})${genau}`
 }
 

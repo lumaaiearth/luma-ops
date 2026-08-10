@@ -118,18 +118,29 @@ const VITALITAET_OPTIONS = ROLOFF_VS.stufen.map(s => ({
 // gemessenen Stammumfang abgeleitet — und ausdrücklich als Berechnung
 // gekennzeichnet. Eine handgesetzte Auswahl konnte der Messung widersprechen,
 // ohne dass jemand es merkt.
-function SchutzstatusHinweis({ stammumfangCm, mehrstaemmig }) {
+function SchutzstatusHinweis({ stammumfangCm, mehrstaemmig, staerksterStammCm }) {
   const box = {
     fontSize: 12, lineHeight: 1.45, padding: '8px 10px', borderRadius: 7,
     border: `1px solid ${BORDER}`, background: 'color-mix(in srgb, var(--luma-fg) 3%, transparent)',
   }
-  const ergebnis = schutzschwelleErreicht({ stammumfangCm, mehrstaemmig })
+  const ergebnis = schutzschwelleErreicht({ stammumfangCm, mehrstaemmig, staerksterStammCm })
 
   if (!ergebnis) {
     return (
       <div style={{ ...box, color: MUTED }}>
         Ohne Stammumfang keine Aussage. Der Schutz nach § 2 BaumSchVO knüpft an
         den Umfang in 1,30 m Höhe an.
+      </div>
+    )
+  }
+
+  // Fehlt eine Angabe, von der die Schwelle abhängt, wird nichts gerechnet.
+  // Stattdessen steht da, was fehlt — eine Zahl wäre hier geraten.
+  if (ergebnis.status === 'unbestimmbar') {
+    return (
+      <div style={{ ...box, color: FG }}>
+        <div style={{ fontWeight: 600, marginBottom: 3 }}>Schwelle nicht bestimmbar</div>
+        <div style={{ color: MUTED }}>{ergebnis.grund}</div>
       </div>
     )
   }
@@ -144,8 +155,8 @@ function SchutzstatusHinweis({ stammumfangCm, mehrstaemmig }) {
         </span>
       </div>
       <div style={{ color: MUTED }}>
-        {stammumfangCm} cm gegen Schwelle {ergebnis.schwelleCm} cm
-        {mehrstaemmig ? ' (mehrstämmig, je Stamm)' : ' (einstämmig)'}.
+        {ergebnis.verglichenCm} cm gegen Schwelle {ergebnis.schwelleCm} cm
+        {mehrstaemmig ? ' (stärkster Stamm bei Mehrstämmigkeit)' : ' (einstämmig)'}.
         Ob der Baum tatsächlich geschützt ist, hängt zusätzlich von der Baumart
         und den Ausnahmen in § 2 Abs. 3 ab. Das ist keine Rechtsauskunft.{' '}
         <a href={ergebnis.quelle.url} target="_blank" rel="noreferrer" style={{ color: A }}>
@@ -154,6 +165,30 @@ function SchutzstatusHinweis({ stammumfangCm, mehrstaemmig }) {
       </div>
     </div>
   )
+}
+
+/**
+ * `mehrstaemmig` aus einem Formular- oder Property-Wert.
+ *
+ * Bis 2026-08-10 stand an beiden Aufrufstellen `!!p.mehrstaemmig`. Damit wurde
+ * „nie erhoben" zu „einstämmig" und gegen 80 cm gerechnet. Ein leerer Wert
+ * bleibt jetzt leer.
+ */
+function dreiwertig(v) {
+  if (v === true || v === 'mehrstaemmig') return true
+  if (v === false || v === 'einstaemmig') return false
+  return null
+}
+
+/**
+ * Der Wert für die Auswahlliste. Altbestand aus der Ankreuzbox-Zeit steht als
+ * `true`/`false` in `properties`; ohne diese Umsetzung zeigte die Liste für
+ * einen als mehrstämmig erfassten Baum „nicht erhoben" an — und beim nächsten
+ * Speichern wäre die Angabe weg gewesen.
+ */
+function stammformWert(v) {
+  const d = dreiwertig(v)
+  return d === true ? 'mehrstaemmig' : d === false ? 'einstaemmig' : ''
 }
 
 function makePin(color, size = 14) {
@@ -468,13 +503,34 @@ function FeatureForm({ mode, project, color, existingFeature, draft, onSave, onC
               <label style={labelStyle}>Schutzstatus nach Baumschutzverordnung</label>
               <SchutzstatusHinweis
                 stammumfangCm={Number(form.stammumfang_cm) || null}
-                mehrstaemmig={!!form.mehrstaemmig}
+                mehrstaemmig={dreiwertig(form.mehrstaemmig)}
+                staerksterStammCm={Number(form.staerkster_stamm_cm) || null}
               />
-              <label style={{ ...labelStyle, textTransform: 'none', letterSpacing: 0, marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <input type="checkbox" checked={!!form.mehrstaemmig}
-                  onChange={e => set('mehrstaemmig', e.target.checked)} />
-                mehrstämmig
-              </label>
+              {/* Eine Ankreuzbox kennt nur ja und nein. „Nicht angekreuzt" hieß
+                  hier bis 2026-08-10 zugleich „einstämmig" und „niemand hat
+                  nachgesehen" — und die Schwelle sprang stillschweigend auf
+                  80 cm. Drei Werte, weil es drei Sachverhalte sind. */}
+              <label style={{ ...labelStyle, marginTop: 8, display: 'block' }}>Stammform</label>
+              <select style={inputStyle} value={stammformWert(form.mehrstaemmig)}
+                onChange={e => set('mehrstaemmig', e.target.value)}>
+                <option value="">nicht erhoben</option>
+                <option value="einstaemmig">einstämmig</option>
+                <option value="mehrstaemmig">mehrstämmig</option>
+              </select>
+              {dreiwertig(form.mehrstaemmig) === true && (
+                <div style={{ marginTop: 6 }}>
+                  <label style={labelStyle}>Umfang des stärksten Stamms (cm, in 1,30 m Höhe)</label>
+                  <input style={inputStyle} type="number" inputMode="numeric"
+                    value={form.staerkster_stamm_cm || ''}
+                    onChange={e => set('staerkster_stamm_cm', e.target.value)}
+                    placeholder="z.B. 54" />
+                  <div style={{ fontSize: 11, color: MUTED, marginTop: 4, lineHeight: 1.4 }}>
+                    Die Verordnung stellt auf den stärksten Einzelstamm ab, nicht
+                    auf eine Summe: geschützt, „wenn mindestens einer der Stämme
+                    einen Mindestumfang von 50 cm aufweist".
+                  </div>
+                </div>
+              )}
             </div>
             <div style={{ gridColumn: '1/-1' }}>
               <label style={labelStyle}>Standorttyp</label>

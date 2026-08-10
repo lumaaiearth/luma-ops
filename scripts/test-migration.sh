@@ -22,6 +22,8 @@ UP="$ROOT/supabase/migrations/20260809_biome_datenkern.sql"
 DOWN="$ROOT/supabase/migrations/down/20260809_biome_datenkern.down.sql"
 ALT_UP="$ROOT/supabase/migrations/20260810_biome_altbestand_uebernahme.sql"
 ALT_DOWN="$ROOT/supabase/migrations/down/20260810_biome_altbestand_uebernahme.down.sql"
+LAGE_UP="$ROOT/supabase/migrations/20260810_biome_lagegenauigkeit_und_mehrstaemmigkeit.sql"
+LAGE_DOWN="$ROOT/supabase/migrations/down/20260810_biome_lagegenauigkeit_und_mehrstaemmigkeit.down.sql"
 ALT_FIXTURE="$ROOT/fixtures/altbestand.sql"
 ALT_TESTS="$ROOT/fixtures/regeltests-altbestand.sql"
 BOOTSTRAP="$ROOT/fixtures/00_bootstrap.sql"
@@ -38,14 +40,28 @@ dropdb --if-exists "$DB"
 createdb "$DB"
 
 echo "1/6 Bootstrap"                 && lauf "$BOOTSTRAP"
-echo "2/6 Migration vorwärts"        && lauf "$UP"
+echo "2/6 Migration vorwärts"        && lauf "$UP" && lauf "$LAGE_UP"
+
+# Die Nachtragsmigration einzeln vor und zurück, bevor der große Zyklus läuft.
+# Danach muss die Spalte weg und wieder da sein, sonst ist sie nicht rücknehmbar.
+lauf "$LAGE_DOWN"
+SPALTE_WEG=$(psql -tAq -d "$DB" -c \
+  "select count(*) from information_schema.columns
+   where table_name='biome_baum' and column_name in ('lagegenauigkeit_bezug','mehrstaemmig')")
+[ "$SPALTE_WEG" = "0" ] || { rot "FEHLER: Nachtragsmigration nicht rücknehmbar ($SPALTE_WEG Spalten blieben)"; exit 1; }
+lauf "$LAGE_UP"
+SPALTE_DA=$(psql -tAq -d "$DB" -c \
+  "select count(*) from information_schema.columns
+   where table_name='biome_baum' and column_name in ('lagegenauigkeit_bezug','mehrstaemmig')")
+[ "$SPALTE_DA" = "2" ] || { rot "FEHLER: Nachtragsmigration nicht wiederholbar ($SPALTE_DA statt 2)"; exit 1; }
+echo "    Nachtrag Lagegenauigkeit/Mehrstämmigkeit: vor, zurück, wieder vor"
 
 TAB_NACH_UP=$(psql -tAq -d "$DB" -c \
   "select count(*) from pg_tables where schemaname='public' and tablename like 'biome\\_%'")
 echo "    $TAB_NACH_UP BIOME-Tabellen angelegt"
 [ "$TAB_NACH_UP" -gt 0 ] || { rot "FEHLER: keine BIOME-Tabellen nach der Migration"; exit 1; }
 
-echo "3/6 Migration rückwärts"       && lauf "$DOWN"
+echo "3/6 Migration rückwärts"       && lauf "$LAGE_DOWN" && lauf "$DOWN"
 
 TAB_NACH_DOWN=$(psql -tAq -d "$DB" -c \
   "select count(*) from pg_tables where schemaname='public' and tablename like 'biome\\_%'")
@@ -63,7 +79,7 @@ if [ "$TAB_NACH_DOWN" != "0" ] || [ "$FN_NACH_DOWN" != "0" ] || [ "$VIEW_NACH_DO
 fi
 echo "    sauber zurückgebaut"
 
-echo "4/6 Migration erneut vorwärts" && lauf "$UP"
+echo "4/6 Migration erneut vorwärts" && lauf "$UP" && lauf "$LAGE_UP"
 
 TAB_WIEDER=$(psql -tAq -d "$DB" -c \
   "select count(*) from pg_tables where schemaname='public' and tablename like 'biome\\_%'")

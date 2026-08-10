@@ -46,6 +46,35 @@ Incumbent-Screenshots. Bar 2 kann nicht als Blindvergleich gefahren werden.
 ablegen (die Ordner liegen bereit und sind leer), oder eine Umgebung, in der
 der Browser hinausdarf.
 
+### Nachtrag 2026-08-10 — geprüft: löst Firecrawl das?
+
+Malte hat gefragt, ob sich die Sperre mit Firecrawl umgehen lässt. Ich habe es
+ausprobiert, statt zu schätzen. Das Ergebnis ist zweigeteilt.
+
+| Werkzeug | Was zurückkam |
+|---|---|
+| `firecrawl_search` | Trefferliste mit URL, Titel, Beschreibungszeile. Funktioniert. Keine Seiteninhalte. |
+| `WebFetch` auf `globalforestwatch.org/map/` | „a JavaScript shell with no readable content" — nur der `<title>`. |
+| `WebFetch` auf die Hilfeseite desselben Produkts | 301 auf `globalnaturewatch.org`, dort dasselbe leere Gerüst. |
+| `curl` (schon vorher im Einsatz) | HTTP 200 auf statischem HTML und PDF. So sind `refs/standards/` und der Wirkungs-Registerteil entstanden. |
+
+**Was Firecrawl löst:** die Recherche. Für das Standards-Register und für die
+Funktionslücken-Bar gegen öffentliche Produktbeschreibungen ist es nützlich —
+Suche findet die Adresse, `curl`/`WebFetch` holen den Text, sofern die Seite
+serverseitig gerendert ist.
+
+**Was Firecrawl nicht löst:** Bar 2. Die Produktbar verlangt, das Portal zu
+öffnen, die Aufgabe dort zu erledigen und beide Bildschirme blind zu
+vergleichen. Dafür braucht es einen laufenden Browser, und genau der ist
+gesperrt. Firecrawl liefert kein Bild, und die interessanten Incumbents
+(Global Forest Watch, Map of Life, Restor, Natura-2000-Viewer) sind
+JavaScript-Anwendungen, deren Oberfläche im HTML gar nicht vorkommt. Aus einer
+Textextraktion einen Bildschirmvergleich zu konstruieren hieße, ihn zu
+erfinden.
+
+**Bar 2 bleibt also ausgesetzt.** Was es weiterhin auflöst, steht oben:
+Screenshots als Dateien, oder ein Browser mit Ausgang.
+
 ---
 
 ## 2 · QGIS ist nicht installiert

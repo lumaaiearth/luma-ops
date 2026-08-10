@@ -91,9 +91,26 @@ pruef('Koordinate nennt immer ihr Bezugssystem', () => {
   assert.ok(t.includes('O'), t)
 })
 
-pruef('Koordinate zeigt Lagegenauigkeit, wenn bekannt', () => {
-  const t = koordinate({ lat: 52.5, lng: 13.4 }, { genauigkeitM: 4 })
-  assert.ok(t.includes('4 m'), t)
+pruef('Koordinate zeigt Lagegenauigkeit nur mit ihrer Bezugsebene', () => {
+  // Mit Bezugsebene ist die Zahl interpretierbar und wird gezeigt.
+  // \\s statt Leerzeichen: zwischen Zahl und Einheit steht ein geschütztes.
+  const mit = koordinate({ lat: 52.5, lng: 13.4 }, { genauigkeitM: 4, bezug: 'einzelobjekt' })
+  assert.ok(/4\s?m/.test(mit), mit)
+  assert.ok(mit.includes('je Einzelobjekt'), mit)
+
+  // Ohne Bezugsebene ist nicht erkennbar, ob die Zahl für dieses Objekt, für
+  // die Objektart oder für den ganzen Datensatz gilt (QUAL-LAGE). Dann wird
+  // sie weggelassen, nicht relativiert. Bis 2026-08-10 stand hier stattdessen
+  // „± 3 m" auf dem Bildschirm, ohne dass irgendwer sagen konnte, worauf sich
+  // die drei Meter beziehen.
+  const ohne = koordinate({ lat: 52.5, lng: 13.4 }, { genauigkeitM: 4 })
+  assert.ok(!/4\s?m/.test(ohne), ohne)
+  assert.ok(!ohne.includes('\u00b1'), ohne)
+
+  // Eine unbekannte Bezugsebene zählt nicht als Bezugsebene.
+  const falsch = koordinate({ lat: 52.5, lng: 13.4 }, { genauigkeitM: 4, bezug: 'ungefaehr' })
+  assert.ok(!/4\s?m/.test(falsch), falsch)
+
   assert.equal(koordinate(null), FEHLT)
 })
 

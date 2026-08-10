@@ -33,6 +33,15 @@ function frage(sql) {
   return JSON.parse(roh.trim() || 'null')
 }
 
+// Der Prüfstand enthält am Ende seines Laufs mehr als die Ground Truth: die
+// Altbestands-Übernahme legt dort ihre eigenen Bäume an einem zweiten Standort
+// ab. Ein Export „alles, was in der Datenbank steht" hing damit davon ab, an
+// welcher Stelle des Prüfstands er lief — und lieferte einmal 12 und einmal 14
+// Bäume. Deshalb ist der Export an den Standort aus fixtures/ground_truth.sql
+// gebunden. Was der Fixture-Modus zeigt, ist damit genau das, was in der
+// Ground Truth steht, und nichts sonst.
+const STANDORT = '50000000-0000-4000-8000-000000000001'
+
 // Ein einziges Dokument, damit die Oberfläche nichts zusammenfügen muss und
 // der Fixture-Modus nicht heimlich eine eigene Logik bekommt.
 const dokument = frage(`
@@ -43,6 +52,7 @@ select json_build_object(
       'id', s.id, 'name', s.name, 'kuerzel', s.kuerzel, 'adresse', s.adresse,
       'crs', s.crs, 'flaeche_m2', s.flaeche_m2, 'geometrie', s.geometrie
     ) order by s.name), '[]'::json) from biome_standort s
+    where s.id = '${STANDORT}'
   ),
   'personen', (
     select coalesce(json_agg(json_build_object(
@@ -67,12 +77,15 @@ select json_build_object(
       'art_wissenschaftlich', b.art_wissenschaftlich, 'art_deutsch', b.art_deutsch,
       'taxon_quelle', b.taxon_quelle, 'taxon_id', b.taxon_id,
       'gepflanzt_jahr', b.gepflanzt_jahr, 'position', b.position, 'crs', b.crs,
-      'lagegenauigkeit_m', b.lagegenauigkeit_m, 'standorttyp', b.standorttyp,
+      'lagegenauigkeit_m', b.lagegenauigkeit_m,
+      'lagegenauigkeit_bezug', b.lagegenauigkeit_bezug,
+      'mehrstaemmig', b.mehrstaemmig, 'standorttyp', b.standorttyp,
       'angelegt_von', b.angelegt_von, 'created_at', b.created_at,
       'messungen', (
         select coalesce(json_agg(json_build_object(
           'id', m.id, 'merkmal', m.merkmal, 'wert', m.wert, 'einheit', m.einheit,
-          'messhoehe_cm', m.messhoehe_cm, 'messgeraet', m.messgeraet,
+          'messhoehe_cm', m.messhoehe_cm, 'stamm_nr', m.stamm_nr,
+          'messgeraet', m.messgeraet,
           'methode_id', m.methode_id, 'datum', m.datum,
           'erfasst_von', m.erfasst_von, 'erfasst_am', m.erfasst_am,
           'ersetzt_id', m.ersetzt_id, 'korrektur_grund', m.korrektur_grund,
@@ -98,6 +111,7 @@ select json_build_object(
         from biome_kontrolle k where k.baum_id = b.id
       )
     ) order by b.baumnummer), '[]'::json) from biome_baum b
+    where b.standort_id = '${STANDORT}'
   )
 )
 `)
