@@ -107,6 +107,21 @@ export async function ladeDatenstand() {
       sb.from('biome_kontrolle').select('*'),
     ])
 
+  // Fehler nicht verschlucken. Ohne das wird aus „Tabelle gibt es nicht"
+  // stillschweigend eine leere Liste, und die Oberfläche meldet „0 Bäume" —
+  // genau die Verwechslung von fehlend und null, die BIOME nicht machen darf.
+  const antworten = { standorte, personen, methoden, standards, baeume, messungen, bewertungen, kontrollen }
+  const kaputt = Object.entries(antworten).filter(([, a]) => a.error)
+  if (kaputt.length) {
+    const [name, a] = kaputt[0]
+    const err = new Error(
+      `Der BIOME-Datenkern ist auf dieser Umgebung nicht erreichbar (${name}: ${a.error?.message ?? 'unbekannter Fehler'}). `
+      + 'Das ist kein leerer Bestand — es liegen keine Daten vor.',
+    )
+    err.name = 'DatenkernNichtErreichbar'
+    throw err
+  }
+
   const nach = (rows, schluessel) => {
     /** @type {Record<string, any[]>} */
     const k = {}

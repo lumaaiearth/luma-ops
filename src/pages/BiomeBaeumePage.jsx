@@ -245,9 +245,19 @@ export default function BiomeBaeumePage() {
   }, [stand, stichjahr])
 
   if (fehler) {
+    // Ein Ladefehler ist kein leerer Bestand. Die Seite sagt, was los ist,
+    // statt „0 Bäume" zu zeigen.
     return (
-      <div style={{ padding: 20, maxWidth: 1080, margin: '0 auto' }}>
-        <Karte><div style={{ color: FG }}>{fehler}</div></Karte>
+      <div style={{ padding: '18px 16px', maxWidth: 1080, margin: '0 auto', fontFamily: SANS }}>
+        <h1 style={{ margin: '0 0 10px', fontSize: 19, fontWeight: 600, color: FG }}>Baumkataster</h1>
+        <Karte data-test="ladefehler">
+          <div style={{ ...LABEL, marginBottom: 6 }}>Keine Daten geladen</div>
+          <div style={{ color: FG, fontSize: 14, lineHeight: 1.5 }}>{fehler}</div>
+          <div style={{ color: MUTED, fontSize: 13, lineHeight: 1.5, marginTop: 8 }}>
+            Hier steht bewusst keine Zahl. Ein Bestand, der nicht geladen werden
+            konnte, ist kein leerer Bestand.
+          </div>
+        </Karte>
       </div>
     )
   }
