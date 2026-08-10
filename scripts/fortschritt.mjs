@@ -219,8 +219,13 @@ function seite({ jobs, verdikte, gate, standards, jetzt }) {
     --bg:#EEEDE9; --fg:#14171A; --muted:#6B7075; --linie:#D6D4CE;
     --karte:#FFFFFF; --mint:#22EAA7; --gut:#166534; --schlecht:#9A3412;
     --frost:#1E40AF; --offen:#6B7075;
-    --mono:'Space Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
-    --sans:'Space Grotesk',system-ui,-apple-system,'Segoe UI',sans-serif;
+    /* Space Mono und Space Grotesk sind die LUMA-Schriften. Als Artefakt
+       veröffentlicht liegen sie nicht vor — Schrift-CDNs sind gesperrt —,
+       deshalb ist die Ersatzkette bewusst gesetzt und nicht dem Zufall
+       überlassen: eine humanistische Grotesk und eine Monospace mit
+       gleichmäßiger Ziffernbreite. */
+    --mono:'Space Mono',ui-monospace,'SF Mono',SFMono-Regular,'DejaVu Sans Mono',Menlo,monospace;
+    --sans:'Space Grotesk',system-ui,-apple-system,'Segoe UI','DejaVu Sans',sans-serif;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
@@ -234,6 +239,7 @@ function seite({ jobs, verdikte, gate, standards, jetzt }) {
   }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--fg); font-family:var(--sans);
+         font-variant-numeric:tabular-nums;
          font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%; }
   .huelle { max-width:900px; margin:0 auto; padding:20px 16px 64px;
             padding-left:max(16px,env(safe-area-inset-left));
@@ -278,6 +284,8 @@ function seite({ jobs, verdikte, gate, standards, jetzt }) {
   ul.gate li b { font-family:var(--mono); font-size:11px; }
   ul.gate li.gruen b { color:var(--gut); }
   ul.gate li.rot b { color:var(--schlecht); }
+  :focus-visible { outline:2px solid var(--fg); outline-offset:2px; }
+  @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
   footer { margin-top:32px; font-family:var(--mono); font-size:10px; color:var(--muted); }
   @media (max-width:480px) {
     .zeile .k { min-width:100%; }
