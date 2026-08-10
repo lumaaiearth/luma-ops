@@ -294,9 +294,9 @@ export default function Layout({ children, fullHeight = false }) {
           </div>
         )}
 
-        <div className={`main-content lu-fade-in${fullHeight ? ' mc-full' : ''}`} style={{ flex: 1, overflowY: fullHeight ? 'hidden' : 'auto', display: fullHeight ? 'flex' : 'block', flexDirection: 'column' }}>
+        <main id="inhalt" className={`main-content lu-fade-in${fullHeight ? ' mc-full' : ''}`} style={{ flex: 1, overflowY: fullHeight ? 'hidden' : 'auto', display: fullHeight ? 'flex' : 'block', flexDirection: 'column' }}>
           {children}
-        </div>
+        </main>
 
         {/* Mobile bottom navigation */}
         <div className="mobile-bottom-nav" style={{

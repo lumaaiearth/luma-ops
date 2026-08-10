@@ -29,7 +29,7 @@ async function seiteOeffnen(page) {
 }
 
 /** Zählt Klicks mit, damit das Budget gemessen und nicht geschätzt wird. */
-function klickzaehler(page) {
+function klickzaehler() {
   let n = 0
   return {
     async klick(locator) { n++; await locator.click() },
@@ -39,7 +39,7 @@ function klickzaehler(page) {
 
 test.describe('w1-faellige-kontrollen · Bezirksamt Grünflächen', () => {
   test('nennt fünf Bäume ohne Kontrolle 2026 und hält 3 Klicks / 30 s', async ({ page }) => {
-    const z = klickzaehler(page)
+    const z = klickzaehler()
     const start = Date.now()
 
     await seiteOeffnen(page)
@@ -49,7 +49,7 @@ test.describe('w1-faellige-kontrollen · Bezirksamt Grünflächen', () => {
     await expect(page.locator('[data-test="anzahl-nie"]')).toHaveText('1')
 
     // Ein Klick auf den Filter liefert die Liste.
-    await z.klick(page.locator('[data-test="filter-jahr_offen"]'))
+    await z.klick(page.locator('[data-test="filter-ohne_kontrolle"]'))
 
     for (const nr of ['B-002', 'B-005', 'B-008', 'B-011', 'B-012']) {
       await expect(page.locator(`[data-test="baum-${nr}"]`)).toBeVisible()
@@ -62,9 +62,9 @@ test.describe('w1-faellige-kontrollen · Bezirksamt Grünflächen', () => {
     expect(sekunden, `Zeitbudget: ${sekunden.toFixed(1)} s von 30`).toBeLessThanOrEqual(30)
   })
 
-  test('unterscheidet noch nie kontrolliert von dieses Jahr offen', async ({ page }) => {
+  test('unterscheidet noch nie kontrolliert von keine Kontrolle in diesem Jahr', async ({ page }) => {
     await seiteOeffnen(page)
-    await page.locator('[data-test="filter-jahr_offen"]').click()
+    await page.locator('[data-test="filter-ohne_kontrolle"]').click()
 
     // B-012 war noch nie dran — das ist ein anderer Sachverhalt als überfällig.
     await expect(page.locator('[data-test="baum-B-012"]').locator('[data-test="nie-kontrolliert"]'))
@@ -73,13 +73,13 @@ test.describe('w1-faellige-kontrollen · Bezirksamt Grünflächen', () => {
     // B-002 hat eine Historie, nur nicht in diesem Jahr.
     const b002 = page.locator('[data-test="baum-B-002"]')
     await expect(b002).toContainText('03.06.2025')
-    await expect(b002).toContainText('2026 offen')
+    await expect(b002).toContainText('keine Kontrolle in 2026')
     await expect(b002.locator('[data-test="nie-kontrolliert"]')).toHaveCount(0)
   })
 
   test('die Zahl trägt Bestand, Zeitraum und Stichtag bei sich', async ({ page }) => {
     await seiteOeffnen(page)
-    const karte = page.locator('text=Kontrollstand 2026').locator('..')
+    const karte = page.locator('text=Dokumentierte Kontrollen 2026').locator('..')
     await expect(karte).toContainText('Marzahner Promenade Nord')
     await expect(karte).toContainText('01.01.2026')
     await expect(karte).toContainText('09.08.2026')
@@ -96,7 +96,7 @@ test.describe('w1-faellige-kontrollen · Bezirksamt Grünflächen', () => {
 
 test.describe('w1-zahl-herkunft · ESG-Verantwortliche', () => {
   test('führt in zwei Klicks auf Quelle, Datum, Methode und Person', async ({ page }) => {
-    const z = klickzaehler(page)
+    const z = klickzaehler()
     const start = Date.now()
 
     await seiteOeffnen(page)
@@ -146,8 +146,7 @@ test.describe('Datenregeln', () => {
     await seiteOeffnen(page)
     const b003 = page.locator('[data-test="baum-B-003"]')
     await expect(b003).toContainText('keine Angabe')
-    // Kein Wert heißt: keine Zahl und keine Schaltfläche dorthin. Die
-    // Spaltenüberschrift „Umfang (130 cm Höhe)" bleibt selbstverständlich.
+    // Kein Wert heißt: keine Zahl und keine Schaltfläche dorthin.
     await expect(b003.getByRole('button', { name: /Herkunft des Stammumfangs/ })).toHaveCount(0)
     await expect(b003).not.toContainText('0 cm,')
   })
@@ -165,8 +164,9 @@ test.describe('Datenregeln', () => {
 
   test('jeder angezeigte Stammumfang nennt seine Messhöhe', async ({ page }) => {
     await seiteOeffnen(page)
-    // Die Spaltenüberschrift trägt die Messhöhe, für alle Werte gemeinsam.
-    await expect(page.locator('text=Umfang (130 cm Höhe)').first()).toBeVisible()
+    // Die Messhöhe steht am einzelnen Wert, nicht in der Spaltenüberschrift:
+    // sie ist eine Eigenschaft der Messung, nicht der Spalte.
+    await expect(page.locator('[data-test="baum-B-001"]')).toContainText('92 cm @ 130 cm')
   })
 })
 
@@ -215,10 +215,10 @@ test.describe('Zugänglichkeit', () => {
     for (let i = 0; i < 80; i++) {
       await page.keyboard.press('Tab')
       const test = await page.evaluate(() => document.activeElement?.getAttribute('data-test'))
-      if (test === 'filter-jahr_offen') break
+      if (test === 'filter-ohne_kontrolle') break
     }
     const fokus = await page.evaluate(() => document.activeElement?.getAttribute('data-test'))
-    expect(fokus, 'Der Filter ist per Tastatur nicht erreichbar').toBe('filter-jahr_offen')
+    expect(fokus, 'Der Filter ist per Tastatur nicht erreichbar').toBe('filter-ohne_kontrolle')
 
     await page.keyboard.press('Enter')
     await expect(page.locator('[data-test="liste"] > div')).toHaveCount(5)
@@ -234,5 +234,97 @@ test.describe('Zugänglichkeit', () => {
       expect(box?.height ?? 0).toBeGreaterThanOrEqual(44)
       expect(box?.width ?? 0).toBeGreaterThanOrEqual(44)
     }
+  })
+})
+
+test.describe('Runde 2 · was die Critics beanstandet haben', () => {
+  test('macht aus dem Kalenderjahr keine Fälligkeitsaussage', async ({ page }) => {
+    await seiteOeffnen(page)
+    // Der Hinweistext selbst enthält das Wort „Fälligkeitsaussage" — er wird
+    // hier ausgenommen, geprüft wird alles andere.
+    const text = await page.evaluate(() => {
+      const kopie = document.body.cloneNode(true)
+      kopie.querySelectorAll('[data-test="kein-faelligkeitsurteil"]').forEach(el => el.remove())
+      return kopie.innerText
+    })
+    // „offen" war eine Fälligkeitsaussage, die kein Dokument deckt.
+    expect(text, 'Das Wort „offen" ist zurück').not.toMatch(/\boffen\b/i)
+    expect(text, 'Die Seite behauptet eine Fälligkeit').not.toMatch(/fällig/i)
+    expect(text).not.toMatch(/überfällig/i)
+    // Und die Seite sagt ausdrücklich, was sie nicht behauptet.
+    await expect(page.locator('[data-test="kein-faelligkeitsurteil"]'))
+      .toContainText('keine Fälligkeitsaussage')
+    await expect(page.locator('[data-test="kein-faelligkeitsurteil"]'))
+      .toContainText('nicht nach dem Kalenderjahr')
+  })
+
+  test('jeder angezeigte Wert führt zu seiner Herkunft', async ({ page }) => {
+    await seiteOeffnen(page)
+    const zeile = page.locator('[data-test="baum-B-001"]')
+    for (const was of ['Artnamens', 'Stammumfangs', 'letzten Kontrolle', 'Vitalitätsstufe']) {
+      const knopf = zeile.getByRole('button', { name: new RegExp(`Herkunft (des|der) ${was}`) })
+      await expect(knopf, `${was} hat keinen Weg zur Herkunft`).toHaveCount(1)
+      await knopf.click()
+      const tafel = page.getByRole('dialog', { name: /Herkunft/ })
+      await expect(tafel).toBeVisible()
+      // Jede Herkunft nennt Verfahren und Person — oder sagt, dass sie fehlen.
+      await expect(tafel).toContainText('Verfahren')
+      await expect(tafel).toContainText('Person')
+      await page.keyboard.press('Escape')
+      await expect(tafel).toHaveCount(0)
+    }
+  })
+
+  test('auch Pflanzjahr und Koordinate sind rückverfolgbar', async ({ page }) => {
+    await seiteOeffnen(page)
+    const zeile = page.locator('[data-test="baum-B-001"]')
+    await zeile.getByRole('button', { name: /Details zu B-001/ }).click()
+    for (const was of ['des Pflanzjahrs', 'des Standorts']) {
+      const knopf = zeile.getByRole('button', { name: new RegExp(`Herkunft ${was}`) })
+      await expect(knopf, `${was} hat keinen Weg zur Herkunft`).toHaveCount(1)
+    }
+  })
+
+  test('nennt die Art der Kontrolle', async ({ page }) => {
+    await seiteOeffnen(page)
+    await page.locator('[data-test="baum-B-001"]').getByRole('button', { name: /Details zu B-001/ }).click()
+    await expect(page.locator('[data-test="baum-B-001"]')).toContainText('Regelkontrolle')
+  })
+
+  test('kennzeichnet den deutschen Namen als nicht normiert', async ({ page }) => {
+    await seiteOeffnen(page)
+    await page.locator('[data-test="baum-B-001"]').getByRole('button', { name: /Details zu B-001/ }).click()
+    await expect(page.locator('[data-test="baum-B-001"]')).toContainText('nicht normiert, ohne Quelle')
+  })
+
+  test('sagt beim Artnamen, dass die Trefferqualität fehlt', async ({ page }) => {
+    await seiteOeffnen(page)
+    await page.locator('[data-test="baum-B-001"]').getByRole('button', { name: /Herkunft des Artnamens/ }).click()
+    const tafel = page.getByRole('dialog', { name: /Herkunft/ })
+    await expect(tafel).toContainText('Trefferqualität')
+    await expect(tafel).toContainText('keine Angabe')
+    await expect(tafel).toContainText('10.15468/39omei')
+  })
+
+  test('der Herunterladen-Knopf sagt, wie viele Zeilen die Datei bekommt', async ({ page }) => {
+    await seiteOeffnen(page)
+    await expect(page.locator('[data-test="export"]')).toContainText('(12)')
+    await page.locator('[data-test="filter-ohne_kontrolle"]').click()
+    await expect(page.locator('[data-test="export"]')).toContainText('(5)')
+  })
+
+  test('die Herkunftstafel hält den Fokus und schließt mit Escape', async ({ page }) => {
+    await seiteOeffnen(page)
+    await page.locator('[data-test="baum-B-007"]').getByRole('button', { name: /Herkunft des Stammumfangs/ }).click()
+    const tafel = page.getByRole('dialog', { name: /Herkunft/ })
+    await expect(tafel).toBeVisible()
+    // Der Fokus liegt im Dialog und bleibt beim Tabben darin.
+    for (let i = 0; i < 12; i++) {
+      await page.keyboard.press('Tab')
+      const drin = await page.evaluate(() => !!document.activeElement?.closest('[data-test="herkunftstafel"]'))
+      expect(drin, 'Der Fokus ist aus dem Dialog gesprungen').toBe(true)
+    }
+    await page.keyboard.press('Escape')
+    await expect(tafel).toHaveCount(0)
   })
 })

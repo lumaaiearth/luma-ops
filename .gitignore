@@ -9,3 +9,4 @@ scripts/.lod2-cache/
 fortschritt/
 .gate-status.json
 .playwright/
+dist-abnahme/

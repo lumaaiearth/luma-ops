@@ -136,8 +136,12 @@ select option {
       !important nötig, weil viele Inputs inline `outline: none` setzen. ── */
 :focus { outline: none; }
 :focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--luma-a) 70%, transparent) !important;
+  /* Volle Deckkraft: bei 70 % mischte sich der hellere Elternhintergrund
+     hinein, der Ring unterschritt in den hellen Themes die 3:1 aus
+     WCAG 1.4.11 (Nicht-Text-Kontrast). */
+  outline: 2px solid var(--luma-fg) !important;
   outline-offset: 2px;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--luma-a) 45%, transparent);
   border-radius: var(--lu-radius-sm);
 }
 

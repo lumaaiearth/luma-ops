@@ -200,16 +200,21 @@ export function imJahrKontrolliert(baum, jahr) {
  * Der Kontrollstand eines Baums zum Stichjahr.
  *
  * Drei Zustände, bewusst getrennt: „noch nie kontrolliert" ist ein anderer
- * Sachverhalt als „dieses Jahr noch nicht". Wer beides zusammenwirft, meldet
- * dem Amt eine falsche Zahl.
+ * Sachverhalt als „dieses Jahr keine". Wer beides zusammenwirft, meldet dem
+ * Amt eine falsche Zahl.
+ *
+ * Der Zustand heißt bewusst nicht „offen": ob eine Kontrolle fällig ist,
+ * richtet sich nach Entwicklungsphase, Sicherheitserwartung und Zustand des
+ * Baums, nicht nach dem Kalenderjahr. Hier steht nur, ob in diesem Jahr eine
+ * dokumentiert ist.
  *
  * @param {Baum} baum
  * @param {number} jahr
- * @returns {'kontrolliert'|'jahr_offen'|'nie_kontrolliert'}
+ * @returns {'kontrolliert'|'jahr_ohne'|'nie_kontrolliert'}
  */
 export function kontrollstand(baum, jahr) {
   if (!nurGueltige(baum.kontrollen || []).length) return 'nie_kontrolliert'
-  return imJahrKontrolliert(baum, jahr) ? 'kontrolliert' : 'jahr_offen'
+  return imJahrKontrolliert(baum, jahr) ? 'kontrolliert' : 'jahr_ohne'
 }
 
 /**

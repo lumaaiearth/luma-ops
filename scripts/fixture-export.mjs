@@ -68,6 +68,7 @@ select json_build_object(
       'taxon_quelle', b.taxon_quelle, 'taxon_id', b.taxon_id,
       'gepflanzt_jahr', b.gepflanzt_jahr, 'position', b.position, 'crs', b.crs,
       'lagegenauigkeit_m', b.lagegenauigkeit_m, 'standorttyp', b.standorttyp,
+      'angelegt_von', b.angelegt_von, 'created_at', b.created_at,
       'messungen', (
         select coalesce(json_agg(json_build_object(
           'id', m.id, 'merkmal', m.merkmal, 'wert', m.wert, 'einheit', m.einheit,

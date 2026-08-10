@@ -56,7 +56,9 @@ else
 fi
 
 if [ -d tests ] && compgen -G "tests/*.spec.js" >/dev/null; then
-  schritt "6 Abnahme (Playwright)" npx playwright test
+  # Eigener Fixture-Build in dist-abnahme/ — Schritt 1 hat dist/ mit der
+  # Produktionsfassung belegt, gegen die die Abnahme nichts findet.
+  schritt "6 Abnahme (Playwright)" bash scripts/abnahme.sh --reporter=line
 else
   uebersprungen "6 Abnahme (Playwright)" "noch keine Abnahme-Tests unter tests/"
 fi

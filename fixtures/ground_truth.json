@@ -145,6 +145,8 @@
       "crs": "EPSG:4326",
       "lagegenauigkeit_m": 3,
       "standorttyp": "strasse",
+      "angelegt_von": "a0000000-0000-4000-8000-000000000003",
+      "created_at": "2026-08-09T16:34:54.456503+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000001",
@@ -208,6 +210,8 @@
       "crs": "EPSG:4326",
       "lagegenauigkeit_m": 3,
       "standorttyp": "strasse",
+      "angelegt_von": "a0000000-0000-4000-8000-000000000003",
+      "created_at": "2026-08-09T16:34:54.456503+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000002",
@@ -260,6 +264,8 @@
       "crs": "EPSG:4326",
       "lagegenauigkeit_m": 3,
       "standorttyp": "strasse",
+      "angelegt_von": "a0000000-0000-4000-8000-000000000003",
+      "created_at": "2026-08-09T16:34:54.456503+00:00",
       "messungen": [],
       "bewertungen": [
         {
@@ -307,6 +313,8 @@
       "crs": "EPSG:4326",
       "lagegenauigkeit_m": 3,
       "standorttyp": "strasse",
+      "angelegt_von": "a0000000-0000-4000-8000-000000000003",
+      "created_at": "2026-08-09T16:34:54.456503+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000004",
@@ -359,6 +367,8 @@
       "crs": "EPSG:4326",
       "lagegenauigkeit_m": 3,
       "standorttyp": "strasse",
+      "angelegt_von": "a0000000-0000-4000-8000-000000000003",
+      "created_at": "2026-08-09T16:34:54.456503+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000005",
@@ -411,6 +421,8 @@
       "crs": "EPSG:4326",
       "lagegenauigkeit_m": 3,
       "standorttyp": "strasse",
+      "angelegt_von": "a0000000-0000-4000-8000-000000000003",
+      "created_at": "2026-08-09T16:34:54.456503+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000006",
@@ -463,6 +475,8 @@
       "crs": "EPSG:4326",
       "lagegenauigkeit_m": 3,
       "standorttyp": "strasse",
+      "angelegt_von": "a0000000-0000-4000-8000-000000000003",
+      "created_at": "2026-08-09T16:34:54.456503+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000077",
@@ -547,6 +561,8 @@
       "crs": "EPSG:4326",
       "lagegenauigkeit_m": 3,
       "standorttyp": "park",
+      "angelegt_von": "a0000000-0000-4000-8000-000000000003",
+      "created_at": "2026-08-09T16:34:54.456503+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000008",
@@ -599,6 +615,8 @@
       "crs": "EPSG:4326",
       "lagegenauigkeit_m": 3,
       "standorttyp": "park",
+      "angelegt_von": "a0000000-0000-4000-8000-000000000003",
+      "created_at": "2026-08-09T16:34:54.456503+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000009",
@@ -651,6 +669,8 @@
       "crs": "EPSG:4326",
       "lagegenauigkeit_m": 3,
       "standorttyp": "park",
+      "angelegt_von": "a0000000-0000-4000-8000-000000000003",
+      "created_at": "2026-08-09T16:34:54.456503+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000010",
@@ -714,6 +734,8 @@
       "crs": "EPSG:4326",
       "lagegenauigkeit_m": 3,
       "standorttyp": "park",
+      "angelegt_von": "a0000000-0000-4000-8000-000000000003",
+      "created_at": "2026-08-09T16:34:54.456503+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000011",
@@ -766,6 +788,8 @@
       "crs": "EPSG:4326",
       "lagegenauigkeit_m": 3,
       "standorttyp": "park",
+      "angelegt_von": "a0000000-0000-4000-8000-000000000003",
+      "created_at": "2026-08-09T16:34:54.456503+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000012",

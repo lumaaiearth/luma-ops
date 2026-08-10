@@ -9,16 +9,37 @@
  *
  *   w1-zahl-herkunft        Die ESG-Verantwortliche will zu einer Zahl Quelle,
  *                           Datum, Erfassungsmethode und Person sehen.
- *                           Budget: 2 Klicks. Deshalb ist hier jede Zahl
- *                           selbst die Schaltfläche.
+ *                           Budget: 2 Klicks.
  *
- * Gestaltungsregeln, die hier durchgehalten werden:
+ * ── Was Runde 2 geändert hat und warum ────────────────────────────────────
+ *
+ * Drei Critics nannten unabhängig voneinander dieselbe größte Lücke:
+ *
+ * 1. Das Wort „offen". Die Oberfläche schrieb „Kontrolle 2026 offen" und
+ *    „· 2026 offen". Das ist eine Fälligkeitsaussage. Das Register leitet die
+ *    Fälligkeit einer Regelkontrolle aus Entwicklungsphase, berechtigter
+ *    Sicherheitserwartung und Zustand ab, gerechnet ab der letzten Kontrolle —
+ *    nicht aus dem Kalenderjahr. Ein Baum mit Dreijahresintervall, zuletzt
+ *    kontrolliert im November 2025, ist 2026 nicht fällig. Das Wort ist
+ *    ersatzlos entfernt; die Oberfläche sagt jetzt nur noch, was sie weiß:
+ *    ob in diesem Jahr eine Kontrolle dokumentiert ist.
+ *
+ * 2. Nur eine Zahl führte zu ihrer Herkunft. Stammumfang war rückverfolgbar,
+ *    Vitalität, Kontrolldatum, Pflanzjahr, Koordinate und Taxon-Kennung nicht.
+ *    Die Regel gilt aber für jede Zahl. Jetzt trägt jeder angezeigte Wert
+ *    dieselbe Schaltfläche zur Herkunft.
+ *
+ * 3. Die Messhöhe stand in der Spaltenüberschrift und galt damit für alle
+ *    zwölf Bäume gleichzeitig. Sie ist eine Eigenschaft der einzelnen Messung
+ *    und steht jetzt am einzelnen Wert.
+ *
+ * ── Gestaltungsregeln, die hier durchgehalten werden ──────────────────────
  *   · Fehlendes wird als fehlend gezeigt, nie als 0 und nie als leere Zelle.
- *   · „Noch nie kontrolliert" ist ein anderer Zustand als „dieses Jahr offen".
+ *   · „Noch nie kontrolliert" ist ein anderer Zustand als „dieses Jahr keine".
  *   · Keine Farbe trägt allein Bedeutung; jede Markierung hat auch Text.
  *   · LUMA-Mint nur als Fläche und Marker, nie als Textfarbe.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { TreeDeciduous, Download, X, ChevronRight } from 'lucide-react'
 import { SURFACE, BORDER, FG, MUTED, CARD, WARN } from '../lib/theme.js'
 import {
@@ -26,7 +47,7 @@ import {
   vitalitaet, artenverteilung, nachschlagen,
 } from '../biome/daten.js'
 import { FEHLT, datum as fmtDatum, mitEinheit, koordinate, zahl } from '../biome/format.js'
-import { ROLOFF_VS, STAMMUMFANG, KONTROLLE_HINWEIS } from '../biome/baumStandards.js'
+import { ROLOFF_VS, KONTROLLE_HINWEIS } from '../biome/baumStandards.js'
 
 const MONO = "'Space Mono', monospace"
 const SANS = "'Space Grotesk', sans-serif"
@@ -39,6 +60,12 @@ const LABEL = {
 /** Mindestgröße für Tippziele nach WCAG 2.1 AA. */
 const TIPPZIEL = 44
 
+const KONTROLLART = {
+  regelkontrolle: 'Regelkontrolle',
+  anlasskontrolle: 'Zusatzkontrolle',
+  eingehende_untersuchung: 'Eingehende Untersuchung',
+}
+
 function Karte({ children, ...rest }) {
   return (
     <div {...rest} style={{
@@ -49,10 +76,13 @@ function Karte({ children, ...rest }) {
 }
 
 /**
- * Eine Zahl, die ihre Herkunft kennt. Der Kern der Zwei-Klick-Regel: was
- * angezeigt wird, ist zugleich der Weg zur Quelle.
+ * Ein angezeigter Wert, der seine Herkunft kennt.
+ *
+ * Jeder Wert auf dieser Seite geht durch diese Komponente. Damit ist die
+ * Zwei-Klick-Regel keine Eigenschaft einzelner Stellen mehr, sondern des
+ * Bauteils: wer einen Wert anzeigt, zeigt zwangsläufig auch den Weg dorthin.
  */
-function HerkunftsZahl({ text, fehlt, onOeffnen, beschriftung }) {
+function Wert({ text, fehlt, onOeffnen, beschriftung, monospace = true }) {
   if (fehlt) {
     return (
       <span style={{ color: MUTED, fontStyle: 'italic', fontFamily: SANS, fontSize: 13 }}>
@@ -61,29 +91,55 @@ function HerkunftsZahl({ text, fehlt, onOeffnen, beschriftung }) {
     )
   }
   return (
-    <button type="button" onClick={onOeffnen} aria-label={beschriftung}
+    <button type="button" onClick={ev => onOeffnen(ev)} aria-label={beschriftung} data-herkunft="1"
       style={{
-        font: 'inherit', fontFamily: MONO, fontSize: 13, fontWeight: 700, color: FG,
+        font: 'inherit', fontFamily: monospace ? MONO : SANS, fontSize: 13,
+        fontWeight: monospace ? 700 : 400, color: FG,
         background: 'transparent', border: 'none', borderBottom: `1px dashed ${MUTED}`,
-        padding: '2px 0', cursor: 'pointer', textAlign: 'left', minHeight: 24,
+        // 44 px Trefferfläche, ohne die Zeile auseinanderzuziehen: die Polsterung
+        // wächst nach oben und unten, der Text bleibt, wo er ist.
+        padding: '11px 4px', margin: '-11px -4px', minHeight: TIPPZIEL,
+        display: 'inline-flex', alignItems: 'center',
+        cursor: 'pointer', textAlign: 'left',
       }}>
       {text}
     </button>
   )
 }
 
-/** Der zweite Klick: alles, was die Zahl zu einer überprüfbaren Zahl macht. */
+/** Der zweite Klick: alles, was einen Wert überprüfbar macht. */
 function HerkunftsTafel({ eintrag, onSchliessen }) {
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!eintrag) return
+    const el = ref.current
+    el?.querySelector('button')?.focus()
+    function taste(e) {
+      if (e.key === 'Escape') { onSchliessen(); return }
+      if (e.key !== 'Tab' || !el) return
+      // Fokusfalle: der Dialog behält den Fokus, solange er offen ist.
+      const ziele = [...el.querySelectorAll('a[href], button, [tabindex]:not([tabindex="-1"])')]
+        .filter(z => z.offsetParent !== null)
+      if (!ziele.length) return
+      const erste = ziele[0], letzte = ziele[ziele.length - 1]
+      if (e.shiftKey && document.activeElement === erste) { e.preventDefault(); letzte.focus() }
+      else if (!e.shiftKey && document.activeElement === letzte) { e.preventDefault(); erste.focus() }
+    }
+    document.addEventListener('keydown', taste)
+    return () => document.removeEventListener('keydown', taste)
+  }, [eintrag, onSchliessen])
+
   if (!eintrag) return null
-  const { titel, wert, m, person, methode, standard, ersetzt, ersetztPerson } = eintrag
+
   return (
-    <div role="dialog" aria-modal="true" aria-label={`Herkunft: ${titel}`}
+    <div role="dialog" aria-modal="true" aria-label={`Herkunft: ${eintrag.titel}`}
       style={{
         position: 'fixed', inset: 0, zIndex: 2000, display: 'flex',
         alignItems: 'flex-end', justifyContent: 'center', background: 'rgba(0,0,0,0.45)',
       }}
       onClick={onSchliessen}>
-      <div onClick={e => e.stopPropagation()} style={{
+      <div ref={ref} onClick={e => e.stopPropagation()} data-test="herkunftstafel" style={{
         background: CARD, border: `1px solid ${BORDER}`, borderRadius: '14px 14px 0 0',
         width: 'min(560px, 100%)', maxHeight: '86vh', overflowY: 'auto',
         padding: 18, paddingBottom: 'calc(18px + env(safe-area-inset-bottom))',
@@ -91,7 +147,7 @@ function HerkunftsTafel({ eintrag, onSchliessen }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
           <div>
             <div style={LABEL}>Herkunft</div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: FG, fontFamily: SANS }}>{titel}</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: FG, fontFamily: SANS }}>{eintrag.titel}</div>
           </div>
           <button type="button" onClick={onSchliessen} aria-label="Schließen"
             style={{
@@ -103,72 +159,35 @@ function HerkunftsTafel({ eintrag, onSchliessen }) {
           </button>
         </div>
 
-        <div style={{ fontFamily: MONO, fontSize: 26, fontWeight: 700, color: FG, marginBottom: 14 }}>
-          {wert}
+        <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 700, color: FG, marginBottom: 14, lineHeight: 1.25 }}>
+          {eintrag.wert}
         </div>
 
         <dl style={{ margin: 0, display: 'grid', gridTemplateColumns: 'minmax(120px, auto) 1fr', gap: '8px 14px', fontSize: 13 }}>
-          <dt style={LABEL}>Datum</dt>
-          <dd style={{ margin: 0, color: FG }}>{fmtDatum(m.datum)}</dd>
-
-          <dt style={LABEL}>Messhöhe</dt>
-          <dd style={{ margin: 0, color: FG }}>
-            {m.messhoehe_cm != null ? mitEinheit(m.messhoehe_cm, 'cm') : FEHLT}
-          </dd>
-
-          <dt style={LABEL}>Verfahren</dt>
-          <dd style={{ margin: 0, color: FG }}>
-            {methode ? methode.name : FEHLT}
-            {methode?.beschreibung && (
-              <div style={{ color: MUTED, fontSize: 12, marginTop: 2 }}>{methode.beschreibung}</div>
-            )}
-          </dd>
-
-          <dt style={LABEL}>Messgerät</dt>
-          <dd style={{ margin: 0, color: FG }}>{m.messgeraet || FEHLT}</dd>
-
-          <dt style={LABEL}>Person</dt>
-          <dd style={{ margin: 0, color: FG }}>
-            {person ? person.name : FEHLT}
-            {person?.qualifikation && (
-              <div style={{ color: MUTED, fontSize: 12, marginTop: 2 }}>{person.qualifikation}</div>
-            )}
-          </dd>
-
-          <dt style={LABEL}>Erfasst am</dt>
-          <dd style={{ margin: 0, color: FG }}>{fmtDatum(m.erfasst_am)}</dd>
-
-          <dt style={LABEL}>Quelle</dt>
-          <dd style={{ margin: 0, color: FG }}>
-            {standard ? (
-              <>
-                {standard.kurzname}
-                <div style={{ color: MUTED, fontSize: 12, marginTop: 2 }}>
-                  {standard.herausgeber} · abgerufen {fmtDatum(standard.abgerufen_am)}
-                </div>
-                <a href={standard.quelle_url} target="_blank" rel="noreferrer"
-                  style={{ color: FG, fontSize: 12, wordBreak: 'break-all' }}>
-                  {standard.quelle_url}
-                </a>
-              </>
-            ) : FEHLT}
-          </dd>
+          {eintrag.zeilen.map((z, i) => (
+            <div key={i} style={{ display: 'contents' }}>
+              <dt style={LABEL}>{z.k}</dt>
+              <dd style={{ margin: 0, color: z.v === FEHLT ? MUTED : FG, fontStyle: z.v === FEHLT ? 'italic' : 'normal' }}>
+                {z.v}
+                {z.hinweis && <div style={{ color: MUTED, fontSize: 12, marginTop: 2, fontStyle: 'normal' }}>{z.hinweis}</div>}
+                {z.url && (
+                  <div style={{ marginTop: 2 }}>
+                    <a href={z.url} target="_blank" rel="noreferrer" style={{ color: FG, fontSize: 12, wordBreak: 'break-all' }}>{z.url}</a>
+                  </div>
+                )}
+              </dd>
+            </div>
+          ))}
         </dl>
 
-        {ersetzt && (
+        {eintrag.korrektur && (
           <div style={{
             marginTop: 14, padding: '10px 12px', borderRadius: 8,
             border: `1px solid ${BORDER}`, background: 'color-mix(in srgb, var(--luma-fg) 4%, transparent)',
           }}>
             <div style={{ ...LABEL, color: WARN, marginBottom: 6 }}>Dieser Wert wurde korrigiert</div>
-            <div style={{ fontSize: 13, color: FG }}>
-              Vorher: <strong style={{ fontFamily: MONO }}>{mitEinheit(ersetzt.wert, ersetzt.einheit)}</strong>
-              {' '}· erfasst am {fmtDatum(ersetzt.datum)}
-              {ersetztPerson ? ` von ${ersetztPerson.name}` : ''}
-            </div>
-            <div style={{ fontSize: 13, color: MUTED, marginTop: 6, lineHeight: 1.45 }}>
-              {m.korrektur_grund}
-            </div>
+            <div style={{ fontSize: 13, color: FG }}>{eintrag.korrektur.vorher}</div>
+            <div style={{ fontSize: 13, color: MUTED, marginTop: 6, lineHeight: 1.45 }}>{eintrag.korrektur.grund}</div>
             <div style={{ fontSize: 12, color: MUTED, marginTop: 6 }}>
               Der ursprüngliche Datensatz ist nicht gelöscht. Er bleibt als ersetzt erhalten,
               mit Zeitstempel und Person.
@@ -185,7 +204,22 @@ export default function BiomeBaeumePage() {
   const [fehler, setFehler] = useState(null)
   const [filter, setFilter] = useState('alle')
   const [herkunft, setHerkunft] = useState(null)
-  const [offen, setOffen] = useState(null)
+  const [offenId, setOffenId] = useState(null)
+  // Merkt sich, von wo die Herkunftstafel geöffnet wurde. Ohne das landet der
+  // Fokus beim Schließen auf BODY, und der Weg zurück zum Auslöser kostet
+  // vierzig Tastendrücke.
+  const ausloeser = useRef(null)
+
+  function herkunftOeffnen(eintrag, ev) {
+    ausloeser.current = ev?.currentTarget || null
+    setHerkunft(eintrag)
+  }
+  function herkunftSchliessen() {
+    setHerkunft(null)
+    const ziel = ausloeser.current
+    ausloeser.current = null
+    if (ziel && document.contains(ziel)) requestAnimationFrame(() => ziel.focus())
+  }
 
   useEffect(() => {
     let abgebrochen = false
@@ -203,7 +237,7 @@ export default function BiomeBaeumePage() {
     const b = stand.baeume
     return {
       alle: b,
-      jahr_offen: b.filter(x => kontrollstand(x, stichjahr) !== 'kontrolliert'),
+      ohne_kontrolle: b.filter(x => kontrollstand(x, stichjahr) !== 'kontrolliert'),
       nie: b.filter(x => kontrollstand(x, stichjahr) === 'nie_kontrolliert'),
       ohne_umfang: b.filter(x => !messung(x, 'stammumfang')),
       unbestimmt: b.filter(x => !x.art_wissenschaftlich),
@@ -226,29 +260,180 @@ export default function BiomeBaeumePage() {
 
   const chips = [
     { id: 'alle', text: 'Alle Bäume', n: gruppen.alle.length },
-    { id: 'jahr_offen', text: `Kontrolle ${stichjahr} offen`, n: gruppen.jahr_offen.length },
+    { id: 'ohne_kontrolle', text: `Ohne Kontrolle in ${stichjahr}`, n: gruppen.ohne_kontrolle.length },
     { id: 'nie', text: 'Noch nie kontrolliert', n: gruppen.nie.length },
     { id: 'ohne_umfang', text: 'Ohne Stammumfang', n: gruppen.ohne_umfang.length },
     { id: 'unbestimmt', text: 'Art unbestimmt', n: gruppen.unbestimmt.length },
   ]
 
-  function herkunftOeffnen(baum, m, titel) {
-    const ersetzt = ersetzteMessung(baum, m)
-    setHerkunft({
-      titel,
+  /* ── Herkunft je Werttyp ───────────────────────────────────────────────
+     Eine Stelle, an der entschieden wird, was ein Wert über sich preisgibt.
+     Wo eine Angabe im Datenbestand fehlt, steht das hier als FEHLT und nicht
+     als weggelassene Zeile — eine fehlende Herkunftsangabe ist selbst eine
+     Information. */
+
+  function personZeile(id) {
+    const p = nachschlag.person(id)
+    return {
+      k: 'Person', v: p ? p.name : FEHLT,
+      hinweis: p?.qualifikation
+        ? `Angegebene Qualifikation: ${p.qualifikation}. Selbstauskunft der Person, von BIOME nicht geprüft.`
+        : undefined,
+    }
+  }
+
+  function methodeZeilen(methodeId) {
+    const m = nachschlag.methode(methodeId)
+    const s = nachschlag.standardZuMethode(methodeId)
+    const zeilen = [{ k: 'Verfahren', v: m ? m.name : FEHLT, hinweis: m?.beschreibung }]
+    zeilen.push(
+      s
+        ? {
+            k: 'Quelle',
+            v: s.kurzname,
+            hinweis: `${s.herausgeber} · abgerufen ${fmtDatum(s.abgerufen_am)}`,
+            url: s.quelle_url,
+          }
+        : { k: 'Quelle', v: FEHLT, hinweis: 'Für dieses Verfahren ist im Standards-Register keine Quelle hinterlegt.' },
+    )
+    return zeilen
+  }
+
+  function herkunftStammumfang(baum) {
+    const m = messung(baum, 'stammumfang')
+    if (!m) return null
+    const alt = ersetzteMessung(baum, m)
+    const altPerson = alt ? nachschlag.person(alt.erfasst_von) : null
+    return {
+      titel: `Stammumfang ${baum.baumnummer}`,
       wert: mitEinheit(m.wert, m.einheit),
-      m,
-      person: nachschlag.person(m.erfasst_von),
-      methode: nachschlag.methode(m.methode_id),
-      standard: nachschlag.standardZuMethode(m.methode_id),
-      ersetzt,
-      ersetztPerson: ersetzt ? nachschlag.person(ersetzt.erfasst_von) : null,
-    })
+      zeilen: [
+        { k: 'Datum', v: fmtDatum(m.datum) },
+        {
+          k: 'Messhöhe',
+          v: m.messhoehe_cm != null ? mitEinheit(m.messhoehe_cm, 'cm') : FEHLT,
+          hinweis: m.messhoehe_cm === 130
+            ? 'Entspricht der Höhe, in der die Berliner Baumschutzverordnung den Stammumfang für den Schutzstatus bemisst. Die Verordnung schreibt keine Katastererfassung vor — die Übereinstimmung ist eine Festlegung von LUMA, damit beide Werte vergleichbar bleiben.'
+            : undefined,
+        },
+        ...methodeZeilen(m.methode_id),
+        { k: 'Messgerät', v: m.messgeraet || FEHLT },
+        personZeile(m.erfasst_von),
+        { k: 'Erfasst am', v: fmtDatum(m.erfasst_am) },
+      ],
+      korrektur: alt
+        ? {
+            vorher: `Vorher: ${mitEinheit(alt.wert, alt.einheit)} · erfasst am ${fmtDatum(alt.datum)}${altPerson ? ` von ${altPerson.name}` : ''}`,
+            grund: m.korrektur_grund,
+          }
+        : null,
+    }
+  }
+
+  function herkunftVitalitaet(baum) {
+    const b = vitalitaet(baum)
+    if (!b) return null
+    const stufe = ROLOFF_VS.stufen.find(s => s.stufe === b.stufe)
+    return {
+      titel: `Vitalität ${baum.baumnummer}`,
+      wert: stufe ? `${stufe.kurz} · ${stufe.bezeichnung}` : b.stufe,
+      zeilen: [
+        { k: 'Skala', v: ROLOFF_VS.name, hinweis: ROLOFF_VS.bezug },
+        { k: 'Abgrenzung', v: ROLOFF_VS.abgrenzung },
+        { k: 'Datum', v: fmtDatum(b.datum) },
+        ...methodeZeilen(b.methode_id),
+        personZeile(b.erfasst_von),
+        { k: 'Begründung', v: b.begruendung || FEHLT },
+      ],
+    }
+  }
+
+  function herkunftKontrolle(baum) {
+    const k = letzteKontrolle(baum)
+    if (!k) return null
+    return {
+      titel: `Letzte Kontrolle ${baum.baumnummer}`,
+      wert: fmtDatum(k.datum),
+      zeilen: [
+        { k: 'Art', v: KONTROLLART[k.art] || k.art },
+        ...methodeZeilen(k.methode_id),
+        { k: 'Belaubung', v: k.belaubungszustand || FEHLT },
+        personZeile(k.durchgefuehrt_von),
+        { k: 'Befund', v: k.ergebnis_text || FEHLT },
+        {
+          k: 'Maßnahme', v: k.massnahme_empfohlen ? 'von der kontrollierenden Person empfohlen' : 'keine empfohlen',
+          hinweis: k.massnahme_empfohlen
+            ? 'Eine Empfehlung ist noch keine geplante Maßnahme. Vor der Durchführung ist die Artenschutzprüfung nach § 44 BNatSchG erforderlich; sie ist an dieser Kontrolle nicht dokumentiert.'
+            : undefined,
+        },
+      ],
+    }
+  }
+
+  function herkunftStammdatum(baum, feld) {
+    const p = nachschlag.person(baum.angelegt_von)
+    const gemeinsam = [
+      { k: 'Datensatz', v: `Baum ${baum.baumnummer}, Stammdaten` },
+      { k: 'Angelegt am', v: fmtDatum(baum.created_at) },
+      { k: 'Person', v: p ? p.name : FEHLT },
+      {
+        k: 'Verfahren', v: FEHLT,
+        hinweis: 'Für Stammdaten ist im Datenbestand keine Erfassungsmethode hinterlegt. Sie stammen aus der Eigenerfassung im Feld; woher der einzelne Wert kommt, ist nicht festgehalten.',
+      },
+    ]
+    if (feld === 'pflanzjahr') {
+      return {
+        titel: `Pflanzjahr ${baum.baumnummer}`,
+        wert: baum.gepflanzt_jahr != null ? String(baum.gepflanzt_jahr) : FEHLT,
+        zeilen: gemeinsam,
+      }
+    }
+    if (feld === 'position') {
+      return {
+        titel: `Standort ${baum.baumnummer}`,
+        wert: koordinate(
+          baum.position ? { lat: baum.position.coordinates[1], lng: baum.position.coordinates[0] } : null,
+          { crs: baum.crs, genauigkeitM: baum.lagegenauigkeit_m },
+        ),
+        zeilen: [
+          { k: 'Bezugssystem', v: baum.crs },
+          {
+            k: 'Lagegenauigkeit',
+            v: baum.lagegenauigkeit_m != null ? mitEinheit(baum.lagegenauigkeit_m, 'm') : FEHLT,
+            hinweis: 'Angabe der erfassenden Person, keine gemessene Standardabweichung.',
+          },
+          ...gemeinsam,
+        ],
+      }
+    }
+    // Taxonomie
+    return {
+      titel: `Artname ${baum.baumnummer}`,
+      wert: baum.art_wissenschaftlich || 'Art unbestimmt',
+      zeilen: [
+        { k: 'Referenz', v: baum.taxon_quelle || FEHLT },
+        { k: 'Kennung', v: baum.taxon_id || FEHLT },
+        {
+          k: 'Zitat', v: baum.taxon_quelle === 'GBIF Backbone Taxonomy'
+            ? 'GBIF Secretariat (2023). GBIF Backbone Taxonomy. Checklist dataset https://doi.org/10.15468/39omei'
+            : FEHLT,
+          url: baum.taxon_quelle === 'GBIF Backbone Taxonomy' ? 'https://doi.org/10.15468/39omei' : undefined,
+        },
+        {
+          k: 'Trefferqualität', v: FEHLT,
+          hinweis: 'confidence und matchType aus der Namensauflösung sind im Datenbestand nicht gespeichert. Ohne sie ist der Treffer nicht überprüfbar.',
+        },
+        {
+          k: 'Deutscher Name', v: baum.art_deutsch || FEHLT,
+          hinweis: 'Deutsche Trivialnamen sind nicht normiert. Die Referenz liefert keine; dieser Name ist eine Eingabe ohne Quelle.',
+        },
+        ...gemeinsam,
+      ],
+    }
   }
 
   return (
     <div style={{ padding: '18px 16px 60px', maxWidth: 1080, margin: '0 auto', fontFamily: SANS }}>
-      {/* Kopf: was für ein Bestand, welcher Stand, wie groß */}
       <header style={{ marginBottom: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 3 }}>
           <TreeDeciduous size={18} color={FG} aria-hidden />
@@ -261,13 +446,13 @@ export default function BiomeBaeumePage() {
       </header>
 
       {/* Die Antwort auf die Amtsfrage, ohne Klick sichtbar. Die Zahl trägt
-          ihren Bezug bei sich: welcher Bestand, welcher Zeitraum, welcher Stand. */}
+          ihren Bezug bei sich und sagt ausdrücklich, was sie nicht bedeutet. */}
       <Karte style={{ marginBottom: 12 }}>
-        <div style={LABEL}>Kontrollstand {stichjahr}</div>
+        <div style={LABEL}>Dokumentierte Kontrollen {stichjahr}</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 22, marginTop: 8 }}>
           <div>
             <div data-test="anzahl-offen" style={{ fontFamily: MONO, fontSize: 30, fontWeight: 700, color: FG, lineHeight: 1.1 }}>
-              {zahl(gruppen.jahr_offen.length)}
+              {zahl(gruppen.ohne_kontrolle.length)}
             </div>
             <div style={{ fontSize: 13, color: FG }}>
               Bäume ohne dokumentierte Kontrolle in {stichjahr}
@@ -283,12 +468,17 @@ export default function BiomeBaeumePage() {
         <p style={{ margin: '10px 0 0', fontSize: 12, color: MUTED, lineHeight: 1.5 }}>
           Bestand {standort ? standort.name : '—'} mit {gruppen.alle.length} Bäumen,
           Zeitraum 01.01.{stichjahr} bis {fmtDatum(stand.stichdatum)}, Stichtag{' '}
-          {fmtDatum(stand.stichdatum)}. Gezählt wird das Fehlen einer dokumentierten
-          Kontrolle. Daraus folgt keine Aussage über den Zustand eines Baums.
+          {fmtDatum(stand.stichdatum)}. Gezählt werden dokumentierte Kontrollen jeder Art.
+        </p>
+        <p data-test="kein-faelligkeitsurteil" style={{ margin: '8px 0 0', fontSize: 12, color: MUTED, lineHeight: 1.5 }}>
+          Das ist <strong style={{ color: FG }}>keine Fälligkeitsaussage</strong>. Wann eine
+          Regelkontrolle fällig ist, richtet sich nach Entwicklungsphase, berechtigter
+          Sicherheitserwartung und Zustand des einzelnen Baums, gerechnet ab der letzten
+          Kontrolle — nicht nach dem Kalenderjahr. Diese drei Größen sind im Datenbestand
+          nicht erfasst; BIOME kann das Intervall deshalb nicht berechnen und tut es nicht.
         </p>
       </Karte>
 
-      {/* Filter: ein Klick je Frage */}
       <div role="group" aria-label="Bestand filtern"
         style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
         {chips.map(c => {
@@ -303,35 +493,41 @@ export default function BiomeBaeumePage() {
                 background: aktiv ? 'color-mix(in srgb, var(--luma-a) 22%, transparent)' : 'transparent',
                 fontWeight: aktiv ? 600 : 400,
               }}>
-              {/* Die Zahl in Vordergrundfarbe: auf dem mint getönten Grund des
-                  aktiven Chips erreicht gedämpfter Text die 4,5:1 nicht. */}
               {c.text} <span style={{ fontFamily: MONO, fontSize: 11, color: FG }}>{c.n}</span>
             </button>
           )
         })}
-        <button type="button" onClick={() => exportCsv(stand, nachschlag)} data-test="export"
+        <button type="button" onClick={() => exportCsv(stand, sichtbar, chips.find(c => c.id === filter))}
+          data-test="export"
           style={{
             minHeight: 36, padding: '7px 12px', borderRadius: 18, cursor: 'pointer',
             fontFamily: SANS, fontSize: 13, color: FG, border: `1px solid ${BORDER}`,
             background: 'transparent', display: 'inline-flex', alignItems: 'center', gap: 6,
             marginLeft: 'auto',
           }}>
-          <Download size={13} aria-hidden /> Bestandsliste
+          {/* Der Knopf sagt, wie viele Zeilen die Datei bekommt — sonst ist am
+              Bildschirm nicht erkennbar, ob der Filter mit exportiert wird. */}
+          <Download size={13} aria-hidden /> Liste herunterladen ({sichtbar.length})
         </button>
       </div>
 
-      {/* Der Bestand */}
+      {/* Sagt Screenreadern, dass sich die Liste geändert hat — sonst merkt es
+          nur, wer sieht, dass sie kürzer geworden ist. */}
+      <p aria-live="polite" data-test="liste-status" style={{ ...LABEL, margin: '0 0 8px' }}>
+        {sichtbar.length === gruppen.alle.length
+          ? `${sichtbar.length} Bäume, alle`
+          : `${sichtbar.length} von ${gruppen.alle.length} Bäumen — ${chips.find(c => c.id === filter)?.text}`}
+      </p>
+
       <div data-test="liste" style={{ display: 'grid', gap: 6 }}>
         {sichtbar.length === 0 && (
-          <Karte><div style={{ color: MUTED, fontStyle: 'italic' }}>
-            Kein Baum in dieser Auswahl.
-          </div></Karte>
+          <Karte><div style={{ color: MUTED, fontStyle: 'italic' }}>Kein Baum in dieser Auswahl.</div></Karte>
         )}
         {sichtbar.map(b => {
           const u = messung(b, 'stammumfang')
           const k = letzteKontrolle(b)
           const stufe = vitalitaet(b)
-          const stand_ = kontrollstand(b, stichjahr)
+          const zustand = kontrollstand(b, stichjahr)
           const stufeInfo = stufe ? ROLOFF_VS.stufen.find(s => s.stufe === stufe.stufe) : null
           return (
             <Karte key={b.id} data-test={`baum-${b.baumnummer}`} style={{ padding: 12 }}>
@@ -339,12 +535,13 @@ export default function BiomeBaeumePage() {
                 <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: FG, minWidth: 62 }}>
                   {b.baumnummer}
                 </div>
-                <div style={{ flex: '1 1 190px', minWidth: 0 }}>
+
+                <div style={{ flex: '1 1 200px', minWidth: 0 }}>
                   {b.art_wissenschaftlich ? (
-                    <>
-                      <em style={{ color: FG, fontSize: 14 }}>{b.art_wissenschaftlich}</em>
-                      {b.art_deutsch && <span style={{ color: MUTED, fontSize: 13 }}> · {b.art_deutsch}</span>}
-                    </>
+                    <Wert monospace={false}
+                      text={<em>{b.art_wissenschaftlich}</em>}
+                      beschriftung={`Herkunft des Artnamens von ${b.baumnummer} anzeigen`}
+                      onOeffnen={ev => herkunftOeffnen(herkunftStammdatum(b, 'taxon'), ev)} />
                   ) : (
                     <span data-test="art-unbestimmt" style={{ color: MUTED, fontStyle: 'italic', fontSize: 14 }}>
                       Art unbestimmt
@@ -353,66 +550,84 @@ export default function BiomeBaeumePage() {
                 </div>
 
                 <div style={{ minWidth: 150 }}>
-                  <div style={LABEL}>Umfang ({STAMMUMFANG.messhoeheCm} cm Höhe)</div>
-                  <HerkunftsZahl
+                  <div style={LABEL}>Stammumfang</div>
+                  <Wert
                     fehlt={!u}
-                    text={u ? mitEinheit(u.wert, u.einheit) : ''}
+                    text={u ? `${mitEinheit(u.wert, u.einheit)}${u.messhoehe_cm != null ? ` @ ${u.messhoehe_cm} cm` : ''}` : ''}
                     beschriftung={`Herkunft des Stammumfangs von ${b.baumnummer} anzeigen`}
-                    onOeffnen={() => herkunftOeffnen(b, u, `Stammumfang ${b.baumnummer}`)}
-                  />
+                    onOeffnen={ev => herkunftOeffnen(herkunftStammumfang(b), ev)} />
                 </div>
 
-                <div style={{ minWidth: 150 }}>
+                <div style={{ minWidth: 170 }}>
                   <div style={LABEL}>Letzte Kontrolle</div>
-                  {stand_ === 'nie_kontrolliert' ? (
+                  {zustand === 'nie_kontrolliert' ? (
                     <span data-test="nie-kontrolliert" style={{ color: FG, fontSize: 13 }}>
                       noch nie kontrolliert
                     </span>
                   ) : (
-                    <span style={{ fontFamily: MONO, fontSize: 13, color: FG }}>
-                      {fmtDatum(k?.datum)}
-                      {stand_ === 'jahr_offen' && (
-                        <span style={{ color: MUTED, fontFamily: SANS, fontSize: 12 }}>
-                          {' '}· {stichjahr} offen
-                        </span>
+                    <>
+                      <Wert
+                        text={fmtDatum(k?.datum)}
+                        beschriftung={`Herkunft der letzten Kontrolle von ${b.baumnummer} anzeigen`}
+                        onOeffnen={ev => herkunftOeffnen(herkunftKontrolle(b), ev)} />
+                      {zustand === 'jahr_ohne' && (
+                        <div style={{ color: MUTED, fontSize: 12 }}>
+                          keine Kontrolle in {stichjahr}
+                        </div>
                       )}
-                    </span>
+                    </>
                   )}
                 </div>
 
-                <div style={{ minWidth: 130 }}>
+                <div style={{ minWidth: 150 }}>
                   <div style={LABEL}>Vitalität</div>
-                  <span style={{ fontSize: 13, color: stufeInfo ? FG : MUTED, fontStyle: stufeInfo ? 'normal' : 'italic' }}>
-                    {stufeInfo ? `${stufeInfo.kurz} · ${stufeInfo.bezeichnung}` : FEHLT}
-                  </span>
+                  <Wert monospace={false}
+                    fehlt={!stufeInfo}
+                    text={stufeInfo ? `${stufeInfo.kurz} · ${stufeInfo.bezeichnung}` : ''}
+                    beschriftung={`Herkunft der Vitalitätsstufe von ${b.baumnummer} anzeigen`}
+                    onOeffnen={ev => herkunftOeffnen(herkunftVitalitaet(b), ev)} />
                 </div>
 
-                <button type="button" onClick={() => setOffen(offen === b.id ? null : b.id)}
-                  aria-expanded={offen === b.id} aria-label={`Details zu ${b.baumnummer}`}
+                <button type="button" onClick={() => setOffenId(offenId === b.id ? null : b.id)}
+                  aria-expanded={offenId === b.id} aria-label={`Details zu ${b.baumnummer}`}
                   style={{
                     width: TIPPZIEL, height: TIPPZIEL, borderRadius: 8, border: `1px solid ${BORDER}`,
                     background: 'transparent', color: FG, cursor: 'pointer', marginLeft: 'auto',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
-                  <ChevronRight size={16} style={{ transform: offen === b.id ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }} />
+                  <ChevronRight size={16} style={{ transform: offenId === b.id ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }} />
                 </button>
               </div>
 
-              {offen === b.id && (
+              {offenId === b.id && (
                 <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${BORDER}`, display: 'grid', gap: 8, fontSize: 13 }}>
-                  <Zeile k="Standort in Koordinaten" v={koordinate(
-                    b.position ? { lat: b.position.coordinates[1], lng: b.position.coordinates[0] } : null,
-                    { crs: b.crs, genauigkeitM: b.lagegenauigkeit_m },
-                  )} />
-                  <Zeile k="Pflanzjahr" v={b.gepflanzt_jahr != null ? String(b.gepflanzt_jahr) : FEHLT} />
-                  <Zeile k="Taxonomie" v={b.taxon_quelle ? `${b.taxon_quelle} · ${b.taxon_id}` : FEHLT} />
+                  <Zeile k="Standort in Koordinaten">
+                    <Wert
+                      fehlt={!b.position}
+                      text={koordinate(
+                        b.position ? { lat: b.position.coordinates[1], lng: b.position.coordinates[0] } : null,
+                        { crs: b.crs, genauigkeitM: b.lagegenauigkeit_m },
+                      )}
+                      beschriftung={`Herkunft des Standorts von ${b.baumnummer} anzeigen`}
+                      onOeffnen={ev => herkunftOeffnen(herkunftStammdatum(b, 'position'), ev)} />
+                  </Zeile>
+                  <Zeile k="Pflanzjahr">
+                    <Wert
+                      fehlt={b.gepflanzt_jahr == null}
+                      text={String(b.gepflanzt_jahr)}
+                      beschriftung={`Herkunft des Pflanzjahrs von ${b.baumnummer} anzeigen`}
+                      onOeffnen={ev => herkunftOeffnen(herkunftStammdatum(b, 'pflanzjahr'), ev)} />
+                  </Zeile>
+                  <Zeile k="Deutscher Name">
+                    <span style={{ color: b.art_deutsch ? FG : MUTED, fontStyle: b.art_deutsch ? 'normal' : 'italic' }}>
+                      {b.art_deutsch || FEHLT}
+                      {b.art_deutsch && <span style={{ color: MUTED }}> · nicht normiert, ohne Quelle</span>}
+                    </span>
+                  </Zeile>
                   {k && (
-                    <>
-                      <Zeile k="Kontrolliert von" v={`${nachschlag.person(k.durchgefuehrt_von)?.name || FEHLT} · ${k.qualifikation}`} />
-                      <Zeile k="Belaubungszustand" v={k.belaubungszustand || FEHLT} />
-                      <Zeile k="Befund" v={k.ergebnis_text || FEHLT} />
-                      <Zeile k="Maßnahme empfohlen" v={k.massnahme_empfohlen ? 'ja, durch die kontrollierende Person' : 'nein'} />
-                    </>
+                    <Zeile k="Art der Kontrolle">
+                      <span style={{ color: FG }}>{KONTROLLART[k.art] || k.art}</span>
+                    </Zeile>
                   )}
                   <p style={{ margin: '4px 0 0', fontSize: 12, color: MUTED, lineHeight: 1.5 }}>
                     {KONTROLLE_HINWEIS}
@@ -424,78 +639,90 @@ export default function BiomeBaeumePage() {
         })}
       </div>
 
-      <HerkunftsTafel eintrag={herkunft} onSchliessen={() => setHerkunft(null)} />
+      <HerkunftsTafel eintrag={herkunft} onSchliessen={herkunftSchliessen} />
     </div>
   )
 }
 
-function Zeile({ k, v }) {
+function Zeile({ k, children }) {
   return (
-    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'baseline' }}>
       <span style={{ ...LABEL, minWidth: 150 }}>{k}</span>
-      <span style={{ color: FG, flex: 1, minWidth: 180 }}>{v}</span>
+      <span style={{ color: FG, flex: 1, minWidth: 180 }}>{children}</span>
     </div>
   )
 }
 
 /**
- * Bestandsliste als CSV. Der Kopf sagt, was die Datei ist und was sie nicht
- * ist — sie wird weitergereicht und muss ohne Begleitung verständlich sein.
+ * Liste als CSV. Der Kopf sagt, was die Datei ist, was sie nicht ist, und
+ * welchen Ausschnitt sie zeigt.
  *
  * @param {import('../biome/daten.js').Datenstand} stand
- * @param {ReturnType<typeof nachschlagen>} nachschlag
+ * @param {import('../biome/daten.js').Baum[]} auswahl
+ * @param {{id: string, text: string}|undefined} chip
  */
-function exportCsv(stand, nachschlag) {
+function exportCsv(stand, auswahl, chip) {
   const standort = stand.standorte[0]
-  const verteilung = artenverteilung(stand.baeume)
+  const stichjahr = Number(stand.stichdatum.slice(0, 4))
+  const verteilung = artenverteilung(auswahl)
     .map(v => `${v.art || 'unbestimmt'}: ${v.anzahl}`)
     .join('; ')
 
   const kopf = [
-    `# Bestandsliste Bäume`,
+    '# Bestandsliste Bäume',
     `# Standort: ${standort?.name || FEHLT}${standort?.adresse ? ', ' + standort.adresse : ''}`,
+    `# Auswahl: ${chip ? chip.text : 'Alle Bäume'} — ${auswahl.length} von ${stand.baeume.length} Bäumen`,
     `# Stichtag: ${fmtDatum(stand.stichdatum)}`,
-    `# Anzahl Bäume: ${stand.baeume.length}`,
-    `# Artenverteilung: ${verteilung}`,
-    `# Datenbestand: BIOME Nachweiskern, Tabellen biome_baum und biome_baum_messung`,
+    `# Artenverteilung in dieser Auswahl: ${verteilung}`,
+    '# Datenbestand: BIOME Nachweiskern, Tabellen biome_baum, biome_baum_messung, biome_kontrolle',
     `# Erzeugt: ${fmtDatum(new Date())} aus LUMA BIOME`,
-    `# Hinweis: Dies ist eine Bestandsliste, keine Baumkontrolle und keine Aussage`,
-    `# zur Verkehrssicherheit. Die Regelkontrolle ist eine visuelle Inaugenscheinnahme`,
-    `# durch eine fachlich qualifizierte Person und wird gesondert dokumentiert.`,
-    `# Leere Felder bedeuten: kein Wert erfasst. Sie bedeuten nicht null.`,
+    '#',
+    '# Dies ist eine Bestandsliste, keine Baumkontrolle und keine Aussage zur',
+    '# Verkehrssicherheit. Die Regelkontrolle ist eine visuelle Inaugenscheinnahme',
+    '# durch eine fachlich qualifizierte Person und wird gesondert dokumentiert.',
+    '#',
+    '# Die Spalte "Kontrolle im Jahr" sagt nur, ob eine Kontrolle dokumentiert ist.',
+    '# Sie ist KEINE Fälligkeitsaussage: das Regelintervall richtet sich nach',
+    '# Entwicklungsphase, Sicherheitserwartung und Zustand des einzelnen Baums,',
+    '# nicht nach dem Kalenderjahr.',
+    '#',
+    '# "kein Wert erfasst" bedeutet: kein Wert vorhanden. Es bedeutet nicht null.',
   ].join('\n')
 
   const spalten = [
-    'Baumnummer', 'Art wissenschaftlich', 'Art deutsch', 'Taxonomie-Quelle',
-    'Stammumfang cm', 'Messhöhe cm', 'Pflanzjahr', 'Letzte Kontrolle', 'Kontrollstand',
-    'Breitengrad', 'Längengrad', 'CRS',
+    'Baumnummer', 'Art wissenschaftlich', 'Art deutsch (nicht normiert)', 'Taxonomie-Referenz',
+    'Taxon-Kennung', 'Stammumfang cm', 'Messhöhe cm', 'Pflanzjahr',
+    'Letzte Kontrolle', 'Art der Kontrolle', `Kontrolle im Jahr ${stichjahr}`,
+    'Breitengrad', 'Längengrad', 'CRS', 'Lagegenauigkeit m',
   ]
-  const stichjahr = Number(stand.stichdatum.slice(0, 4))
 
-  const zeilen = stand.baeume.map(b => {
+  const zeilen = auswahl.map(b => {
     const u = messung(b, 'stammumfang')
     const k = letzteKontrolle(b)
-    const s = kontrollstand(b, stichjahr)
+    const z = kontrollstand(b, stichjahr)
     return [
       b.baumnummer,
       b.art_wissenschaftlich || 'unbestimmt',
       b.art_deutsch || '',
       b.taxon_quelle || '',
+      b.taxon_id || '',
       u ? String(u.wert) : 'kein Wert erfasst',
       u?.messhoehe_cm != null ? String(u.messhoehe_cm) : 'kein Wert erfasst',
       b.gepflanzt_jahr != null ? String(b.gepflanzt_jahr) : 'kein Wert erfasst',
-      s === 'nie_kontrolliert' ? 'noch nie kontrolliert' : (k?.datum || 'kein Wert erfasst'),
-      s === 'kontrolliert' ? `${stichjahr} kontrolliert` : s === 'jahr_offen' ? `${stichjahr} offen` : 'noch nie kontrolliert',
+      z === 'nie_kontrolliert' ? 'noch nie kontrolliert' : (k?.datum || 'kein Wert erfasst'),
+      k ? (KONTROLLART[k.art] || k.art) : 'kein Wert erfasst',
+      z === 'kontrolliert' ? 'dokumentiert' : z === 'nie_kontrolliert' ? 'noch nie kontrolliert' : 'nicht dokumentiert',
       b.position ? String(b.position.coordinates[1]) : '',
       b.position ? String(b.position.coordinates[0]) : '',
       b.crs,
+      b.lagegenauigkeit_m != null ? String(b.lagegenauigkeit_m) : '',
     ]
   })
 
   const csv = [
     kopf,
     spalten.join(';'),
-    ...zeilen.map(z => z.map(feld => (/[;"\n]/.test(feld) ? `"${feld.replace(/"/g, '""')}"` : feld)).join(';')),
+    ...zeilen.map(z => z.map(f => (/[;"\n]/.test(f) ? `"${f.replace(/"/g, '""')}"` : f)).join(';')),
   ].join('\n')
 
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
@@ -507,7 +734,4 @@ function exportCsv(stand, nachschlag) {
   a.click()
   a.remove()
   URL.revokeObjectURL(url)
-  // nachschlag wird hier (noch) nicht gebraucht, bleibt aber Teil der
-  // Signatur: die nächste Runde soll Person und Verfahren mit ausgeben.
-  void nachschlag
 }

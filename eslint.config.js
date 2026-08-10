@@ -89,7 +89,9 @@ export default [
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: 'module',
-      globals: { ...globals.node },
+      // Playwright-Tests laufen in Node, ihre page.evaluate-Rümpfe aber im
+      // Browser — deshalb hier beide Umgebungen.
+      globals: { ...globals.node, ...globals.browser },
     },
     rules: {
       ...js.configs.recommended.rules,
