@@ -269,7 +269,7 @@ export default function Layout({ children, fullHeight = false }) {
 
       {/* Mobile full-menu overlay */}
       {mobileOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 200 }} onClick={closeMobile}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1100 }} onClick={closeMobile}>
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.65)' }} />
           <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 220 }} onClick={e => e.stopPropagation()}>
             {renderSidebar(false)}

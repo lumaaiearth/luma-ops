@@ -258,13 +258,23 @@ export default function JahresTimeline({
       z.items.sort((a, b) => a.von - b.von)
       const nach = new Map()
       for (const it of z.items) {
+        // Erst je Einsatz bündeln: derselbe Titel kann mehrfach vorkommen,
+        // wenn ein Restant aus dem Vorgänger übernommen wurde.
+        const proGang = new Map()
         for (const l of it.leistungen) {
           const titel = (l.titel || '').trim()
           if (!titel) continue
-          const e = nach.get(titel) || { titel, anzahl: 0, stunden: 0 }
-          e.anzahl += 1
+          const e = proGang.get(titel) || { titel, stunden: 0, offen: true }
           e.stunden += Number(l.stunden || 0)
-          nach.set(titel, e)
+          if (!l.offen) e.offen = false   // mindestens ein Eintrag wurde geleistet
+          proGang.set(titel, e)
+        }
+        it.proLeistung = proGang
+        for (const e of proGang.values()) {
+          const z2 = nach.get(e.titel) || { titel: e.titel, anzahl: 0, stunden: 0 }
+          z2.anzahl += 1                  // je Einsatz einmal, nicht je Eintrag
+          z2.stunden += e.stunden
+          nach.set(e.titel, z2)
         }
       }
       z.leistungen = [...nach.values()].sort((a, b) => b.anzahl - a.anzahl || a.titel.localeCompare(b.titel))
@@ -391,7 +401,8 @@ export default function JahresTimeline({
 
   const ZEILE_H = kompakt ? 44 : 50
   const UNTER_H = kompakt ? 26 : 30
-  const zeilenHoehe = (z) => ZEILE_H + (offen.has(z.projekt.id) ? z.leistungen.length * UNTER_H : 0)
+  // +1 je Zeile für die Trennlinie, sonst laufen Saisonbänder und Raster kurz
+  const zeilenHoehe = (z) => ZEILE_H + 1 + (offen.has(z.projekt.id) ? z.leistungen.length * (UNTER_H + 1) : 0)
   const gesamtHoehe = zeilen.reduce((sum, z) => sum + zeilenHoehe(z), 0)
   const KOPF_H = (wetterAn ? 76 : 56) - (kompakt ? 8 : 0)
   const SPALTE_W = kompakt ? 88 : 208
@@ -500,7 +511,7 @@ export default function JahresTimeline({
 
                   {/* Aufgeklappt: eine Zeile je Leistung, die dort anfällt */}
                   {offen.has(z.projekt.id) && z.leistungen.map((l) => (
-                    <div key={l.titel} title={`${l.titel} · ${l.anzahl}× · ${hrs(l.stunden)} im Jahr`}
+                    <div key={l.titel} title={`${l.titel} · ${l.anzahl} Einsätze · ${hrs(l.stunden)} insgesamt`}
                       style={{
                         height: UNTER_H, display: 'flex', alignItems: 'center', gap: 6,
                         padding: kompakt ? '0 8px 0 20px' : '0 14px 0 33px',
@@ -631,23 +642,28 @@ export default function JahresTimeline({
                         borderTop: `1px solid color-mix(in srgb, ${BORDER} 30%, transparent)`,
                       }}>
                         {z.items.map((item) => {
-                          const treffer = item.leistungen.find((e) => (e.titel || '').trim() === l.titel)
+                          const treffer = item.proLeistung?.get(l.titel)
                           if (!treffer) return null
-                          const farbe = item.status === 'erledigt' ? OK
+                          // Beim Abschluss nicht abgehakt = nicht ausgeführt.
+                          // Darf nicht wie geleistet aussehen.
+                          const nichtGemacht = item.status === 'erledigt' && treffer.offen
+                          const farbe = nichtGemacht ? WARN
+                            : item.status === 'erledigt' ? OK
                             : item.status === 'terminiert' ? INFO
                             : item.ueberfaellig ? DANGER : A
+                          const zusatz = nichtGemacht ? ' · nicht ausgeführt' : ''
                           return (
                             <button key={item.id} onClick={() => setPopoverId(item.id)}
-                              title={`${l.titel} · ${hrs(treffer.stunden)} · ${item.datumText}`}
-                              aria-label={`${l.titel}, ${hrs(treffer.stunden)}, ${item.datumText}`}
+                              title={`${l.titel} · ${hrs(treffer.stunden)} · ${item.datumText}${zusatz}`}
+                              aria-label={`${l.titel}, ${hrs(treffer.stunden)}, ${item.datumText}${zusatz}`}
                               style={{
                                 position: 'absolute', left: x(item.von), top: (UNTER_H - 12) / 2,
                                 width: Math.max(item.tage * tagW, 12), height: 12, borderRadius: 4,
-                                background: item.status === 'geplant'
+                                background: (item.status === 'geplant' || nichtGemacht)
                                   ? `color-mix(in srgb, ${farbe} 22%, transparent)`
                                   : `color-mix(in srgb, ${farbe} 75%, transparent)`,
-                                border: item.status === 'geplant'
-                                  ? `1px dashed color-mix(in srgb, ${farbe} 50%, transparent)` : 'none',
+                                border: (item.status === 'geplant' || nichtGemacht)
+                                  ? `1px dashed color-mix(in srgb, ${farbe} 60%, transparent)` : 'none',
                                 padding: 0, cursor: 'pointer',
                                 outline: popoverId === item.id ? `2px solid ${farbe}` : 'none',
                                 outlineOffset: 1,

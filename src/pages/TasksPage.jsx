@@ -556,7 +556,8 @@ function TaskTable({ tasks, projects, clients, boards, today, isMobile, navigate
   }
 
   return (
-    <div style={{ border: `1px solid ${BORDER}`, borderRadius: 8, overflow: 'hidden' }}>
+    <div className="lu-scroll-x" style={{ border: `1px solid ${BORDER}`, borderRadius: 8, overflowX: 'auto', overflowY: 'hidden' }}>
+      <div style={{ minWidth: 720 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr 1fr 0.9fr 1.1fr 0.9fr 40px', gap: 10, padding: '10px 14px', background: SURFACE, borderBottom: `1px solid ${BORDER}`, fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
         <span>Aufgabe</span><span>Kunde / Projekt</span><span>Status</span><span>Prio</span><span>Zeitraum</span><span>Team</span><span />
       </div>
@@ -600,6 +601,7 @@ function TaskTable({ tasks, projects, clients, boards, today, isMobile, navigate
           </div>
         )
       })}
+      </div>
     </div>
   )
 }

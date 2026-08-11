@@ -807,6 +807,12 @@ const WUNSCH_STATUS = {
 function TabPlanung({ projekte, gaenge, angebote, wuensche, jahr, onWunsch }) {
   const [formular, setFormular] = useState(null)   // { gang, projekt }
   const [gesendet, setGesendet] = useState(false)
+  useEffect(() => {
+    if (!formular) return
+    const h = (e) => { if (e.key === 'Escape') setFormular(null) }
+    document.addEventListener('keydown', h)
+    return () => document.removeEventListener('keydown', h)
+  }, [formular])
   const heuteKw = isoKW(new Date())
 
   const projById = Object.fromEntries(projekte.map((p) => [p.id, p]))
@@ -975,10 +981,20 @@ function TabPlanung({ projekte, gaenge, angebote, wuensche, jahr, onWunsch }) {
 
       {/* Wunsch-Formular */}
       {formular && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 900 }}
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex',
+          alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: 16,
+          paddingTop: 'max(16px, env(safe-area-inset-top))',
+          paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
+        }}
           onClick={() => setFormular(null)}>
           <form onClick={(e) => e.stopPropagation()} onSubmit={senden}
-            style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 20, width: 'min(460px, 100%)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            role="dialog" aria-modal="true" aria-label="Wunsch zu diesem Einsatz"
+            style={{
+              background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 20,
+              width: 'min(460px, 100%)', maxHeight: '92vh', overflowY: 'auto',
+              display: 'flex', flexDirection: 'column', gap: 12,
+            }}>
             <div>
               <div style={{ fontSize: 15, color: FG, fontWeight: 500 }}>Wunsch zu diesem Einsatz</div>
               <div style={{ fontSize: 12, color: MUTED, marginTop: 3 }}>

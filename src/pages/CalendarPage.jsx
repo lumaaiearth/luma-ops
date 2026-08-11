@@ -1148,11 +1148,11 @@ function CalendarSidebar({ view, setView, gcalConnected, gcalCalendars, enabledC
   return (
     <>
       {/* Backdrop */}
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 400 }} />
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1100 }} />
       {/* Drawer */}
       <div style={{
         position: 'fixed', top: 0, left: 0, bottom: 0, width: 280,
-        background: SURFACE, zIndex: 401, display: 'flex', flexDirection: 'column',
+        background: SURFACE, zIndex: 1101, display: 'flex', flexDirection: 'column',
         boxShadow: '4px 0 24px rgba(0,0,0,0.25)', overflowY: 'auto',
       }}>
         {/* Header */}

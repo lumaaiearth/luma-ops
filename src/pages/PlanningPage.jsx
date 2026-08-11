@@ -644,7 +644,7 @@ export default function PlanningPage() {
 
           {/* Mobile Steckbrief Sheet */}
           {sheetPlant && (
-            <div style={{ position: 'fixed', inset: 0, zIndex: 300 }} onClick={() => setSheetPlant(null)}>
+            <div style={{ position: 'fixed', inset: 0, zIndex: 1100 }} onClick={() => setSheetPlant(null)}>
               <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)' }} />
               <div onClick={e => e.stopPropagation()} style={{
                 position: 'absolute', bottom: 0, left: 0, right: 0,
@@ -997,7 +997,7 @@ function OpsDialog({ opts, setOpts, hasPlants, hasHabitats, onConfirm, onClose, 
     </label>
   )
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)' }} />
       <div onClick={e => e.stopPropagation()} style={{ position: 'relative', background: SURFACE, borderRadius: 16, padding: 20, width: 'min(460px, 100%)', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 10px 50px rgba(0,0,0,0.4)' }}>
         <div style={{ fontSize: 16, fontWeight: 800, color: FG, marginBottom: 4 }}>In LUMA Ops anlegen</div>
@@ -3082,7 +3082,7 @@ function HabitatPlanRow({ habitat, onAdd, onRemove, L, shadow, cardBg }) {
 function HabitatSheet({ habitat, onClose, onAdd, L }) {
   const ziele = habitatZielEmojis(habitat)
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 300 }} onClick={onClose}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1100 }} onClick={onClose}>
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)' }} />
       <div onClick={e => e.stopPropagation()} style={{
         position: 'absolute', bottom: 0, left: 0, right: 0, background: SURFACE, borderRadius: '20px 20px 0 0',
