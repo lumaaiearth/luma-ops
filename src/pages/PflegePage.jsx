@@ -54,6 +54,17 @@ const SAISONS = [
 const WINTER = { key: 'winter', label: 'Winter', kurz: 'W', color: MUTED }
 const saisonForKw = (kw) => SAISONS.find((s) => kw >= s.von && kw <= s.bis) || WINTER
 
+// ISO-Woche MIT zugehörigem Wochenjahr. Der 1.–3. Januar gehört oft noch
+// zur letzten Woche des Vorjahres, der 29.–31. Dezember schon zu KW 1 des
+// Folgejahres — Kalenderjahr und Wochenjahr fallen dort auseinander.
+function isoWocheJahr(date = new Date()) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7))   // Donnerstag der Woche
+  const jahr = d.getUTCFullYear()
+  const start = new Date(Date.UTC(jahr, 0, 1))
+  return { jahr, kw: Math.ceil(((d - start) / 86400000 + 1) / 7) }
+}
+
 function isoWeek(date = new Date()) {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
   const day = d.getUTCDay() || 7
@@ -296,8 +307,8 @@ export default function PflegePage() {
   // dieselbe Woche ziehen, damit Zeitachse, Einsatz und Karte übereinstimmen.
   function verschiebeJob(gang, job, datum) {
     updateJob(job.id, { date: datum })
-    const d = new Date(datum + 'T00:00:00')
-    updateGang(gang.id, { jahr: d.getFullYear(), kw: isoWeek(d) })
+    const { jahr, kw } = isoWocheJahr(new Date(datum + 'T00:00:00'))
+    updateGang(gang.id, { jahr, kw })
   }
 
   // Einsatz abschließen: Stunden und Material wandern in die Erfassung
@@ -1230,7 +1241,8 @@ function ErledigenModal({ gang, label, job, profil, onClose, onSubmit }) {
             {teilnehmer.map((p) => (
               <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ flex: 1, fontSize: 13, color: FG }}>{p.name}</span>
-                <input type="number" step="0.25" min="0" value={zeiten[p.id]} placeholder={String(vs)}
+                <input type="number" step="0.25" min="0" value={zeiten[p.id]}
+                  placeholder={job?.assigned_users?.length ? String(vs) : '0'}
                   onChange={(e) => setH(p.id, e.target.value)}
                   style={{ ...SEL, width: 92, fontFamily: MONO, textAlign: 'right' }} />
                 <span style={{ fontFamily: MONO, fontSize: 11, color: MUTED, width: 12 }}>h</span>

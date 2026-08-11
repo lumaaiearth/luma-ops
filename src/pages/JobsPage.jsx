@@ -261,8 +261,7 @@ function JobRow({ job, projects, gangId, today, isMobile, onToggleStatus, onEdit
           <Badge color={STATUS_COLORS[job.status]}>{STATUS_LABELS[job.status]}</Badge>
 
           {abschlussBtn}
-          {abschlussBtn}
-      {confirmBtn}
+          {confirmBtn}
 
           {/* Assignee avatars */}
           <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>

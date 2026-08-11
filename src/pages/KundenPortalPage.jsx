@@ -822,13 +822,22 @@ function TabPlanung({ projekte, gaenge, angebote, wuensche, jahr, nachweis, onWu
   const erledigt = gaenge.filter((g) => g.jahr === jahr && g.status === 'erledigt')
 
   // Kosten: ausschließlich aus den Angeboten, die dem Kunden vorliegen
-  const relevant = angebote.filter((a) => {
-    if (!a.zeitraum_von && !a.zeitraum_bis) return true
-    const von = a.zeitraum_von ? new Date(a.zeitraum_von).getFullYear() : jahr
-    const bis = a.zeitraum_bis ? new Date(a.zeitraum_bis).getFullYear() : jahr
-    return jahr >= von && jahr <= bis
-  })
-  const summeVereinbart = relevant.reduce((s, a) => s + Number(a.summe_netto || 0), 0)
+  const giltFuerJahr = (a) => {
+    if (a.zeitraum_von || a.zeitraum_bis) {
+      const von = a.zeitraum_von ? new Date(a.zeitraum_von).getFullYear() : jahr
+      const bis = a.zeitraum_bis ? new Date(a.zeitraum_bis).getFullYear() : jahr
+      return jahr >= von && jahr <= bis
+    }
+    // Ohne Zeitraum gilt das Angebot für das Jahr, in dem es entstand —
+    // sonst würde dieselbe Summe in jedem Jahr erneut auftauchen.
+    return a.created_at ? new Date(a.created_at).getFullYear() === jahr : false
+  }
+  const relevant = angebote.filter(giltFuerJahr)
+  // Nur Angenommenes ist vereinbart. Versendete Angebote stehen getrennt,
+  // sonst summieren sich Alternativangebote zu einer Fantasiezahl.
+  const vereinbarte = relevant.filter((a) => a.status === 'angenommen')
+  const offeneAngebote = relevant.filter((a) => a.status === 'versendet')
+  const summeVereinbart = vereinbarte.reduce((s, a) => s + Number(a.summe_netto || 0), 0)
   const stundenGesamt = gaenge.filter((g) => g.jahr === jahr && g.status !== 'entfallen')
     .reduce((s, g) => s + Number(g.soll_stunden || 0), 0)
   const stundenErledigt = erledigt.reduce((s, g) => s + Number(g.soll_stunden || 0), 0)
@@ -864,7 +873,7 @@ function TabPlanung({ projekte, gaenge, angebote, wuensche, jahr, nachweis, onWu
       {/* Kosten */}
       <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '16px 18px', marginBottom: 16 }}>
         <SectionTitle>Kosten {jahr}</SectionTitle>
-        {relevant.length > 0 ? (
+        {vereinbarte.length > 0 ? (
           <>
             <div style={{ display: 'flex', gap: 26, flexWrap: 'wrap', marginTop: 12 }}>
               <div>
@@ -882,13 +891,12 @@ function TabPlanung({ projekte, gaenge, angebote, wuensche, jahr, nachweis, onWu
                 <div style={{ fontSize: 11, color: MUTED }}>{offen.length} Einsätze offen</div>
               </div>
             </div>
-            {relevant.map((a) => (
+            {vereinbarte.map((a) => (
               <div key={a.id} style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${BORDER}` }}>
                 <div style={{ fontSize: 13, color: FG }}>
                   {a.titel || 'Pflegeangebot'}{a.angebotsnummer ? ` · ${a.angebotsnummer}` : ''}
                   <span style={{ fontSize: 11, color: MUTED, marginLeft: 8 }}>
                     {a.abrechnung === 'monatlich' ? 'monatliche Abrechnung' : a.abrechnung === 'quartal' ? 'quartalsweise' : a.abrechnung === 'drittel' ? 'in Dritteln' : 'einmalig'}
-                    {a.status === 'versendet' ? ' · noch nicht angenommen' : ''}
                   </span>
                 </div>
                 {Array.isArray(a.positionen) && a.positionen.length > 0 && (
@@ -906,9 +914,19 @@ function TabPlanung({ projekte, gaenge, angebote, wuensche, jahr, nachweis, onWu
           </>
         ) : (
           <div style={{ fontSize: 13, color: MUTED, marginTop: 10, lineHeight: 1.55 }}>
-            Für {jahr} liegt Ihnen noch kein Angebot vor. Sobald ein Angebot
-            versendet wurde, sehen Sie hier die vereinbarte Summe, den Anteil
+            Für {jahr} ist noch kein Angebot angenommen. Sobald ein Angebot
+            angenommen ist, sehen Sie hier die vereinbarte Summe, den Anteil
             der bereits erbrachten Leistung und den noch ausstehenden Teil.
+          </div>
+        )}
+        {offeneAngebote.length > 0 && (
+          <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${BORDER}`, fontSize: 12.5, color: MUTED }}>
+            {offeneAngebote.length === 1 ? 'Ein Angebot liegt Ihnen zur Prüfung vor' : `${offeneAngebote.length} Angebote liegen Ihnen zur Prüfung vor`}
+            {offeneAngebote.map((a) => (
+              <div key={a.id} style={{ marginTop: 5, color: FG }}>
+                {a.titel || 'Pflegeangebot'}{a.angebotsnummer ? ` · ${a.angebotsnummer}` : ''} · {eur(a.summe_netto)}
+              </div>
+            ))}
           </div>
         )}
       </div>
