@@ -15,11 +15,11 @@
 import { useState, useRef, useEffect, useMemo, useLayoutEffect } from 'react'
 import { A, BG, SURFACE, BORDER, FG, MUTED, OK, WARN, DANGER, INFO, A06 } from '../lib/theme.js'
 import { MONO } from './ui.jsx'
-import { getWeatherForDate, STATUS_COLOR } from '../lib/weather.js'
+import { STATUS_COLOR } from '../lib/weather.js'
 import { useBreakpoint } from '../lib/useBreakpoint.js'
 import {
   CalendarPlus, Check, ChevronLeft, ChevronRight, ZoomIn, ZoomOut,
-  Sun, Cloud, CloudRain, CloudSnow, X, Sprout,
+  Sun, Cloud, CloudRain, CloudSnow, X,
 } from 'lucide-react'
 
 const TAG_MS = 86400000
@@ -106,6 +106,15 @@ function GangKarte({ item, tagW, links, breite, luecke, kompakt, onDrag, onOpen,
     }
     setVersatz(e.clientX - startX.current)
   }
+  // Bricht die Geste ab (Anruf, Geste vom System übernommen), darf kein
+  // Versatz stehen bleiben — sonst schreibt die nächste Berührung eine
+  // Verschiebung, die niemand ausgelöst hat.
+  function abbruch() {
+    if (halten.current) { clearTimeout(halten.current); halten.current = null }
+    setZieht(false)
+    setVersatz(0)
+  }
+
   function up(e) {
     if (halten.current) { clearTimeout(halten.current); halten.current = null }
     if (!zieht) { onOpen(item); return }                 // Tippen = Details
@@ -125,6 +134,7 @@ function GangKarte({ item, tagW, links, breite, luecke, kompakt, onDrag, onOpen,
   const balken = (
     <div
       onPointerDown={down} onPointerMove={move} onPointerUp={up}
+      onPointerCancel={abbruch} onLostPointerCapture={abbruch}
       title={`${item.titel} · ${hrs(item.stunden)} · ${item.datumText}`}
       style={{
         position: 'absolute', left: links + versatz, top: 11, width: Math.max(breite, 15), height: 28,

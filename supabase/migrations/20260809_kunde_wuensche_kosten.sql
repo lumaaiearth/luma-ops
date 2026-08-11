@@ -51,8 +51,15 @@ CREATE POLICY kunde_insert ON public.kunde_wuensche
     SELECT p.id FROM projects p JOIN clients c ON c.id = p.client_id
     WHERE c.org_id IS NOT NULL AND c.org_id = user_org()));
 
-GRANT SELECT, INSERT ON public.kunde_wuensche TO authenticated;
-REVOKE UPDATE, DELETE ON public.kunde_wuensche FROM authenticated;
+-- Supabase vergibt per ALTER DEFAULT PRIVILEGES pauschal ALL an anon und
+-- authenticated. Erst alles entziehen, dann gezielt zurückgeben — ein
+-- reiner REVOKE einzelner Rechte greift sonst ins Leere.
+-- Wichtig: UPDATE/DELETE müssen an authenticated gehen, sonst könnte auch
+-- das interne Team keinen Wunsch beantworten (eine Policy kann ein
+-- fehlendes Tabellenrecht nicht ersetzen). Begrenzt wird über RLS: der
+-- Kunde hat nur SELECT- und INSERT-Policies.
+REVOKE ALL ON public.kunde_wuensche FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.kunde_wuensche TO authenticated;
 
 -- Ein Wunsch erzeugt eine Aufgabenkarte bei LUMA, damit er nicht untergeht
 CREATE OR REPLACE FUNCTION public.kunde_wunsch_aufgabe()
@@ -101,4 +108,5 @@ WITH (security_invoker = false, security_barrier = true) AS
   WHERE is_kunde() AND c.org_id IS NOT NULL AND c.org_id = user_org()
     AND a.status IN ('versendet', 'angenommen');
 
+REVOKE ALL ON v_kunde_angebote FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON v_kunde_angebote TO authenticated;

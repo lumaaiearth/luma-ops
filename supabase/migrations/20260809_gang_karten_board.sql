@@ -29,6 +29,14 @@ BEGIN
   SELECT * INTO v_proj FROM projects WHERE id = v_plan.project_id;
 
   SELECT id INTO v_board FROM boards WHERE lower(name) = 'pflege' ORDER BY created_at NULLS FIRST LIMIT 1;
+  IF v_board IS NULL THEN
+    -- Kein Bereich „Pflege" vorhanden (frische Umgebung, umbenannt): einen
+    -- anlegen. Ohne board_id landen die Karten sonst im Nirgendwo.
+    v_board := 'b_pflege';
+    INSERT INTO boards (id, name, emoji, color, sort_order)
+    VALUES (v_board, 'Pflege', '🌿', '#08AA56', 0)
+    ON CONFLICT (id) DO NOTHING;
+  END IF;
 
   v_start := to_date(NEW.jahr::text || '-' || lpad(NEW.kw::text, 2, '0'), 'IYYY-IW');
   v_due   := v_start + 4;
@@ -38,7 +46,13 @@ BEGIN
   -- "Frühjahrspflege H14 (KW 12)" → "Frühjahrspflege"
   v_base := coalesce(nullif(NEW.titel, ''), 'Pflegegang');
   v_base := regexp_replace(v_base, '\s*\(KW\s*\d+\)\s*$', '');
-  v_base := btrim(regexp_replace(v_base, '\s+' || v_flaeche || '\s*$', ''));
+  -- Flächenkürzel am Ende abschneiden, ohne es als Muster zu behandeln:
+  -- ein Kürzel mit Sonderzeichen (z. B. „P15+") würde als Regex danebengreifen
+  -- oder den Trigger abbrechen lassen.
+  v_base := btrim(v_base);
+  IF right(v_base, length(v_flaeche) + 1) = ' ' || v_flaeche THEN
+    v_base := btrim(left(v_base, length(v_base) - length(v_flaeche) - 1));
+  END IF;
   IF v_base = '' THEN v_base := 'Pflegegang'; END IF;
 
   v_title := v_base || ' · ' || v_flaeche || ' · KW ' || NEW.kw;

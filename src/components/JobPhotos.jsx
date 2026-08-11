@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Camera, X, Loader, Trash2, ZoomIn } from 'lucide-react'
+import { Camera, X, Loader, Trash2 } from 'lucide-react'
 import { A, BORDER, FG, MUTED, SURFACE } from '../lib/theme.js'
 import { sbUploadPhoto, sbDeletePhoto, sbGetJobPhotos, sbInsert, sbDelete, sb } from '../lib/supabase.js'
 import { genId } from '../lib/storage.js'
@@ -25,6 +25,22 @@ async function compressImage(file) {
     img.onerror = reject
     img.src = url
   })
+}
+
+
+/* Ein Vorschaubild. Bewusst außerhalb der Komponente, damit React die
+   Bilder beim Neuzeichnen behält statt sie neu zu laden. */
+function Kachel({ photo, onOeffnen }) {
+  return (
+    <div
+      style={{ position: 'relative', aspectRatio: '1', borderRadius: 6, overflow: 'hidden', background: SURFACE, border: `1px solid ${BORDER}`, cursor: 'pointer' }}
+      onClick={() => onOeffnen(photo)}>
+      <img src={photo.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+      {photo._pending && (
+        <span style={{ position: 'absolute', bottom: 3, right: 3, fontFamily: "'Space Mono', monospace", fontSize: 8, color: '#fff', background: 'rgba(0,0,0,0.55)', padding: '1px 4px', borderRadius: 3 }}>wartet</span>
+      )}
+    </div>
+  )
 }
 
 export default function JobPhotos({ jobId, uploadedBy, kompakt = false }) {
@@ -96,17 +112,6 @@ export default function JobPhotos({ jobId, uploadedBy, kompakt = false }) {
   const ohnePhase = photos.filter((p) => !p.phase)
 
 
-  const Kachel = ({ photo }) => (
-    <div key={photo.id}
-      style={{ position: 'relative', aspectRatio: '1', borderRadius: 6, overflow: 'hidden', background: SURFACE, border: `1px solid ${BORDER}`, cursor: 'pointer' }}
-      onClick={() => setLightbox(photo)}>
-      <img src={photo.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
-      {photo._pending && (
-        <span style={{ position: 'absolute', bottom: 3, right: 3, fontFamily: "'Space Mono', monospace", fontSize: 8, color: '#fff', background: 'rgba(0,0,0,0.55)', padding: '1px 4px', borderRadius: 3 }}>wartet</span>
-      )}
-    </div>
-  )
-
   async function handleDelete(photo) {
     try {
       await sbDeletePhoto(photo.job_id, photo.id)
@@ -156,7 +161,7 @@ export default function JobPhotos({ jobId, uploadedBy, kompakt = false }) {
               </div>
               {bilder.length ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(72px, 1fr))', gap: 5 }}>
-                  {bilder.map((photo) => <Kachel key={photo.id} photo={photo} />)}
+                  {bilder.map((photo) => <Kachel key={photo.id} photo={photo} onOeffnen={setLightbox} />)}
                 </div>
               ) : (
                 <div onClick={() => waehle(g.key)}
@@ -176,7 +181,7 @@ export default function JobPhotos({ jobId, uploadedBy, kompakt = false }) {
             Ohne Zuordnung ({ohnePhase.length})
           </span>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(72px, 1fr))', gap: 5, marginTop: 5 }}>
-            {ohnePhase.map((photo) => <Kachel key={photo.id} photo={photo} />)}
+            {ohnePhase.map((photo) => <Kachel key={photo.id} photo={photo} onOeffnen={setLightbox} />)}
           </div>
         </div>
       )}
