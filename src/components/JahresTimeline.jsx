@@ -16,10 +16,11 @@ import { useState, useRef, useEffect, useMemo, useLayoutEffect } from 'react'
 import { A, BG, SURFACE, BORDER, FG, MUTED, OK, WARN, DANGER, INFO, A06 } from '../lib/theme.js'
 import { MONO } from './ui.jsx'
 import { STATUS_COLOR } from '../lib/weather.js'
+import WeatherIcon from './WeatherIcon.jsx'
 import { useBreakpoint } from '../lib/useBreakpoint.js'
 import {
   CalendarPlus, Check, ChevronLeft, ChevronRight, ZoomIn, ZoomOut,
-  Sun, Cloud, CloudRain, CloudSnow, X,
+  X,
 } from 'lucide-react'
 
 const TAG_MS = 86400000
@@ -39,8 +40,6 @@ const ZOOMS = [
   { id: 'saison', label: 'Saison', tagW: 6.5 },
   { id: 'monat',  label: 'Monat',  tagW: 12 },
 ]
-
-const WETTER_ICON = { sun: Sun, cloudsun: Cloud, cloud: Cloud, drizzle: CloudRain, rain: CloudRain, snow: CloudSnow }
 
 const utc = (y, m, d) => new Date(Date.UTC(y, m, d))
 const isoStr = (d) => d.toISOString().slice(0, 10)
@@ -122,7 +121,9 @@ function GangKarte({ item, tagW, links, breite, luecke, kompakt, onDrag, onOpen,
     const tage = Math.round(versatz / tagW)
     setVersatz(0)
     e.currentTarget.releasePointerCapture?.(e.pointerId)
-    if (Math.abs(versatz) < 4) { onOpen(item); return }   // kaum bewegt = Klick
+    // Totzone mindestens ein Tag breit: bei enger Ansicht sind 4 Pixel
+    // schon ein Tag, ein Wackeln beim Tippen würde sonst verschieben.
+    if (Math.abs(versatz) < Math.max(8, tagW)) { onOpen(item); return }
     if (tage !== 0) onDrag(item, tage)
   }
 
@@ -135,6 +136,15 @@ function GangKarte({ item, tagW, links, breite, luecke, kompakt, onDrag, onOpen,
     <div
       onPointerDown={down} onPointerMove={move} onPointerUp={up}
       onPointerCancel={abbruch} onLostPointerCapture={abbruch}
+      role="button" tabIndex={0}
+      aria-label={`${item.titel}, ${hrs(item.stunden)}, ${item.datumText}, ${item.status}`}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(item); return }
+        // Mit den Pfeiltasten wochenweise verschieben (Umschalt = tageweise)
+        if (!beweglich) return
+        if (e.key === 'ArrowLeft')  { e.preventDefault(); onDrag(item, e.shiftKey ? -1 : -7) }
+        if (e.key === 'ArrowRight') { e.preventDefault(); onDrag(item, e.shiftKey ? 1 : 7) }
+      }}
       title={`${item.titel} · ${hrs(item.stunden)} · ${item.datumText}`}
       style={{
         position: 'absolute', left: links + versatz, top: 11, width: Math.max(breite, 15), height: 28,
@@ -197,7 +207,7 @@ export default function JahresTimeline({
   const [fClient, setFClient] = useState('alle')
   const [zeige, setZeige] = useState({ geplant: true, terminiert: true, erledigt: true })
   const [wetterAn, setWetterAn] = useState(true)
-  const [popover, setPopover] = useState(null)
+  const [popoverId, setPopoverId] = useState(null)
 
   const scroller = useRef(null)
   const startDatum = useMemo(() => utc(bereich.von, 0, 1), [bereich.von])
@@ -344,6 +354,18 @@ export default function JahresTimeline({
     }
   }
 
+  // Nicht das angeklickte Objekt merken, sondern seine Kennung: nach einem
+  // Verschieben baut der Zeilen-Speicher neue Objekte, ein Abbild zeigte
+  // sonst die alte Woche und erzeugte einen Einsatz mit falschem Titel.
+  const popover = useMemo(() => {
+    if (!popoverId) return null
+    for (const z of zeilen) {
+      const treffer = z.items.find((i) => i.id === popoverId)
+      if (treffer) return treffer
+    }
+    return null
+  }, [popoverId, zeilen])
+
   const ZEILE_H = kompakt ? 44 : 50
   const KOPF_H = (wetterAn ? 76 : 56) - (kompakt ? 8 : 0)
   const SPALTE_W = kompakt ? 88 : 208
@@ -479,14 +501,13 @@ export default function JahresTimeline({
                   </div>
                 ))}
                 {wetterAn && wetterTage.map((t) => {
-                  const Icon = WETTER_ICON[t.icon] || Cloud
                   const farbe = STATUS_COLOR[t.status] || MUTED
                   const titel = `${t.label} · ${t.tempMax}°/${t.tempMin}° · ${t.precip} mm Regen`
                   // Eng: farbiger Tagesstreifen. Weit: Symbol mit Höchsttemperatur.
                   return tagW >= 10 ? (
                     <div key={t.date} title={titel}
                       style={{ position: 'absolute', left: t.links, width: tagW, top: 48, height: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                      <Icon size={11} style={{ color: farbe }} />
+                      <WeatherIcon icon={t.icon} size={11} color={farbe} />
                       <span style={{ fontFamily: MONO, fontSize: 8, color: MUTED }}>{t.tempMax}°</span>
                     </div>
                   ) : (
@@ -534,9 +555,9 @@ export default function JahresTimeline({
                       return (
                         <GangKarte key={item.id} item={item} tagW={tagW} kompakt={kompakt}
                           links={links} breite={breite} luecke={luecke}
-                          aktiv={popover?.id === item.id}
+                          aktiv={popoverId === item.id}
                           onDrag={verschiebe}
-                          onOpen={(it) => setPopover(it)} />
+                          onOpen={(it) => setPopoverId(it.id)} />
                       )
                     })}
                   </div>
@@ -579,21 +600,21 @@ export default function JahresTimeline({
             </div>
           </div>
           {popover.status === 'geplant' && (
-            <button onClick={() => { onTerminieren(popover.gang); setPopover(null) }} style={{
+            <button onClick={() => { onTerminieren(popover.gang); setPopoverId(null) }} style={{
               display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8,
               border: `1px solid color-mix(in srgb, ${A} 35%, transparent)`, background: A06, color: A,
               cursor: 'pointer', fontSize: 12, fontFamily: 'inherit',
             }}><CalendarPlus size={13} />Terminieren</button>
           )}
           {popover.status !== 'erledigt' && (
-            <button onClick={() => { onErledigt(popover.gang); setPopover(null) }} style={{
+            <button onClick={() => { onErledigt(popover.gang); setPopoverId(null) }} style={{
               display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8,
               border: `1px solid color-mix(in srgb, ${OK} 35%, transparent)`,
               background: `color-mix(in srgb, ${OK} 10%, transparent)`, color: OK,
               cursor: 'pointer', fontSize: 12, fontFamily: 'inherit',
             }}><Check size={13} />Abschließen</button>
           )}
-          <button onClick={() => setPopover(null)} style={{ background: 'transparent', border: 'none', color: MUTED, cursor: 'pointer', display: 'flex', padding: 4 }}><X size={15} /></button>
+          <button onClick={() => setPopoverId(null)} style={{ background: 'transparent', border: 'none', color: MUTED, cursor: 'pointer', display: 'flex', padding: 4 }}><X size={15} /></button>
         </div>
       )}
     </div>
