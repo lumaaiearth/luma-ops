@@ -208,6 +208,12 @@ export default function JahresTimeline({
   const [zeige, setZeige] = useState({ geplant: true, terminiert: true, erledigt: true })
   const [wetterAn, setWetterAn] = useState(true)
   const [popoverId, setPopoverId] = useState(null)
+  const [offen, setOffen] = useState(() => new Set())   // aufgeklappte Projekte
+  const klapp = (id) => setOffen((prev) => {
+    const n = new Set(prev)
+    if (n.has(id)) n.delete(id); else n.add(id)
+    return n
+  })
 
   const scroller = useRef(null)
   const startDatum = useMemo(() => utc(bereich.von, 0, 1), [bereich.von])
@@ -235,8 +241,9 @@ export default function JahresTimeline({
       const stunden = Number(g.soll_stunden || 0) + Number(g.fahrt_stunden || 0)
       const kurzTitel = (g.titel || 'Pflegegang').replace(/\s*\(KW\s*\d+\)\s*$/, '')
 
+      const leistungen = Array.isArray(g.aufgaben) ? g.aufgaben : []
       ;(proj[p.id] = proj[p.id] || { projekt: p, items: [] }).items.push({
-        id: g.id, gang: g, job, status: g.status, von, tage, stunden,
+        id: g.id, gang: g, job, status: g.status, von, tage, stunden, leistungen,
         kurz: kurzTitel,
         titel: `${kurzTitel} · ${p.flaeche_code || p.name}`,
         datumText: job?.date
@@ -245,7 +252,23 @@ export default function JahresTimeline({
         ueberfaellig: g.status === 'geplant' && von < heute,
       })
     }
-    for (const z of Object.values(proj)) z.items.sort((a, b) => a.von - b.von)
+    // Je Projekt die Liste der Leistungen, die dort übers Jahr anfallen.
+    // Reihenfolge nach Häufigkeit: was oft vorkommt, steht oben.
+    for (const z of Object.values(proj)) {
+      z.items.sort((a, b) => a.von - b.von)
+      const nach = new Map()
+      for (const it of z.items) {
+        for (const l of it.leistungen) {
+          const titel = (l.titel || '').trim()
+          if (!titel) continue
+          const e = nach.get(titel) || { titel, anzahl: 0, stunden: 0 }
+          e.anzahl += 1
+          e.stunden += Number(l.stunden || 0)
+          nach.set(titel, e)
+        }
+      }
+      z.leistungen = [...nach.values()].sort((a, b) => b.anzahl - a.anzahl || a.titel.localeCompare(b.titel))
+    }
     return Object.values(proj).sort((a, b) => {
       const ka = clientById[a.projekt.client_id]?.name || ''
       const kb = clientById[b.projekt.client_id]?.name || ''
@@ -367,6 +390,9 @@ export default function JahresTimeline({
   }, [popoverId, zeilen])
 
   const ZEILE_H = kompakt ? 44 : 50
+  const UNTER_H = kompakt ? 26 : 30
+  const zeilenHoehe = (z) => ZEILE_H + (offen.has(z.projekt.id) ? z.leistungen.length * UNTER_H : 0)
+  const gesamtHoehe = zeilen.reduce((sum, z) => sum + zeilenHoehe(z), 0)
   const KOPF_H = (wetterAn ? 76 : 56) - (kompakt ? 8 : 0)
   const SPALTE_W = kompakt ? 88 : 208
 
@@ -441,18 +467,53 @@ export default function JahresTimeline({
               const kunde = clientById[z.projekt.client_id]
               return (
                 <div key={z.projekt.id} style={{
-                height: ZEILE_H, display: 'flex', flexDirection: 'column', justifyContent: 'center',
-                padding: kompakt ? '0 8px' : '0 14px',
-                borderBottom: `1px solid color-mix(in srgb, ${BORDER} 45%, transparent)`,
-                background: zeilen.indexOf(z) % 2 ? `color-mix(in srgb, ${FG} 2%, transparent)` : 'transparent',
-              }}>
-                  <div style={{ fontSize: kompakt ? 12 : 12.5, color: FG, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {z.projekt.flaeche_code || z.projekt.name}
-                  </div>
-                  <div title={kunde?.name || ''}
-                    style={{ fontFamily: MONO, fontSize: 9.5, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {kompakt ? `${z.items.length}×` : `${kunde?.name || '—'} · ${z.items.length} Einsätze`}
-                  </div>
+                  background: zeilen.indexOf(z) % 2 ? `color-mix(in srgb, ${FG} 2%, transparent)` : 'transparent',
+                  borderBottom: `1px solid color-mix(in srgb, ${BORDER} 45%, transparent)`,
+                }}>
+                  {/* Projektzeile — aufklappbar, wenn Leistungen hinterlegt sind */}
+                  <button onClick={() => z.leistungen.length && klapp(z.projekt.id)}
+                    aria-expanded={offen.has(z.projekt.id)}
+                    title={z.leistungen.length ? 'Leistungen ein-/ausklappen' : 'Keine Einzelleistungen hinterlegt'}
+                    style={{
+                      height: ZEILE_H, width: '100%', display: 'flex', alignItems: 'center', gap: 6,
+                      padding: kompakt ? '0 8px' : '0 14px', background: 'transparent', border: 'none',
+                      cursor: z.leistungen.length ? 'pointer' : 'default', textAlign: 'left',
+                      fontFamily: 'inherit', color: FG,
+                    }}>
+                    {z.leistungen.length > 0 && (
+                      <ChevronRight size={13} style={{
+                        color: MUTED, flexShrink: 0,
+                        transform: offen.has(z.projekt.id) ? 'rotate(90deg)' : 'none',
+                        transition: 'transform 0.15s',
+                      }} />
+                    )}
+                    <span style={{ minWidth: 0 }}>
+                      <span style={{ display: 'block', fontSize: kompakt ? 12 : 12.5, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {z.projekt.flaeche_code || z.projekt.name}
+                      </span>
+                      <span title={kunde?.name || ''}
+                        style={{ display: 'block', fontFamily: MONO, fontSize: 9.5, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {kompakt ? `${z.items.length}×` : `${kunde?.name || '—'} · ${z.items.length} Einsätze`}
+                      </span>
+                    </span>
+                  </button>
+
+                  {/* Aufgeklappt: eine Zeile je Leistung, die dort anfällt */}
+                  {offen.has(z.projekt.id) && z.leistungen.map((l) => (
+                    <div key={l.titel} title={`${l.titel} · ${l.anzahl}× · ${hrs(l.stunden)} im Jahr`}
+                      style={{
+                        height: UNTER_H, display: 'flex', alignItems: 'center', gap: 6,
+                        padding: kompakt ? '0 8px 0 20px' : '0 14px 0 33px',
+                        borderTop: `1px solid color-mix(in srgb, ${BORDER} 30%, transparent)`,
+                      }}>
+                      <span style={{ flex: 1, fontSize: 11, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {l.titel}
+                      </span>
+                      {!kompakt && (
+                        <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED, flexShrink: 0 }}>{l.anzahl}×</span>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )
             })}
@@ -522,13 +583,13 @@ export default function JahresTimeline({
                 {/* Jahreszeiten und Wochenraster hinter den Karten */}
                 {saisonFlaechen.map((s) => (
                   <div key={s.key} style={{
-                    position: 'absolute', left: s.links, width: s.breite, top: 0, height: zeilen.length * ZEILE_H,
+                    position: 'absolute', left: s.links, width: s.breite, top: 0, height: gesamtHoehe,
                     background: `color-mix(in srgb, ${s.color} 7%, transparent)`, pointerEvents: 'none',
                   }} />
                 ))}
                 {monate.map((m) => (
                   <div key={m.key} style={{
-                    position: 'absolute', left: m.links, top: 0, width: 1, height: zeilen.length * ZEILE_H,
+                    position: 'absolute', left: m.links, top: 0, width: 1, height: gesamtHoehe,
                     background: BORDER, pointerEvents: 'none',
                   }} />
                 ))}
@@ -543,23 +604,58 @@ export default function JahresTimeline({
 
                 {zeilen.map((z, i) => (
                   <div key={z.projekt.id} style={{
-                    height: ZEILE_H, position: 'relative',
                     borderBottom: `1px solid color-mix(in srgb, ${BORDER} 45%, transparent)`,
                     background: i % 2 ? `color-mix(in srgb, ${FG} 2%, transparent)` : 'transparent',
                   }}>
-                    {z.items.map((item, k) => {
-                      const links = x(item.von)
-                      const breite = item.tage * tagW
-                      const naechster = z.items[k + 1]
-                      const luecke = naechster ? x(naechster.von) - (links + breite) : 260
-                      return (
-                        <GangKarte key={item.id} item={item} tagW={tagW} kompakt={kompakt}
-                          links={links} breite={breite} luecke={luecke}
-                          aktiv={popoverId === item.id}
-                          onDrag={verschiebe}
-                          onOpen={(it) => setPopoverId(it.id)} />
-                      )
-                    })}
+                    <div style={{ height: ZEILE_H, position: 'relative' }}>
+                      {z.items.map((item, k) => {
+                        const links = x(item.von)
+                        const breite = item.tage * tagW
+                        const naechster = z.items[k + 1]
+                        const luecke = naechster ? x(naechster.von) - (links + breite) : 260
+                        return (
+                          <GangKarte key={item.id} item={item} tagW={tagW} kompakt={kompakt}
+                            links={links} breite={breite} luecke={luecke}
+                            aktiv={popoverId === item.id}
+                            onDrag={verschiebe}
+                            onOpen={(it) => setPopoverId(it.id)} />
+                        )
+                      })}
+                    </div>
+
+                    {/* Je Leistung eine Spur: zeigt, an welchen Terminen sie
+                        tatsächlich ansteht — die Lücken sind die Aussage. */}
+                    {offen.has(z.projekt.id) && z.leistungen.map((l) => (
+                      <div key={l.titel} style={{
+                        height: UNTER_H, position: 'relative',
+                        borderTop: `1px solid color-mix(in srgb, ${BORDER} 30%, transparent)`,
+                      }}>
+                        {z.items.map((item) => {
+                          const treffer = item.leistungen.find((e) => (e.titel || '').trim() === l.titel)
+                          if (!treffer) return null
+                          const farbe = item.status === 'erledigt' ? OK
+                            : item.status === 'terminiert' ? INFO
+                            : item.ueberfaellig ? DANGER : A
+                          return (
+                            <button key={item.id} onClick={() => setPopoverId(item.id)}
+                              title={`${l.titel} · ${hrs(treffer.stunden)} · ${item.datumText}`}
+                              aria-label={`${l.titel}, ${hrs(treffer.stunden)}, ${item.datumText}`}
+                              style={{
+                                position: 'absolute', left: x(item.von), top: (UNTER_H - 12) / 2,
+                                width: Math.max(item.tage * tagW, 12), height: 12, borderRadius: 4,
+                                background: item.status === 'geplant'
+                                  ? `color-mix(in srgb, ${farbe} 22%, transparent)`
+                                  : `color-mix(in srgb, ${farbe} 75%, transparent)`,
+                                border: item.status === 'geplant'
+                                  ? `1px dashed color-mix(in srgb, ${farbe} 50%, transparent)` : 'none',
+                                padding: 0, cursor: 'pointer',
+                                outline: popoverId === item.id ? `2px solid ${farbe}` : 'none',
+                                outlineOffset: 1,
+                              }} />
+                          )
+                        })}
+                      </div>
+                    ))}
                   </div>
                 ))}
               </div>
@@ -598,6 +694,18 @@ export default function JahresTimeline({
               {popover.datumText} · {hrs(popover.stunden)} · {popover.status}
               {popover.ueberfaellig ? ' · überfällig' : ''}
             </div>
+            {popover.leistungen.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 7 }}>
+                {popover.leistungen.map((l, i) => (
+                  <span key={i} style={{
+                    fontSize: 11, color: FG, background: A06, border: `1px solid ${BORDER}`,
+                    borderRadius: 6, padding: '2px 8px',
+                  }}>
+                    {l.titel} <span style={{ fontFamily: MONO, color: MUTED }}>{hrs(l.stunden)}</span>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
           {popover.status === 'geplant' && (
             <button onClick={() => { onTerminieren(popover.gang); setPopoverId(null) }} style={{
