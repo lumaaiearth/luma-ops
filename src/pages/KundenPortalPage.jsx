@@ -63,6 +63,8 @@ export default function KundenPortalPage() {
   const [gaenge, setGaenge]         = useState([])
   const [einsaetze, setEinsaetze]   = useState([])
   const [fotos, setFotos]           = useState([])
+  const [angebote, setAngebote]     = useState([])
+  const [wuensche, setWuensche]     = useState([])
   const [plans, setPlans]           = useState([])       // Pflanzpläne (Florales)
   const [loading, setLoading]       = useState(true)
   const [portalFehlt, setPortalFehlt] = useState(false)  // Views noch nicht angelegt
@@ -76,7 +78,7 @@ export default function KundenPortalPage() {
     let abgebrochen = false
     async function load() {
       const orgId = profile?.org_id
-      const [k, pr, le, pl, ga, ei, fo, pp] = await Promise.all([
+      const [k, pr, le, pl, ga, ei, fo, an, wu, pp] = await Promise.all([
         safeRows(sb.from('v_kunde_auftraggeber').select('id, name')),
         safeRows(sb.from('v_kunde_projekte').select('*')),
         safeRows(sb.from('v_kunde_leistungen').select('*')),
@@ -84,6 +86,8 @@ export default function KundenPortalPage() {
         safeRows(sb.from('v_kunde_gaenge').select('*')),
         safeRows(sb.from('v_kunde_einsaetze').select('*')),
         safeRows(sb.from('v_kunde_fotos').select('*')),
+        safeRows(sb.from('v_kunde_angebote').select('*')),
+        safeRows(sb.from('kunde_wuensche').select('*').order('created_at', { ascending: false })),
         orgId
           ? safeRows(sb.from('pflanzplaene').select('*').eq('org_id', orgId).order('updated_at', { ascending: false }))
           : Promise.resolve({ rows: [], fehlt: false }),
@@ -98,6 +102,8 @@ export default function KundenPortalPage() {
       setGaenge(ga.rows)
       setEinsaetze(ei.rows)
       setFotos(fo.rows)
+      setAngebote(an.rows)
+      setWuensche(wu.rows)
       setPlans(pp.rows)
       // Wenn die Kunden-Views fehlen (Migration noch nicht angewendet), sagen
       // wir das deutlich, statt eine leere Seite zu zeigen.
@@ -144,6 +150,7 @@ export default function KundenPortalPage() {
   const TABS = [
     { key: 'leistungen', label: 'Leistungen',  icon: CheckCircle2 },
     { key: 'flaechen',   label: 'Flächen',     icon: MapPin },
+    { key: 'planung',    label: 'Planung & Kosten', icon: CalendarDays },
     { key: 'pflanzung',  label: 'Pflanzpläne', icon: Leaf },
   ]
 
@@ -223,6 +230,18 @@ export default function KundenPortalPage() {
 
         {tab === 'flaechen' && (
           <TabFlaechen projekte={projekte} gaenge={gaenge} einsaetze={einsaetze} plaene={plaene} jahr={jahr} />
+        )}
+
+        {tab === 'planung' && (
+          <TabPlanung projekte={projekte} gaenge={gaenge} angebote={angebote}
+            wuensche={wuensche} jahr={jahr} nachweis={nachweis}
+            onWunsch={async (eintrag) => {
+              const { error } = await sb.from('kunde_wuensche').insert(eintrag)
+              if (error) return { fehler: error.message }
+              const { data } = await sb.from('kunde_wuensche').select('*').order('created_at', { ascending: false })
+              setWuensche(data || [])
+              return {}
+            }} />
         )}
 
         {tab === 'pflanzung' && (
@@ -770,5 +789,212 @@ function FotoGalerie({ fotos }) {
         )
       })}
     </div>
+  )
+}
+
+/* ─── Reiter: Planung & Kosten ─────────────────────────────────────
+   Zeigt, was noch ansteht, und was das laut Angebot kostet. Der Kunde
+   verschiebt hier nichts selbst — er äußert einen Wunsch, der bei LUMA
+   als Aufgabe landet. So bleibt die Planung in einer Hand. */
+
+const WUNSCH_STATUS = {
+  offen:      { label: 'in Prüfung', color: WARN },
+  angenommen: { label: 'übernommen', color: OK },
+  abgelehnt:  { label: 'nicht möglich', color: MUTED },
+  erledigt:   { label: 'erledigt', color: OK },
+}
+
+function TabPlanung({ projekte, gaenge, angebote, wuensche, jahr, nachweis, onWunsch }) {
+  const [formular, setFormular] = useState(null)   // { gang, projekt }
+  const [gesendet, setGesendet] = useState(false)
+  const heuteKw = (() => {
+    const d = new Date()
+    const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+    const dow = t.getUTCDay() || 7
+    t.setUTCDate(t.getUTCDate() + 4 - dow)
+    return Math.ceil(((t - new Date(Date.UTC(t.getUTCFullYear(), 0, 1))) / 86400000 + 1) / 7)
+  })()
+
+  const projById = Object.fromEntries(projekte.map((p) => [p.id, p]))
+  const offen = gaenge
+    .filter((g) => g.jahr === jahr && (g.status === 'geplant' || g.status === 'terminiert'))
+    .sort((a, b) => a.kw - b.kw)
+  const erledigt = gaenge.filter((g) => g.jahr === jahr && g.status === 'erledigt')
+
+  // Kosten: ausschließlich aus den Angeboten, die dem Kunden vorliegen
+  const relevant = angebote.filter((a) => {
+    if (!a.zeitraum_von && !a.zeitraum_bis) return true
+    const von = a.zeitraum_von ? new Date(a.zeitraum_von).getFullYear() : jahr
+    const bis = a.zeitraum_bis ? new Date(a.zeitraum_bis).getFullYear() : jahr
+    return jahr >= von && jahr <= bis
+  })
+  const summeVereinbart = relevant.reduce((s, a) => s + Number(a.summe_netto || 0), 0)
+  const stundenGesamt = gaenge.filter((g) => g.jahr === jahr && g.status !== 'entfallen')
+    .reduce((s, g) => s + Number(g.soll_stunden || 0), 0)
+  const stundenErledigt = erledigt.reduce((s, g) => s + Number(g.soll_stunden || 0), 0)
+  const anteil = stundenGesamt > 0 ? stundenErledigt / stundenGesamt : 0
+  const eur = (n) => Number(n || 0).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })
+
+  async function senden(e) {
+    e.preventDefault()
+    const f = new FormData(e.target)
+    const kw = f.get('kw') ? Number(f.get('kw')) : null
+    const res = await onWunsch({
+      gang_id: formular.gang?.id || null,
+      project_id: formular.projekt.id,
+      typ: f.get('typ'),
+      wunsch_jahr: kw ? jahr : null,
+      wunsch_kw: kw,
+      nachricht: f.get('nachricht') || '',
+      status: 'offen',
+    })
+    if (res.fehler) { alert('Konnte nicht gesendet werden: ' + res.fehler); return }
+    setFormular(null); setGesendet(true)
+    setTimeout(() => setGesendet(false), 4000)
+  }
+
+  return (
+    <>
+      {gesendet && (
+        <div style={{ background: `color-mix(in srgb, ${OK} 12%, transparent)`, border: `1px solid color-mix(in srgb, ${OK} 35%, transparent)`, color: OK, borderRadius: 10, padding: '10px 14px', marginBottom: 14, fontSize: 13 }}>
+          Ihr Wunsch ist bei uns eingegangen — wir melden uns.
+        </div>
+      )}
+
+      {/* Kosten */}
+      <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '16px 18px', marginBottom: 16 }}>
+        <SectionTitle>Kosten {jahr}</SectionTitle>
+        {relevant.length > 0 ? (
+          <>
+            <div style={{ display: 'flex', gap: 26, flexWrap: 'wrap', marginTop: 12 }}>
+              <div>
+                <div style={{ fontSize: 10.5, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Vereinbart (netto)</div>
+                <div style={{ fontSize: 22, color: FG, fontWeight: 500 }}>{eur(summeVereinbart)}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 10.5, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Bereits geleistet</div>
+                <div style={{ fontSize: 22, color: OK, fontWeight: 500 }}>{eur(summeVereinbart * anteil)}</div>
+                <div style={{ fontSize: 11, color: MUTED }}>{Math.round(anteil * 100)} % der Jahresleistung</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 10.5, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Noch ausstehend</div>
+                <div style={{ fontSize: 22, color: FG, fontWeight: 500 }}>{eur(summeVereinbart * (1 - anteil))}</div>
+                <div style={{ fontSize: 11, color: MUTED }}>{offen.length} Einsätze offen</div>
+              </div>
+            </div>
+            {relevant.map((a) => (
+              <div key={a.id} style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${BORDER}` }}>
+                <div style={{ fontSize: 13, color: FG }}>
+                  {a.titel || 'Pflegeangebot'}{a.angebotsnummer ? ` · ${a.angebotsnummer}` : ''}
+                  <span style={{ fontSize: 11, color: MUTED, marginLeft: 8 }}>
+                    {a.abrechnung === 'monatlich' ? 'monatliche Abrechnung' : a.abrechnung === 'quartal' ? 'quartalsweise' : a.abrechnung === 'drittel' ? 'in Dritteln' : 'einmalig'}
+                    {a.status === 'versendet' ? ' · noch nicht angenommen' : ''}
+                  </span>
+                </div>
+                {Array.isArray(a.positionen) && a.positionen.length > 0 && (
+                  <div style={{ marginTop: 8 }}>
+                    {a.positionen.map((pos, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, color: MUTED, padding: '3px 0' }}>
+                        <span>{projById[pos.project_id]?.name || pos.beschreibung || pos.project_id}</span>
+                        <span style={{ color: FG }}>{eur(pos.betrag)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </>
+        ) : (
+          <div style={{ fontSize: 13, color: MUTED, marginTop: 10, lineHeight: 1.55 }}>
+            Für {jahr} liegt Ihnen noch kein Angebot vor. Sobald ein Angebot
+            versendet wurde, sehen Sie hier die vereinbarte Summe, den Anteil
+            der bereits erbrachten Leistung und den noch ausstehenden Teil.
+          </div>
+        )}
+      </div>
+
+      {/* Geplante Einsätze */}
+      <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '16px 18px' }}>
+        <SectionTitle>Noch geplante Einsätze {jahr}</SectionTitle>
+        {offen.length === 0 ? (
+          <div style={{ fontSize: 13, color: MUTED, marginTop: 10 }}>Für {jahr} sind alle Einsätze abgeschlossen.</div>
+        ) : (
+          <div style={{ marginTop: 10 }}>
+            {offen.map((g) => {
+              const pr = projById[g.project_id]
+              const wunsch = wuensche.find((w) => w.gang_id === g.id)
+              return (
+                <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 0', borderBottom: `1px solid ${BORDER}`, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 11.5, color: MUTED, minWidth: 54 }}>KW {g.kw}</span>
+                  <span style={{ flex: 1, minWidth: 140, fontSize: 13, color: FG }}>
+                    {pr?.name || g.project_id}
+                    <span style={{ color: MUTED, fontSize: 11.5 }}> · {g.titel || 'Pflegegang'}</span>
+                  </span>
+                  <span style={{ fontSize: 11.5, color: MUTED }}>{formatStunden(g.soll_stunden)}</span>
+                  <span style={{ fontSize: 11, color: g.status === 'terminiert' ? INFO : MUTED }}>
+                    {g.status === 'terminiert' ? 'Termin steht' : 'in Planung'}
+                  </span>
+                  {wunsch ? (
+                    <span style={{ fontSize: 11, color: (WUNSCH_STATUS[wunsch.status] || WUNSCH_STATUS.offen).color }}>
+                      Wunsch: {(WUNSCH_STATUS[wunsch.status] || WUNSCH_STATUS.offen).label}
+                    </span>
+                  ) : (
+                    <button onClick={() => setFormular({ gang: g, projekt: pr || { id: g.project_id, name: g.project_id } })}
+                      style={{ padding: '4px 10px', borderRadius: 7, border: `1px solid ${BORDER}`, background: BG, color: A, cursor: 'pointer', fontSize: 11.5, fontFamily: 'inherit' }}>
+                      Wunsch äußern
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+        <div style={{ fontSize: 11.5, color: MUTED, marginTop: 12, lineHeight: 1.5 }}>
+          Die Termine plant Ihr LUMA-Team — abhängig von Witterung, Jahreszeit und
+          Pflegerhythmus. Ihre Wünsche fließen in die Planung ein; Sie erhalten eine
+          Rückmeldung, sobald der Termin steht.
+        </div>
+      </div>
+
+      {/* Wunsch-Formular */}
+      {formular && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 900 }}
+          onClick={() => setFormular(null)}>
+          <form onClick={(e) => e.stopPropagation()} onSubmit={senden}
+            style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 20, width: 'min(460px, 100%)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 15, color: FG, fontWeight: 500 }}>Wunsch zu diesem Einsatz</div>
+              <div style={{ fontSize: 12, color: MUTED, marginTop: 3 }}>
+                {formular.projekt.name} · KW {formular.gang?.kw}
+              </div>
+            </div>
+            <label style={{ fontSize: 12, color: MUTED }}>
+              Anliegen
+              <select name="typ" defaultValue="verschieben" style={{ width: '100%', marginTop: 4, padding: '8px 10px', borderRadius: 8, border: `1px solid ${BORDER}`, background: BG, color: FG, fontSize: 13, fontFamily: 'inherit' }}>
+                <option value="verschieben">Termin verschieben</option>
+                <option value="hinweis">Hinweis zur Fläche</option>
+                <option value="zusatzleistung">Zusätzliche Leistung gewünscht</option>
+              </select>
+            </label>
+            <label style={{ fontSize: 12, color: MUTED }}>
+              Wunschwoche (optional)
+              <input name="kw" type="number" min="1" max="53" placeholder={`z. B. ${Math.min(heuteKw + 2, 53)}`}
+                style={{ width: '100%', marginTop: 4, padding: '8px 10px', borderRadius: 8, border: `1px solid ${BORDER}`, background: BG, color: FG, fontSize: 13, fontFamily: 'inherit' }} />
+            </label>
+            <label style={{ fontSize: 12, color: MUTED }}>
+              Nachricht
+              <textarea name="nachricht" rows={3} placeholder="Worum geht es?"
+                style={{ width: '100%', marginTop: 4, padding: '8px 10px', borderRadius: 8, border: `1px solid ${BORDER}`, background: BG, color: FG, fontSize: 13, fontFamily: 'inherit', resize: 'vertical' }} />
+            </label>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button type="button" onClick={() => setFormular(null)}
+                style={{ padding: '8px 14px', borderRadius: 8, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' }}>Abbrechen</button>
+              <button type="submit"
+                style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: A, color: '#fff', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', fontWeight: 500 }}>Senden</button>
+            </div>
+          </form>
+        </div>
+      )}
+    </>
   )
 }
