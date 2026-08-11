@@ -24,7 +24,7 @@ const NAV_GROUPS = [
   {
     label: 'Feld & Analyse',
     items: [
-      { to: '/map',      icon: Map,      label: 'BIOME™' },
+      { to: '/biome',    icon: Map,      label: 'BIOME™' },
       { to: '/biome/baeume', icon: TreeDeciduous, label: 'Baumkataster' },
       { to: '/analyse',  icon: BarChart2, label: 'Analysen' },
       { to: '/planning', icon: Flower2,  label: 'Florales™' },

@@ -106,12 +106,42 @@ der Inspector hätte sie nachbauen müssen. Ein Nachbau weicht ab.
 Liste und Inspector zeigen dieselben Werte, weil es dieselben Bauteile sind —
 nicht, weil zwei Stellen dasselbe tun sollen.
 
+### Nachtrag am selben Tag: der Umbau war unsichtbar
+
+Malte: „Also die biome Plattform sieht immer noch genauso aus wie vorher."
+
+Er hatte recht, und der Fehler lag in der Zuordnung. Der Menüpunkt **BIOME™**
+zeigte auf `/map` — die alte Karte, die der Umbau nicht angefasst hatte. Die
+neue Oberfläche lag unter **Baumkataster**. Wer BIOME öffnete, sah nichts
+Neues, und der Bericht davor hatte von „dem ganzen Interface" gesprochen,
+obwohl es eine von zwei Oberflächen war und nicht die mit dem Produktnamen.
+
+**Aufgelöst so:** Karte und Bestand sind jetzt zwei **Ansichten derselben
+Oberfläche**, umschaltbar im Kopf, ohne Seitenwechsel. Links, rechts und unten
+bleiben dieselben Flächen — genau darin liegt der Sinn der Dreiteilung.
+
+| Weg | öffnet mit |
+|---|---|
+| `/biome` (Menü „BIOME™") | Karte |
+| `/map` | Karte — der alte Weg funktioniert weiter |
+| `/biome/baeume` (Menü „Baumkataster") | Bestand |
+| `/karte-vollbild` | die nackte Karte ohne BIOME-Rahmen, für `/earth` |
+
+Die Karte bringt eine eigene linke Seitenleiste mit; in der Schale ist sie
+abgeschaltet (`MapPage`-Eigenschaft `ohneSeitenleiste`), weil der Bereich
+Karteninhalt links diese Rolle übernimmt.
+
 ### Was am Umbau noch fehlt
 
-Die Mitte zeigt den Bestand als Liste, noch nicht die Karte. Der Rahmen ist so
-gebaut, dass die Karte in die Mitte rutscht, ohne dass links, rechts oder unten
-etwas umzieht. Damit ist Schritt 4 unten — „eine Ansicht" — vorbereitet, aber
-nicht erledigt: `/map` und `/biome/baeume` sind weiterhin zwei Menüpunkte.
+**Die Karte liest weiterhin aus `map_features`, der Bestand aus dem Datenkern.**
+Das ist der eigentliche Rest von Schritt 4 unten. Die Oberfläche verschweigt es
+nicht: über der Karte steht, dass für dort erfasste Bäume keine Korrekturkette
+und keine Pflichtangabe von Messhöhe, Verfahren und Person gilt.
+
+Ebenfalls offen: die Bedienelemente aus der alten Kartenleiste (Projektwahl,
+Kachelebenen, Sensoren) gehören in den Bereich Karteninhalt. Solange sie dort
+fehlen, ist die Kartenansicht in der Schale funktionsärmer als
+`/karte-vollbild`.
 
 ## Was noch aussteht: die Zusammenführung
 

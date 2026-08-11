@@ -707,3 +707,46 @@ test.describe('Sprunglink', () => {
     await expect(page.locator('#biome-bestand')).toBeVisible()
   })
 })
+
+test.describe('Eine Oberfläche, zwei Ansichten', () => {
+  test('BIOME™ öffnet mit der Karte, nicht mit der Liste', async ({ page }) => {
+    await page.goto('/biome')
+    await page.getByRole('heading', { name: 'Karte' }).waitFor()
+    await page.locator('#luma-loader').waitFor({ state: 'detached' })
+    // Links und rechts bleiben dieselben Flächen — das ist der Sinn der
+    // Dreiteilung: die Ansicht wechselt, der Rahmen nicht.
+    await expect(page.locator('[data-test="karteninhalt"]')).toBeVisible()
+    await expect(page.locator('[data-test="statusleiste"]')).toBeVisible()
+    await expect(page.locator('[data-test="ansicht-karte"]')).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  test('die Karte sagt, dass sie aus einer anderen Quelle liest', async ({ page }) => {
+    await page.goto('/biome')
+    await page.getByRole('heading', { name: 'Karte' }).waitFor()
+    await page.locator('#luma-loader').waitFor({ state: 'detached' })
+    const hinweis = page.locator('[data-test="karte-hinweis"]')
+    await expect(hinweis).toContainText('map_features')
+    await expect(hinweis).toContainText('keine Korrekturkette')
+  })
+
+  test('der Umschalter führt ohne Seitenwechsel zum Bestand und zurück', async ({ page }) => {
+    await page.goto('/biome')
+    await page.getByRole('heading', { name: 'Karte' }).waitFor()
+    await page.locator('#luma-loader').waitFor({ state: 'detached' })
+
+    await page.locator('[data-test="ansicht-liste"]').click()
+    await expect(page.getByRole('heading', { name: 'Baumkataster' })).toBeVisible()
+    await expect(page.locator('[data-test="baum-B-001"]')).toBeVisible()
+    // Kein Seitenwechsel: der Weg bleibt derselbe, es sind zwei Sichten auf
+    // denselben Bestand und nicht zwei Bestände.
+    expect(new URL(page.url()).pathname).toBe('/biome')
+
+    await page.locator('[data-test="ansicht-karte"]').click()
+    await expect(page.getByRole('heading', { name: 'Karte' })).toBeVisible()
+  })
+
+  test('/biome/baeume öffnet weiterhin direkt im Bestand', async ({ page }) => {
+    await seiteOeffnen(page)
+    await expect(page.locator('[data-test="ansicht-liste"]')).toHaveAttribute('aria-pressed', 'true')
+  })
+})

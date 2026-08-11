@@ -132,6 +132,11 @@ function AppRoutes() {
       <Route path="/tasks" element={<Protected><TasksPage /></Protected>} />
       <Route path="/pflege" element={<Protected><PflegePage /></Protected>} />
       <Route path="/mana" element={<Protected><ManaPage /></Protected>} />
+      {/* Eine Oberfläche, zwei Ansichten. Der Weg legt nur fest, womit sie
+          aufgeht: /biome und /map mit der Karte, /biome/baeume mit dem
+          Bestand. „BIOME™" im Menü zeigt seit 2026-08-11 hierher — vorher
+          landete es auf der alten Karte, und der Umbau war unsichtbar. */}
+      <Route path="/biome" element={<Protected><BiomeBaeumePage /></Protected>} />
       <Route path="/biome/baeume" element={<Protected><BiomeBaeumePage /></Protected>} />
       <Route path="/sensors" element={<Protected><SensorsPage /></Protected>} />
       {/* Klima-Dashboard: Gebiets-Scope + Sensorik-Auswertung (auch für Kunden) */}
@@ -140,7 +145,10 @@ function AppRoutes() {
       <Route path="/team" element={<Protected><TeamPage /></Protected>} />
       <Route path="/team/:id" element={<Protected><TeamMemberPage /></Protected>} />
       <Route path="/time" element={<Protected><TimePage /></Protected>} />
-      <Route path="/map" element={<Protected fullHeight><MapPage /></Protected>} />
+      <Route path="/map" element={<Protected><BiomeBaeumePage /></Protected>} />
+      {/* Die nackte Karte ohne BIOME-Rahmen bleibt erreichbar — /earth nutzt
+          sie als Vollbild-Fenster. */}
+      <Route path="/karte-vollbild" element={<Protected fullHeight><MapPage /></Protected>} />
       {/* BIOME Earth: Vollbild ohne Ops-Chrome, eigenes Fenster (P0 des Earth-Plans) */}
       <Route path="/earth" element={<RequireAuth><ErrorBoundary><Suspense fallback={<PageLoader />}><EarthPage /></Suspense></ErrorBoundary></RequireAuth>} />
       <Route path="/settings" element={<Protected><SettingsPage /></Protected>} />

@@ -1021,7 +1021,14 @@ function SensorFormModal({ project, position, onSave, onCancel }) {
 }
 
 /* ─── MAIN COMPONENT ────────────────────────────────────────────────────── */
-export default function MapPage() {
+/**
+ * @param {{ ohneSeitenleiste?: boolean }} [props]
+ *
+ * `ohneSeitenleiste` setzt die BIOME-Schale: dort übernimmt der Bereich
+ * „Karteninhalt" links die Rolle dieser Seitenleiste. Zwei linke Leisten
+ * nebeneinander wären keine Übersicht, sondern das Gegenteil.
+ */
+export default function MapPage({ ohneSeitenleiste = false } = {}) {
   const { projects, jobs, clients, mapFeatures, tasks, pflanzplaene, sensors, createSensor, createMapFeature, updateMapFeature, deleteMapFeature, updateProject } = useOps()
   // Rechte: Erfassen (Features, Fotos, Sensoren, Analysen) dürfen alle internen
   // Nutzer — dafür ist die mobile Serien-Erfassung gebaut, und die RLS erlaubt es
@@ -1945,7 +1952,7 @@ export default function MapPage() {
 
   return (
     <div style={{ display: 'flex', height: '100%', overflow: 'hidden', position: 'relative' }}>
-      {!isMobile && sidebarContent}
+      {!isMobile && !ohneSeitenleiste && sidebarContent}
 
       <div style={{ flex: 1, position: 'relative' }}>
         <style>{`

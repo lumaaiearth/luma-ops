@@ -39,8 +39,9 @@
  *   · Keine Farbe trägt allein Bedeutung; jede Markierung hat auch Text.
  *   · LUMA-Mint nur als Fläche und Marker, nie als Textfarbe.
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { TreeDeciduous, Download, ChevronRight } from 'lucide-react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation } from 'react-router-dom'
+import { TreeDeciduous, Download, ChevronRight, Map as MapIcon, List } from 'lucide-react'
 import { BORDER, FG, MUTED, WARN } from '../lib/theme.js'
 import { MONO, SANS, LABEL, TIPPZIEL, Karte, Wert, HerkunftsTafel, Zeile } from '../biome/ui/bausteine.jsx'
 import {
@@ -55,7 +56,26 @@ import Karteninhalt from '../biome/ui/Karteninhalt.jsx'
 import Inspector from '../biome/ui/Inspector.jsx'
 import Statusleiste from '../biome/ui/Statusleiste.jsx'
 
+// Die Karte kommt nachgeladen: sie zieht Leaflet und die Zeichenwerkzeuge mit,
+// und wer die Liste öffnet, soll das nicht mitbezahlen.
+const MapPage = lazy(() => import('./MapPage.jsx'))
+
+/**
+ * BIOME — die eine Oberfläche.
+ *
+ * Karte und Bestand sind zwei **Ansichten auf denselben Bestand**, nicht zwei
+ * Bestände. Welche zu sehen ist, entscheidet der Umschalter in der Mitte; links
+ * und rechts bleiben dieselben Flächen (GE-02). Der Aufrufweg legt nur den
+ * Startzustand fest:
+ *
+ *   /biome, /map        → Karte
+ *   /biome/baeume       → Bestand
+ */
 export default function BiomeBaeumePage() {
+  const ort = useLocation()
+  const [ansicht, setAnsicht] = useState(
+    ort.pathname.startsWith('/biome/baeume') ? 'liste' : 'karte',
+  )
   const [stand, setStand] = useState(null)
   const [fehler, setFehler] = useState(null)
   const [filter, setFilter] = useState('alle')
@@ -228,15 +248,69 @@ export default function BiomeBaeumePage() {
           padding: '18px 16px 24px',
         }}>
       <header style={{ marginBottom: 14 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 3 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 3, flexWrap: 'wrap' }}>
           <TreeDeciduous size={18} color={FG} aria-hidden />
-          <h1 style={{ margin: 0, fontSize: 19, fontWeight: 600, color: FG }}>Baumkataster</h1>
+          <h1 style={{ margin: 0, fontSize: 19, fontWeight: 600, color: FG }}>
+            {ansicht === 'karte' ? 'Karte' : 'Baumkataster'}
+          </h1>
+
+          {/* Karte und Bestand sind zwei Sichten auf dieselben Daten. Der
+              Umschalter steht deshalb im Kopf und nicht im Menü — ein
+              Menüwechsel würde zwei Bestände suggerieren. */}
+          <div role="group" aria-label="Ansicht wählen"
+            style={{ display: 'inline-flex', gap: 4, marginLeft: 'auto' }}>
+            {[
+              { id: 'karte', text: 'Karte', Symbol: MapIcon },
+              { id: 'liste', text: 'Bestand', Symbol: List },
+            ].map(({ id, text, Symbol }) => {
+              const aktiv = ansicht === id
+              return (
+                <button key={id} type="button" onClick={() => setAnsicht(id)}
+                  aria-pressed={aktiv} data-test={`ansicht-${id}`}
+                  style={{
+                    minHeight: 36, padding: '7px 12px', borderRadius: 18, cursor: 'pointer',
+                    fontFamily: SANS, fontSize: 13, color: FG,
+                    border: `1px solid ${aktiv ? FG : BORDER}`,
+                    background: aktiv ? 'color-mix(in srgb, var(--luma-a) 22%, transparent)' : 'transparent',
+                    fontWeight: aktiv ? 600 : 400,
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                  }}>
+                  <Symbol size={14} aria-hidden />{text}
+                </button>
+              )
+            })}
+          </div>
         </div>
         <p style={{ margin: 0, fontFamily: MONO, fontSize: 11, color: MUTED }}>
           {standort ? standort.name : 'Kein Standort'} · Stichtag {fmtDatum(stand.stichdatum)} ·{' '}
           {zahl(gruppen.alle.length)} Bäume
         </p>
       </header>
+
+      {ansicht === 'karte' ? (
+        <>
+          {/* Die Karte liest noch aus `map_features`, die Liste aus dem
+              Datenkern. Das steht hier, weil es ein Nutzer sonst nicht sehen
+              kann und der Unterschied erheblich ist: für Kartenbäume gilt
+              keine Append-only-Historie und keine Pflichtangabe von Messhöhe,
+              Methode und Person. Siehe docs/BIOME_UMSTELLUNG.md. */}
+          <Karte data-test="karte-hinweis" style={{ marginBottom: 10 }}>
+            <div style={{ ...LABEL, marginBottom: 5 }}>Zwei Datenquellen, noch nicht zusammengeführt</div>
+            <div style={{ fontSize: 13, color: FG, lineHeight: 1.5 }}>
+              Die Karte zeigt den Altbestand aus <code>map_features</code>, der
+              Bestand daneben den Datenkern. Für Bäume, die hier erfasst werden,
+              gilt keine Korrekturkette und keine Pflichtangabe von Messhöhe,
+              Verfahren und Person.
+            </div>
+          </Karte>
+          <div style={{ height: 'min(72vh, 720px)', borderRadius: 12, overflow: 'hidden', border: `1px solid ${BORDER}` }}>
+            <Suspense fallback={<div style={{ padding: 20, color: MUTED }}>Karte wird geladen…</div>}>
+              <MapPage ohneSeitenleiste />
+            </Suspense>
+          </div>
+        </>
+      ) : (
+        <>
 
       {/* Die Antwort auf die Amtsfrage, ohne Klick sichtbar. Die Zahl trägt
           ihren Bezug bei sich und sagt ausdrücklich, was sie nicht bedeutet. */}
@@ -495,6 +569,8 @@ export default function BiomeBaeumePage() {
         })}
       </div>
 
+        </>
+      )}
         </section>
 
         <Inspector
