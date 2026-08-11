@@ -73,6 +73,7 @@ export default function JobPhotos({ jobId, uploadedBy, kompakt = false }) {
 
   async function handleFiles(files) {
     if (!files?.length) return
+    const phase = phaseRef.current   // jetzt festhalten, nicht je Datei neu lesen
     setUploading(true)
     setUploadError(null)
     let anyFailed = false
@@ -82,7 +83,7 @@ export default function JobPhotos({ jobId, uploadedBy, kompakt = false }) {
       let blob
       try { blob = await compressImage(file) } catch { blob = file }
       const path = `${jobId}/${photoId}.jpg`
-      const row = { id: photoId, job_id: jobId, photo_id: photoId, uploaded_by: uploadedBy, phase: phaseRef.current, created_at: new Date().toISOString() }
+      const row = { id: photoId, job_id: jobId, photo_id: photoId, uploaded_by: uploadedBy, phase, created_at: new Date().toISOString() }
       try {
         const url = await sbUploadPhoto(jobId, photoId, blob)
         const full = { ...row, url }
@@ -164,8 +165,8 @@ export default function JobPhotos({ jobId, uploadedBy, kompakt = false }) {
                   {bilder.map((photo) => <Kachel key={photo.id} photo={photo} onOeffnen={setLightbox} />)}
                 </div>
               ) : (
-                <div onClick={() => waehle(g.key)}
-                  style={{ border: `1px dashed ${BORDER}`, borderRadius: 6, padding: '14px 8px', textAlign: 'center', cursor: 'pointer', color: MUTED, fontSize: 11, fontFamily: "'Space Mono', monospace" }}>
+                <div onClick={() => { if (!uploading) waehle(g.key) }}
+                  style={{ border: `1px dashed ${BORDER}`, borderRadius: 6, padding: '14px 8px', textAlign: 'center', cursor: uploading ? 'default' : 'pointer', color: MUTED, opacity: uploading ? 0.5 : 1, fontSize: 11, fontFamily: "'Space Mono', monospace" }}>
                   {g.label}-Foto
                 </div>
               )}

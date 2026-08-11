@@ -4,7 +4,7 @@
 // Objektakte statt Matrix. Tabs:
 //   Standorte  — je Standort: Saison-Fortschritt, Leistungsverzeichnis
 //                (Turnussprache), Einsätze, LV-Versand, Jahresübernahme
-//   Jahresplan — Belegungsleiste Standorte × KW (Saison-Bänder, Winter
+//   Jahresplanung — Zeitachse je Standort (siehe components/JahresTimeline)
 //                = Pflegepause), Fällig-Leiste, Kapazitätsbalken
 //   Abschluss  — Plan/Ist, Kalibrierung, Leistungsnachweis, Restanten
 //   Angebote & Verträge (admin) — Generator + Vertragstext (ALLCURA-Struktur)
@@ -13,7 +13,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
   Sprout, Scale, FileText, Plus, Copy, Trash2, Check, Pencil,
-  ChevronDown, ChevronRight, AlertTriangle, CalendarPlus, RotateCcw, RefreshCw,
+  ChevronDown, ChevronRight, CalendarPlus, RotateCcw, RefreshCw,
   Printer, Mail, ArrowRightCircle, Search, X,
 } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
@@ -42,7 +42,6 @@ import { sendeEmail, versandProtokoll } from '../lib/email.js'
 const MONATE = ['Jan', 'Feb', 'Mrz', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
 // KW→Monat wie in den Excel-Plänen/Import (Jan KW1–5 … Dez KW49–53)
 const MONTH_KWS = [[1, 5], [6, 9], [10, 13], [14, 18], [19, 22], [23, 26], [27, 31], [32, 35], [36, 40], [41, 44], [45, 48], [49, 53]]
-const monthOf = (kw) => MONTH_KWS.findIndex(([a, b]) => kw >= a && kw <= b)
 
 // Saisonmodell (Vorgabe Malte 08/2026): Frühjahr Mrz–Mai, Sommer Jun–Aug,
 // Herbst Sep–Nov — Winter (Dez–Feb) ist Pflegepause.
@@ -300,7 +299,15 @@ export default function PflegePage() {
   // Karte auf der Zeitachse verschoben: Vorschlag → neue Kalenderwoche.
   // Die Aufgabenkarte folgt automatisch (DB-Trigger auf pflege_gaenge).
   function verschiebeGang(gang, jahr, kw) {
-    updateGang(gang.id, { jahr, kw })
+    // Ein Gang gehört zum Pflegeplan seines Jahres. Über den Jahreswechsel
+    // hinaus verschieben würde Soll-Stunden und Einsatzliste auseinander
+    // laufen lassen — deshalb an den Jahresrändern abfangen.
+    const plan = plaene.find((p) => p.id === gang.plan_id)
+    if (plan && jahr !== plan.jahr) {
+      window.alert(`Dieser Gang gehört zum Pflegeplan ${plan.jahr}. Ein Verschieben über den Jahreswechsel hinaus geht nur über den Plan ${jahr} — dort „${jahr} vorbereiten“ nutzen.`)
+      return
+    }
+    updateGang(gang.id, { jahr, kw, verschoben: true })
   }
 
   // Terminierter Einsatz verschoben: Einsatzdatum ändern und den Gang auf
@@ -308,7 +315,8 @@ export default function PflegePage() {
   function verschiebeJob(gang, job, datum) {
     updateJob(job.id, { date: datum })
     const { jahr, kw } = isoWocheJahr(new Date(datum + 'T00:00:00'))
-    updateGang(gang.id, { jahr, kw })
+    const plan = plaene.find((p) => p.id === gang.plan_id)
+    updateGang(gang.id, { kw, jahr: plan ? plan.jahr : jahr, verschoben: true })
   }
 
   // Einsatz abschließen: Stunden und Material wandern in die Erfassung
@@ -393,10 +401,21 @@ export default function PflegePage() {
   // Geplante Gänge eines Plans aus den Aufgaben neu erzeugen.
   // Terminierte/erledigte/entfallene Gänge (und ihre KWs) bleiben unberührt.
   async function regenerateGaenge(plan, tasksOverride) {
-    const kept = (gaengeByPlan[plan.id] || []).filter((g) => g.status !== 'geplant')
+    // Bewahrt bleibt alles, was nicht mehr bloßer Abdruck des Musters ist:
+    // terminierte und erledigte Gänge, von Hand verschobene (Zeitachse) und
+    // solche, zu denen ein Kundenwunsch vorliegt — sonst wäre die Arbeit
+    // beim nächsten LV-Klick still verschwunden.
+    const mitWunsch = new Set(
+      ((await sb.from('kunde_wuensche').select('gang_id').not('gang_id', 'is', null)).data || [])
+        .map((w) => w.gang_id))
+    const behalten = (g) => g.status !== 'geplant' || g.verschoben || mitWunsch.has(g.id)
+    const kept = (gaengeByPlan[plan.id] || []).filter(behalten)
     const keptKws = new Set(kept.map((g) => g.kw))
-    const del = await sb.from('pflege_gaenge').delete().eq('plan_id', plan.id).eq('status', 'geplant')
-    if (del.error) return dbErr('pflege_gaenge')(del.error)
+    const loeschbar = (gaengeByPlan[plan.id] || []).filter((g) => !behalten(g)).map((g) => g.id)
+    if (loeschbar.length) {
+      const del = await sb.from('pflege_gaenge').delete().in('id', loeschbar)
+      if (del.error) return dbErr('pflege_gaenge')(del.error)
+    }
     const weekly = {}, perKw = {}
     for (const a of tasksOverride || aufgabenByPlan[plan.id] || []) {
       for (const [kw, h] of Object.entries(a.wochen || {})) {
@@ -417,7 +436,7 @@ export default function PflegePage() {
       if (ins.error) return dbErr('pflege_gaenge')(ins.error)
       inserted = ins.data || []
     }
-    setGaenge((prev) => [...prev.filter((g) => g.plan_id !== plan.id || g.status !== 'geplant'), ...inserted])
+    setGaenge((prev) => [...prev.filter((g) => !loeschbar.includes(g.id)), ...inserted])
   }
 
   // Jahresübernahme: LV + Kalibrierung + Notizen ins Folgejahr kopieren,

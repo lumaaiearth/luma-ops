@@ -406,3 +406,11 @@ a { transition: color var(--lu-base) var(--lu-ease), background var(--lu-base) v
     order: -1;
   }
 }
+
+/* Waagerecht scrollende Bereiche (Zeitachse, Werkzeugleisten):
+   Die Wischgeste bleibt im Bereich, statt am Rand die Zurück-Navigation
+   des Browsers auszulösen. */
+.lu-scroll-x {
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}

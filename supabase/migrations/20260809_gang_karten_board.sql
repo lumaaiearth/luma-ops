@@ -4,6 +4,13 @@
 -- Die LV-Karten wandern auf das bestehende Board, das doppelte wird entfernt,
 -- und der Trigger sucht den Bereich künftig über den Namen statt fester ID.
 
+-- Zielbereich sicherstellen: b_pflege stammt aus dem App-Seed und fehlt in
+-- einer nur aus Migrationen aufgebauten Umgebung — ohne ihn bricht das
+-- UPDATE am Fremdschlüssel ab und das doppelte Board bliebe stehen.
+INSERT INTO boards (id, name, emoji, color, sort_order)
+VALUES ('b_pflege', 'Pflege', '🌿', '#08AA56', 0)
+ON CONFLICT (id) DO NOTHING;
+
 UPDATE tasks SET board_id = 'b_pflege' WHERE board_id = 'board_pflege';
 DELETE FROM boards WHERE id = 'board_pflege';
 

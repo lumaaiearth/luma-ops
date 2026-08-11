@@ -4,7 +4,7 @@ import { sb } from '../lib/supabase.js'
 import { A, BG, BORDER, FG, MUTED, SURFACE, CARD, OK, WARN, INFO } from '../lib/theme.js'
 import {
   buildLeistungsnachweis, planAmpel, formatStunden, formatDatum, formatProzent,
-  anteilVonJahr, sollBisKW, MONATE_KURZ,
+  anteilVonJahr, sollBisKW, isoKW, MONATE_KURZ,
 } from '../lib/leistungsnachweis.js'
 import { druckeLeistungsnachweis } from '../lib/printNachweis.js'
 import { beispielFotosFlaeche } from '../lib/placeholderImages.js'
@@ -234,7 +234,7 @@ export default function KundenPortalPage() {
 
         {tab === 'planung' && (
           <TabPlanung projekte={projekte} gaenge={gaenge} angebote={angebote}
-            wuensche={wuensche} jahr={jahr} nachweis={nachweis}
+            wuensche={wuensche} jahr={jahr}
             onWunsch={async (eintrag) => {
               const { error } = await sb.from('kunde_wuensche').insert(eintrag)
               if (error) return { fehler: error.message }
@@ -736,24 +736,24 @@ function SectionTitle({ children }) {
   )
 }
 
+
+/* Ein Bild der Fotodokumentation. Außerhalb der Galerie definiert, damit
+   React die Bilder beim Neuzeichnen behält statt sie neu zu laden. */
+function FotoBild({ f }) {
+  return (
+    <a href={f.url} target="_blank" rel="noreferrer" style={{ display: 'block', width: 104 }}>
+      <img src={f.url} alt="" loading="lazy"
+        style={{ width: 104, height: 78, objectFit: 'cover', borderRadius: 7, border: `1px solid ${BORDER}`, display: 'block' }} />
+    </a>
+  )
+}
+
 /* ─── Fotodokumentation: je Einsatz Vorher neben Nachher ───────────── */
 function FotoGalerie({ fotos }) {
   // Nach Einsatztag bündeln — ein Pflegegang ist eine Geschichte
   const tage = {}
   for (const f of fotos) (tage[f.datum || 'ohne'] = tage[f.datum || 'ohne'] || []).push(f)
   const sortiert = Object.entries(tage).sort((a, b) => (a[0] < b[0] ? 1 : -1))
-
-  const Bild = ({ f, marke }) => (
-    <a href={f.url} target="_blank" rel="noreferrer" style={{ display: 'block', width: 104, position: 'relative' }}>
-      <img src={f.url} alt="" loading="lazy"
-        style={{ width: 104, height: 78, objectFit: 'cover', borderRadius: 7, border: `1px solid ${BORDER}`, display: 'block' }} />
-      {marke && (
-        <span style={{ position: 'absolute', top: 4, left: 4, fontSize: 8.5, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#fff', background: 'rgba(0,0,0,0.55)', padding: '1px 5px', borderRadius: 4 }}>
-          {marke}
-        </span>
-      )}
-    </a>
-  )
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 10 }}>
@@ -773,7 +773,7 @@ function FotoGalerie({ fotos }) {
                     <div key={titel}>
                       <div style={{ fontSize: 10, color: MUTED, marginBottom: 4, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{titel}</div>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        {gruppe.map((f, i) => <Bild key={i} f={f} marke={null} />)}
+                        {gruppe.map((f, i) => <FotoBild key={i} f={f} />)}
                       </div>
                     </div>
                   )
@@ -782,7 +782,7 @@ function FotoGalerie({ fotos }) {
             ) : null}
             {rest.length > 0 && (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: vorher.length || nachher.length ? 8 : 0 }}>
-                {rest.map((f, i) => <Bild key={i} f={f} marke={null} />)}
+                {rest.map((f, i) => <FotoBild key={i} f={f} />)}
               </div>
             )}
           </div>
@@ -804,16 +804,10 @@ const WUNSCH_STATUS = {
   erledigt:   { label: 'erledigt', color: OK },
 }
 
-function TabPlanung({ projekte, gaenge, angebote, wuensche, jahr, nachweis, onWunsch }) {
+function TabPlanung({ projekte, gaenge, angebote, wuensche, jahr, onWunsch }) {
   const [formular, setFormular] = useState(null)   // { gang, projekt }
   const [gesendet, setGesendet] = useState(false)
-  const heuteKw = (() => {
-    const d = new Date()
-    const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
-    const dow = t.getUTCDay() || 7
-    t.setUTCDate(t.getUTCDate() + 4 - dow)
-    return Math.ceil(((t - new Date(Date.UTC(t.getUTCFullYear(), 0, 1))) / 86400000 + 1) / 7)
-  })()
+  const heuteKw = isoKW(new Date())
 
   const projById = Object.fromEntries(projekte.map((p) => [p.id, p]))
   const offen = gaenge
@@ -940,7 +934,11 @@ function TabPlanung({ projekte, gaenge, angebote, wuensche, jahr, nachweis, onWu
           <div style={{ marginTop: 10 }}>
             {offen.map((g) => {
               const pr = projById[g.project_id]
-              const wunsch = wuensche.find((w) => w.gang_id === g.id)
+              // Nur ein noch offener Terminwunsch sperrt den Knopf. Ein
+              // beantworteter oder ein bloßer Hinweis darf den Kunden nicht
+              // für den Rest des Jahres von weiteren Wünschen ausschließen.
+              const offenerWunsch = wuensche.find((w) => w.gang_id === g.id && w.status === 'offen')
+              const letzterWunsch = wuensche.find((w) => w.gang_id === g.id)
               return (
                 <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 0', borderBottom: `1px solid ${BORDER}`, flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 11.5, color: MUTED, minWidth: 54 }}>KW {g.kw}</span>
@@ -952,11 +950,12 @@ function TabPlanung({ projekte, gaenge, angebote, wuensche, jahr, nachweis, onWu
                   <span style={{ fontSize: 11, color: g.status === 'terminiert' ? INFO : MUTED }}>
                     {g.status === 'terminiert' ? 'Termin steht' : 'in Planung'}
                   </span>
-                  {wunsch ? (
-                    <span style={{ fontSize: 11, color: (WUNSCH_STATUS[wunsch.status] || WUNSCH_STATUS.offen).color }}>
-                      Wunsch: {(WUNSCH_STATUS[wunsch.status] || WUNSCH_STATUS.offen).label}
+                  {letzterWunsch && (
+                    <span style={{ fontSize: 11, color: (WUNSCH_STATUS[letzterWunsch.status] || WUNSCH_STATUS.offen).color }}>
+                      Wunsch: {(WUNSCH_STATUS[letzterWunsch.status] || WUNSCH_STATUS.offen).label}
                     </span>
-                  ) : (
+                  )}
+                  {offenerWunsch ? null : (
                     <button onClick={() => setFormular({ gang: g, projekt: pr || { id: g.project_id, name: g.project_id } })}
                       style={{ padding: '4px 10px', borderRadius: 7, border: `1px solid ${BORDER}`, background: BG, color: A, cursor: 'pointer', fontSize: 11.5, fontFamily: 'inherit' }}>
                       Wunsch äußern
