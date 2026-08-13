@@ -20,7 +20,7 @@ import WeatherIcon from './WeatherIcon.jsx'
 import { useBreakpoint } from '../lib/useBreakpoint.js'
 import {
   CalendarPlus, Check, ChevronLeft, ChevronRight, ZoomIn, ZoomOut,
-  X,
+  X, Pencil, Trash2, RotateCcw,
 } from 'lucide-react'
 
 const TAG_MS = 86400000
@@ -73,6 +73,7 @@ function GangKarte({ item, tagW, links, breite, luecke, kompakt, onDrag, onOpen,
   const halten = useRef(null)
 
   const beweglich = item.status === 'geplant' || item.status === 'terminiert'
+  const entfallen = item.status === 'entfallen'
 
   function down(e) {
     if (!beweglich) return
@@ -129,7 +130,7 @@ function GangKarte({ item, tagW, links, breite, luecke, kompakt, onDrag, onOpen,
 
   const vorschlag = item.status === 'geplant'
   const erledigt = item.status === 'erledigt'
-  const farbe = erledigt ? OK : item.status === 'terminiert' ? INFO : item.ueberfaellig ? DANGER : A
+  const farbe = entfallen ? MUTED : erledigt ? OK : item.status === 'terminiert' ? INFO : item.ueberfaellig ? DANGER : A
   const beschriftungInnen = breite > 84
 
   const balken = (
@@ -150,10 +151,11 @@ function GangKarte({ item, tagW, links, breite, luecke, kompakt, onDrag, onOpen,
         position: 'absolute', left: links + versatz, top: 11, width: Math.max(breite, 15), height: 28,
         borderRadius: 7, display: 'flex', alignItems: 'center', gap: 5, padding: '0 7px',
         cursor: beweglich ? (zieht ? 'grabbing' : 'grab') : 'pointer',
-        background: vorschlag ? `color-mix(in srgb, ${farbe} 12%, transparent)` : `color-mix(in srgb, ${farbe} 88%, transparent)`,
-        border: vorschlag ? `1.5px dashed color-mix(in srgb, ${farbe} 55%, transparent)` : `1px solid color-mix(in srgb, ${farbe} 92%, transparent)`,
-        color: vorschlag ? farbe : '#fff',
-        opacity: zieht ? 0.85 : erledigt ? 0.92 : 1,
+        background: (vorschlag || entfallen) ? `color-mix(in srgb, ${farbe} 12%, transparent)` : `color-mix(in srgb, ${farbe} 88%, transparent)`,
+        border: (vorschlag || entfallen) ? `1.5px dashed color-mix(in srgb, ${farbe} 55%, transparent)` : `1px solid color-mix(in srgb, ${farbe} 92%, transparent)`,
+        color: (vorschlag || entfallen) ? farbe : '#fff',
+        opacity: zieht ? 0.85 : entfallen ? 0.6 : erledigt ? 0.92 : 1,
+        textDecoration: entfallen ? 'line-through' : 'none',
         boxShadow: zieht ? '0 8px 20px rgba(0,0,0,0.22)' : aktiv ? `0 0 0 2px ${BG}, 0 0 0 3.5px ${farbe}` : 'none',
         zIndex: zieht ? 40 : aktiv ? 20 : 5,
         transition: zieht ? 'none' : 'box-shadow 0.15s, opacity 0.15s',
@@ -192,6 +194,7 @@ function GangKarte({ item, tagW, links, breite, luecke, kompakt, onDrag, onOpen,
 export default function JahresTimeline({
   plaene, gaenge, jobById, projById, clientById, clients, forecast,
   onTerminieren, onErledigt, onVerschiebeGang, onVerschiebeJob,
+  onEntfaellt, onWiederAufnehmen, onBearbeiten,
 }) {
   const heute = useMemo(() => {
     const n = new Date()
@@ -205,7 +208,7 @@ export default function JahresTimeline({
   const tagW = ZOOMS[zoom].tagW
   const [bereich, setBereich] = useState(() => ({ von: heute.getUTCFullYear() - 1, bis: heute.getUTCFullYear() + 1 }))
   const [fClient, setFClient] = useState('alle')
-  const [zeige, setZeige] = useState({ geplant: true, terminiert: true, erledigt: true })
+  const [zeige, setZeige] = useState({ geplant: true, terminiert: true, erledigt: true, entfallen: false })
   const [wetterAn, setWetterAn] = useState(true)
   const [popoverId, setPopoverId] = useState(null)
   const [offen, setOffen] = useState(() => new Set())   // aufgeklappte Projekte
@@ -232,8 +235,7 @@ export default function JahresTimeline({
       const p = projById[plan.project_id]
       if (!p) continue
       if (fClient !== 'alle' && p.client_id !== fClient) continue
-      if (!zeige[g.status] && g.status !== 'entfallen') continue
-      if (g.status === 'entfallen') continue
+      if (!zeige[g.status]) continue
 
       const job = g.job_id ? jobById[g.job_id] : null
       const von = job?.date ? parseISO(job.date) : montagVonKw(g.jahr, g.kw)
@@ -374,8 +376,20 @@ export default function JahresTimeline({
 
   const wetterTage = useMemo(() => {
     if (!wetterAn || !forecast?.length) return []
-    return forecast.map((tag) => ({ ...tag, links: x(parseISO(tag.date)) })).filter((t) => t.links >= 0)
+    return forecast.map((tag) => ({
+      ...tag,
+      links: x(parseISO(tag.date)),
+      datumText: parseISO(tag.date).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', timeZone: 'UTC' }),
+    })).filter((t) => t.links >= 0)
   }, [forecast, wetterAn, tagW, startDatum])
+
+  // Rahmen um den Vorhersagezeitraum, damit erkennbar ist, wo die Prognose endet
+  const wetterFenster = useMemo(() => {
+    if (!wetterTage.length) return { von: 0, breite: 0 }
+    const von = Math.min(...wetterTage.map((t) => t.links))
+    const bis = Math.max(...wetterTage.map((t) => t.links)) + tagW
+    return { von, breite: bis - von }
+  }, [wetterTage, tagW])
 
   /* Verschieben: neue Woche bzw. neues Datum zurückschreiben */
   function verschiebe(item, tage) {
@@ -459,17 +473,24 @@ export default function JahresTimeline({
           {chip(zeige.geplant, () => setZeige((z) => ({ ...z, geplant: !z.geplant })), 'Vorschläge', A)}
           {chip(zeige.terminiert, () => setZeige((z) => ({ ...z, terminiert: !z.terminiert })), 'Terminiert', INFO)}
           {chip(zeige.erledigt, () => setZeige((z) => ({ ...z, erledigt: !z.erledigt })), 'Erledigt', OK)}
+          {chip(zeige.entfallen, () => setZeige((z) => ({ ...z, entfallen: !z.entfallen })), 'Entfallen', MUTED)}
           {chip(wetterAn, () => setWetterAn((w) => !w), 'Wetter', WARN)}
         </div>
       </div>
 
       {/* Zeitachse */}
       <div style={{ border: `1px solid ${BORDER}`, borderRadius: 14, background: SURFACE, overflow: 'hidden', position: 'relative' }}>
-        <div style={{ display: 'flex' }}>
+        <div style={{
+          display: 'flex',
+          // Am großen Bildschirm füllt die Achse die Höhe und scrollt in sich;
+          // am Handy wächst sie mit der Seite, weil dort ohnehin gescrollt wird.
+          maxHeight: kompakt ? 'none' : 'calc(100vh - 300px)',
+          overflowY: kompakt ? 'visible' : 'auto',
+        }}>
 
           {/* Feste linke Spalte */}
           <div style={{ width: SPALTE_W, flexShrink: 0, borderRight: `1px solid ${BORDER}`, background: SURFACE, zIndex: 30, position: 'relative', boxShadow: '2px 0 8px -4px rgba(0,0,0,0.18)' }}>
-            <div style={{ height: KOPF_H, borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'flex-end', padding: kompakt ? '0 8px 8px' : '0 14px 8px' }}>
+            <div style={{ height: KOPF_H, borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'flex-end', padding: kompakt ? '0 8px 8px' : '0 14px 8px', position: 'sticky', top: 0, background: SURFACE, zIndex: 3 }}>
               <span style={{ fontFamily: MONO, fontSize: kompakt ? 9 : 10, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
                 {kompakt ? 'Ort' : 'Standort'}
               </span>
@@ -572,19 +593,32 @@ export default function JahresTimeline({
                     {w.breite > 19 ? w.kw : ''}
                   </div>
                 ))}
+                {/* Wettervorhersage. Open-Meteo liefert 14 Tage — weiter draußen
+                    gibt es keine Prognose, deshalb ist der Bereich begrenzt und
+                    wird als solcher gekennzeichnet. */}
+                {wetterAn && wetterTage.length > 0 && (
+                  <div title="Wettervorhersage — weiter als 14 Tage gibt es keine Prognose"
+                    style={{
+                      position: 'absolute', left: wetterFenster.von, width: wetterFenster.breite,
+                      top: 47, height: 26, borderRadius: 6,
+                      background: `color-mix(in srgb, ${FG} 4%, transparent)`,
+                      border: `1px solid color-mix(in srgb, ${BORDER} 70%, transparent)`,
+                    }} />
+                )}
                 {wetterAn && wetterTage.map((t) => {
                   const farbe = STATUS_COLOR[t.status] || MUTED
-                  const titel = `${t.label} · ${t.tempMax}°/${t.tempMin}° · ${t.precip} mm Regen`
-                  // Eng: farbiger Tagesstreifen. Weit: Symbol mit Höchsttemperatur.
-                  return tagW >= 10 ? (
+                  const titel = `${t.datumText}: ${t.label} · ${t.tempMax}°/${t.tempMin}° · ${t.precip} mm Regen`
+                  // Ab Saison-Zoom passt ein Symbol, darunter bleibt ein farbiger
+                  // Tagesbalken — beides zeigt dieselbe Bewertung.
+                  return tagW >= 6 ? (
                     <div key={t.date} title={titel}
-                      style={{ position: 'absolute', left: t.links, width: tagW, top: 48, height: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                      <WeatherIcon icon={t.icon} size={11} color={farbe} />
-                      <span style={{ fontFamily: MONO, fontSize: 8, color: MUTED }}>{t.tempMax}°</span>
+                      style={{ position: 'absolute', left: t.links, width: tagW, top: 48, height: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0 }}>
+                      <WeatherIcon icon={t.icon} size={Math.min(13, Math.max(9, tagW - 1))} color={farbe} />
+                      {tagW >= 10 && <span style={{ fontFamily: MONO, fontSize: 7.5, color: MUTED }}>{t.tempMax}°</span>}
                     </div>
                   ) : (
                     <div key={t.date} title={titel}
-                      style={{ position: 'absolute', left: t.links + 0.5, width: Math.max(tagW - 1, 2), top: 56, height: 7, borderRadius: 2, background: farbe, opacity: 0.85 }} />
+                      style={{ position: 'absolute', left: t.links + 0.5, width: Math.max(tagW - 1, 2), top: 53, height: 12, borderRadius: 2, background: farbe, opacity: 0.9 }} />
                   )
                 })}
               </div>
@@ -730,13 +764,37 @@ export default function JahresTimeline({
               cursor: 'pointer', fontSize: 12, fontFamily: 'inherit',
             }}><CalendarPlus size={13} />Terminieren</button>
           )}
-          {popover.status !== 'erledigt' && (
+          {popover.job && onBearbeiten && (
+            <button onClick={() => { onBearbeiten(popover.job); setPopoverId(null) }} style={{
+              display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8,
+              border: `1px solid ${BORDER}`, background: SURFACE, color: FG,
+              cursor: 'pointer', fontSize: 12, fontFamily: 'inherit',
+            }}><Pencil size={13} />Bearbeiten</button>
+          )}
+          {popover.status === 'entfallen' && onWiederAufnehmen && (
+            <button onClick={() => { onWiederAufnehmen(popover.gang); setPopoverId(null) }} style={{
+              display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8,
+              border: `1px solid color-mix(in srgb, ${A} 35%, transparent)`, background: A06, color: A,
+              cursor: 'pointer', fontSize: 12, fontFamily: 'inherit',
+            }}><RotateCcw size={13} />Zurückholen</button>
+          )}
+          {popover.status !== 'erledigt' && popover.status !== 'entfallen' && (
             <button onClick={() => { onErledigt(popover.gang); setPopoverId(null) }} style={{
               display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8,
               border: `1px solid color-mix(in srgb, ${OK} 35%, transparent)`,
               background: `color-mix(in srgb, ${OK} 10%, transparent)`, color: OK,
               cursor: 'pointer', fontSize: 12, fontFamily: 'inherit',
             }}><Check size={13} />Abschließen</button>
+          )}
+          {popover.status !== 'entfallen' && onEntfaellt && (
+            <button onClick={() => { onEntfaellt(popover.gang); setPopoverId(null) }}
+              title="Einsatz entfällt — bleibt als entfallen erhalten und kann zurückgeholt werden"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8,
+                border: `1px solid color-mix(in srgb, ${DANGER} 30%, transparent)`,
+                background: `color-mix(in srgb, ${DANGER} 8%, transparent)`, color: DANGER,
+                cursor: 'pointer', fontSize: 12, fontFamily: 'inherit',
+              }}><Trash2 size={13} />Entfernen</button>
           )}
           <button onClick={() => setPopoverId(null)} style={{ background: 'transparent', border: 'none', color: MUTED, cursor: 'pointer', display: 'flex', padding: 4 }}><X size={15} /></button>
         </div>

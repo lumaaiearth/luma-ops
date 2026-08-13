@@ -35,6 +35,7 @@ import { normalisiereZeiteintraege, buildLeistungsnachweis } from '../lib/leistu
 import { druckeLeistungsnachweis } from '../lib/printNachweis.js'
 import JahresTimeline from '../components/JahresTimeline.jsx'
 import JobPhotos from '../components/JobPhotos.jsx'
+import JobModal from '../components/JobModal.jsx'
 import { useWeather } from '../context/WeatherContext.jsx'
 import { baueNachweisEmail } from '../lib/nachweisEmail.js'
 import { sendeEmail, versandProtokoll } from '../lib/email.js'
@@ -223,6 +224,7 @@ export default function PflegePage() {
   const [aufgabeModal, setAufgabeModal] = useState(null)    // { plan, aufgabe|null }
   const [erledigenModal, setErledigenModal] = useState(null) // Gang mit Aufgaben-Checkliste
   const [busyCarry, setBusyCarry] = useState(false)
+  const [jobEdit, setJobEdit] = useState(null)   // Einsatz im Bearbeiten-Fenster
   const [searchParams, setSearchParams] = useSearchParams()
 
   async function loadAll() {
@@ -294,6 +296,26 @@ export default function PflegePage() {
   // Unerledigtes wird am Gang markiert und taucht im Abschluss-Tab auf.
   function markErledigt(gang) {
     setErledigenModal(gang)
+  }
+
+  // Karte entfernen heißt: der Gang entfällt. Er wird nicht gelöscht, sondern
+  // abbestellt — so bleibt nachvollziehbar, dass er geplant war, und das
+  // Regenerieren aus dem LV holt ihn nicht wieder zurück.
+  function entfaellt(gang) {
+    const plan = plaene.find((p) => p.id === gang.plan_id)
+    const name = `${planLabel(plan || {})} · KW ${gang.kw}`
+    if (gang.status === 'erledigt') {
+      if (!window.confirm(`${name} ist bereits erledigt. Wirklich als entfallen markieren? Die erfassten Stunden bleiben bestehen.`)) return
+    } else if (!window.confirm(`${name} entfernen? Der Einsatz gilt dann als entfallen und verschwindet aus der Planung.`)) {
+      return
+    }
+    updateGang(gang.id, { status: 'entfallen' })
+    if (gang.job_id) setJobStatus(gang.job_id, 'cancelled')
+  }
+
+  // Entfallenen Gang zurückholen
+  function wiederAufnehmen(gang) {
+    updateGang(gang.id, { status: 'geplant' })
   }
 
   // Karte auf der Zeitachse verschoben: Vorschlag → neue Kalenderwoche.
@@ -501,7 +523,11 @@ export default function PflegePage() {
   return (
     // Gleiche Seitenarchitektur wie ManaPage/Dashboard: zentrierter Container
     // mit Maximalbreite — sonst zerläuft die Seite auf breiten Monitoren.
-    <div style={{ padding: isMobile ? '16px 14px 90px' : '28px 32px', maxWidth: 1080, margin: '0 auto', fontFamily: SANS }}>
+    <div style={{
+      padding: isMobile ? '16px 14px 90px' : '28px 32px',
+      maxWidth: tab === 'jahresplan' && !isMobile ? 'none' : 1080,
+      margin: '0 auto', fontFamily: SANS,
+    }}>
       <PageHeader
         title="Pflege" isMobile={isMobile}
         eyebrow="Pflegeplanung"
@@ -541,6 +567,8 @@ export default function PflegePage() {
               plaene={plaene} gaenge={gaenge} jobById={jobById} projById={projById}
               clientById={clientById} clients={clients} forecast={forecast}
               onTerminieren={setGangModal} onErledigt={markErledigt}
+              onEntfaellt={entfaellt} onWiederAufnehmen={wiederAufnehmen}
+              onBearbeiten={(job) => setJobEdit(job)}
               onVerschiebeGang={verschiebeGang} onVerschiebeJob={verschiebeJob} />
           )}
           {tab === 'standorte' && (
@@ -567,6 +595,14 @@ export default function PflegePage() {
         <AufgabeModal plan={aufgabeModal.plan} aufgabe={aufgabeModal.aufgabe}
           onClose={() => setAufgabeModal(null)} onSave={saveAufgabe} />
       )}
+      {jobEdit && (
+        <JobModal
+          initialJob={jobEdit}
+          initialDate={jobEdit.date}
+          onSave={(res) => { if (res.type === 'job') updateJob(jobEdit.id, res.data); setJobEdit(null) }}
+          onClose={() => setJobEdit(null)} />
+      )}
+
       {erledigenModal && (
         <ErledigenModal gang={erledigenModal} label={planLabel(plaene.find((p) => p.id === erledigenModal.plan_id) || {})}
           job={erledigenModal.job_id ? jobById[erledigenModal.job_id] : null} profil={profile}
