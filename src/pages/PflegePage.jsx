@@ -36,6 +36,7 @@ import { druckeLeistungsnachweis } from '../lib/printNachweis.js'
 import JahresTimeline from '../components/JahresTimeline.jsx'
 import JobPhotos from '../components/JobPhotos.jsx'
 import JobModal from '../components/JobModal.jsx'
+import PflegeStatistik from '../components/PflegeStatistik.jsx'
 import { useWeather } from '../context/WeatherContext.jsx'
 import { baueNachweisEmail } from '../lib/nachweisEmail.js'
 import { sendeEmail, versandProtokoll } from '../lib/email.js'
@@ -209,7 +210,7 @@ export default function PflegePage() {
   const isMobile = useIsMobile()
   const { projects, clients, jobs, createJob, updateJob, setJobStatus } = useOps()
   const forecast = useWeather()
-  const { entries, hourRules, rates, costs, logTime, updateEntry, deleteEntry, addCost, deleteCost } = useTime()
+  const { entries, hourRules, rates, costRates, costs, logTime, updateEntry, deleteEntry, addCost, deleteCost } = useTime()
   const { isAdmin, profile } = useAuth()
 
   const [tab, setTab] = useState('erfassung')
@@ -559,8 +560,15 @@ export default function PflegePage() {
             <TabErfassung {...{ jahr, entries, costs, projects, clients, projById, clientById, jobById, profile, isAdmin, logTime, updateEntry, deleteEntry, addCost, deleteCost }} />
           )}
           {tab === 'statistik' && (
-            <TabStatistik plans={yearPlans}
-              {...{ jahr, entries, jobs, hourRules, gaengeByPlan, planLabel, planHours, projById, updatePlan, updateGang, clients }} />
+            <>
+              <PflegeStatistik plans={yearPlans}
+                {...{ jahr, entries, costs, gaengeByPlan, projById, clientById, hourRules, rates, costRates, isAdmin, planLabel }}
+                people={allPeople()} />
+              <div style={{ marginTop: 14 }}>
+                <TabStatistik plans={yearPlans}
+                  {...{ jahr, entries, jobs, hourRules, gaengeByPlan, planLabel, planHours, projById, updatePlan, updateGang, clients }} />
+              </div>
+            </>
           )}
           {tab === 'jahresplan' && (
             <JahresTimeline
