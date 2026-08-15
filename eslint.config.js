@@ -84,7 +84,7 @@ export default [
 
   // Skripte und Prüfstand laufen in Node
   {
-    files: ['scripts/**/*.mjs', 'tests/**/*.{js,mjs}', '*.config.js', 'eslint.config.js'],
+    files: ['scripts/**/*.mjs', 'tests/**/*.{js,mjs}', 'fixtures/**/*.mjs', '*.config.js', 'eslint.config.js'],
     ...js.configs.recommended,
     languageOptions: {
       ecmaVersion: 2023,

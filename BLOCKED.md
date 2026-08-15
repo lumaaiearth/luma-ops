@@ -302,3 +302,28 @@ einen Build mitbezahlt.
 6. **Screenshots der Vergleichsprodukte.** Ohne sie bleibt Bar 2 ausgesetzt
    (siehe Punkt 1). Sollen sie außerhalb dieser Umgebung aufgenommen und unter
    `refs/comps/` abgelegt werden?
+
+7. **Wie wird eine 3D-Aufnahme (Gaussian Splats) verortet?**
+   `KHR_gaussian_splatting` und glTF 2.0 kennen nachweislich kein
+   Bezugssystem (FE-GS-23, geprüft am Volltext beider Dokumente am
+   2026-08-15: null Treffer für CRS, EPSG, Datum, Georeferenzierung, WGS 84).
+   Eine Splat-Datei ist ein lagefreies lokales Modell in Metern. BIOME führt
+   die Verortung deshalb als eigene Erhebung — Ankerpunkt, Höhe, Drehung gegen
+   Nord, dazu Verfahren, Person und Datum — und zeigt sie als fehlend an, wenn
+   sie fehlt. Zu entscheiden: ob unverortete Aufnahmen überhaupt geführt
+   werden sollen (mein Vorschlag: ja, sichtbar unverortet), und ob eine
+   verortete Aufnahme auf die Karte darf, solange die Karte zweidimensional
+   ist.
+
+8. **Darf in einer Splat-Aufnahme gemessen werden?**
+   Technisch ließen sich Strecken abgreifen. Belegt ist dafür nichts: die
+   Spezifikation nennt keine Lagegenauigkeit, und die
+   Rekonstruktionsgenauigkeit hängt an Aufnahme und Training. Die Ansicht
+   bietet deshalb kein Messwerkzeug an. Soll das so bleiben, bis eine
+   Genauigkeitsangabe nach FE-GEO-15 ff. am Flug hinterlegt ist?
+
+9. **Bleibt BIOME beim Release-Candidate-Stand?**
+   Die Erweiterung ist am 2026-08-15 nicht ratifiziert; angekündigt war das
+   zweite Quartal 2026. Bis zur Ratifizierung können sich Attributnamen und
+   Wertelisten ändern. BIOME liest solche Dateien und schreibt sie nicht —
+   soll das so bleiben, bis der Status wechselt?

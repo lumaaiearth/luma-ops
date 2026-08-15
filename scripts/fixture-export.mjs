@@ -114,6 +114,12 @@ select json_build_object(
       )
     ) order by b.baumnummer), '[]'::json) from biome_baum b
     where b.standort_id = '${STANDORT}'
+  ),
+  -- 3D-Aufnahmen (Gaussian Splats). Über die Lesesicht, damit der Fixture-Modus
+  -- dieselben Felder sieht wie die Anwendung — Aufnahme und Flug zusammen.
+  'splatAufnahmen', (
+    select coalesce(json_agg(to_json(s) order by s.flug_datum desc), '[]'::json)
+    from v_biome_splatfeld s where s.standort_id = '${STANDORT}'
   )
 )
 `)

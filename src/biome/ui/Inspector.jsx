@@ -27,12 +27,15 @@
  * steht, sagt er das. Jeder Wert darin ist eine Schaltfläche zu seiner
  * Herkunft — dieselbe Regel wie in der Liste, weil es dieselben Bauteile sind.
  */
-import { X } from 'lucide-react'
+import { useState } from 'react'
+import { X, Box } from 'lucide-react'
 import { BORDER, FG, MUTED } from '../../lib/theme.js'
 import { MONO, SANS, LABEL, TIPPZIEL, Wert, Zeile } from './bausteine.jsx'
-import { FEHLT, datum as fmtDatum, mitEinheit, koordinate } from '../format.js'
+import { FEHLT, datum as fmtDatum, mitEinheit, koordinate, zahl } from '../format.js'
 import { ROLOFF_VS } from '../baumStandards.js'
-import { messung, letzteKontrolle, vitalitaet, staerksterStamm, kontrollstand } from '../daten.js'
+import { messung, letzteKontrolle, vitalitaet, staerksterStamm, kontrollstand, splatVerortet } from '../daten.js'
+import { SPLAT_HINWEIS } from '../splat.js'
+import { SplatTafel } from './SplatAnsicht.jsx'
 
 /** Kopfzeile mit Schließknopf. */
 function Kopf({ art, titel, aufSchliessen }) {
@@ -60,8 +63,75 @@ function Kopf({ art, titel, aufSchliessen }) {
   )
 }
 
+/**
+ * Die Splat-Aufnahmen einer Ebene, jede mit ihrer Herkunft.
+ *
+ * Zwei Angaben stehen bewusst an jeder Zeile, noch bevor irgendetwas geladen
+ * wird: die Zahl der Gaußfunktionen und **ob die Aufnahme verortet ist**. Die
+ * zweite ist die, deren Fehlen sonst niemandem auffällt — sie steht nicht im
+ * Dateiformat und wird deshalb gern vergessen (FE-GS-23).
+ */
+function SplatListe({ aufnahmen, h, aufHerkunft, aufOeffnen }) {
+  return (
+    <div data-test="splat-liste" style={{ display: 'grid', gap: 10 }}>
+      {aufnahmen.map(a => {
+        const verortet = splatVerortet(a)
+        return (
+          <div key={a.id} style={{
+            border: `1px solid ${BORDER}`, borderRadius: 8, padding: 10,
+            display: 'grid', gap: 6,
+          }}>
+            <div style={LABEL}>Aufnahme</div>
+            <Wert
+              text={fmtDatum(a.flug_datum)}
+              beschriftung={`Herkunft der 3D-Aufnahme vom ${a.flug_datum} anzeigen`}
+              onOeffnen={ev => aufHerkunft(h.splat(a), ev)} />
+
+            <div style={{ fontFamily: MONO, fontSize: 11, color: MUTED }}>
+              {zahl(a.splat_anzahl)} Gaußfunktionen · {a.sensor_id}
+            </div>
+
+            {/* Der Satz, den diese Anwendung ohne Nachfrage sagen muss. */}
+            <div style={{ fontSize: 12, color: verortet ? FG : MUTED, lineHeight: 1.45 }}>
+              {verortet ? (
+                <>Verortet · {koordinate(
+                  { lat: /** @type {number} */ (a.anker_lat), lng: /** @type {number} */ (a.anker_lng) },
+                  { crs: a.anker_crs || undefined },
+                )}</>
+              ) : (
+                <em data-test="splat-unverortet">
+                  Nicht verortet — die Aufnahme hat keinen Ort im Gelände.
+                </em>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => aufOeffnen(a)}
+              data-test={`splat-oeffnen-${a.id}`}
+              style={{
+                minHeight: TIPPZIEL, borderRadius: 8, border: `1px solid ${BORDER}`,
+                background: 'transparent', color: FG, cursor: 'pointer',
+                fontFamily: SANS, fontSize: 13,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+              }}>
+              <Box size={14} aria-hidden /> Ansehen
+            </button>
+          </div>
+        )
+      })}
+      <p style={{ margin: 0, fontSize: 11, color: MUTED, lineHeight: 1.5 }}>
+        {SPLAT_HINWEIS.verortung}
+      </p>
+    </div>
+  )
+}
+
 /** Was der Inspector zeigt, wenn eine Ebene ausgewählt ist. */
-function EbenenInspector({ ebene, aufSchliessen }) {
+function EbenenInspector({ ebene, h, aufHerkunft, aufSchliessen }) {
+  const [offen, setOffen] = useState(/** @type {any} */ (null))
+  const aufnahmen = ebene.inhalt === 'splat' ? (ebene.objekte || []) : []
+
   return (
     <>
       <Kopf art="Ebene" titel={ebene.name} aufSchliessen={aufSchliessen} />
@@ -79,7 +149,16 @@ function EbenenInspector({ ebene, aufSchliessen }) {
             {ebene.warum_leer}
           </div>
         )}
+        {aufnahmen.length > 0 && h && (
+          <SplatListe
+            aufnahmen={aufnahmen}
+            h={h}
+            aufHerkunft={aufHerkunft}
+            aufOeffnen={setOffen}
+          />
+        )}
       </div>
+      <SplatTafel aufnahme={offen} onSchliessen={() => setOffen(null)} />
     </>
   )
 }
@@ -200,7 +279,9 @@ export default function Inspector({ auswahl, stichjahr, h, aufHerkunft, aufSchli
           auswählen, steht hier — mit Herkunft zu jedem Wert.
         </div>
       ) : auswahl.art === 'ebene' ? (
-        <EbenenInspector ebene={auswahl.ebene} aufSchliessen={aufSchliessen} />
+        <EbenenInspector
+          ebene={auswahl.ebene} h={h}
+          aufHerkunft={aufHerkunft} aufSchliessen={aufSchliessen} />
       ) : (
         <BaumInspector
           baum={auswahl.baum} stichjahr={stichjahr} h={h}

@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "node scripts/test-leistungsnachweis.mjs && node scripts/test-sensor-series.mjs && node scripts/test-biome-format.mjs",
+    "test": "node scripts/test-leistungsnachweis.mjs && node scripts/test-sensor-series.mjs && node scripts/test-biome-format.mjs && node scripts/test-biome-splat.mjs",
+    "test:splat-gl": "node scripts/pruefe-splat-renderer.mjs",
     "lint": "eslint .",
     "typecheck": "node scripts/typecheck.mjs",
     "migration:test": "bash scripts/test-migration.sh",

@@ -47,6 +47,15 @@ schritt "2 Lint"         npm run --silent lint
 schritt "3 Typprüfung"   npm run --silent typecheck
 schritt "4 Node-Tests"   npm run --silent test
 
+# Shader lassen sich nicht in Node prüfen: ein Tippfehler in GLSL fällt erst
+# beim Übersetzen auf der Grafikkarte auf. Braucht den vorinstallierten
+# Chromium.
+if [ -x "${BIOME_CHROMIUM:-/opt/pw-browsers/chromium}" ]; then
+  schritt "4b Splat-Renderer (WebGL)" npm run --silent test:splat-gl
+else
+  uebersprungen "4b Splat-Renderer (WebGL)" "kein Chromium unter ${BIOME_CHROMIUM:-/opt/pw-browsers/chromium}"
+fi
+
 # Migration braucht einen laufenden lokalen PostgreSQL.
 if pg_isready -h "${PGHOST:-/tmp}" -p "${PGPORT:-5433}" >/dev/null 2>&1; then
   schritt "5 Migration vor/zurück" npm run --silent migration:test

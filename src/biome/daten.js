@@ -73,6 +73,63 @@ export const FIXTURE_MODUS = !!import.meta.env.VITE_BIOME_FIXTURE
  */
 
 /**
+ * Eine 3D-Gaussian-Splat-Aufnahme, wie sie `v_biome_splatfeld` liefert:
+ * das Splat-Feld zusammen mit dem Flug, aus dem es stammt.
+ *
+ * Zwei Blöcke mit verschiedener Herkunft, bewusst nicht vermischt:
+ *
+ *   · `kernel` bis `sh_grad` stehen in der Datei und sind durch FE-GS-23
+ *     wörtlich belegt.
+ *   · `anker_*` und `drehung_grad` stehen **nicht** in der Datei. Weder
+ *     KHR_gaussian_splatting noch glTF 2.0 kennen ein Bezugssystem; die
+ *     Verortung ist ein eigener erhobener Wert und darf fehlen.
+ *
+ * @typedef {object} SplatAufnahme
+ * @property {string} id
+ * @property {string} flugprodukt_id
+ * @property {string} flug_id
+ * @property {string} standort_id
+ * @property {string} flug_datum
+ * @property {string|null} flug_uhrzeit
+ * @property {string|null} flug_zeitzone
+ * @property {string} sensor_id
+ * @property {string|null} plattform
+ * @property {number|null} flughoehe_m
+ * @property {number|null} gsd_cm
+ * @property {string|null} flug_crs
+ * @property {number|null} passpunkte_anzahl
+ * @property {number|null} passpunkte_rmse_cm
+ * @property {string|null} flug_erfasst_von
+ * @property {string} kernel
+ * @property {string} farbraum
+ * @property {string} projektion
+ * @property {string} sortierung
+ * @property {number} splat_anzahl
+ * @property {number} sh_grad
+ * @property {string} spezifikationsstand
+ * @property {string} standard_id
+ * @property {string} datei_url
+ * @property {number|null} datei_bytes
+ * @property {any} pruefbericht
+ * @property {string|null} geprueft_am
+ * @property {number|null} anker_lat
+ * @property {number|null} anker_lng
+ * @property {string|null} anker_crs
+ * @property {number|null} anker_hoehe_m
+ * @property {number|null} drehung_grad
+ * @property {string|null} verortung_methode_id
+ * @property {string|null} verortet_von
+ * @property {string|null} verortet_am
+ * @property {string} methode_id
+ * @property {string|null} software
+ * @property {string|null} software_version
+ * @property {string} kennzeichnung
+ * @property {string|null} bemerkung
+ * @property {string|null} erfasst_von
+ * @property {string} erfasst_am
+ */
+
+/**
  * @typedef {object} Datenstand
  * @property {string} stichdatum
  * @property {Array<{id:string,name:string,kuerzel:string|null,adresse:string|null,crs:string,flaeche_m2:number|null,geometrie:any}>} standorte
@@ -80,6 +137,7 @@ export const FIXTURE_MODUS = !!import.meta.env.VITE_BIOME_FIXTURE
  * @property {Array<{id:string,name:string,beschreibung:string,einheit:string|null,erfassungsart:string,standard_id:string|null}>} methoden
  * @property {Array<{id:string,kurzname:string,herausgeber:string,quelle_url:string,abgerufen_am:string,zitat:string}>} standards
  * @property {Baum[]} baeume
+ * @property {SplatAufnahme[]} splatAufnahmen
  */
 
 /** @type {Datenstand|null} */
@@ -94,11 +152,15 @@ export async function ladeDatenstand() {
 
   if (FIXTURE_MODUS) {
     const modul = await import('../../fixtures/ground_truth.json')
-    zwischenspeicher = /** @type {Datenstand} */ (modul.default ?? modul)
+    const roh = /** @type {any} */ (modul.default ?? modul)
+    // Ältere Fixtures kennen die Splat-Aufnahmen noch nicht. Eine fehlende
+    // Liste heißt hier „keine Aufnahmen", nicht „unbekannt": die Fixture ist
+    // per Definition der vollständige Stand.
+    zwischenspeicher = /** @type {Datenstand} */ ({ splatAufnahmen: [], ...roh })
     return zwischenspeicher
   }
 
-  const [standorte, personen, methoden, standards, baeume, messungen, bewertungen, kontrollen] =
+  const [standorte, personen, methoden, standards, baeume, messungen, bewertungen, kontrollen, splats] =
     await Promise.all([
       sb.from('biome_standort').select('id,name,kuerzel,adresse,crs,flaeche_m2,geometrie').order('name'),
       sb.from('biome_person').select('id,name,organisation,qualifikation'),
@@ -108,12 +170,15 @@ export async function ladeDatenstand() {
       sb.from('biome_baum_messung').select('*'),
       sb.from('biome_baum_bewertung').select('*'),
       sb.from('biome_kontrolle').select('*'),
+      // Die Sicht liefert das Splat-Feld zusammen mit seinem Flug. Ohne Datum,
+      // Sensor und Bodenauflösung ist eine Aufnahme nicht einzuordnen.
+      sb.from('v_biome_splatfeld').select('*').order('flug_datum', { ascending: false }),
     ])
 
   // Fehler nicht verschlucken. Ohne das wird aus „Tabelle gibt es nicht"
   // stillschweigend eine leere Liste, und die Oberfläche meldet „0 Bäume" —
   // genau die Verwechslung von fehlend und null, die BIOME nicht machen darf.
-  const antworten = { standorte, personen, methoden, standards, baeume, messungen, bewertungen, kontrollen }
+  const antworten = { standorte, personen, methoden, standards, baeume, messungen, bewertungen, kontrollen, splats }
   const kaputt = Object.entries(antworten).filter(([, a]) => a.error)
   if (kaputt.length) {
     const [name, a] = kaputt[0]
@@ -149,6 +214,7 @@ export async function ladeDatenstand() {
       bewertungen: wBaum[b.id] || [],
       kontrollen: (kBaum[b.id] || []).sort((a, c) => (a.datum < c.datum ? 1 : -1)),
     })),
+    splatAufnahmen: splats.data || [],
   }
   return zwischenspeicher
 }
@@ -286,6 +352,64 @@ export function artenverteilung(baeume) {
   return [...zaehler.entries()]
     .map(([art, anzahl]) => ({ art, anzahl }))
     .sort((a, b) => b.anzahl - a.anzahl || String(a.art).localeCompare(String(b.art)))
+}
+
+/**
+ * Ist diese Splat-Aufnahme im Gelände verortet?
+ *
+ * Bewusst eine eigene Funktion und kein `!!a.anker_lat` an vierzig Stellen:
+ * die Verortung ist bei diesem Datentyp die Angabe, deren Fehlen am leichtesten
+ * übersehen wird. Sie steht nicht im Dateiformat (FE-GS-23), und eine Aufnahme
+ * ohne sie ist ein Modell ohne Ort — hübsch anzusehen und für jede Auswertung
+ * am Standort unbrauchbar.
+ *
+ * Die Datenbank lässt eine Teilverortung gar nicht erst zu; diese Prüfung
+ * fängt Fremdquellen und Altbestand ab.
+ *
+ * @param {SplatAufnahme} aufnahme
+ * @returns {boolean}
+ */
+export function splatVerortet(aufnahme) {
+  return aufnahme.anker_lat != null && aufnahme.anker_lng != null
+    && !!aufnahme.anker_crs && !!aufnahme.verortung_methode_id && !!aufnahme.verortet_am
+}
+
+/**
+ * Die abrufbare Adresse der Splat-Datei.
+ *
+ * Drei zulässige Schreibweisen in `datei_url`:
+ *
+ *   · `https://…`            wird unverändert übernommen
+ *   · `eimer/pfad/datei.glb` Ablagepfad — der Normalfall. Die Datei liegt im
+ *                            selben Speicher wie Fotos und Kacheln, und die
+ *                            öffentliche Adresse baut der Client.
+ *   · `/datei.glb`           eine Datei neben der Anwendung, gleiche Herkunft.
+ *                            Führender Schrägstrich, also kein Eimername davor.
+ *
+ * @param {SplatAufnahme} aufnahme
+ * @returns {string}
+ */
+export function splatDateiUrl(aufnahme) {
+  const pfad = aufnahme.datei_url || ''
+  if (/^https?:\/\//i.test(pfad)) return pfad
+  const schnitt = pfad.indexOf('/')
+  if (schnitt <= 0) return pfad
+  const eimer = pfad.slice(0, schnitt)
+  const rest = pfad.slice(schnitt + 1)
+  return sb.storage.from(eimer).getPublicUrl(rest).data.publicUrl
+}
+
+/**
+ * Die Splat-Aufnahmen eines Standorts, jüngste zuerst.
+ *
+ * @param {Datenstand} stand
+ * @param {string|null} standortId
+ * @returns {SplatAufnahme[]}
+ */
+export function splatAufnahmen(stand, standortId) {
+  const alle = stand.splatAufnahmen || []
+  const gefiltert = standortId ? alle.filter(a => a.standort_id === standortId) : alle
+  return [...gefiltert].sort((a, b) => (a.flug_datum < b.flug_datum ? 1 : -1))
 }
 
 /**

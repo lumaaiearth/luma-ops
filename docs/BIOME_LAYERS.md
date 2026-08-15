@@ -70,3 +70,15 @@ DWD: GeoNutzV, EOX: frei mit Attribution). Attribution wird in der Karte angezei
   Urban Atlas (Landnutzung Stadtregionen, feiner als CORINE).
 - **Sentinel-2 NDVI live** (Vegetationsvitalität pro Woche): über Sentinel Hub /
   Copernicus Data Space — braucht (kostenlosen) API-Key, wäre Stufe 2.
+
+## Eigene Aufnahmen statt Fremddienste
+
+Die Ebenen oben sind Fremddienste. Zwei Ebenen zeigen dagegen, was BIOME selbst
+erhebt:
+
+- **Orthomosaike** aus eigenen Befliegungen — als XYZ-Kacheln, siehe
+  `DRONE_ORTHO.md`.
+- **3D-Aufnahmen (Gaussian Splats)** nach `KHR_gaussian_splatting` — siehe
+  `docs/BIOME_SPLATS.md`. Sie liegen in der Ebenengruppe *Fernerkundung* und
+  werden nicht auf die Karte gelegt: eine Splat-Datei kennt kein Bezugssystem
+  und ist ohne eigene Verortung ein lagefreies Modell.

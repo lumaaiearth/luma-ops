@@ -38,6 +38,8 @@
  * @property {boolean} sichtbar     Ausgangszustand
  * @property {boolean} bespielt     Gibt es überhaupt Daten?
  * @property {string} [warum_leer]  Wenn nicht: warum, in einem Satz
+ * @property {'splat'} [inhalt]     Womit der Inspector diese Ebene öffnet
+ * @property {any[]} [objekte]      Die geladenen Objekte, wenn der Inspector sie braucht
  */
 
 /**
@@ -81,6 +83,7 @@ export const SCHALTMODUS = {
 export function karteninhalt(stand) {
   const baeume = stand?.baeume?.length ?? 0
   const standorte = stand?.standorte?.length ?? 0
+  const splats = stand?.splatAufnahmen ?? []
 
   /** @type {(n: number, ein: string, mehr: string) => string} */
   const zaehl = (n, ein, mehr) => `${n} ${n === 1 ? ein : mehr}`
@@ -187,6 +190,32 @@ export function karteninhalt(stand) {
       ebenen: [
         leer('e-befliegung', 'Befliegungen', 'fernerkundung',
           'Die Domäne ist im Datenkern modelliert, aber noch nicht erfasst. Welle 4.'),
+        {
+          // 3D-Gaussian-Splats nach KHR_gaussian_splatting (FE-GS-23).
+          //
+          // Die Ebene steht in der Fernerkundung, weil eine Splat-Aufnahme das
+          // Ergebnis eines Flugs ist und ohne ihn kein Datum, keine Kamera und
+          // keine verantwortliche Person hätte.
+          //
+          // Sie schaltet nichts auf der Karte ein: ein Splat-Feld ist ein
+          // lagefreies lokales Modell, und die Karte ist zweidimensional. Wer
+          // die Zeile anwählt, bekommt die Aufnahme im Inspector — mit ihrer
+          // Herkunft und, wenn eine vorliegt, ihrer Verortung.
+          id: 'e-splat',
+          name: '3D-Aufnahmen (Gaussian Splats)',
+          domaene: 'fernerkundung',
+          zweitzeile: splats.length
+            ? `${zaehl(splats.length, 'Aufnahme', 'Aufnahmen')} · jüngste ${splats
+              .map(a => a.flug_datum).sort().at(-1) ?? '—'}`
+            : 'nichts erfasst',
+          sichtbar: false,
+          bespielt: splats.length > 0,
+          warum_leer: splats.length
+            ? undefined
+            : 'Für diesen Bestand ist keine Splat-Aufnahme hinterlegt. Eine Aufnahme entsteht aus einer Befliegung und wird als Flugprodukt der Art „splat" geführt.',
+          inhalt: 'splat',
+          objekte: splats,
+        },
       ],
     },
     {

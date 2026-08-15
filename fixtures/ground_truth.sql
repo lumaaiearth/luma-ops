@@ -222,6 +222,74 @@ INSERT INTO biome_baum_bewertung (id, baum_id, kontrolle_id, skala_id, stufe, be
   ('e0000000-0000-4000-8000-000000000010','b0000000-0000-4000-8000-000000000010','d0000000-0000-4000-8000-000000000010','SK-ROLOFF-VS','2','Innere Kronenlücken, büschelige Belaubung.','M-BAUM-VITALITAET','a0000000-0000-4000-8000-000000000002', DATE '2026-05-13')
 ON CONFLICT (id) DO NOTHING;
 
+-- ── Fernerkundung: zwei 3D-Aufnahmen (Gaussian Splats, FE-GS-23) ──────────
+--
+-- Bewusst zwei, mit dem Härtefall dabei — dieselbe Bauart wie B-003 ohne
+-- Stammumfang: SP-01 ist verortet, SP-02 nicht. Die Verortung steht nicht im
+-- Dateiformat (weder KHR_gaussian_splatting noch glTF 2.0 kennen ein
+-- Bezugssystem), und eine Oberfläche, die den Unterschied nicht zeigt, lässt
+-- eine ortlose Aufnahme aussehen wie eine eingemessene.
+
+INSERT INTO biome_fernerkundungssensor (id, hersteller, modell, sensorfamilie, quelle_url, bemerkung) VALUES
+  ('S-DROHNE-RGB', 'MAPIR', 'Survey3W RGB', 'rgb_drohne', 'https://www.mapir.camera/pages/survey3-cameras',
+   'Reine RGB-Kamera. Kein Red-Edge-Band, damit kein NDRE (FE-RE-11).')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO biome_flug (
+  id, standort_id, sensor_id, plattform, datum, uhrzeit_start, uhrzeit_ende, zeitzone,
+  flughoehe_m, gsd_cm, sonnenzenit_grad, sonnenazimut_grad, bewoelkung_achtel,
+  kalibrierziel, passpunkte_anzahl, passpunkte_rmse_cm, crs,
+  verarbeitungssoftware, verarbeitungsversion, phaenologisches_fenster, erfasst_von
+) VALUES
+  ('fa000000-0000-4000-8000-000000000001','50000000-0000-4000-8000-000000000001',
+   'S-DROHNE-RGB','Multikopter', DATE '2026-08-12', TIME '10:40', TIME '11:05','Europe/Berlin',
+   45, 1.1, 41.2, 168, 2, 'kalibriertes Referenzpanel', 8, 2.4, 'EPSG:4326',
+   'WebODM','2.5.4','Vollbelaubung','a0000000-0000-4000-8000-000000000003'),
+  ('fa000000-0000-4000-8000-000000000002','50000000-0000-4000-8000-000000000001',
+   'S-DROHNE-RGB','Multikopter', DATE '2026-05-03', TIME '09:15', NULL,'Europe/Berlin',
+   40, 1.3, 47.8, 141, 4, 'kalibriertes Referenzpanel', NULL, NULL, 'EPSG:4326',
+   'WebODM','2.5.1','Laubaustrieb','a0000000-0000-4000-8000-000000000003')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO biome_flugprodukt (id, flug_id, art, datei_url, bemerkung) VALUES
+  ('fb000000-0000-4000-8000-000000000001','fa000000-0000-4000-8000-000000000001','splat',
+   '/beispiel-splat.glb','3D-Aufnahme des Bestands, August 2026'),
+  ('fb000000-0000-4000-8000-000000000002','fa000000-0000-4000-8000-000000000002','splat',
+   '/beispiel-splat.glb','3D-Aufnahme des Bestands, Mai 2026')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO biome_splatfeld (
+  id, flugprodukt_id, kernel, farbraum, projektion, sortierung,
+  splat_anzahl, sh_grad, spezifikationsstand, standard_id,
+  datei_url, datei_bytes, pruefbericht, geprueft_am,
+  anker_lat, anker_lng, anker_crs, anker_hoehe_m, drehung_grad,
+  verortung_methode_id, verortet_von, verortet_am,
+  methode_id, software, software_version, kennzeichnung, bemerkung, erfasst_von
+) VALUES
+  -- SP-01: vollständig, verortet, mit Kugelflächenfunktionen bis Grad 1.
+  ('fc000000-0000-4000-8000-000000000001','fb000000-0000-4000-8000-000000000001',
+   'ellipse','srgb_rec709_display','perspective','cameraDistance',
+   1243907, 1, 'Release Candidate','FE-GS-23',
+   '/beispiel-splat.glb', 88014848,
+   '{"tragfaehig": true, "befunde": []}'::jsonb, TIMESTAMPTZ '2026-08-12 14:20+02',
+   52.54612, 13.54410, 'EPSG:4326', 34.2, 12.5,
+   'M-FE-SPLAT-VERORTUNG','a0000000-0000-4000-8000-000000000003', DATE '2026-08-12',
+   'M-FE-SPLAT-REKONSTRUKTION','Brush','3.1','modelliert',
+   'Vollbelaubung, gleichmäßig bewölkt.','a0000000-0000-4000-8000-000000000003'),
+  -- SP-02: der Härtefall — nicht verortet. Die Aufnahme ist brauchbar, sie hat
+  -- nur keinen Ort. Genau das muss die Oberfläche sagen.
+  ('fc000000-0000-4000-8000-000000000002','fb000000-0000-4000-8000-000000000002',
+   'ellipse','srgb_rec709_display','perspective','cameraDistance',
+   861204, 0, 'Release Candidate','FE-GS-23',
+   '/beispiel-splat.glb', 41943040,
+   '{"tragfaehig": true, "befunde": [{"schwere":"hinweis","regel":"kugelflaeche_grad","text":"Die Aufnahme trägt nur den nullten Grad."}]}'::jsonb,
+   TIMESTAMPTZ '2026-05-03 16:05+02',
+   NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+   'M-FE-SPLAT-REKONSTRUKTION','Brush','2.8','modelliert',
+   'Ohne Passpunkte geflogen — das Feld ließ sich nicht einmessen.',
+   'a0000000-0000-4000-8000-000000000003')
+ON CONFLICT (id) DO NOTHING;
+
 COMMIT;
 
 -- ── Erwartete Antworten, gegen die die Jobs geprüft werden ────────────────
@@ -243,3 +311,6 @@ COMMIT;
 --     → Schutzschwelle nicht bestimmbar, keine Zahl
 --   Lagegenauigkeit                                    bei keinem Baum erhoben
 --   Korrektur B-007                                    Messung 22.04.2026, J. Feldmann
+--   3D-Aufnahmen (Gaussian Splats)                     2  (12.08.2026 und 03.05.2026)
+--     davon verortet                                   1  (12.08.2026)
+--     SP-02 ohne Passpunkte → keine Verortung, und das steht so da

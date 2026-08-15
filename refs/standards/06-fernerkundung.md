@@ -689,6 +689,81 @@
   - Eine Aussage darüber, welche Objektgröße bei welcher GSD erkennbar ist.
   - CEOS verwendet statt GSD den Begriff „Spatial Sampling Distance" (FE-GEO-17) — die beiden Begriffe sind in den Quellen **nicht** ausdrücklich gleichgesetzt.
 
+### FE-GS-23 · KHR_gaussian_splatting — 3D-Gaussian-Splats in glTF: Pflichtangaben, Attribute, Farbraum
+- **Herausgeber:** The Khronos Group Inc., 3D Formats Working Group (Beitragende laut Dokument u. a. Cesium, Niantic Spatial, Esri, Nvidia, Huawei, Autodesk)
+- **Quelle:** https://raw.githubusercontent.com/KhronosGroup/glTF/main/extensions/2.0/Khronos/KHR_gaussian_splatting/README.md · Registerzeile: https://raw.githubusercontent.com/KhronosGroup/glTF/main/extensions/README.md · JSON-Schema: https://raw.githubusercontent.com/KhronosGroup/glTF/main/extensions/2.0/Khronos/KHR_gaussian_splatting/schema/mesh.primitive.KHR_gaussian_splatting.schema.json · Ankündigung: https://www.khronos.org/news/press/gltf-gaussian-splatting-press-release · Basisspezifikation: https://raw.githubusercontent.com/KhronosGroup/glTF/main/specification/2.0/Specification.adoc
+- **Abgerufen:** 2026-08-15 (README HTTP 200, 38.890 Byte; Register HTTP 200; Schema HTTP 200; glTF-2.0-Quelltext HTTP 200). Abrufhinweis: `registry.khronos.org` weist sowohl `curl` als auch WebFetch mit HTTP 403 ab — die Spezifikationstexte sind über `raw.githubusercontent.com` aus demselben Repository zu holen. Ein 403 der Registry ist hier kein Ausfall der Quelle.
+- **Wörtlich** (Abschnitt „Status", vollständig): „Release Candidate"
+- **Wörtlich** (Erweiterungsregister des glTF-Repositorys, Zeile des Eintrags): „| KHR_gaussian_splatting | Release Candidate | [Specification](2.0/Khronos/KHR_gaussian_splatting/README.md) |"
+- **Wörtlich** (Ankündigung vom 3. Februar 2026): „ratification … is expected in the second quarter of 2026"
+- **Wörtlich** (Abschnitt „Overview"):
+  „This extension defines basic support for storing 3D Gaussian splats in glTF assets, bringing structure and conformity to the 3D Gaussian splatting space. 3D Gaussian splatting uses fields of Gaussians that can be treated as a point cloud for the purposes of storage. This extension defines 3D Gaussian splats by their position, rotation, scale, opacity, and spherical harmonics, which provide both diffuse and specular color. These values are stored as attributes on a point primitive. Since the extension treats the 3D Gaussian splats as point primitives, a graceful fallback to treating the data as a sparse point cloud is possible."
+- **Wörtlich** (Abschnitt „Extending Mesh Primitives", Eigenschaftstabelle vollständig):
+  „| **kernel** | `string` | The kernel used to generate the Gaussians. | :white_check_mark: Yes |"
+  „| **colorSpace** | `string` | The color space of the reconstructed color values. | :white_check_mark: Yes |"
+  „| **projection** | `string` | The projection method for rendering the Gaussians. | No, default `\"perspective\"`. |"
+  „| **sortingMethod** | `string` | The sorting method for rendering the Gaussians. | No, default `\"cameraDistance\"` |"
+- **Wörtlich** (Kernel, Farbraum, Projektion, Sortierung — die abgeschlossenen Wertelisten):
+  „This extension defines only one kernel type called `\"ellipse\"`, that is a 2D ellipse kernel used to project an ellipsoid shape in 3D space."
+  „| `srgb_rec709_display` | BT.709 sRGB (display-referred) color space. |" · „| `lin_rec709_display` | BT.709 linear (display-referred) color space. |"
+  „This base extension defines a single projection method, `\"perspective\"`, which is the default value."
+  „This base extension defines a single sorting method, `cameraDistance`, which is the default value. This method sorts the splats based on the length of the vector from the splat to the camera origin (viewer's position)."
+- **Wörtlich** (Abschnitt „Dependencies on glTF"):
+  „The `mode` property of the mesh primitive MUST be `POINTS` (0)."
+  „Unless specified otherwise by additional Gaussian splats extensions, the glTF material referenced from the mesh primitive (if any) MUST be ignored for splat rendering."
+  „These rules ensure that the transformation matrix is decomposable into regular translation, rotation, and positive scale values. Splat rendering with non-decomposable transformation matrices or with negative scale values is undefined."
+  „The camera used for splat rendering SHOULD use perspective projection. Splat rendering with non-perspective projections is undefined."
+- **Wörtlich** (Attributtabelle des Ellipse-Kernels, Spalten „Attribute Semantic" und „Required", vollständig):
+  „| Position | `POSITION` | VEC3 | Inherited from the glTF specification | :white_check_mark: Yes |"
+  „| Rotation | `KHR_gaussian_splatting:ROTATION` | VEC4 | _float_ <br/>_signed byte_ normalized <br/>_signed short_ normalized | :white_check_mark: Yes |"
+  „| Scale | `KHR_gaussian_splatting:SCALE` | VEC3 | _float_ <br/>_unsigned byte_ <br/>_unsigned byte_ normalized <br/>_unsigned short_ <br/>_unsigned short_ normalized | :white_check_mark: Yes |"
+  „| Opacity | `KHR_gaussian_splatting:OPACITY` | SCALAR | _float_ <br/>_unsigned byte_ normalized <br/>_unsigned short_ normalized | :white_check_mark: Yes |"
+  „| Spherical Harmonics degree 0 | `KHR_gaussian_splatting:SH_DEGREE_0_COEF_0` | VEC3 | _float_ | :white_check_mark: Yes |"
+  „| Spherical Harmonics degree 1 | `KHR_gaussian_splatting:SH_DEGREE_1_COEF_[0-2]` | VEC3 | _float_ | no (yes if degree 2 or 3 are used) |"
+  „| Spherical Harmonics degree 2 | `KHR_gaussian_splatting:SH_DEGREE_2_COEF_[0-4]` | VEC3 | _float_ | no (yes if degree 3 is used) |"
+  „| Spherical Harmonics degree 3 | `KHR_gaussian_splatting:SH_DEGREE_3_COEF_[0-6]` | VEC3 | _float_ | no |"
+- **Wörtlich** (Wertebereiche und Vollständigkeitsregel):
+  „Scale values are linear and MUST NOT be negative."
+  „Rotation values are stored as unit quaternions in the usual glTF order."
+  „It stores a normalized linear value between _0.0_ (transparent) and _1.0_ (opaque). Out-of-range values are invalid."
+  „Spherical harmonic degrees MUST NOT be partially defined, that is, either all coefficients for a given degree and all lower degrees MUST be defined or none."
+  „To use higher degrees of spherical harmonics the lower degrees MUST be defined."
+- **Wörtlich** (Rendering und Farbrekonstruktion):
+  „This kernel assumes a _3σ_ cut-off (Mahalanobis distance of 3 units) for correct rendering."
+  „The diffuse color of the splat can be computed by multiplying the RGB coefficients of the zeroth-order real spherical harmonic by the normalization constant value of $\approx0.282095$."
+  „Color_{diffuse} = SH_{0,0} * 0.2820947917738781 + 0.5"
+  „Implementations MAY ignore higher-degree coefficients for performance reasons."
+- **Wörtlich** (Abschnitt „Image State & Relighting"):
+  „Image state is defined by ISO 22028-1:2016 and indicates the rendering state of the image data. **_Display-referred_** (also known as _output-referred_ in ISO 22028-1:2016) image state represents data that has gone through color-rendering appropriate for display. **_Scene-referred_** image state represents data that represents the actual radiance of the scene."
+  „The ellipse kernel defined in this specification uses a _display-referred_ image state for training and rendering. This is similar to the material model described in the `KHR_materials_unlit` glTF extension, i.e., glTF scene lighting, exposure settings, and tonemapping generally do not affect rendered splats."
+- **Wörtlich** (Abschnitt „Fallback Behavior"): „To support fallback functionality, the `COLOR_0` attribute semantic from the base glTF specification MAY be used to provide the diffuse color of the 3D Gaussian splat. This allows renderers to color the points in the sparse point cloud when 3D Gaussian splatting is not supported by a renderer."
+- **Wörtlich** (Basisspezifikation glTF 2.0, Abschnitt „Coordinate System and Units", vollständig für den hier belegten Teil):
+  „glTF uses a right-handed coordinate system."
+  „glTF defines +Y as up; the front side of a glTF asset faces +Z, the left side of a glTF asset faces +X."
+  „The units for all linear distances are meters."
+- **Wörtlich** (Khronos-Copyright-Erklärung im Dokument): „Khronos grants a conditional copyright license to use and reproduce the unmodified Specification for any purpose, without fee or royalty, EXCEPT no licenses to any patent, trademark or other intellectual property rights are granted under these terms."
+- **Deckt in BIOME:**
+  - **Feld `kernel`** mit dem heute abgeschlossenen Wertebereich {`ellipse`}, **Pflichtangabe**. Ein anderer Kernel stammt zwingend aus einer Fremderweiterung; BIOME darf ihn nicht stillschweigend als `ellipse` rendern.
+  - **Feld `farbraum`** mit dem abgeschlossenen Wertebereich {`srgb_rec709_display`, `lin_rec709_display`}, **Pflichtangabe**. Beide sind wörtlich **display-referred**.
+  - **Felder `projektion`** {`perspective`} und **`sortierung`** {`cameraDistance`}, optional mit den belegten Vorgabewerten. Fehlt die Angabe, ist der Vorgabewert einzusetzen — nicht „keine Angabe".
+  - **Pflichtattribute je Primitive**, abgeschlossen: `POSITION`, `KHR_gaussian_splatting:ROTATION`, `KHR_gaussian_splatting:SCALE`, `KHR_gaussian_splatting:OPACITY`, `KHR_gaussian_splatting:SH_DEGREE_0_COEF_0`. Fehlt eines davon, ist die Datei kein gültiges Splat-Feld und BIOME muss sie zurückweisen statt teilweise darzustellen.
+  - **Prüfregel Primitivtyp:** `mode` MUSS `POINTS` (0) sein — wörtlich belegt, damit als harte Annahmeprüfung formulierbar.
+  - **Prüfregel Kugelflächenfunktionen:** Grade sind nur vollständig zulässig (3 Koeffizienten für Grad 1, 5 für Grad 2, 7 für Grad 3, jeweils RGB), und ein höherer Grad setzt alle niedrigeren voraus. Ein teilweise besetzter Grad ist ein Annahmefehler, keine Warnung.
+  - **Prüfregel Wertebereiche:** Skalen nicht negativ; Deckkraft zwischen 0,0 und 1,0, außerhalb liegende Werte sind wörtlich „invalid".
+  - **Belegte Farbformel** für die Diffusfarbe aus dem nullten Grad: `Farbe = SH₀ × 0,2820947917738781 + 0,5`. BIOME darf diese Zahl fest verdrahten und als belegt kennzeichnen.
+  - **Belegter Renderparameter:** 3σ-Abschneidung (Mahalanobis-Abstand 3). Ein Renderer, der anders abschneidet, zeigt nicht das, was die Datei beschreibt.
+  - **Belegte Einheit und Achslage** über die Basisspezifikation: Meter, rechtshändig, +Y oben. Damit ist eine Längenangabe aus einem Splat-Feld überhaupt erst interpretierbar — und der Unterschied zu den y-nach-Norden-Konventionen der Geodaten benennbar.
+  - **Belegter Reifegrad:** „Release Candidate". BIOME muss diesen Stand an der Ebene anzeigen. Die angekündigte Ratifizierung im zweiten Quartal 2026 war am Abrufdatum (2026-08-15) **nicht** vollzogen — Register und Dokument führen den Stand unverändert als Release Candidate.
+  - **Zitierweise:** Der Wortlaut ist unter der oben zitierten Bedingung zitierfähig. Wie bei den AdV-Dokumenten gilt: zitieren ja, als BIOME-Inhalt ausliefern nein.
+- **Deckt ausdrücklich nicht:**
+  - **Jede Aussage über ein Bezugssystem.** Weder die Erweiterung noch die Basisspezifikation glTF 2.0 enthalten die Begriffe CRS, EPSG, Datum, Georeferenzierung oder WGS 84 — geprüft am Volltext beider Dokumente am 2026-08-15, Trefferzahl 0. Ein Splat-Feld ist damit ein **lagefreies lokales Modell**. Die Verortung eines Splat-Felds im Gelände ist eine Angabe von BIOME, keine Eigenschaft der Datei, und muss als eigener, selbst erhobener Wert mit eigener Herkunft geführt werden. Ohne sie darf BIOME kein Splat-Feld auf eine Karte legen.
+  - **Jede Aussage über Lagegenauigkeit.** Die Spezifikation nennt keine Genauigkeitsmaße, keine RMSE, keine σ-Angabe. Die Genauigkeit eines Splat-Felds richtet sich nach Aufnahme und Rekonstruktion und ist über FE-GEO-15 bis FE-GEO-19 zu belegen, nicht über diese Quelle.
+  - **Jede radiometrische Auswertung.** Die Farbwerte sind wörtlich **display-referred**, also durch ein Color-Rendering für die Anzeige gegangen — und damit ausdrücklich nicht die Szenenradianz. Reflektanz im Sinne von FE-S2-03/FE-S2-04 ist das nicht. **BIOME darf aus Splat-Farben keinen NDVI, keinen NDRE und keinen anderen Index berechnen**, auch nicht näherungsweise: die Eingangsgröße ist eine andere physikalische Größe. Eine radiometrische Kalibrierung nach FE-CAL-12 ist an einem Splat-Feld nicht rekonstruierbar.
+  - **Jede Aussage zur Vollständigkeit oder Dichte.** Wie viele Gaußfunktionen ein Objekt beschreiben, ist ein Ergebnis des Trainings. Aus der Splat-Zahl folgt nichts über Detailtreue, Auflösung oder erkennbare Objektgröße — eine GSD im Sinne von FE-GSD-22 hat ein Splat-Feld nicht.
+  - **Die Kompression.** Kompressionserweiterungen sind ausdrücklich als eigene, hier nicht abgerufene Erweiterungen vorgesehen („Compression extensions that operate on 3D Gaussian splatting data SHOULD extend this base extension"). BIOME kann eine komprimierte Datei nicht lesen, solange die betreffende Erweiterung nicht belegt ist.
+  - **Die formalen Definitionen von $\mathbf{W}$ und $\mathbf{J}$** der Projektion. Die Quelle hält ausdrücklich fest: „Since the construction details of the view and perspective projection matrices are implementation-specific, the formal definitions of $\mathbf{W}$ and $\mathbf{J}$ are not provided in this specification." Die Projektionsmathematik eines BIOME-Renderers ist damit eine Umsetzungsentscheidung, keine belegte Vorschrift.
+  - **Bekannte Implementierungen.** Der Abschnitt „Known Implementations" ist im Dokument unbesetzt: „_TODO: Add known implementations before final ratification._" BIOME kann sich auf keine Referenzumsetzung berufen.
+
 ## Nicht zugänglich
 
 | Norm/Quelle | Warum | Status | Was dadurch in BIOME NICHT belegbar ist |
@@ -707,6 +782,8 @@
 | Sentinel-2 Scene Classification (SCL) Klassenschlüssel | Nicht abgerufen. | Nicht abgerufen | Die konkreten SCL-Codes für Wolke, Wolkenschatten, Schnee, Vegetation. BIOME kann eine Maskierungspflicht setzen (FE-S2-04), aber keine Klassenliste anbieten. |
 | DJI-Produktspezifikationen (Mavic 3 Multispectral, P4 Multispectral) als Gegenbeispiel „Kamera mit Red-Edge-Band" | Die Spezifikationsseite lieferte über WebFetch keinen Inhalt (nur die generische DJI-Titelzeile); das Handbuch-PDF auf `dl.djicdn.com` antwortete mit HTTP 403. | WebFetch ohne Inhalt / PDF HTTP 403 | Ein zweiter Herstellerbeleg für eine Kamera **mit** Red-Edge-Band. FE-RE-11 führt den Nachweis nur an der MAPIR-Serie, dort allerdings vollständig (RGN ohne, RE-Filter mit Red Edge). |
 | USGS-Seiten ohne Browser-User-Agent | `www.usgs.gov` antwortet auf `curl` ohne Browser-User-Agent mit HTTP 403 (919 Byte). Mit gesetztem User-Agent HTTP 200. | curl HTTP 403 / mit UA HTTP 200 | Nichts — die Quelle ist unter FE-NDVI-06 gedeckt. Nur als Abrufhinweis notiert. |
+| ISO 22028-1:2016 „Photography and graphic technology — Extended colour encodings for digital image storage, manipulation and interchange — Part 1" | Kostenpflichtig. `KHR_gaussian_splatting` stützt seine Unterscheidung display-referred/scene-referred wörtlich auf diese Norm, gibt die beiden Definitionen aber selbst im Volltext wieder. Nicht abgerufen. | Nicht abgerufen | Der Normwortlaut der Bildzustände. FE-GS-23 zitiert die Wiedergabe in der Khronos-Spezifikation; die reicht für die BIOME-Regel „aus Splat-Farben kein Index", nicht für eine farbwissenschaftliche Aussage darüber hinaus. |
+| `registry.khronos.org` | Antwortet sowohl `curl` als auch WebFetch mit HTTP 403 Forbidden (5.495 Byte). Dieselben Spezifikationstexte liegen im offenen GitHub-Repository `KhronosGroup/glTF` und sind über `raw.githubusercontent.com` mit HTTP 200 abrufbar. | Registry HTTP 403 / Repository HTTP 200 | Nichts — die Texte liegen vollständig vor (FE-GS-23). Hier nur als Abrufhinweis notiert, damit ein 403 der Registry nicht für „Quelle nicht verfügbar" gehalten wird. |
 
 ## Offene Fragen an Malte
 
@@ -718,4 +795,7 @@
 - **NDVI-Sättigung in der Oberfläche.** Belegt ist eine LAI-Schwelle von 2–3 und die Stauchung oberhalb NDVI ≈ 0,8 (FE-NDVI-08), aber **kein** harter NDVI-Grenzwert. Soll BIOME ab einem selbstgesetzten Schwellwert (Vorschlag: 0,8) eine Sättigungswarnung einblenden? Das wäre eine begründete Setzung, die ich als solche kennzeichnen würde.
 - **Belaubungszustand als Pflichtfeld.** Der AdV-Standard führt ihn mit vier Codes (FE-BF-20). Für jede Vegetationsauswertung ist er entscheidend, in den meisten frei verfügbaren DOP-Lieferungen dürfte er aber unbesetzt sein. Soll BIOME Bilddaten ohne Belaubungsangabe für Vegetationsindizes sperren, oder nur warnen?
 - **Kauf von DIN 18740-4 (und -2, -3, -6)?** DIN 18740-4 kostet ab 90,50 € (aktuelle Fassung 2025-05). Ohne sie bleiben die normative GSD-Definition, die Kameraanforderungen und die radiometrischen Histogrammkriterien dauerhaft unbelegt — obwohl die AdV-Standards, die BIOME nutzen will, durchgehend darauf verweisen. Soll ich den Kauf vorbereiten? Zu beachten: Auch die frei abrufbaren AdV-Dokumente tragen „Das Werk einschließlich aller seiner Teile ist urheberrechtlich geschützt. Jede Verwertung außerhalb der Grenzen des Urheberrechts ist ohne Zustimmung des Herausgebers unzulässig." — Wortlaut also zitieren, nicht als BIOME-Inhalt ausliefern.
+- **Wie wird ein Splat-Feld verortet?** `KHR_gaussian_splatting` und glTF 2.0 kennen nachweislich kein Bezugssystem (FE-GS-23): eine Splat-Datei ist ein lagefreies lokales Modell in Metern. Damit BIOME sie überhaupt auf eine Fläche legen darf, braucht es eine selbst erhobene Verortung — mein Vorschlag: Ankerpunkt in EPSG:4326, Drehung gegen Nord in Grad, dazu Verfahren und Person wie bei jedem anderen erhobenen Wert. Alternative wäre, Splat-Felder nur als Ansicht ohne Kartenbezug zu führen. Solange nichts entschieden ist, zeigt BIOME die Verortung als fehlend und legt nichts auf die Karte.
+- **Darf ein Splat-Feld für Messungen benutzt werden?** Technisch lassen sich in einer Splat-Szene Strecken abgreifen. Belegt ist dafür nichts: die Spezifikation nennt keine Lagegenauigkeit, und die Rekonstruktionsgenauigkeit hängt an Aufnahme und Training. Mein Vorschlag: BIOME bietet in Splat-Feldern **kein** Messwerkzeug an, bis eine Genauigkeitsangabe nach FE-GEO-15 ff. am Flug hinterlegt ist. Ein Stammumfang aus einer Punktwolke wäre sonst eine Zahl ohne Verfahren.
+- **Ist der Release-Candidate-Stand tragfähig genug?** Die Ratifizierung war für das zweite Quartal 2026 angekündigt und ist am 2026-08-15 nicht vollzogen (FE-GS-23). Bis dahin können sich Attributnamen und Wertelisten ändern. BIOME liest heute nur, schreibt nicht — soll das so bleiben, bis der Status wechselt?
 - **Bezugsquelle für Sentinel-2.** Die Copernicus-Dokumentation nennt das Copernicus Data Space Ecosystem als Vertriebsweg. Ich habe nur die Dokumentation abgerufen, keinen Datenabruf getestet und keine Nutzungsbedingungen/Lizenz geprüft. Soll ich das als eigenen Auftrag nachziehen, bevor BIOME Sentinel-2 als Datenquelle einplant?

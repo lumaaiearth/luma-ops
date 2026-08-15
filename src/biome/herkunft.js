@@ -25,9 +25,10 @@
  * @property {HerkunftZeile[]} zeilen
  * @property {{vorher: string, grund: string|null}|null} [korrektur]
  */
-import { FEHLT, datum as fmtDatum, mitEinheit, koordinate, crsUri, CRS_ENSEMBLE_HINWEIS, LAGE_BEZUG } from './format.js'
+import { FEHLT, datum as fmtDatum, mitEinheit, koordinate, crsUri, CRS_ENSEMBLE_HINWEIS, LAGE_BEZUG, zahl } from './format.js'
 import { ROLOFF_VS, GEHOELZSCHNITT_HINWEIS, KONTROLLART_NAME as KONTROLLART } from './baumStandards.js'
-import { messung, ersetzteMessung, letzteKontrolle, vitalitaet } from './daten.js'
+import { messung, ersetzteMessung, letzteKontrolle, vitalitaet, splatVerortet } from './daten.js'
+import { FARBRAUM, SPLAT_HINWEIS } from './splat.js'
 
 /**
  * Baut die Herkunftsfunktionen für einen geladenen Datenstand.
@@ -276,6 +277,137 @@ export function herkunftBauer(nachschlag) {
       ],
     }
   }
+  /**
+   * Herkunft einer 3D-Aufnahme (Gaussian Splats).
+   *
+   * Die Tafel ist bewusst länger als die anderen, weil bei diesem Datentyp
+   * mehr auseinanderzuhalten ist als sonst. Drei Blöcke, in dieser Reihenfolge:
+   *
+   *   1. **Der Flug.** Datum, Uhrzeit, Sensor, Bodenauflösung. Ohne ihn ist
+   *      eine Aufnahme ein Bild ohne Zeit und ohne Kamera.
+   *   2. **Die Datei.** Kernel, Farbraum, Kugelflächenfunktionen, Reifegrad
+   *      der Spezifikation — alles, was nach FE-GS-23 wörtlich belegt ist.
+   *   3. **Die Verortung.** Und zwar getrennt, weil sie eben *nicht* aus der
+   *      Datei stammt. Fehlt sie, steht das als FEHLT da, mit dem Grund.
+   *
+   * @param {import('./daten.js').SplatAufnahme} a
+   */
+  function herkunftSplat(a) {
+    const verortet = splatVerortet(a)
+    const farbraum = FARBRAUM[/** @type {keyof typeof FARBRAUM} */ (a.farbraum)]
+    const befunde = Array.isArray(a.pruefbericht?.befunde) ? a.pruefbericht.befunde : null
+
+    return {
+      titel: `3D-Aufnahme vom ${fmtDatum(a.flug_datum)}`,
+      wert: `${zahl(a.splat_anzahl)} Gaußfunktionen`,
+      zeilen: [
+        /* ── Der Flug ──────────────────────────────────────────────────── */
+        {
+          k: 'Aufnahme',
+          v: a.flug_uhrzeit
+            ? `${fmtDatum(a.flug_datum)}, ${String(a.flug_uhrzeit).slice(0, 5)} Uhr${a.flug_zeitzone ? ` (${a.flug_zeitzone})` : ''}`
+            : fmtDatum(a.flug_datum),
+        },
+        { k: 'Sensor', v: a.sensor_id || FEHLT, hinweis: a.plattform ? `Plattform: ${a.plattform}` : undefined },
+        { k: 'Flughöhe', v: a.flughoehe_m != null ? mitEinheit(a.flughoehe_m, 'm') : FEHLT },
+        {
+          k: 'Bodenauflösung',
+          v: a.gsd_cm != null ? mitEinheit(a.gsd_cm, 'cm', { nachkomma: 1 }) : FEHLT,
+          hinweis: 'Bodenauflösung (GSD) des Flugs, aus dem die Aufnahme gerechnet wurde. Sie ist keine Auflösungsangabe für das Splat-Feld: eine Gaußfunktion hat keine Pixelgröße.',
+        },
+
+        /* ── Das Verfahren ─────────────────────────────────────────────── */
+        ...methodeZeilen(a.methode_id),
+        {
+          k: 'Kennzeichnung', v: a.kennzeichnung,
+          hinweis: SPLAT_HINWEIS.messung,
+        },
+        {
+          k: 'Software',
+          v: a.software ? `${a.software}${a.software_version ? ` ${a.software_version}` : ''}` : FEHLT,
+          hinweis: a.software && !a.software_version
+            ? 'Ohne Version ist das Ergebnis nicht reproduzierbar — dieselbe Software rechnet in zwei Fassungen zwei verschiedene Felder.'
+            : undefined,
+        },
+
+        /* ── Die Datei ─────────────────────────────────────────────────── */
+        {
+          k: 'Format', v: `KHR_gaussian_splatting · Kernel ${a.kernel}`,
+          hinweis: `Projektion ${a.projektion}, Sortierung ${a.sortierung}. Stand der Spezifikation: ${a.spezifikationsstand}.`,
+        },
+        {
+          k: 'Reifegrad', v: a.spezifikationsstand,
+          hinweis: a.spezifikationsstand === 'Release Candidate'
+            ? 'Die Erweiterung ist noch nicht ratifiziert. Attributnamen und Wertelisten können sich bis zur Ratifizierung ändern. BIOME liest solche Dateien und schreibt sie nicht.'
+            : undefined,
+        },
+        {
+          k: 'Farbraum', v: farbraum ? farbraum.name : a.farbraum,
+          hinweis: SPLAT_HINWEIS.farbe,
+        },
+        {
+          k: 'Kugelflächenfunktionen',
+          v: a.sh_grad > 0 ? `Grad 0 bis ${a.sh_grad}` : 'nur Grad 0',
+          hinweis: a.sh_grad > 0
+            ? 'Dargestellt wird der nullte Grad, also die Diffusfarbe. Die blickwinkelabhängigen Anteile der höheren Grade bleiben ungenutzt; die Spezifikation lässt das ausdrücklich zu.'
+            : 'Die Aufnahme trägt nur den nullten Grad. Blickwinkelabhängige Glanzanteile sind darin nicht enthalten.',
+        },
+        {
+          k: 'Datei',
+          v: a.datei_bytes != null ? mitEinheit(Math.round(a.datei_bytes / 1048576), 'MB') : FEHLT,
+          hinweis: a.datei_url,
+        },
+        {
+          k: 'Annahmeprüfung',
+          v: befunde
+            ? (befunde.length ? `${zahl(befunde.length)} Befund${befunde.length === 1 ? '' : 'e'}` : 'ohne Befund')
+            : FEHLT,
+          hinweis: befunde
+            ? `Geprüft ${a.geprueft_am ? fmtDatum(a.geprueft_am) : FEHLT} gegen die Pflichtangaben der Spezifikation.`
+            : 'Für diese Aufnahme ist kein Prüfergebnis gespeichert. Ob die Datei die Pflichtangaben erfüllt, ist damit nicht festgehalten.',
+        },
+
+        /* ── Die Verortung: eigener Block, weil eigene Herkunft ─────────── */
+        {
+          k: 'Verortung',
+          v: verortet
+            ? koordinate({ lat: /** @type {number} */ (a.anker_lat), lng: /** @type {number} */ (a.anker_lng) }, { crs: a.anker_crs || undefined })
+            : FEHLT,
+          hinweis: verortet ? CRS_ENSEMBLE_HINWEIS : SPLAT_HINWEIS.verortung,
+        },
+        {
+          k: 'Drehung gegen Nord',
+          v: a.drehung_grad != null ? mitEinheit(a.drehung_grad, '°', { nachkomma: 1 }) : FEHLT,
+          hinweis: verortet && a.drehung_grad == null
+            ? 'Ohne Drehung steht die Aufnahme an der richtigen Stelle, aber in unbekannter Ausrichtung.'
+            : undefined,
+        },
+        {
+          k: 'Höhe des Ankers',
+          v: a.anker_hoehe_m != null ? mitEinheit(a.anker_hoehe_m, 'm', { nachkomma: 1 }) : FEHLT,
+        },
+        ...(verortet
+          ? [
+              ...methodeZeilen(a.verortung_methode_id),
+              personZeile(a.verortet_von),
+              { k: 'Verortet am', v: fmtDatum(a.verortet_am) },
+            ]
+          : []),
+        {
+          k: 'Passpunkte am Flug',
+          v: a.passpunkte_anzahl != null
+            ? `${zahl(a.passpunkte_anzahl)}${a.passpunkte_rmse_cm != null ? ` · RMSE ${mitEinheit(a.passpunkte_rmse_cm, 'cm', { nachkomma: 1 })}` : ''}`
+            : FEHLT,
+          hinweis: 'Angabe des Flugs, nicht der Aufnahme. Sie sagt, wie genau die Passpunkte lagen — nicht, wie genau die rekonstruierten Gaußfunktionen liegen.',
+        },
+
+        /* ── Wer und wann ──────────────────────────────────────────────── */
+        personZeile(a.erfasst_von),
+        { k: 'Erfasst am', v: fmtDatum(a.erfasst_am) },
+      ],
+    }
+  }
+
   return {
     personZeile, methodeZeilen,
     stammumfang: herkunftStammumfang,
@@ -283,5 +415,6 @@ export function herkunftBauer(nachschlag) {
     vitalitaet: herkunftVitalitaet,
     kontrolle: herkunftKontrolle,
     stammdatum: herkunftStammdatum,
+    splat: herkunftSplat,
   }
 }

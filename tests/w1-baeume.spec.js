@@ -684,7 +684,8 @@ test.describe('Statusleiste · Provenienz permanent', () => {
     // Die Bilanz sagt, wie viel vom Datenkern bespielt ist. Ohne sie wirkt
     // eine Oberfläche mit einer gefüllten Ebene vollständiger, als sie ist.
     await expect(leiste).toContainText('Ebenen mit Daten')
-    await expect(leiste).toContainText('von 11')
+    // 12 seit der 3D-Aufnahme (Gaussian Splats) in der Fernerkundung.
+    await expect(leiste).toContainText('von 12')
   })
 })
 
@@ -748,5 +749,92 @@ test.describe('Eine Oberfläche, zwei Ansichten', () => {
   test('/biome/baeume öffnet weiterhin direkt im Bestand', async ({ page }) => {
     await seiteOeffnen(page)
     await expect(page.locator('[data-test="ansicht-liste"]')).toHaveAttribute('aria-pressed', 'true')
+  })
+})
+
+test.describe('Fernerkundung · 3D-Aufnahmen (KHR_gaussian_splatting)', () => {
+  /** Klappt die Fernerkundungsgruppe auf und wählt die Splat-Ebene. */
+  async function splatEbeneOeffnen(page) {
+    await seiteOeffnen(page)
+    await page.locator('[data-test="ebenengruppe-g-fernerkundung"] summary').click()
+    await page.getByRole('button', { name: /3D-Aufnahmen .* im Inspector öffnen/ }).click()
+    return page.locator('[data-test="inspector"]')
+  }
+
+  test('die Ebene trägt Zahl und Datum der jüngsten Aufnahme an der Zeile', async ({ page }) => {
+    await seiteOeffnen(page)
+    await page.locator('[data-test="ebenengruppe-g-fernerkundung"] summary').click()
+    const ebene = page.locator('[data-test="ebene-e-splat"]')
+    await expect(ebene).toContainText('3D-Aufnahmen')
+    await expect(ebene).toContainText('2 Aufnahmen')
+    await expect(ebene).toContainText('2026-08-12')
+  })
+
+  test('jede Aufnahme sagt, ob sie verortet ist — und die unverortete sagt es zuerst', async ({ page }) => {
+    const insp = await splatEbeneOeffnen(page)
+    const liste = insp.locator('[data-test="splat-liste"]')
+    await expect(liste).toContainText('1.243.907 Gaußfunktionen')
+    await expect(liste).toContainText('861.204 Gaußfunktionen')
+
+    // Der Härtefall: eine Aufnahme ohne Ort im Gelände. Sie darf nicht
+    // aussehen wie eine eingemessene.
+    await expect(liste.locator('[data-test="splat-unverortet"]')).toHaveCount(1)
+    await expect(liste.locator('[data-test="splat-unverortet"]'))
+      .toContainText('keinen Ort im Gelände')
+    // Und die verortete zeigt ihre Koordinate mit Bezugssystem.
+    await expect(liste).toContainText('EPSG:4326')
+  })
+
+  test('die Ebene erklärt, warum die Verortung nicht aus der Datei kommt', async ({ page }) => {
+    const insp = await splatEbeneOeffnen(page)
+    // Der Satz ist keine Vorsichtsformel, sondern eine belegte Grenze der
+    // Quelle: das Dateiformat kennt kein Bezugssystem (FE-GS-23).
+    await expect(insp).toContainText('Dateiformat kennt kein Bezugssystem')
+  })
+
+  test('auch eine 3D-Aufnahme führt in zwei Klicks zu ihrer Herkunft', async ({ page }) => {
+    const insp = await splatEbeneOeffnen(page)
+    await insp.locator('[data-herkunft="1"]').first().click()
+    const tafel = page.getByRole('dialog', { name: /Herkunft/ })
+    await expect(tafel).toBeVisible()
+
+    // Der Flug, aus dem die Aufnahme stammt.
+    await expect(tafel).toContainText('12.08.2026')
+    await expect(tafel).toContainText('S-DROHNE-RGB')
+    // Das Format und sein Reifegrad.
+    await expect(tafel).toContainText('KHR_gaussian_splatting')
+    await expect(tafel).toContainText('Release Candidate')
+    // Die Kennzeichnung: ein Trainingsergebnis, keine Messung.
+    await expect(tafel).toContainText('modelliert')
+    // Und die harte Grenze: aus diesen Farben wird kein Vegetationsindex.
+    await expect(tafel).toContainText('keine Reflektanz')
+  })
+
+  test('die Herkunft der unverorteten Aufnahme nennt die Verortung als fehlend', async ({ page }) => {
+    const insp = await splatEbeneOeffnen(page)
+    // Die zweite Aufnahme in der Liste ist die vom Mai, ohne Passpunkte.
+    await insp.locator('[data-herkunft="1"]').nth(1).click()
+    const tafel = page.getByRole('dialog', { name: /Herkunft/ })
+    await expect(tafel).toContainText('03.05.2026')
+    // „keine Angabe" statt einer Koordinate — und der Grund gleich daneben.
+    await expect(tafel).toContainText('keine Angabe')
+    await expect(tafel).toContainText('lagefreies lokales Modell')
+  })
+
+  test('die Aufnahme lädt nicht ungefragt, sondern nennt erst ihre Größe', async ({ page }) => {
+    const insp = await splatEbeneOeffnen(page)
+    await insp.getByRole('button', { name: 'Ansehen' }).first().click()
+
+    const tafel = page.locator('[data-test="splat-tafel"]')
+    await expect(tafel).toBeVisible()
+    // Achtzig Megabyte über Mobilfunk sind keine Nebensache. Die Ansicht sagt,
+    // worum es geht, und wartet.
+    await expect(tafel.locator('[data-test="splat-bereit"]')).toContainText('84 MB')
+    await expect(tafel.locator('[data-test="splat-laden"]')).toBeVisible()
+    // Nichts wurde bisher geladen.
+    await expect(tafel.locator('canvas')).toHaveCount(0)
+
+    await page.keyboard.press('Escape')
+    await expect(tafel).toBeHidden()
   })
 })

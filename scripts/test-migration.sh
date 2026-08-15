@@ -26,6 +26,9 @@ LAGE_UP="$ROOT/supabase/migrations/20260810_biome_lagegenauigkeit_und_mehrstaemm
 LAGE_DOWN="$ROOT/supabase/migrations/down/20260810_biome_lagegenauigkeit_und_mehrstaemmigkeit.down.sql"
 TAX_UP="$ROOT/supabase/migrations/20260810_biome_taxon_nachweis.sql"
 TAX_DOWN="$ROOT/supabase/migrations/down/20260810_biome_taxon_nachweis.down.sql"
+SPLAT_UP="$ROOT/supabase/migrations/20260815_biome_splatfeld.sql"
+SPLAT_DOWN="$ROOT/supabase/migrations/down/20260815_biome_splatfeld.down.sql"
+SPLAT_TESTS="$ROOT/fixtures/regeltests-splat.sql"
 ALT_FIXTURE="$ROOT/fixtures/altbestand.sql"
 ALT_TESTS="$ROOT/fixtures/regeltests-altbestand.sql"
 BOOTSTRAP="$ROOT/fixtures/00_bootstrap.sql"
@@ -42,7 +45,22 @@ dropdb --if-exists "$DB"
 createdb "$DB"
 
 echo "1/6 Bootstrap"                 && lauf "$BOOTSTRAP"
-echo "2/6 Migration vorwärts"        && lauf "$UP" && lauf "$LAGE_UP" && lauf "$TAX_UP"
+echo "2/6 Migration vorwärts"        && lauf "$UP" && lauf "$LAGE_UP" && lauf "$TAX_UP" && lauf "$SPLAT_UP"
+
+# Splat-Felder einzeln vor und zurück. Die Migration verändert einen
+# bestehenden CHECK-Constraint (biome_flugprodukt.art) — wenn die Rücknahme den
+# alten Stand nicht wiederherstellt, wächst die Werteliste bei jedem Durchlauf.
+lauf "$SPLAT_DOWN"
+ART_ZURUECK=$(psql -tAq -d "$DB" -c \
+  "select pg_get_constraintdef(oid) from pg_constraint where conname='biome_flugprodukt_art_check'")
+case "$ART_ZURUECK" in
+  *splat*) rot "FEHLER: 'splat' blieb nach der Rücknahme in biome_flugprodukt.art"; exit 1 ;;
+esac
+SPLAT_WEG=$(psql -tAq -d "$DB" -c \
+  "select count(*) from pg_tables where schemaname='public' and tablename='biome_splatfeld'")
+[ "$SPLAT_WEG" = "0" ] || { rot "FEHLER: biome_splatfeld blieb nach der Rücknahme stehen"; exit 1; }
+lauf "$SPLAT_UP"
+echo "    Splat-Felder: vor, zurück, wieder vor"
 
 # Die Nachtragsmigration einzeln vor und zurück, bevor der große Zyklus läuft.
 # Danach muss die Spalte weg und wieder da sein, sonst ist sie nicht rücknehmbar.
@@ -63,7 +81,7 @@ TAB_NACH_UP=$(psql -tAq -d "$DB" -c \
 echo "    $TAB_NACH_UP BIOME-Tabellen angelegt"
 [ "$TAB_NACH_UP" -gt 0 ] || { rot "FEHLER: keine BIOME-Tabellen nach der Migration"; exit 1; }
 
-echo "3/6 Migration rückwärts"       && lauf "$TAX_DOWN" && lauf "$LAGE_DOWN" && lauf "$DOWN"
+echo "3/6 Migration rückwärts"       && lauf "$SPLAT_DOWN" && lauf "$TAX_DOWN" && lauf "$LAGE_DOWN" && lauf "$DOWN"
 
 TAB_NACH_DOWN=$(psql -tAq -d "$DB" -c \
   "select count(*) from pg_tables where schemaname='public' and tablename like 'biome\\_%'")
@@ -81,7 +99,7 @@ if [ "$TAB_NACH_DOWN" != "0" ] || [ "$FN_NACH_DOWN" != "0" ] || [ "$VIEW_NACH_DO
 fi
 echo "    sauber zurückgebaut"
 
-echo "4/6 Migration erneut vorwärts" && lauf "$UP" && lauf "$LAGE_UP" && lauf "$TAX_UP"
+echo "4/6 Migration erneut vorwärts" && lauf "$UP" && lauf "$LAGE_UP" && lauf "$TAX_UP" && lauf "$SPLAT_UP"
 
 TAB_WIEDER=$(psql -tAq -d "$DB" -c \
   "select count(*) from pg_tables where schemaname='public' and tablename like 'biome\\_%'")
@@ -100,6 +118,11 @@ if [ -f "$REGELN" ]; then
   psql -v ON_ERROR_STOP=1 -q -d "$DB" -f "$REGELN"
 else
   echo "6/8 Regeltests fehlen — übersprungen"
+fi
+
+if [ -f "$SPLAT_TESTS" ]; then
+  echo "    Regeltests Splat-Felder"
+  psql -v ON_ERROR_STOP=1 -q -d "$DB" -f "$SPLAT_TESTS"
 fi
 
 # ── Übernahme des Altbestands, ebenfalls vor und zurück ───────────────────

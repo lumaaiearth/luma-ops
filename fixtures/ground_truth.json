@@ -57,7 +57,7 @@
       "qualifikation": "Landschaftsgärtnerin"
     },
     {
-      "id": "d979bf05-63d4-4bf1-821a-e71deb30bee4",
+      "id": "cf12de48-10bf-444a-a1b5-38f63dfb27a7",
       "name": "Systemübernahme",
       "organisation": "LUMA",
       "qualifikation": "Maschinelle Übernahme, keine Person vor Ort"
@@ -87,6 +87,22 @@
       "einheit": null,
       "erfassungsart": "person_vor_ort",
       "standard_id": "BAUM-DE-10"
+    },
+    {
+      "id": "M-FE-SPLAT-REKONSTRUKTION",
+      "name": "Rekonstruktion eines 3D-Gaussian-Splat-Felds aus Bilddaten",
+      "beschreibung": "Aus den Bildern eines Flugs wird ein Feld aus Gaußfunktionen trainiert und nach KHR_gaussian_splatting als glTF-Binärdatei abgelegt. Das Ergebnis ist ein Modell, keine Messung: Lage, Form und Farbe jeder Gaußfunktion sind Trainingsergebnisse. Die Farbwerte sind anzeigebezogen (display-referred) und ausdrücklich keine Reflektanz.",
+      "einheit": null,
+      "erfassungsart": "modell",
+      "standard_id": "FE-GS-23"
+    },
+    {
+      "id": "M-FE-SPLAT-VERORTUNG",
+      "name": "Verortung eines Splat-Felds über Passpunkte",
+      "beschreibung": "Das Splat-Feld liegt in einem lagefreien lokalen System in Metern. Die Zuordnung zu einer Position im Gelände erfolgt über am Boden eingemessene Passpunkte: Ankerpunkt, Höhe und Drehung gegen Nord werden bestimmt und am Feld gespeichert. Die erreichte Lagegenauigkeit ist am Flug zu belegen, nicht hier.",
+      "einheit": "m",
+      "erfassungsart": "person_vor_ort",
+      "standard_id": null
     },
     {
       "id": "M-IMPORT-ALTBESTAND",
@@ -143,8 +159,16 @@
       "kurzname": "Übernahme des BIOME-Altbestands",
       "herausgeber": "LUMA (eigene Festlegung, keine externe Norm)",
       "quelle_url": "docs/BIOME_UMSTELLUNG.md",
-      "abgerufen_am": "2026-08-10",
+      "abgerufen_am": "2026-08-15",
       "zitat": "Die Identität eines Altbaums wird in den Datenkern übernommen, seine Fachangaben nicht. Sie bleiben als Altangabe ohne Methode, Messhöhe und Person erhalten und werden als solche gekennzeichnet, weil sie die Anforderungen des Nachweiskerns nicht erfüllen und nicht nachträglich erfüllt werden können."
+    },
+    {
+      "id": "FE-GS-23",
+      "kurzname": "KHR_gaussian_splatting — 3D-Gaussian-Splats in glTF",
+      "herausgeber": "The Khronos Group Inc., 3D Formats Working Group",
+      "quelle_url": "https://raw.githubusercontent.com/KhronosGroup/glTF/main/extensions/2.0/Khronos/KHR_gaussian_splatting/README.md",
+      "abgerufen_am": "2026-08-15",
+      "zitat": "This extension defines basic support for storing 3D Gaussian splats in glTF assets, bringing structure and conformity to the 3D Gaussian splatting space. This extension defines 3D Gaussian splats by their position, rotation, scale, opacity, and spherical harmonics, which provide both diffuse and specular color. Status: Release Candidate."
     }
   ],
   "baeume": [
@@ -174,7 +198,7 @@
       "mehrstaemmig": false,
       "standorttyp": "strasse",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-10T18:06:35.003834+00:00",
+      "created_at": "2026-08-15T10:06:30.603417+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000001",
@@ -187,7 +211,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-14",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
+          "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -246,7 +270,7 @@
       "mehrstaemmig": false,
       "standorttyp": "strasse",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-10T18:06:35.003834+00:00",
+      "created_at": "2026-08-15T10:06:30.603417+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000002",
@@ -259,7 +283,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-14",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
+          "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -307,7 +331,7 @@
       "mehrstaemmig": false,
       "standorttyp": "strasse",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-10T18:06:35.003834+00:00",
+      "created_at": "2026-08-15T10:06:30.603417+00:00",
       "messungen": [],
       "bewertungen": [
         {
@@ -362,7 +386,7 @@
       "mehrstaemmig": false,
       "standorttyp": "strasse",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-10T18:06:35.003834+00:00",
+      "created_at": "2026-08-15T10:06:30.603417+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000004",
@@ -375,7 +399,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-14",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
+          "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -423,7 +447,7 @@
       "mehrstaemmig": false,
       "standorttyp": "strasse",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-10T18:06:35.003834+00:00",
+      "created_at": "2026-08-15T10:06:30.603417+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000005",
@@ -436,7 +460,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-14",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
+          "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -484,7 +508,7 @@
       "mehrstaemmig": false,
       "standorttyp": "strasse",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-10T18:06:35.003834+00:00",
+      "created_at": "2026-08-15T10:06:30.603417+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000006",
@@ -497,7 +521,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-14",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
+          "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -545,7 +569,7 @@
       "mehrstaemmig": false,
       "standorttyp": "strasse",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-10T18:06:35.003834+00:00",
+      "created_at": "2026-08-15T10:06:30.603417+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000007",
@@ -558,7 +582,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-14",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
+          "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -574,7 +598,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-22",
           "erfasst_von": "a0000000-0000-4000-8000-000000000002",
-          "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
+          "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
           "ersetzt_id": "c0000000-0000-4000-8000-000000000007",
           "korrektur_grund": "Zahlendreher bei der Eingabe am 14.04.2026: 850 cm statt 85 cm. Am 22.04.2026 nachgemessen, Wert bestätigt.",
           "vorzustand": {
@@ -586,7 +610,7 @@
             "merkmal": "stammumfang",
             "stamm_nr": null,
             "bemerkung": null,
-            "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
+            "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
             "ersetzt_id": null,
             "messgeraet": "Umfangmaßband",
             "methode_id": "M-BAUM-UMFANG",
@@ -640,7 +664,7 @@
       "mehrstaemmig": false,
       "standorttyp": "park",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-10T18:06:35.003834+00:00",
+      "created_at": "2026-08-15T10:06:30.603417+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000008",
@@ -653,7 +677,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-15",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
+          "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -701,7 +725,7 @@
       "mehrstaemmig": false,
       "standorttyp": "park",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-10T18:06:35.003834+00:00",
+      "created_at": "2026-08-15T10:06:30.603417+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000009",
@@ -714,7 +738,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-15",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
+          "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -762,7 +786,7 @@
       "mehrstaemmig": false,
       "standorttyp": "park",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-10T18:06:35.003834+00:00",
+      "created_at": "2026-08-15T10:06:30.603417+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000010",
@@ -775,7 +799,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-15",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
+          "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -834,7 +858,7 @@
       "mehrstaemmig": true,
       "standorttyp": "park",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-10T18:06:35.003834+00:00",
+      "created_at": "2026-08-15T10:06:30.603417+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000113",
@@ -847,7 +871,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-15",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
+          "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -863,7 +887,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-15",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
+          "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -879,7 +903,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-15",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
+          "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -927,7 +951,7 @@
       "mehrstaemmig": null,
       "standorttyp": "park",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-10T18:06:35.003834+00:00",
+      "created_at": "2026-08-15T10:06:30.603417+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000012",
@@ -940,7 +964,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-15",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-10T18:06:35.003834+00:00",
+          "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -948,6 +972,112 @@
       ],
       "bewertungen": [],
       "kontrollen": []
+    }
+  ],
+  "splatAufnahmen": [
+    {
+      "id": "fc000000-0000-4000-8000-000000000001",
+      "flugprodukt_id": "fb000000-0000-4000-8000-000000000001",
+      "flug_id": "fa000000-0000-4000-8000-000000000001",
+      "standort_id": "50000000-0000-4000-8000-000000000001",
+      "flug_datum": "2026-08-12",
+      "flug_uhrzeit": "10:40:00",
+      "flug_zeitzone": "Europe/Berlin",
+      "sensor_id": "S-DROHNE-RGB",
+      "plattform": "Multikopter",
+      "flughoehe_m": 45,
+      "gsd_cm": 1.1,
+      "flug_crs": "EPSG:4326",
+      "passpunkte_anzahl": 8,
+      "passpunkte_rmse_cm": 2.4,
+      "flug_erfasst_von": "a0000000-0000-4000-8000-000000000003",
+      "produkt_datei_url": "/beispiel-splat.glb",
+      "produkt_bemerkung": "3D-Aufnahme des Bestands, August 2026",
+      "kernel": "ellipse",
+      "farbraum": "srgb_rec709_display",
+      "projektion": "perspective",
+      "sortierung": "cameraDistance",
+      "splat_anzahl": 1243907,
+      "sh_grad": 1,
+      "spezifikationsstand": "Release Candidate",
+      "standard_id": "FE-GS-23",
+      "datei_url": "/beispiel-splat.glb",
+      "datei_bytes": 88014848,
+      "pruefbericht": {
+        "befunde": [],
+        "tragfaehig": true
+      },
+      "geprueft_am": "2026-08-12T12:20:00+00:00",
+      "anker_lat": 52.54612,
+      "anker_lng": 13.5441,
+      "anker_crs": "EPSG:4326",
+      "anker_hoehe_m": 34.2,
+      "drehung_grad": 12.5,
+      "verortung_methode_id": "M-FE-SPLAT-VERORTUNG",
+      "verortet_von": "a0000000-0000-4000-8000-000000000003",
+      "verortet_am": "2026-08-12",
+      "methode_id": "M-FE-SPLAT-REKONSTRUKTION",
+      "software": "Brush",
+      "software_version": "3.1",
+      "kennzeichnung": "modelliert",
+      "bemerkung": "Vollbelaubung, gleichmäßig bewölkt.",
+      "erfasst_von": "a0000000-0000-4000-8000-000000000003",
+      "erfasst_am": "2026-08-15T10:06:30.603417+00:00"
+    },
+    {
+      "id": "fc000000-0000-4000-8000-000000000002",
+      "flugprodukt_id": "fb000000-0000-4000-8000-000000000002",
+      "flug_id": "fa000000-0000-4000-8000-000000000002",
+      "standort_id": "50000000-0000-4000-8000-000000000001",
+      "flug_datum": "2026-05-03",
+      "flug_uhrzeit": "09:15:00",
+      "flug_zeitzone": "Europe/Berlin",
+      "sensor_id": "S-DROHNE-RGB",
+      "plattform": "Multikopter",
+      "flughoehe_m": 40,
+      "gsd_cm": 1.3,
+      "flug_crs": "EPSG:4326",
+      "passpunkte_anzahl": null,
+      "passpunkte_rmse_cm": null,
+      "flug_erfasst_von": "a0000000-0000-4000-8000-000000000003",
+      "produkt_datei_url": "/beispiel-splat.glb",
+      "produkt_bemerkung": "3D-Aufnahme des Bestands, Mai 2026",
+      "kernel": "ellipse",
+      "farbraum": "srgb_rec709_display",
+      "projektion": "perspective",
+      "sortierung": "cameraDistance",
+      "splat_anzahl": 861204,
+      "sh_grad": 0,
+      "spezifikationsstand": "Release Candidate",
+      "standard_id": "FE-GS-23",
+      "datei_url": "/beispiel-splat.glb",
+      "datei_bytes": 41943040,
+      "pruefbericht": {
+        "befunde": [
+          {
+            "text": "Die Aufnahme trägt nur den nullten Grad.",
+            "regel": "kugelflaeche_grad",
+            "schwere": "hinweis"
+          }
+        ],
+        "tragfaehig": true
+      },
+      "geprueft_am": "2026-05-03T14:05:00+00:00",
+      "anker_lat": null,
+      "anker_lng": null,
+      "anker_crs": null,
+      "anker_hoehe_m": null,
+      "drehung_grad": null,
+      "verortung_methode_id": null,
+      "verortet_von": null,
+      "verortet_am": null,
+      "methode_id": "M-FE-SPLAT-REKONSTRUKTION",
+      "software": "Brush",
+      "software_version": "2.8",
+      "kennzeichnung": "modelliert",
+      "bemerkung": "Ohne Passpunkte geflogen — das Feld ließ sich nicht einmessen.",
+      "erfasst_von": "a0000000-0000-4000-8000-000000000003",
+      "erfasst_am": "2026-08-15T10:06:30.603417+00:00"
     }
   ],
   "stichdatum": "2026-08-09"
