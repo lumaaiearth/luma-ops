@@ -149,6 +149,17 @@ function EbenenInspector({ ebene, h, aufHerkunft, aufSchliessen }) {
             {ebene.warum_leer}
           </div>
         )}
+        {ebene.warum_gesperrt && (
+          // Derselbe Grund wie am gesperrten Ankreuzfeld — hier ausgeschrieben,
+          // weil im Baum nur ein Tooltip Platz hat.
+          <div data-test="ebene-gesperrt" style={{
+            padding: '10px 12px', borderRadius: 8,
+            border: `1px solid ${BORDER}`, color: MUTED, lineHeight: 1.5,
+          }}>
+            <div style={{ ...LABEL, marginBottom: 5 }}>Nicht auf der Karte</div>
+            {ebene.warum_gesperrt}
+          </div>
+        )}
         {aufnahmen.length > 0 && h && (
           <SplatListe
             aufnahmen={aufnahmen}

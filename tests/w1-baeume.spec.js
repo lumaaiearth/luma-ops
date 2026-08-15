@@ -770,6 +770,18 @@ test.describe('Fernerkundung · 3D-Aufnahmen (KHR_gaussian_splatting)', () => {
     await expect(ebene).toContainText('2026-08-12')
   })
 
+  test('das Ankreuzfeld ist gesperrt und sagt warum, statt nichts zu bewirken', async ({ page }) => {
+    await seiteOeffnen(page)
+    await page.locator('[data-test="ebenengruppe-g-fernerkundung"] summary').click()
+    const feld = page.locator('[data-test="ebene-e-splat"]').getByRole('switch')
+    // Eine Splat-Aufnahme ist ein lagefreies 3D-Modell, die Karte ist
+    // zweidimensional. Ein Ankreuzfeld, das nichts bewirkt, waere schlimmer
+    // als eines, das den Grund nennt.
+    await expect(feld).toBeDisabled()
+    await expect(feld).toHaveAttribute('title', /lagefreies 3D-Modell/)
+    await expect(feld).toHaveAttribute('aria-label', /nicht auf der Karte einblendbar/)
+  })
+
   test('jede Aufnahme sagt, ob sie verortet ist — und die unverortete sagt es zuerst', async ({ page }) => {
     const insp = await splatEbeneOeffnen(page)
     const liste = insp.locator('[data-test="splat-liste"]')

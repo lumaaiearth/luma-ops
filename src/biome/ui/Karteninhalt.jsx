@@ -83,9 +83,19 @@ function EbenenZeile({ ebene, an, umschalten, gesperrt = false, gewaehlt = false
       <div style={{ paddingTop: 2 }}>
         <Kaestchen
           an={an}
-          gesperrt={gesperrt || !ebene.bespielt}
-          grund={!ebene.bespielt ? ebene.warum_leer : SCHALTMODUS[gesperrt ? 'nur_abwaehlbar' : 'alle'].erklaerung}
-          beschriftung={`${ebene.name} — ${an ? 'sichtbar' : 'ausgeblendet'}${ebene.bespielt ? '' : ', nichts erfasst'}`}
+          gesperrt={gesperrt || !ebene.bespielt || !!ebene.warum_gesperrt}
+          grund={
+            // Der genaueste vorhandene Grund gewinnt. Eine Ebene, die sich aus
+            // eigenen Gründen nicht einblenden lässt, soll nicht mit der
+            // allgemeinen Schaltmodus-Erklärung abgespeist werden.
+            ebene.warum_gesperrt
+            || (!ebene.bespielt ? ebene.warum_leer : SCHALTMODUS[gesperrt ? 'nur_abwaehlbar' : 'alle'].erklaerung)
+          }
+          beschriftung={
+            ebene.warum_gesperrt
+              ? `${ebene.name} — nicht auf der Karte einblendbar`
+              : `${ebene.name} — ${an ? 'sichtbar' : 'ausgeblendet'}${ebene.bespielt ? '' : ', nichts erfasst'}`
+          }
           aus={umschalten}
         />
       </div>

@@ -38,6 +38,7 @@
  * @property {boolean} sichtbar     Ausgangszustand
  * @property {boolean} bespielt     Gibt es überhaupt Daten?
  * @property {string} [warum_leer]  Wenn nicht: warum, in einem Satz
+ * @property {string} [warum_gesperrt] Wenn die Ebene sich nicht einblenden lässt: warum
  * @property {'splat'} [inhalt]     Womit der Inspector diese Ebene öffnet
  * @property {any[]} [objekte]      Die geladenen Objekte, wenn der Inspector sie braucht
  */
@@ -213,6 +214,10 @@ export function karteninhalt(stand) {
           warum_leer: splats.length
             ? undefined
             : 'Für diesen Bestand ist keine Splat-Aufnahme hinterlegt. Eine Aufnahme entsteht aus einer Befliegung und wird als Flugprodukt der Art „splat" geführt.',
+          // Ein Ankreuzfeld, das nichts bewirkt, wäre schlimmer als keines.
+          // Diese Ebene lässt sich nicht auf die Karte legen — und der Grund
+          // steht am Feld statt in einer Hilfe.
+          warum_gesperrt: 'Diese Ebene lässt sich nicht auf der Karte einblenden: eine Splat-Aufnahme ist ein lagefreies 3D-Modell, die Karte ist zweidimensional. Zum Ansehen die Zeile anwählen — die Aufnahme öffnet sich im Inspector.',
           inhalt: 'splat',
           objekte: splats,
         },

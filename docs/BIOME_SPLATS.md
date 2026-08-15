@@ -48,6 +48,12 @@ Nicht gelesen werden: komprimierte Varianten (eigene, hier nicht belegte
 Erweiterungen), dünn besetzte Akzessoren, externe Pufferdateien. BIOME liest
 **eine** Datei: ein GLB mit eingebettetem Binärteil.
 
+Steht in `extensionsRequired` eine andere Erweiterung als
+`KHR_gaussian_splatting` — auch `KHR_mesh_quantization` —, weist BIOME die
+Datei mit Namen ab. Das ist Absicht und nicht Bequemlichkeit: was nicht im
+Register unter `refs/standards/` belegt ist, wird nicht dargestellt. Wer eine
+solche Datei braucht, belegt die Erweiterung zuerst.
+
 ### Schritt 3 — Ablegen
 
 Die Datei kommt in den Objektspeicher. `datei_url` hält entweder eine
