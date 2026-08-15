@@ -786,7 +786,7 @@ test.describe('Fernerkundung · 3D-Aufnahmen (KHR_gaussian_splatting)', () => {
     const insp = await splatEbeneOeffnen(page)
     const liste = insp.locator('[data-test="splat-liste"]')
     await expect(liste).toContainText('1.243.907 Gaußfunktionen')
-    await expect(liste).toContainText('861.204 Gaußfunktionen')
+    await expect(liste).toContainText('5.500 Gaußfunktionen')
 
     // Der Härtefall: eine Aufnahme ohne Ort im Gelände. Sie darf nicht
     // aussehen wie eine eingemessene.

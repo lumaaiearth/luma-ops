@@ -25,7 +25,7 @@
  * @property {HerkunftZeile[]} zeilen
  * @property {{vorher: string, grund: string|null}|null} [korrektur]
  */
-import { FEHLT, datum as fmtDatum, mitEinheit, koordinate, crsUri, CRS_ENSEMBLE_HINWEIS, LAGE_BEZUG, zahl } from './format.js'
+import { FEHLT, datum as fmtDatum, mitEinheit, koordinate, crsUri, CRS_ENSEMBLE_HINWEIS, LAGE_BEZUG, zahl, dateigroesse } from './format.js'
 import { ROLOFF_VS, GEHOELZSCHNITT_HINWEIS, KONTROLLART_NAME as KONTROLLART } from './baumStandards.js'
 import { messung, ersetzteMessung, letzteKontrolle, vitalitaet, splatVerortet } from './daten.js'
 import { FARBRAUM, SPLAT_HINWEIS } from './splat.js'
@@ -354,7 +354,7 @@ export function herkunftBauer(nachschlag) {
         },
         {
           k: 'Datei',
-          v: a.datei_bytes != null ? mitEinheit(Math.round(a.datei_bytes / 1048576), 'MB') : FEHLT,
+          v: dateigroesse(a.datei_bytes),
           hinweis: a.datei_url,
         },
         {

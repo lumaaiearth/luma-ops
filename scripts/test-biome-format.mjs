@@ -8,7 +8,7 @@ import assert from 'node:assert/strict'
 import {
   FEHLT, NICHT_ERHOBEN, KENNZEICHNUNG,
   istFehlend, zahl, mitEinheit, prozent, datum, datumZeit,
-  koordinate, messwert, kennzeichnung, anzahl, zeitraum,
+  koordinate, messwert, kennzeichnung, anzahl, zeitraum, dateigroesse,
 } from '../src/biome/format.js'
 
 let geprueft = 0
@@ -143,4 +143,33 @@ pruef('nicht erhoben unterscheidet sich von null gezählt', () => {
   assert.equal(anzahl(1, { erhoben: true, einzahl: 'Baum', mehrzahl: 'Bäume' }), '1 Baum')
 })
 
-console.log(`\n${geprueft} Prüfungen grün.`)
+
+/* ── Dateigrößen: 0 MB ist eine Aussage, keine Größenangabe ────────────── */
+
+// Zwischen Zahl und Einheit steht ein geschütztes Leerzeichen — hier
+// ausgeschrieben, damit die Erwartung nicht zufällig ein anderes trifft.
+const NBSP = '\u00A0'
+
+pruef('kleine Dateien werden nicht zu 0 MB', () => {
+  // Der Anlass: eine Splat-Aufnahme von 309.116 Byte stand als „0 MB" da.
+  assert.equal(dateigroesse(309116), `302${NBSP}kB`)
+  assert.equal(dateigroesse(999), `999${NBSP}Byte`)
+  assert.ok(!/^0\D/.test(dateigroesse(1)))
+})
+
+pruef('die Einheit wächst mit dem Wert', () => {
+  assert.equal(dateigroesse(1024), `1${NBSP}kB`)
+  assert.equal(dateigroesse(1048576), `1,0${NBSP}MB`)
+  assert.equal(dateigroesse(88014848), `84${NBSP}MB`)
+  assert.equal(dateigroesse(2147483648), `2,0${NBSP}GB`)
+})
+
+pruef('eine fehlende Größe bleibt fehlend', () => {
+  assert.equal(dateigroesse(null), FEHLT)
+  assert.equal(dateigroesse(undefined), FEHLT)
+  assert.equal(dateigroesse(-5), FEHLT)
+  // Und eine wirklich leere Datei ist 0 Byte, nicht „keine Angabe".
+  assert.equal(dateigroesse(0), `0${NBSP}Byte`)
+})
+
+console.log(`\n${geprueft} Prüfungen bestanden.`)

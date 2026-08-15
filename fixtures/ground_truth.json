@@ -57,7 +57,7 @@
       "qualifikation": "Landschaftsgärtnerin"
     },
     {
-      "id": "cf12de48-10bf-444a-a1b5-38f63dfb27a7",
+      "id": "ae27ea5e-a654-47be-a63b-97bc2eaa5567",
       "name": "Systemübernahme",
       "organisation": "LUMA",
       "qualifikation": "Maschinelle Übernahme, keine Person vor Ort"
@@ -198,7 +198,7 @@
       "mehrstaemmig": false,
       "standorttyp": "strasse",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-15T10:06:30.603417+00:00",
+      "created_at": "2026-08-15T10:32:28.987189+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000001",
@@ -211,7 +211,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-14",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
+          "erfasst_am": "2026-08-15T10:32:28.987189+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -270,7 +270,7 @@
       "mehrstaemmig": false,
       "standorttyp": "strasse",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-15T10:06:30.603417+00:00",
+      "created_at": "2026-08-15T10:32:28.987189+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000002",
@@ -283,7 +283,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-14",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
+          "erfasst_am": "2026-08-15T10:32:28.987189+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -331,7 +331,7 @@
       "mehrstaemmig": false,
       "standorttyp": "strasse",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-15T10:06:30.603417+00:00",
+      "created_at": "2026-08-15T10:32:28.987189+00:00",
       "messungen": [],
       "bewertungen": [
         {
@@ -386,7 +386,7 @@
       "mehrstaemmig": false,
       "standorttyp": "strasse",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-15T10:06:30.603417+00:00",
+      "created_at": "2026-08-15T10:32:28.987189+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000004",
@@ -399,7 +399,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-14",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
+          "erfasst_am": "2026-08-15T10:32:28.987189+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -447,7 +447,7 @@
       "mehrstaemmig": false,
       "standorttyp": "strasse",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-15T10:06:30.603417+00:00",
+      "created_at": "2026-08-15T10:32:28.987189+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000005",
@@ -460,7 +460,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-14",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
+          "erfasst_am": "2026-08-15T10:32:28.987189+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -508,7 +508,7 @@
       "mehrstaemmig": false,
       "standorttyp": "strasse",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-15T10:06:30.603417+00:00",
+      "created_at": "2026-08-15T10:32:28.987189+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000006",
@@ -521,7 +521,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-14",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
+          "erfasst_am": "2026-08-15T10:32:28.987189+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -569,7 +569,7 @@
       "mehrstaemmig": false,
       "standorttyp": "strasse",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-15T10:06:30.603417+00:00",
+      "created_at": "2026-08-15T10:32:28.987189+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000007",
@@ -582,7 +582,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-14",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
+          "erfasst_am": "2026-08-15T10:32:28.987189+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -598,7 +598,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-22",
           "erfasst_von": "a0000000-0000-4000-8000-000000000002",
-          "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
+          "erfasst_am": "2026-08-15T10:32:28.987189+00:00",
           "ersetzt_id": "c0000000-0000-4000-8000-000000000007",
           "korrektur_grund": "Zahlendreher bei der Eingabe am 14.04.2026: 850 cm statt 85 cm. Am 22.04.2026 nachgemessen, Wert bestätigt.",
           "vorzustand": {
@@ -610,7 +610,7 @@
             "merkmal": "stammumfang",
             "stamm_nr": null,
             "bemerkung": null,
-            "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
+            "erfasst_am": "2026-08-15T10:32:28.987189+00:00",
             "ersetzt_id": null,
             "messgeraet": "Umfangmaßband",
             "methode_id": "M-BAUM-UMFANG",
@@ -664,7 +664,7 @@
       "mehrstaemmig": false,
       "standorttyp": "park",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-15T10:06:30.603417+00:00",
+      "created_at": "2026-08-15T10:32:28.987189+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000008",
@@ -677,7 +677,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-15",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
+          "erfasst_am": "2026-08-15T10:32:28.987189+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -725,7 +725,7 @@
       "mehrstaemmig": false,
       "standorttyp": "park",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-15T10:06:30.603417+00:00",
+      "created_at": "2026-08-15T10:32:28.987189+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000009",
@@ -738,7 +738,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-15",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
+          "erfasst_am": "2026-08-15T10:32:28.987189+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -786,7 +786,7 @@
       "mehrstaemmig": false,
       "standorttyp": "park",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-15T10:06:30.603417+00:00",
+      "created_at": "2026-08-15T10:32:28.987189+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000010",
@@ -799,7 +799,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-15",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
+          "erfasst_am": "2026-08-15T10:32:28.987189+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -858,7 +858,7 @@
       "mehrstaemmig": true,
       "standorttyp": "park",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-15T10:06:30.603417+00:00",
+      "created_at": "2026-08-15T10:32:28.987189+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000113",
@@ -871,7 +871,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-15",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
+          "erfasst_am": "2026-08-15T10:32:28.987189+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -887,7 +887,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-15",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
+          "erfasst_am": "2026-08-15T10:32:28.987189+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -903,7 +903,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-15",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
+          "erfasst_am": "2026-08-15T10:32:28.987189+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -951,7 +951,7 @@
       "mehrstaemmig": null,
       "standorttyp": "park",
       "angelegt_von": "a0000000-0000-4000-8000-000000000003",
-      "created_at": "2026-08-15T10:06:30.603417+00:00",
+      "created_at": "2026-08-15T10:32:28.987189+00:00",
       "messungen": [
         {
           "id": "c0000000-0000-4000-8000-000000000012",
@@ -964,7 +964,7 @@
           "methode_id": "M-BAUM-UMFANG",
           "datum": "2026-04-15",
           "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-          "erfasst_am": "2026-08-15T10:06:30.603417+00:00",
+          "erfasst_am": "2026-08-15T10:32:28.987189+00:00",
           "ersetzt_id": null,
           "korrektur_grund": null,
           "vorzustand": null
@@ -991,7 +991,7 @@
       "passpunkte_anzahl": 8,
       "passpunkte_rmse_cm": 2.4,
       "flug_erfasst_von": "a0000000-0000-4000-8000-000000000003",
-      "produkt_datei_url": "/beispiel-splat.glb",
+      "produkt_datei_url": "drone-splats/mpn/2026-08-12.glb",
       "produkt_bemerkung": "3D-Aufnahme des Bestands, August 2026",
       "kernel": "ellipse",
       "farbraum": "srgb_rec709_display",
@@ -1001,7 +1001,7 @@
       "sh_grad": 1,
       "spezifikationsstand": "Release Candidate",
       "standard_id": "FE-GS-23",
-      "datei_url": "/beispiel-splat.glb",
+      "datei_url": "drone-splats/mpn/2026-08-12.glb",
       "datei_bytes": 88014848,
       "pruefbericht": {
         "befunde": [],
@@ -1022,7 +1022,7 @@
       "kennzeichnung": "modelliert",
       "bemerkung": "Vollbelaubung, gleichmäßig bewölkt.",
       "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-      "erfasst_am": "2026-08-15T10:06:30.603417+00:00"
+      "erfasst_am": "2026-08-15T10:32:28.987189+00:00"
     },
     {
       "id": "fc000000-0000-4000-8000-000000000002",
@@ -1041,17 +1041,17 @@
       "passpunkte_rmse_cm": null,
       "flug_erfasst_von": "a0000000-0000-4000-8000-000000000003",
       "produkt_datei_url": "/beispiel-splat.glb",
-      "produkt_bemerkung": "3D-Aufnahme des Bestands, Mai 2026",
+      "produkt_bemerkung": "3D-Aufnahme des Bestands, Mai 2026 — im Abnahme-Build die von scripts/gen-splat-beispiel.mjs erzeugte Datei",
       "kernel": "ellipse",
       "farbraum": "srgb_rec709_display",
       "projektion": "perspective",
       "sortierung": "cameraDistance",
-      "splat_anzahl": 861204,
+      "splat_anzahl": 5500,
       "sh_grad": 0,
       "spezifikationsstand": "Release Candidate",
       "standard_id": "FE-GS-23",
       "datei_url": "/beispiel-splat.glb",
-      "datei_bytes": 41943040,
+      "datei_bytes": 309116,
       "pruefbericht": {
         "befunde": [
           {
@@ -1077,7 +1077,7 @@
       "kennzeichnung": "modelliert",
       "bemerkung": "Ohne Passpunkte geflogen — das Feld ließ sich nicht einmessen.",
       "erfasst_von": "a0000000-0000-4000-8000-000000000003",
-      "erfasst_am": "2026-08-15T10:06:30.603417+00:00"
+      "erfasst_am": "2026-08-15T10:32:28.987189+00:00"
     }
   ],
   "stichdatum": "2026-08-09"

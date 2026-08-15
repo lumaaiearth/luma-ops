@@ -253,9 +253,9 @@ ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO biome_flugprodukt (id, flug_id, art, datei_url, bemerkung) VALUES
   ('fb000000-0000-4000-8000-000000000001','fa000000-0000-4000-8000-000000000001','splat',
-   '/beispiel-splat.glb','3D-Aufnahme des Bestands, August 2026'),
+   'drone-splats/mpn/2026-08-12.glb','3D-Aufnahme des Bestands, August 2026'),
   ('fb000000-0000-4000-8000-000000000002','fa000000-0000-4000-8000-000000000002','splat',
-   '/beispiel-splat.glb','3D-Aufnahme des Bestands, Mai 2026')
+   '/beispiel-splat.glb','3D-Aufnahme des Bestands, Mai 2026 — im Abnahme-Build die von scripts/gen-splat-beispiel.mjs erzeugte Datei')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO biome_splatfeld (
@@ -270,7 +270,7 @@ INSERT INTO biome_splatfeld (
   ('fc000000-0000-4000-8000-000000000001','fb000000-0000-4000-8000-000000000001',
    'ellipse','srgb_rec709_display','perspective','cameraDistance',
    1243907, 1, 'Release Candidate','FE-GS-23',
-   '/beispiel-splat.glb', 88014848,
+   'drone-splats/mpn/2026-08-12.glb', 88014848,
    '{"tragfaehig": true, "befunde": []}'::jsonb, TIMESTAMPTZ '2026-08-12 14:20+02',
    52.54612, 13.54410, 'EPSG:4326', 34.2, 12.5,
    'M-FE-SPLAT-VERORTUNG','a0000000-0000-4000-8000-000000000003', DATE '2026-08-12',
@@ -280,8 +280,8 @@ INSERT INTO biome_splatfeld (
   -- nur keinen Ort. Genau das muss die Oberfläche sagen.
   ('fc000000-0000-4000-8000-000000000002','fb000000-0000-4000-8000-000000000002',
    'ellipse','srgb_rec709_display','perspective','cameraDistance',
-   861204, 0, 'Release Candidate','FE-GS-23',
-   '/beispiel-splat.glb', 41943040,
+   5500, 0, 'Release Candidate','FE-GS-23',
+   '/beispiel-splat.glb', 309116,
    '{"tragfaehig": true, "befunde": [{"schwere":"hinweis","regel":"kugelflaeche_grad","text":"Die Aufnahme trägt nur den nullten Grad."}]}'::jsonb,
    TIMESTAMPTZ '2026-05-03 16:05+02',
    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
@@ -314,3 +314,6 @@ COMMIT;
 --   3D-Aufnahmen (Gaussian Splats)                     2  (12.08.2026 und 03.05.2026)
 --     davon verortet                                   1  (12.08.2026)
 --     SP-02 ohne Passpunkte → keine Verortung, und das steht so da
+--     SP-01 zeigt auf den Objektspeicher (im Prüfstand nicht abrufbar),
+--     SP-02 auf die vom Prüfstand erzeugte Datei — 5.500 Gaußfunktionen,
+--     309.116 Byte, deterministisch aus scripts/gen-splat-beispiel.mjs

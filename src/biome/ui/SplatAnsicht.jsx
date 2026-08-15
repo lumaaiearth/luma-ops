@@ -36,7 +36,7 @@ import { MONO, SANS, LABEL, TIPPZIEL } from './bausteine.jsx'
 import { ladeSplatGlb, FARBRAUM, SPLAT_HINWEIS } from '../splat.js'
 import { SplatRenderer } from '../splatRenderer.js'
 import { splatDateiUrl } from '../daten.js'
-import { zahl, mitEinheit, FEHLT } from '../format.js'
+import { zahl, dateigroesse } from '../format.js'
 
 /** Wie viel Bewegung eines Fingers eine volle Umdrehung ist. */
 const DREH_EMPFINDLICHKEIT = 0.008
@@ -263,9 +263,7 @@ export default function SplatAnsicht({ aufnahme }) {
 
   /* ── Anzeige ──────────────────────────────────────────────────────────── */
 
-  const groesse = aufnahme.datei_bytes != null
-    ? mitEinheit(Math.round(aufnahme.datei_bytes / 1048576), 'MB')
-    : FEHLT
+  const groesse = dateigroesse(aufnahme.datei_bytes)
 
   if (zustand === 'bereit' || zustand === 'laedt') {
     const laeuft = zustand === 'laedt'
@@ -295,7 +293,7 @@ export default function SplatAnsicht({ aufnahme }) {
           }}>
           {laeuft ? <Box size={14} aria-hidden /> : <Download size={14} aria-hidden />}
           {laeuft
-            ? `Wird geladen… ${geladen ? mitEinheit(Math.round(geladen / 1048576), 'MB') : ''}`
+            ? `Wird geladen… ${geladen ? dateigroesse(geladen) : ''}`
             : 'Aufnahme laden und ansehen'}
         </button>
       </div>

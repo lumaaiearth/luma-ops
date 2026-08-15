@@ -31,6 +31,12 @@ fi
 echo "── Fixture-Build nach ${AUSGABE}/ ─────────────────────────────────────"
 VITE_BIOME_FIXTURE=1 npx vite build --outDir "$AUSGABE" >/dev/null
 
+# Die Beispiel-Splat-Aufnahme, auf die der Fixture-Datenstand zeigt. Sie wird
+# hier erzeugt und nicht in public/ abgelegt: in der Produktionsfassung hätte
+# sie nichts zu suchen. Deterministisch, damit die Dateigröße in
+# fixtures/ground_truth.sql stimmt.
+node scripts/gen-splat-beispiel.mjs "$AUSGABE/beispiel-splat.glb"
+
 beenden() {
   [ -n "${SERVER_PID:-}" ] && kill "$SERVER_PID" 2>/dev/null || true
 }

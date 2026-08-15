@@ -297,6 +297,36 @@ export function anzahl(menge, opt) {
 }
 
 /**
+ * Dateigröße in der Einheit, die den Wert lesbar macht.
+ *
+ * Warum nicht einfach durch 1.048.576 teilen und „MB" anhängen: eine Datei von
+ * 309 kB stünde dann als „0 MB" da, und 0 ist in diesem Produkt eine Aussage.
+ * Die Einheit wächst deshalb mit dem Wert, und unterhalb eines Megabyte wird
+ * in Kilobyte gerechnet.
+ *
+ * Gerechnet wird binär (1 kB = 1024 Byte) — so zählen Browser und Betriebs-
+ * systeme, und die Zahl soll zu der passen, die der Nutzer im Ladefenster
+ * sieht.
+ *
+ * @param {number|null|undefined} bytes
+ * @returns {string}
+ */
+export function dateigroesse(bytes) {
+  if (istFehlend(bytes)) return FEHLT
+  const n = /** @type {number} */ (bytes)
+  if (n < 0) return FEHLT
+  if (n < 1024) return mitEinheit(n, 'Byte')
+  if (n < 1048576) return mitEinheit(n / 1024, 'kB', { nachkomma: 0 })
+  if (n < 1073741824) {
+    const mb = n / 1048576
+    // Unter zehn Megabyte ist die Nachkommastelle der Unterschied zwischen
+    // „1 MB" und „1,4 MB" — darüber ist sie Rauschen.
+    return mitEinheit(mb, 'MB', { nachkomma: mb < 10 ? 1 : 0 })
+  }
+  return mitEinheit(n / 1073741824, 'GB', { nachkomma: 1 })
+}
+
+/**
  * Zeitraum als „von – bis". Ein offenes Ende bleibt offen und wird nicht
  * stillschweigend auf heute gesetzt.
  *
