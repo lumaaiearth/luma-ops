@@ -849,4 +849,27 @@ test.describe('Fernerkundung · 3D-Aufnahmen (KHR_gaussian_splatting)', () => {
     await page.keyboard.press('Escape')
     await expect(tafel).toBeHidden()
   })
+
+  test('geladen steht die Aufnahme da und sagt, wie sie dargestellt wird', async ({ page }) => {
+    const insp = await splatEbeneOeffnen(page)
+    // Die zweite Aufnahme zeigt auf die Datei, die der Abnahme-Build erzeugt.
+    await insp.getByRole('button', { name: 'Ansehen' }).nth(1).click()
+    const tafel = page.locator('[data-test="splat-tafel"]')
+    await tafel.locator('[data-test="splat-laden"]').click()
+
+    // Bis hierher: geholt, gegen FE-GS-23 geprüft, dekodiert, auf die
+    // Grafikkarte geladen und ein Bild gezeichnet.
+    const ansicht = tafel.locator('[data-test="splat-ansicht"]')
+    await expect(ansicht).toBeVisible({ timeout: 30_000 })
+    await expect(tafel.locator('canvas')).toBeVisible()
+
+    // Die Statuszeile sagt, worin die Darstellung von der Datei abweicht.
+    await expect(ansicht).toContainText('5.500 Gaußfunktionen')
+    await expect(ansicht).toContainText('Ellipse-Kernel')
+    await expect(ansicht).toContainText('3σ')
+    await expect(ansicht).toContainText('nur Grad 0')
+
+    // Und sie sagt weiter, dass hier nicht gemessen wird.
+    await expect(ansicht).toContainText('keine Messung')
+  })
 })

@@ -170,6 +170,16 @@ auf einen Klick.
 | `src/biome/ebenen.js` | Die Ebene `e-splat` in der Fernerkundungsgruppe. |
 | `supabase/migrations/20260815_biome_splatfeld.sql` | Tabelle, Riegel, Lesesicht, Registereintrag. |
 | `fixtures/splat-beispiel.mjs` | Erzeugte GLB-Dateien für die Prüfstände. |
+| `scripts/gen-splat-beispiel.mjs` | Erzeugt eine ansehnliche Beispielaufnahme (Rasen, Stamm, Krone). Deterministisch — derselbe Aufruf liefert Byte für Byte dieselbe Datei. |
+
+Wer die Ansicht ohne echte Befliegung sehen will:
+
+```bash
+node scripts/gen-splat-beispiel.mjs public/beispiel-splat.glb   # nicht committen
+npm run dev
+```
+
+Der Abnahme-Build erzeugt dieselbe Datei automatisch nach `dist-abnahme/`.
 
 ## Prüfstände
 
