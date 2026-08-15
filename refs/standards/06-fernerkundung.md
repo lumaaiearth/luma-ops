@@ -695,7 +695,9 @@
 - **Abgerufen:** 2026-08-15 (README HTTP 200, 38.890 Byte; Register HTTP 200; Schema HTTP 200; glTF-2.0-Quelltext HTTP 200). Abrufhinweis: `registry.khronos.org` weist sowohl `curl` als auch WebFetch mit HTTP 403 ab — die Spezifikationstexte sind über `raw.githubusercontent.com` aus demselben Repository zu holen. Ein 403 der Registry ist hier kein Ausfall der Quelle.
 - **Wörtlich** (Abschnitt „Status", vollständig): „Release Candidate"
 - **Wörtlich** (Erweiterungsregister des glTF-Repositorys, Zeile des Eintrags): „| KHR_gaussian_splatting | Release Candidate | [Specification](2.0/Khronos/KHR_gaussian_splatting/README.md) |"
-- **Wörtlich** (Ankündigung vom 3. Februar 2026): „ratification … is expected in the second quarter of 2026"
+- **Wörtlich** (Ankündigung vom 3. Februar 2026, Beaverton OR):
+  „A release candidate allows for broad industry feedback before ratification to ensure the final specification meets industry needs."
+  „The Khronos 3D Formats Working Group will review all community feedback on KHR_gaussian_splatting before ratification, which is expected in the second quarter of 2026."
 - **Wörtlich** (Abschnitt „Overview"):
   „This extension defines basic support for storing 3D Gaussian splats in glTF assets, bringing structure and conformity to the 3D Gaussian splatting space. 3D Gaussian splatting uses fields of Gaussians that can be treated as a point cloud for the purposes of storage. This extension defines 3D Gaussian splats by their position, rotation, scale, opacity, and spherical harmonics, which provide both diffuse and specular color. These values are stored as attributes on a point primitive. Since the extension treats the 3D Gaussian splats as point primitives, a graceful fallback to treating the data as a sparse point cloud is possible."
 - **Wörtlich** (Abschnitt „Extending Mesh Primitives", Eigenschaftstabelle vollständig):
