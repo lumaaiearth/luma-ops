@@ -18,7 +18,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install Anthropic SDK
         run: npm i --no-save @anthropic-ai/sdk
@@ -29,14 +29,16 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          INPUT_DAY: ${{ github.event.inputs.day }}
         run: |
-          # Solange die Secrets fehlen, still überspringen statt täglich rot fehlzuschlagen
+          # Fehlende Secrets sind ein Fehler. Früher wurde still übersprungen und
+          # „success" gemeldet — dadurch blieb monatelang unbemerkt, dass MANA nie lief.
           if [ -z "$ANTHROPIC_API_KEY" ] || [ -z "$SUPABASE_SERVICE_KEY" ]; then
-            echo "::warning::MANA-Scan übersprungen — ANTHROPIC_API_KEY/SUPABASE_SERVICE_KEY fehlen (Repo → Settings → Secrets → Actions)."
-            exit 0
+            echo "::error::MANA-Scan nicht möglich — ANTHROPIC_API_KEY/SUPABASE_SERVICE_KEY fehlen (Repo → Settings → Secrets → Actions)."
+            exit 1
           fi
-          if [ -n "${{ github.event.inputs.day }}" ]; then
-            node scripts/mana-scan.mjs --day=${{ github.event.inputs.day }}
+          if [ -n "$INPUT_DAY" ]; then
+            node scripts/mana-scan.mjs --day="$INPUT_DAY"
           else
             node scripts/mana-scan.mjs
           fi
