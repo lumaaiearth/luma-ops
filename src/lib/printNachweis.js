@@ -226,12 +226,25 @@ export function baueNachweisHtml(nachweis, opts = {}) {
  * @returns {boolean} false, wenn kein Nachweis vorliegt oder der Popup-Blocker greift
  */
 export function druckeLeistungsnachweis(nachweis, opts = {}) {
-  const html = baueNachweisHtml(nachweis, opts)
-  if (!html) return false
+  if (!baueNachweisHtml(nachweis, { ...opts, autoPrint: false })) return false
 
+  // Fenster sofort öffnen (innerhalb des Klicks, sonst greift der
+  // Popup-Blocker), dann die Foto-URLs signieren und erst danach schreiben —
+  // nach dem Umschalten der Buckets auf privat laden öffentliche URLs nicht mehr.
   const w = window.open('', '_blank')
   if (!w) return false          // Popup-Blocker
-  w.document.write(html)
-  w.document.close()
+  w.document.write('<!doctype html><meta charset="utf-8"><p style="font-family:sans-serif;padding:24px">Leistungsnachweis wird vorbereitet …</p>')
+
+  import('./speicherUrl.js')
+    .then(({ signiereAlle }) => Promise.all((nachweis.objekte || []).map(async (o) => {
+      const urls = await signiereAlle((o.fotos || []).map((f) => f.url))
+      return { ...o, fotos: (o.fotos || []).map((f, i) => ({ ...f, url: urls[i] })) }
+    })))
+    .catch(() => nachweis.objekte)   // Signieren gescheitert: mit den vorhandenen URLs drucken
+    .then((objekte) => {
+      w.document.open()
+      w.document.write(baueNachweisHtml({ ...nachweis, objekte }, opts))
+      w.document.close()
+    })
   return true
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import SpeicherBild from './SpeicherBild.jsx'
 import { Camera, X, Loader, Trash2 } from 'lucide-react'
 import { A, BORDER, FG, MUTED, SURFACE } from '../lib/theme.js'
 import { sbUploadPhoto, sbDeletePhoto, sbGetJobPhotos, sbInsert, sbDelete, sb } from '../lib/supabase.js'
@@ -35,7 +36,7 @@ function Kachel({ photo, onOeffnen }) {
     <div
       style={{ position: 'relative', aspectRatio: '1', borderRadius: 6, overflow: 'hidden', background: SURFACE, border: `1px solid ${BORDER}`, cursor: 'pointer' }}
       onClick={() => onOeffnen(photo)}>
-      <img src={photo.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+      <SpeicherBild src={photo.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
       {photo._pending && (
         <span style={{ position: 'absolute', bottom: 3, right: 3, fontFamily: "'Space Mono', monospace", fontSize: 8, color: '#fff', background: 'rgba(0,0,0,0.55)', padding: '1px 4px', borderRadius: 3 }}>wartet</span>
       )}
@@ -209,7 +210,7 @@ export default function JobPhotos({ jobId, uploadedBy, kompakt = false }) {
           >
             <X size={18} />
           </button>
-          <img
+          <SpeicherBild
             src={lightbox.url}
             alt=""
             onClick={e => e.stopPropagation()}

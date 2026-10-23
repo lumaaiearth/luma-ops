@@ -3,6 +3,7 @@
 // Fotos (Upload + Beispielbilder), Florales™-Verknüpfung, Aktionen.
 // Desktop: rechte Seite · Mobil: Bottom-Sheet.
 import { useState, useRef } from 'react'
+import SpeicherBild from './SpeicherBild.jsx'
 import { X, Pencil, Trash2, ExternalLink, Camera, Loader, Sprout, Sun, RefreshCw, FileText } from 'lucide-react'
 import { A, SURFACE, BORDER, FG, MUTED, OK, WARN, DANGER, A14, A20 } from '../lib/theme.js'
 import { sb } from '../lib/supabase.js'
@@ -149,7 +150,7 @@ function FeaturePhotos({ feature, isAdmin, canCapture, onUpdateProperties }) {
         {shown.map(p => (
           <div key={p.id} onClick={() => setLightbox(p)}
             style={{ position: 'relative', aspectRatio: '1', borderRadius: 6, overflow: 'hidden', border: `1px solid ${BORDER}`, cursor: 'pointer' }}>
-            <img src={p.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+            <SpeicherBild src={p.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
             {p.example && (
               <span style={{ position: 'absolute', bottom: 3, left: 3, fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: '0.06em', color: '#fff', background: 'rgba(0,0,0,0.55)', borderRadius: 4, padding: '1px 5px' }}>BEISPIEL</span>
             )}
@@ -178,7 +179,7 @@ function FeaturePhotos({ feature, isAdmin, canCapture, onUpdateProperties }) {
             style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: 36, height: 36, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <X size={17} />
           </button>
-          <img src={lightbox.url} alt="" onClick={e => e.stopPropagation()} style={{ maxWidth: '100%', maxHeight: '85vh', objectFit: 'contain', borderRadius: 8 }} />
+          <SpeicherBild src={lightbox.url} alt="" onClick={e => e.stopPropagation()} style={{ maxWidth: '100%', maxHeight: '85vh', objectFit: 'contain', borderRadius: 8 }} />
         </div>
       )}
     </div>

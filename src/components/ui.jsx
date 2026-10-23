@@ -5,6 +5,7 @@
 // Hover-/Fokus-Feedback kommt aus src/styles/ui.css (lu-* Klassen).
 // ────────────────────────────────────────────────────────────────
 import { useEffect, useRef, useState } from 'react'
+import SpeicherBild from './SpeicherBild.jsx'
 import { X, CalendarDays } from 'lucide-react'
 import {
   A, SURFACE, SURFACE_2, BORDER, BORDER_STRONG, FG, MUTED, CARD, DANGER,
@@ -311,7 +312,7 @@ export function Avatar({ initials, color = A, size = 22, title, src, style }) {
   if (src) {
     return (
       <div title={title} style={{ width: size, height: size, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: `1.5px solid ${BORDER}`, background: SURFACE, ...style }}>
-        <img src={src} alt={title || initials || ''} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} loading="lazy" />
+        <SpeicherBild src={src} alt={title || initials || ''} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} loading="lazy" />
       </div>
     )
   }

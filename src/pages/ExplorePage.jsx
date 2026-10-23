@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import SpeicherBild from '../components/SpeicherBild.jsx'
 import { MapContainer, TileLayer, Marker } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -137,7 +138,7 @@ export default function ExplorePage() {
                       <div style={{ display: 'flex', gap: 6 }}>
                         {photos.map(ph => (
                           <div key={ph.id} style={{ flex: 1, aspectRatio: '1', borderRadius: 8, overflow: 'hidden', border: `1px solid ${BORDER}`, background: A06 }}>
-                            <img src={ph.url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none' }} />
+                            <SpeicherBild src={ph.url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none' }} />
                           </div>
                         ))}
                       </div>
