@@ -1,11 +1,13 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { sb, sbUpsert, sbDelete, sbUpdate } from '../lib/supabase.js'
-import { getTimeEntries, getInvoices, genId } from '../lib/storage.js'
+import { genId } from '../lib/storage.js'
+import { useAuth } from './AuthContext.jsx'
 
 function dbErr(table, op) {
   return (err) => {
     console.error(`[DB] ${op} on ${table} failed:`, err?.message || err)
-    if (window.__lumaToast) window.__lumaToast(`⚠️ Speicherfehler (${table}): ${err?.message || 'unbekannter Fehler'}`)
+    const art = op === 'read' ? 'Ladefehler' : 'Speicherfehler'
+    if (window.__lumaToast) window.__lumaToast(`⚠️ ${art} (${table}): ${err?.message || 'unbekannter Fehler'}`)
   }
 }
 
@@ -22,7 +24,13 @@ export function TimeProvider({ children }) {
   // Interne Stundenkosten je Person ({team_id: €/h}) — admin-only (RLS)
   const [costRates, setCostRates] = useState({})
 
+  const { user } = useAuth()
+
+  // Lädt bei jedem Wechsel der Anmeldung neu. Früher lief das nur einmal beim
+  // Start — vor dem Login kamen 0 Zeilen zurück, und bis zum Neuladen standen
+  // dann die Demodaten aus seed.js da.
   useEffect(() => {
+    if (!user?.id) { setEntries([]); setInvoices([]); return }
     async function load() {
       try {
         const [eRows, iRows, rRows, cRows, brRows, pcRows] = await Promise.all([
@@ -33,19 +41,22 @@ export function TimeProvider({ children }) {
           sb.from('billing_rates').select('*'),
           sb.from('person_cost_rates').select('*'),
         ])
-        setEntries(eRows.data?.length ? eRows.data : getTimeEntries())
-        setInvoices(iRows.data?.length ? iRows.data : getInvoices())
+        // Leer heißt leer. Früher standen bei 0 Zeilen die Demo-Einträge und
+        // Demo-Rechnungen aus seed.js da — als wären es echte.
+        if (eRows.error) dbErr('time_entries', 'read')(eRows.error)
+        if (iRows.error) dbErr('invoices', 'read')(iRows.error)
+        setEntries(eRows.data || [])
+        setInvoices(iRows.data || [])
         setHourRules(Object.fromEntries((rRows.data || []).map(r => [r.team_id, r])))
         setCosts(cRows.data || [])
         setRates(Object.fromEntries((brRows.data || []).map(r => [r.client_id, Number(r.hourly_rate)])))
         setCostRates(Object.fromEntries((pcRows.data || []).map(r => [r.team_id, Number(r.hourly_cost)])))
-      } catch {
-        setEntries(getTimeEntries())
-        setInvoices(getInvoices())
+      } catch (e) {
+        dbErr('Zeiterfassung', 'read')(e)
       }
     }
     load()
-  }, [])
+  }, [user?.id])
 
   // Realtime
   useEffect(() => {
