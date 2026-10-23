@@ -33,6 +33,7 @@ import { normalizeRule, kontostand, hoursFromTimes } from '../lib/hourAccounts.j
 import { isoToday } from '../lib/storage.js'
 import { normalisiereZeiteintraege, buildLeistungsnachweis } from '../lib/leistungsnachweis.js'
 import { druckeLeistungsnachweis } from '../lib/printNachweis.js'
+import { offerText, druckeAngebot } from '../lib/angebot.js'
 import JahresTimeline from '../components/JahresTimeline.jsx'
 import JobPhotos from '../components/JobPhotos.jsx'
 import JobModal from '../components/JobModal.jsx'
@@ -156,8 +157,9 @@ function lvDokument(plan, aufgaben, projName) {
 
 /** Vertragstext nach ALLCURA-Struktur, Konditionen zugunsten LUMA (Konzept Kap. 6.1) */
 function vertragText(offer, client) {
-  const von = offer.zeitraum_von ? new Date(offer.zeitraum_von).toLocaleDateString('de-DE') : '[Beginn]'
-  const bis = offer.zeitraum_bis ? new Date(offer.zeitraum_bis).toLocaleDateString('de-DE') : '[Ende]'
+  const TTMMJJJJ = { day: '2-digit', month: '2-digit', year: 'numeric' }
+  const von = offer.zeitraum_von ? new Date(offer.zeitraum_von + 'T00:00:00').toLocaleDateString('de-DE', TTMMJJJJ) : '[Beginn]'
+  const bis = offer.zeitraum_bis ? new Date(offer.zeitraum_bis + 'T00:00:00').toLocaleDateString('de-DE', TTMMJJJJ) : '[Ende]'
   const abrechnung = { monatlich: 'monatlich in gleichen Teilbeträgen', quartal: 'quartalsweise in gleichen Teilbeträgen', drittel: 'in drei gleichen Teilbeträgen (30.06. / 30.09. / 31.12.)', einmalig: 'nach Leistungserbringung' }[offer.abrechnung] || offer.abrechnung
   const objekte = (offer.positionen || []).map((p) => `  – ${p.beschreibung}`).join('\n')
   return `DIENSTLEISTUNGSVERTRAG GARTENPFLEGE
@@ -627,7 +629,7 @@ export default function PflegePage() {
         <OfferModal
           onClose={() => setOfferModal(false)}
           onSaved={(row) => { setOffers((prev) => [row, ...prev]); setOfferModal(false) }}
-          {...{ plaene, jahr, clients, rates, planLabel, planClientId, planHours, aufgabenByPlan }}
+          {...{ plaene, jahr, clients, rates, planLabel, planClientId, planHours, aufgabenByPlan, gaengeByPlan, offers }}
         />
       )}
       {gangModal && (
@@ -1827,31 +1829,6 @@ function lvTextForPlan(plan, aufgabenByPlan) {
     .join('\n')
 }
 
-function offerText(offer) {
-  const von = offer.zeitraum_von ? new Date(offer.zeitraum_von).toLocaleDateString('de-DE') : '—'
-  const bis = offer.zeitraum_bis ? new Date(offer.zeitraum_bis).toLocaleDateString('de-DE') : '—'
-  const abrechnung = { monatlich: 'monatlich in gleichen Teilbeträgen', quartal: 'quartalsweise in gleichen Teilbeträgen', drittel: 'in drei gleichen Teilbeträgen (30.06. / 30.09. / 31.12.)', einmalig: 'nach Leistungserbringung' }[offer.abrechnung] || offer.abrechnung
-  const lines = []
-  lines.push('Sehr geehrte Damen und Herren,')
-  lines.push('')
-  lines.push(`vielen Dank für Ihr Vertrauen. Gerne unterbreiten wir Ihnen unser Angebot für die Pflege der folgenden Standorte im Leistungszeitraum ${von} – ${bis}:`)
-  lines.push('')
-  for (const pos of offer.positionen || []) {
-    lines.push(`• ${pos.beschreibung} — Jahrespauschale ${eur(pos.betrag)} netto`)
-    if (pos.lv) lines.push(pos.lv)
-    lines.push('')
-  }
-  lines.push(`Gesamtsumme: ${eur(offer.summe_netto)} netto zzgl. gesetzlicher USt. Die Abrechnung erfolgt ${abrechnung}.`)
-  lines.push('')
-  lines.push('Grundlage ist der mit Ihnen abgestimmte Pflegeplan. Zusätzliche Leistungen außerhalb des beschriebenen Umfangs führen wir nur nach vorheriger Beauftragung aus; sie werden per Kurzangebot bzw. nach Aufwand gesondert berechnet. Materialien (Pflanzen, Mulch, Erde u. Ä.) werden zu marktüblichen Preisen gegen Beleg gesondert in Rechnung gestellt. An- und Abfahrt sind in der Pauschale enthalten.')
-  lines.push('')
-  lines.push('Umfang und Pauschale werden jährlich auf Basis der dokumentierten Einsätze gemeinsam überprüft und bei Bedarf angepasst.')
-  lines.push('')
-  lines.push('Für Rückfragen stehen wir Ihnen jederzeit gerne zur Verfügung.')
-  lines.push('Wir bedanken uns herzlich für Ihr Vertrauen.')
-  return lines.join('\n')
-}
-
 function TabAngebote({ offers, setOffers, clientById, onNew }) {
   const [copied, setCopied] = useState(null)
 
@@ -1886,6 +1863,7 @@ function TabAngebote({ offers, setOffers, clientById, onNew }) {
         <Card key={o.id}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <div style={{ fontSize: 14, fontWeight: 500, color: FG, flex: 1, minWidth: 160 }}>
+              {o.angebotsnummer && <span style={{ fontFamily: MONO, fontSize: 11, color: MUTED, marginRight: 8 }}>{o.angebotsnummer}</span>}
               {o.titel || 'Angebot'}
               <span style={{ fontFamily: MONO, fontSize: 11, color: MUTED, marginLeft: 8 }}>{clientById[o.client_id]?.name}</span>
             </div>
@@ -1900,6 +1878,15 @@ function TabAngebote({ offers, setOffers, clientById, onNew }) {
           <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
             <Button variant="ghost" icon={copied === o.id ? Check : Copy} onClick={() => copy(o.id, offerText(o))}>
               {copied === o.id ? 'Kopiert' : 'Angebotstext'}
+            </Button>
+            <Button variant="ghost" icon={FileText}
+              title="Angebot als Druckansicht öffnen — daraus „Als PDF speichern“"
+              onClick={() => {
+                if (!druckeAngebot(o, { kundeName: clientById[o.client_id]?.name || '' })) {
+                  window.__lumaToast?.('⚠️ Druckansicht blockiert — bitte Pop-ups für luma-biome.de erlauben')
+                }
+              }}>
+              PDF
             </Button>
             <Button variant="ghost" icon={copied === `v-${o.id}` ? Check : FileText}
               title="Dienstleistungsvertrag nach ALLCURA-Struktur (Laufzeit 12 Monate, Kündigung 3 Monate) als Text kopieren"
@@ -1923,13 +1910,17 @@ function TabAngebote({ offers, setOffers, clientById, onNew }) {
 
 /* ─── Modal: Angebot aus Plänen generieren ────────────────────── */
 
-function OfferModal({ onClose, onSaved, plaene, jahr, clients, rates, planLabel, planClientId, planHours, aufgabenByPlan }) {
+function OfferModal({ onClose, onSaved, plaene, jahr, clients, rates, planLabel, planClientId, planHours, aufgabenByPlan, gaengeByPlan, offers }) {
   // Basis: Pläne des gewählten Basisjahres; Angebot gilt fürs Folgejahr
   const basePlans = plaene.filter((p) => p.jahr === jahr)
   const clientIds = [...new Set(basePlans.map(planClientId).filter(Boolean))]
   const [clientId, setClientId] = useState(clientIds[0] || '')
   const [satz, setSatz] = useState(rates?.[clientIds[0]] || 50)
   const [useKalib, setUseKalib] = useState(true)
+  // Anfahrt/Rüsten je Pflegegang einpreisen. Der Angebotstext sagt „An- und
+  // Abfahrt sind in der Pauschale enthalten" — ohne diesen Posten stimmte das
+  // nur auf dem Papier (Pflegekonzept Kap. 2.2, Empfehlung 4).
+  const [mitFahrt, setMitFahrt] = useState(true)
   const [abrechnung, setAbrechnung] = useState('monatlich')
   const [zieljahr, setZieljahr] = useState(jahr + 1)
   const [stunden, setStunden] = useState({}) // plan_id → h override
@@ -1937,12 +1928,25 @@ function OfferModal({ onClose, onSaved, plaene, jahr, clients, rates, planLabel,
   useEffect(() => { setSatz(rates?.[clientId] || 50) }, [clientId, rates])
 
   const myPlans = basePlans.filter((p) => planClientId(p) === clientId)
+  const gaengeAktiv = (p) => (gaengeByPlan?.[p.id] || []).filter((g) => g.status !== 'entfallen')
+  const fahrtStd = (p) => round2(gaengeAktiv(p).reduce((s, g) => s + Number(g.fahrt_stunden || 0), 0))
+  const vorOrtStd = (p) => planHours(p) * (useKalib ? Number(p.kalib_faktor || 1) : 1)
   const planStd = (p) => {
     if (stunden[p.id] != null) return Number(stunden[p.id]) || 0
-    const raw = planHours(p) * (useKalib ? Number(p.kalib_faktor || 1) : 1)
+    const raw = vorOrtStd(p) + (mitFahrt ? fahrtStd(p) : 0)
     return Math.round(raw * 4) / 4
   }
   const summe = myPlans.reduce((s, p) => s + planStd(p) * satz, 0)
+
+  // Fortlaufende Nummer je Leistungsjahr: AN-2027-001, AN-2027-002 …
+  function naechsteNummer() {
+    const muster = new RegExp(`^AN-${zieljahr}-(\\d+)$`)
+    const max = (offers || []).reduce((m, o) => {
+      const t = muster.exec(o.angebotsnummer || '')
+      return t ? Math.max(m, Number(t[1])) : m
+    }, 0)
+    return `AN-${zieljahr}-${String(max + 1).padStart(3, '0')}`
+  }
 
   function save(e) {
     e.preventDefault()
@@ -1951,10 +1955,12 @@ function OfferModal({ onClose, onSaved, plaene, jahr, clients, rates, planLabel,
       objekt: p.objekt || '',
       beschreibung: planLabel(p),
       stunden: planStd(p),
+      stunden_fahrt: stunden[p.id] == null && mitFahrt ? fahrtStd(p) : null,
       betrag: round2(planStd(p) * satz),
       lv: lvTextForPlan(p, aufgabenByPlan),
     }))
     const row = {
+      angebotsnummer: naechsteNummer(),
       client_id: clientId, typ: 'pflege',
       titel: `Pflege ${clients.find((c) => c.id === clientId)?.name || ''} ${zieljahr}`,
       zeitraum_von: `${zieljahr}-01-01`, zeitraum_bis: `${zieljahr}-12-31`,
@@ -2002,6 +2008,10 @@ function OfferModal({ onClose, onSaved, plaene, jahr, clients, rates, planLabel,
           <input type="checkbox" checked={useKalib} onChange={(e) => setUseKalib(e.target.checked)} />
           Kalibrierungsfaktor der Pläne anwenden (Ist-Erfahrung einpreisen)
         </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: FG, cursor: 'pointer' }}>
+          <input type="checkbox" checked={mitFahrt} onChange={(e) => setMitFahrt(e.target.checked)} />
+          Anfahrt und Rüsten je Pflegegang einpreisen
+        </label>
 
         <div>
           <SectionLabel style={{ marginBottom: 8 }}>Positionen (Basis: Pläne {jahr})</SectionLabel>
@@ -2012,6 +2022,11 @@ function OfferModal({ onClose, onSaved, plaene, jahr, clients, rates, planLabel,
                   {planLabel(p)}
                   {useKalib && Number(p.kalib_faktor) !== 1 && (
                     <span style={{ fontFamily: MONO, fontSize: 10, color: INFO, marginLeft: 6 }}>×{Number(p.kalib_faktor).toLocaleString('de-DE')}</span>
+                  )}
+                  {mitFahrt && stunden[p.id] == null && fahrtStd(p) > 0 && (
+                    <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>
+                      davon Anfahrt {fahrtStd(p).toLocaleString('de-DE')} h ({gaengeAktiv(p).length} Gänge)
+                    </div>
                   )}
                 </div>
                 <input type="number" step="0.25" min="0" value={planStd(p)}
