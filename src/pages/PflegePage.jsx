@@ -208,7 +208,7 @@ Auftraggeber                          Auftragnehmer`
 
 export default function PflegePage() {
   const isMobile = useIsMobile()
-  const { projects, clients, jobs, createJob, updateJob, setJobStatus } = useOps()
+  const { projects, clients, jobs, createJobAsync, updateJob, setJobStatus } = useOps()
   const forecast = useWeather()
   const { entries, hourRules, rates, costRates, costs, logTime, updateEntry, deleteEntry, addCost, deleteCost } = useTime()
   const { isAdmin, profile } = useAuth()
@@ -345,13 +345,40 @@ export default function PflegePage() {
   // Einsatz abschließen: Stunden und Material wandern in die Erfassung
   // (mit job_id verknüpft), danach hakt sich die Kette selbst ab —
   // Gang → Aufgabenkarte → Statistik/Stundenkonten → Leistungsnachweis.
-  function abschliessen(gang, v) {
+  async function abschliessen(gang, v) {
     const plan = plaene.find((p) => p.id === gang.plan_id)
     const geleistet = (v.aufgaben || []).filter((a) => !a.offen).map((a) => a.titel).join(', ')
+    // Jeder abgeschlossene Gang hat einen Einsatz. Wurde er nie terminiert,
+    // entsteht der Einsatz hier — am tatsächlichen Datum, mit den Personen,
+    // die Zeit gebucht haben, gleich als erledigt und ohne Telegram-Meldung.
+    // Ohne diesen Schritt landeten die Stunden mit job_id = null in der
+    // Erfassung, und Plan/Ist je Einsatz blieb leer (Stand 10/2026: 0 von 64).
+    let jobId = gang.job_id || null
+    let neuAngelegt = false
+    if (!jobId && plan) {
+      const beteiligte = Object.entries(v.zeiten || {}).filter(([, h]) => Number(h)).map(([uid]) => uid)
+      try {
+        const job = await createJobAsync({
+          project_id: plan.project_id, title: gang.titel || `Pflegegang KW ${gang.kw}`,
+          job_type: 'pflege', date: v.datum, date_end: null, start_time: v.start || '08:00', end_time: v.ende || null,
+          duration: 'full', assigned_users: beteiligte, vehicle_id: null, vehicle_ids: [], tools: [],
+          notes: `Pflegegang KW ${gang.kw}${plan.objekt ? ` · ${plan.objekt}` : ''}`,
+          location: null, color: null, status: 'done',
+          planned_hours: round2(Number(gang.soll_stunden || 0) + Number(gang.fahrt_stunden || 0)),
+        }, { stumm: true })
+        jobId = job.id
+        neuAngelegt = true
+      } catch (e) {
+        // Ohne gespeicherten Einsatz nicht weiterbuchen — sonst entstehen
+        // genau die Zeiteinträge ohne Bezug, die dieser Schritt verhindern soll.
+        dbErr('jobs')(e)
+        return
+      }
+    }
     for (const [uid, h] of Object.entries(v.zeiten || {})) {
       if (!Number(h)) continue
       logTime({
-        user_id: uid, project_id: plan?.project_id || null, job_id: gang.job_id || null,
+        user_id: uid, project_id: plan?.project_id || null, job_id: jobId,
         date: v.datum, hours: round2(Number(h)),
         description: geleistet || `Pflegegang KW ${gang.kw}`,
         start_time: v.start || null, end_time: v.ende || null,
@@ -364,25 +391,33 @@ export default function PflegePage() {
         amount_net: Number(v.material.amount),
       })
     }
-    updateGang(gang.id, { status: 'erledigt', aufgaben: v.aufgaben })
-    if (gang.job_id) setJobStatus(gang.job_id, 'done')
+    updateGang(gang.id, { status: 'erledigt', aufgaben: v.aufgaben, job_id: jobId })
+    if (jobId && !neuAngelegt) setJobStatus(jobId, 'done')
     setErledigenModal(null)
   }
 
   // Gang terminieren → echter Einsatz (job) mit Soll-Stunden, Gang verlinkt.
   // Erledigt/abgesagt wird der Gang danach automatisch per DB-Trigger.
-  function terminierenGang(gang, { date, assigned_users }) {
+  async function terminierenGang(gang, { date, assigned_users }) {
     const plan = plaene.find((p) => p.id === gang.plan_id)
     if (!plan || !date) return
     const aufgabenText = (gang.aufgaben || []).map((a) => `– ${a.titel} (${a.stunden} h)`).join('\n')
-    const job = createJob({
-      project_id: plan.project_id, title: gang.titel || `Pflegegang KW ${gang.kw}`,
-      job_type: 'pflege', date, date_end: null, start_time: '08:00', end_time: null,
-      duration: 'full', assigned_users, vehicle_id: null, vehicle_ids: [], tools: [],
-      notes: `Pflegegang KW ${gang.kw}${plan.objekt ? ` · ${plan.objekt}` : ''}\n${aufgabenText}`,
-      location: null, color: null, status: 'planned',
-      planned_hours: round2(Number(gang.soll_stunden || 0) + Number(gang.fahrt_stunden || 0)),
-    })
+    // Erst speichern, dann verknüpfen: pflege_gaenge.job_id ist ein
+    // Fremdschlüssel auf jobs.
+    let job
+    try {
+      job = await createJobAsync({
+        project_id: plan.project_id, title: gang.titel || `Pflegegang KW ${gang.kw}`,
+        job_type: 'pflege', date, date_end: null, start_time: '08:00', end_time: null,
+        duration: 'full', assigned_users, vehicle_id: null, vehicle_ids: [], tools: [],
+        notes: `Pflegegang KW ${gang.kw}${plan.objekt ? ` · ${plan.objekt}` : ''}\n${aufgabenText}`,
+        location: null, color: null, status: 'planned',
+        planned_hours: round2(Number(gang.soll_stunden || 0) + Number(gang.fahrt_stunden || 0)),
+      })
+    } catch (e) {
+      dbErr('jobs')(e)
+      return
+    }
     updateGang(gang.id, { job_id: job.id, status: 'terminiert' })
     setGangModal(null)
   }
