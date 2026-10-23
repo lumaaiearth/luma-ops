@@ -145,7 +145,7 @@ export default function SensorPage() {
           <EmptyState
             icon={TrendingUp}
             title="Noch keine Verlaufsdaten"
-            hint="Die Aufzeichnung läuft seit Kurzem. Starte auf der Sensoren-Seite die Simulation (oder warte auf echte Messwerte), dann füllt sich der Verlauf."
+            hint="Für diesen Sensor sind noch keine Messwerte eingegangen. Sobald die Hardware Werte liefert, erscheint hier der Verlauf."
             style={{ border: 'none' }}
           />
         ) : (
