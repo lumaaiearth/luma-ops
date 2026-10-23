@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import SpeicherBild, { SpeicherLink } from '../components/SpeicherBild.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { sb } from '../lib/supabase.js'
 import { A, BG, BORDER, FG, MUTED, SURFACE, CARD, OK, WARN, INFO } from '../lib/theme.js'
@@ -741,10 +742,10 @@ function SectionTitle({ children }) {
    React die Bilder beim Neuzeichnen behält statt sie neu zu laden. */
 function FotoBild({ f }) {
   return (
-    <a href={f.url} target="_blank" rel="noreferrer" style={{ display: 'block', width: 104 }}>
-      <img src={f.url} alt="" loading="lazy"
+    <SpeicherLink href={f.url} target="_blank" rel="noreferrer" style={{ display: 'block', width: 104, height: 78 }}>
+      <SpeicherBild src={f.url} alt="" loading="lazy"
         style={{ width: 104, height: 78, objectFit: 'cover', borderRadius: 7, border: `1px solid ${BORDER}`, display: 'block' }} />
-    </a>
+    </SpeicherLink>
   )
 }
 

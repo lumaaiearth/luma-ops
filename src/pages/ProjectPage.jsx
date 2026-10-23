@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import SpeicherBild from '../components/SpeicherBild.jsx'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { MapContainer, TileLayer, Marker, GeoJSON, useMap } from 'react-leaflet'
 import L from 'leaflet'
@@ -468,7 +469,7 @@ export default function ProjectPage() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8 }}>
                 {photos.map(p => (
                   <div key={p.id} style={{ borderRadius: 8, overflow: 'hidden', border: `1px solid ${BORDER}`, aspectRatio: '1', background: A06 }}>
-                    <img src={p.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    <SpeicherBild src={p.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       onError={e => { e.target.style.display = 'none' }} />
                   </div>
                 ))}

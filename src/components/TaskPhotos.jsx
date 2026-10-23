@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import SpeicherBild from './SpeicherBild.jsx'
 import { Camera, X, Loader, Trash2, ZoomIn } from 'lucide-react'
 import { A, BORDER, FG, MUTED, SURFACE } from '../lib/theme.js'
 import { sbUploadTaskPhoto, sbDeleteTaskPhoto, sbGetTaskPhotos, sbInsert, sbDelete } from '../lib/supabase.js'
@@ -103,7 +104,7 @@ export default function TaskPhotos({ taskId, uploadedBy }) {
             <div key={photo.id}
               style={{ position: 'relative', aspectRatio: '1', borderRadius: 6, overflow: 'hidden', background: SURFACE, border: `1px solid ${BORDER}`, cursor: 'pointer' }}
               onClick={() => setLightbox(photo)}>
-              <img src={photo.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+              <SpeicherBild src={photo.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
               {photo._pending && <div title="Wird bei Netz hochgeladen" style={{ position: 'absolute', top: 3, right: 3, background: 'rgba(245,158,11,0.9)', color: '#1a1200', borderRadius: 4, fontSize: 9, padding: '1px 4px', fontWeight: 700 }}>⏳</div>}
             </div>
           ))}
@@ -132,7 +133,7 @@ export default function TaskPhotos({ taskId, uploadedBy }) {
             style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: 36, height: 36, cursor: 'pointer', color: FG, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <X size={18} />
           </button>
-          <img src={lightbox.url} alt="" onClick={e => e.stopPropagation()}
+          <SpeicherBild src={lightbox.url} alt="" onClick={e => e.stopPropagation()}
             style={{ maxWidth: '100%', maxHeight: '85vh', objectFit: 'contain', borderRadius: 8 }} />
         </div>
       )}

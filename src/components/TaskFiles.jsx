@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { SpeicherLink } from './SpeicherBild.jsx'
 import { Paperclip, X, Loader, Trash2, Download, FileText } from 'lucide-react'
 import { A, BORDER, FG, MUTED, SURFACE } from '../lib/theme.js'
 import { sbUploadTaskFile, sbDeleteTaskFile, sbGetTaskFiles, sbInsert, sbDelete } from '../lib/supabase.js'
@@ -76,10 +77,10 @@ export default function TaskFiles({ taskId, uploadedBy }) {
         {files.map(f => (
           <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 6 }}>
             <FileText size={14} color={A} style={{ flexShrink: 0 }} />
-            <a href={f.url} target="_blank" rel="noreferrer" style={{ flex: 1, minWidth: 0, fontSize: 13, color: FG, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</a>
+            <SpeicherLink href={f.url} target="_blank" rel="noreferrer" style={{ flex: 1, minWidth: 0, fontSize: 13, color: FG, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</SpeicherLink>
             {f._pending && <span title="Wird bei Netz hochgeladen" style={{ fontSize: 10, color: '#f59e0b', flexShrink: 0 }}>⏳</span>}
             {f.size ? <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, flexShrink: 0 }}>{fmtSize(f.size)}</span> : null}
-            <a href={f.url} target="_blank" rel="noreferrer" download style={{ color: MUTED, display: 'flex', flexShrink: 0 }}><Download size={13} /></a>
+            <SpeicherLink href={f.url} target="_blank" rel="noreferrer" download style={{ color: MUTED, display: 'flex', flexShrink: 0 }}><Download size={13} /></SpeicherLink>
             <button type="button" onClick={() => handleDelete(f)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, display: 'flex', flexShrink: 0, padding: 0 }}><Trash2 size={12} /></button>
           </div>
         ))}

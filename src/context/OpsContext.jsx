@@ -270,7 +270,25 @@ export function OpsProvider({ children }) {
     const job = { ...data, id: genId(), created_at: new Date().toISOString() }
     setJobsState(prev => [...prev, job])
     sbUpsert('jobs', [job]).catch(dbErr('ops','write'))
+    meldeNeuenJob(job, data)
+    return job
+  }
 
+  // Wie createJob, wartet aber, bis der Einsatz gespeichert ist. Nötig, wenn
+  // direkt danach Zeilen mit job_id geschrieben werden (time_entries,
+  // pflege_gaenge haben einen Fremdschlüssel auf jobs) — sonst kann die
+  // Folgezeile vor dem Einsatz ankommen und abgewiesen werden.
+  // stumm: keine Telegram-Meldung und kein Kalendertermin (nachträglich
+  // erfasste Einsätze).
+  async function createJobAsync(data, { stumm = false } = {}) {
+    const job = { ...data, id: genId(), created_at: new Date().toISOString() }
+    setJobsState(prev => [...prev, job])
+    await sbUpsert('jobs', [job])
+    if (!stumm) meldeNeuenJob(job, data)
+    return job
+  }
+
+  function meldeNeuenJob(job, data) {
     if (gcal.isConnected()) {
       const project = projects.find(p => p.id === data.project_id)
       gcal.createEvent(job, project?.name).then(gcalId => {
@@ -299,7 +317,6 @@ export function OpsProvider({ children }) {
         tgSend(tgGroups().inter, `⚠️ <b>Fahrzeugkonflikt</b>\nFahrzeug wird doppelt gebucht am ${data.date}:\n– ${conflict.title}\n– ${data.title}`)
       }
     }
-    return job
   }
 
   function updateJob(id, changes) {
@@ -689,7 +706,7 @@ export function OpsProvider({ children }) {
   const people = [...TEAM, ...normalizedFreelancers.filter(f => f.active !== false)]
 
   return (
-    <OpsContext.Provider value={{ jobs: visibleJobs, archivedJobs, recurring, sensors, projects, clients, vehicles, chips, mapFeatures, pflanzplaene, tasks: activeTasks, deletedTasks, boards, people, freelancers: normalizedFreelancers, loading, createJob, updateJob, deleteJob, setJobStatus, archiveJob, restoreJob, createRecurring, deleteRecurring, updateSensorValue, createSensor, updateSensor, deleteSensor, createProject, updateProject, deleteProject, createClient, updateClient, deleteClient, createVehicle, updateVehicle, deleteVehicle, createFreelancer, updateFreelancer, deleteFreelancer, saveChips, createMapFeature, updateMapFeature, deleteMapFeature, createPflanzplan, updatePflanzplan, deletePflanzplan, createTask, updateTask, deleteTask, restoreTask, purgeTask, setTaskStatus, createBoard, updateBoard, deleteBoard }}>
+    <OpsContext.Provider value={{ jobs: visibleJobs, archivedJobs, recurring, sensors, projects, clients, vehicles, chips, mapFeatures, pflanzplaene, tasks: activeTasks, deletedTasks, boards, people, freelancers: normalizedFreelancers, loading, createJob, createJobAsync, updateJob, deleteJob, setJobStatus, archiveJob, restoreJob, createRecurring, deleteRecurring, updateSensorValue, createSensor, updateSensor, deleteSensor, createProject, updateProject, deleteProject, createClient, updateClient, deleteClient, createVehicle, updateVehicle, deleteVehicle, createFreelancer, updateFreelancer, deleteFreelancer, saveChips, createMapFeature, updateMapFeature, deleteMapFeature, createPflanzplan, updatePflanzplan, deletePflanzplan, createTask, updateTask, deleteTask, restoreTask, purgeTask, setTaskStatus, createBoard, updateBoard, deleteBoard }}>
 
       {children}
     </OpsContext.Provider>
