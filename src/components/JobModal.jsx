@@ -5,6 +5,7 @@ import { useOps } from '../context/OpsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import JobPhotos from './JobPhotos.jsx'
 import PeoplePicker from './PeoplePicker.jsx'
+import EinsatzAbschliessen from './EinsatzAbschliessen.jsx'
 
 import { A, SURFACE, BORDER, FG, MUTED, CARD, A06, A08, A14 } from '../lib/theme.js'
 import { Modal, ModalActions, INPUT_STYLE, LABEL_STYLE, DateInput } from './ui.jsx'
@@ -114,6 +115,9 @@ export default function JobModal({ initialDate, initialJob, initialStartTime, in
   const { user } = useAuth()
   const editing = !!initialJob
   const [showQuickProject, setShowQuickProject] = useState(false)
+  const [abschluss, setAbschluss] = useState(false)
+  // Abschließen nur für gespeicherte Einsätze, die noch offen sind.
+  const abschliessbar = editing && initialJob?.id && !['done', 'archived', 'cancelled'].includes(initialJob.status)
   const [locationSuggestions, setLocationSuggestions] = useState([])
   const [locationOpen, setLocationOpen] = useState(false)
   const locationRef = useRef(null)
@@ -230,7 +234,10 @@ export default function JobModal({ initialDate, initialJob, initialStartTime, in
       color: form.color || null,
       tools: form.tools,
       notes: form.notes,
-      status: 'planned',
+      // Beim Bearbeiten den Status behalten. Früher stand hier fest 'planned':
+      // wer an einem erledigten Einsatz nur eine Notiz änderte, setzte ihn
+      // zurück — und per Trigger sync_pflege_gang_status den Pflegegang gleich mit.
+      status: initialJob?.status || 'planned',
     }
     if (form.make_recurring) {
       onSave({ type: 'recurring', data: { ...jobData, interval_days: Number(form.interval_days), next_date: form.date, active: true } })
@@ -484,9 +491,25 @@ export default function JobModal({ initialDate, initialJob, initialStartTime, in
           )}
 
           {/* Actions */}
-          <ModalActions onCancel={onClose} submitLabel={editing ? 'Speichern' : form.make_recurring ? 'Vorlage erstellen' : 'Einsatz anlegen'} />
+          <ModalActions onCancel={onClose} submitLabel={editing ? 'Speichern' : form.make_recurring ? 'Vorlage erstellen' : 'Einsatz anlegen'}
+            left={abschliessbar ? (
+              <button type="button" onClick={() => setAbschluss(true)} className="lu-btn-ghost"
+                title="Stunden je Person auf diesen Einsatz buchen und ihn als erledigt markieren"
+                style={{ padding: '7px 14px', borderRadius: 8, border: `1px solid ${BORDER}`, background: 'transparent', color: A, cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
+                Einsatz abschließen
+              </button>
+            ) : null} />
         </form>
     </Modal>
+
+    {abschluss && (
+      // Vorschlag aus dem Formularstand (Personen, Uhrzeiten), gebucht wird auf
+      // den gespeicherten Einsatz. Nicht gespeicherte Formularänderungen
+      // bleiben dabei unberücksichtigt — der Dialog schließt beide Fenster.
+      <EinsatzAbschliessen
+        job={{ ...initialJob, date: form.date, assigned_users: form.assigned_users, start_time: form.start_time || null, end_time: form.end_time || null }}
+        onClose={() => { setAbschluss(false); onClose() }} />
+    )}
 
     {showQuickProject && (
       <QuickProjectModal
