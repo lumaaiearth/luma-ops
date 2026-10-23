@@ -76,6 +76,23 @@ Schema als das laufende.
 
 Die Produktionsdatenbank wird dabei nie angefasst.
 
+## Mandantentrennung
+
+`fixtures/regeltests-mandanten.sql` prüft, dass ein Kundenkonto nur die
+Daten der eigenen Organisation sieht — über alle `v_kunde_*`-Sichten und
+direkt auf den internen Tabellen — und dass Gast und `anon` keine Kundendaten
+erreichen. Der Test braucht echtes Schema und Bestand, läuft deshalb nicht im
+Prüfstand, sondern gegen die Produktion (oder einen Abzug), vollständig in
+einer Transaktion mit `ROLLBACK` am Ende:
+
+```
+psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f fixtures/regeltests-mandanten.sql
+```
+
+Pflicht vor jeder Änderung an Rollen, RLS-Policies oder `v_kunde_*`-Sichten und
+vor dem Freischalten eines neuen Kundenkontos. Stand 2026-10-23: 46 Prüfungen
+grün.
+
 ## Abnahme
 
 `playwright.config.js` fährt zwei Projekte: `desktop` (1440 × 900) und `mobil`
