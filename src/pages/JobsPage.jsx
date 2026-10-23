@@ -7,6 +7,7 @@ import { JOB_TYPES, VEHICLES } from '../data/seed.js'
 import { peopleForIds, avatarFor } from '../lib/people.js'
 import { formatDate, isoToday } from '../lib/storage.js'
 import JobModal from '../components/JobModal.jsx'
+import EinsatzAbschliessen from '../components/EinsatzAbschliessen.jsx'
 import { useBreakpoint } from '../lib/useBreakpoint.js'
 import { Plus, Repeat, Trash2, CheckCircle2, Circle, Pencil, ChevronRight, Archive, RotateCcw, Check } from 'lucide-react'
 
@@ -21,6 +22,7 @@ export default function JobsPage() {
   const [editJob, setEditJob] = useState(null)
   const [tab, setTab]       = useState(() => searchParams.get('tab') === 'recurring' ? 'recurring' : 'jobs')
   const [filter, setFilter] = useState('all')
+  const [abschluss, setAbschluss] = useState(null)   // Einsatz im Abschluss-Dialog
 
   // Deep-Link: /jobs?open=<id> öffnet den Einsatz direkt
   useEffect(() => {
@@ -106,9 +108,13 @@ export default function JobsPage() {
                 gangId={tasks.find(t => t.job_id === job.id && t.gang_id)?.gang_id || null}
                 today={today}
                 isMobile={isMobile}
-                onToggleStatus={() => setJobStatus(job.id,
-                  job.status === 'done' ? 'planned' :
-                  job.status === 'planned' ? 'in_progress' : 'done')}
+                onToggleStatus={() => {
+                  // Der Schritt nach „erledigt" führt über den Abschluss-Dialog,
+                  // damit die Zeit am Einsatz gebucht wird.
+                  if (job.status === 'done') setJobStatus(job.id, 'planned')
+                  else if (job.status === 'planned') setJobStatus(job.id, 'in_progress')
+                  else setAbschluss(job)
+                }}
                 onEdit={() => { setEditJob(job); setModal({ job }) }}
                 onDelete={() => deleteJob(job.id)}
                 onArchive={() => archiveJob(job.id)}
@@ -164,6 +170,7 @@ export default function JobsPage() {
         </div>
       )}
 
+      {abschluss && <EinsatzAbschliessen job={abschluss} onClose={() => setAbschluss(null)} />}
       {modal && (
         <JobModal
           initialDate={modal.date}
