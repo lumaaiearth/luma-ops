@@ -1,0 +1,37 @@
+name: Workflows wach halten
+
+# GitHub schaltet geplante Workflows ab, wenn 60 Tage lang kein Commit im Repo
+# landet (Status „disabled_inactivity"). Genau so standen Backup und MANA ab
+# Mitte Oktober 2026 still, ohne dass es jemand merkte.
+#
+# Dieser Job schaltet sie wöchentlich wieder ein. Er braucht keinen Commit.
+# Er selbst kann ebenfalls abgeschaltet werden — dann schaltet ihn der nächste
+# Push auf main wieder ein (Trigger unten).
+
+on:
+  schedule:
+    - cron: '41 6 * * 1'   # montags
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+jobs:
+  enable:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Geplante Workflows einschalten
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          for wf in backup.yml mana-scan.yml mana-chancen.yml keepalive.yml; do
+            status=$(gh api "repos/$REPO/actions/workflows/$wf" --jq .state)
+            echo "$wf: $status"
+            if [ "$status" != "active" ]; then
+              gh api -X PUT "repos/$REPO/actions/workflows/$wf/enable"
+              echo "  → wieder eingeschaltet"
+            fi
+          done

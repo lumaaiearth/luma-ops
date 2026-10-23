@@ -37,7 +37,9 @@ beenden() {
 trap beenden EXIT
 
 echo "── Vorschauserver auf Port ${PORT} ────────────────────────────────────"
-npx vite preview --outDir "$AUSGABE" --port "$PORT" --strictPort >/tmp/abnahme-server.log 2>&1 &
+# --host 127.0.0.1: ohne Angabe lauscht vite je nach System nur auf ::1, und die
+# Abfrage unten auf 127.0.0.1 läuft ins Leere.
+npx vite preview --outDir "$AUSGABE" --host 127.0.0.1 --port "$PORT" --strictPort >"${TMPDIR:-/tmp}/abnahme-server.log" 2>&1 &
 SERVER_PID=$!
 
 for _ in $(seq 1 60); do

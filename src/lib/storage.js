@@ -1,29 +1,6 @@
-import { SEED_JOBS, SEED_RECURRING, SEED_SENSORS, SEED_TIME_ENTRIES, SEED_INVOICES, PROJECTS_OPS } from '../data/seed.js'
-
-const KEYS = { jobs: 'luma_jobs', recurring: 'luma_recurring', sensors: 'luma_sensors', time: 'luma_time_entries', invoices: 'luma_invoices', projects: 'luma_projects' }
-
-function load(key, fallback) {
-  try { return JSON.parse(localStorage.getItem(key)) || fallback } catch { return fallback }
-}
-function save(key, val) { localStorage.setItem(key, JSON.stringify(val)) }
-
-export function getJobs() { return load(KEYS.jobs, SEED_JOBS) }
-export function saveJobs(jobs) { save(KEYS.jobs, jobs) }
-
-export function getRecurring() { return load(KEYS.recurring, SEED_RECURRING) }
-export function saveRecurring(r) { save(KEYS.recurring, r) }
-
-export function getSensors() { return load(KEYS.sensors, SEED_SENSORS) }
-export function saveSensors(s) { save(KEYS.sensors, s) }
-
-export function getTimeEntries() { return load(KEYS.time, SEED_TIME_ENTRIES) }
-export function saveTimeEntries(t) { save(KEYS.time, t) }
-
-export function getInvoices() { return load(KEYS.invoices, SEED_INVOICES) }
-export function saveInvoices(i) { save(KEYS.invoices, i) }
-
-export function getProjects() { return load(KEYS.projects, PROJECTS_OPS) }
-export function saveProjects(p) { save(KEYS.projects, p) }
+// Die früheren get*/save*-Helfer (localStorage mit Demodaten aus seed.js als
+// Ersatz) sind entfernt: save* wurde nie aufgerufen, get* lieferte deshalb
+// immer die Demodaten — und die erschienen, sobald eine Abfrage leer war.
 
 export function genId() {
   return Math.random().toString(36).slice(2, 10)

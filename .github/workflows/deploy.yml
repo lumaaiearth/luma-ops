@@ -1,8 +1,13 @@
 name: Deploy to GitHub Pages
 
+# Jeder Push auf main geht sofort live. Deshalb läuft vorher das Merge-Gate
+# (docs/MERGE_GATE.md) — bisher stand es nur in der Doku und lief nirgends
+# automatisch. Schlägt ein Schritt fehl, wird nicht deployt.
+
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -11,11 +16,57 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: '5432'
+      PGUSER: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Typprüfung
+        run: npm run typecheck
+      - name: Node-Tests
+        run: npm test
+      - name: PostgreSQL-Client
+        run: sudo apt-get install -y -qq postgresql-client >/dev/null
+      - name: Migration vor/zurück + Regeltests
+        run: npm run migration:test
+      - name: Playwright-Browser
+        run: npx playwright install --with-deps chromium
+      - name: Abnahme
+        run: npm run abnahme
+      - name: Abnahmebericht bei Fehler
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: abnahme-bericht
+          path: .playwright/
+          retention-days: 14
+
   deploy:
+    needs: gate
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -24,7 +75,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - run: npm run build

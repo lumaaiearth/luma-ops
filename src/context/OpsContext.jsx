@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { sb, sbUpsert, sbDelete, sbUpdate, sbInsert } from '../lib/supabase.js'
-import { getJobs, saveJobs, getRecurring, saveRecurring, getSensors, saveSensors, getProjects, saveProjects, genId, addDays } from '../lib/storage.js'
+import { genId, addDays } from '../lib/storage.js'
 import { tgSend, tgGroups, groupsForUsers } from '../lib/telegram.js'
 import { maybeSendWeeklySummary } from '../lib/weeklySummary.js'
 import { maybeSendTaskReminders } from '../lib/taskReminders.js'
@@ -25,7 +25,8 @@ function recordSensorReading(sensorId, value) {
 function dbErr(table, op) {
   return (err) => {
     console.error(`[DB] ${op} on ${table} failed:`, err?.message || err)
-    const msg = `⚠️ Speicherfehler (${table}): ${err?.message || 'unbekannter Fehler'}`
+    const art = op === 'read' ? 'Ladefehler' : 'Speicherfehler'
+    const msg = `⚠️ ${art} (${table}): ${err?.message || 'unbekannter Fehler'}`
     if (window.__lumaToast) window.__lumaToast(msg)
   }
 }
@@ -45,7 +46,7 @@ export function OpsProvider({ children }) {
   const { isMitarbeiter, user } = useAuth()
   const [jobs, setJobsState] = useState([])
   const [recurring, setRecurringState] = useState([])
-  const [sensors, setSensorsState] = useState(getSensors)
+  const [sensors, setSensorsState] = useState([])
   const [projects, setProjectsState] = useState([])
   const [clients, setClientsState] = useState([])
   const [vehicles, setVehiclesState] = useState([])
@@ -97,14 +98,17 @@ export function OpsProvider({ children }) {
           sb.from('boards').select('*').order('sort_order'),
           sb.from('people').select('*').order('sort_order').order('name'),
         ])
-        if (pRows.data?.length) setProjectsState(pRows.data)
-        else setProjectsState(getProjects()) // fallback to localStorage seed
+        // Was die Datenbank liefert, gilt — auch wenn es leer ist. Früher sprangen
+        // hier bei 0 Zeilen oder einem Fehler die Demodaten aus seed.js ein:
+        // erfundene Sensoren und Einsätze, und ein Kundenkonto, dem die RLS
+        // keine Projekte zeigt, hätte die Projektliste von LUMA gesehen.
+        for (const [name, res] of [['projects', pRows], ['jobs', jRows], ['recurring_templates', rRows], ['sensors', sRows]]) {
+          if (res.error) dbErr(name, 'read')(res.error)
+        }
+        if (pRows.data) setProjectsState(pRows.data)
         if (jRows.data) setJobsState(jRows.data)
-        else setJobsState(getJobs())
         if (rRows.data) setRecurringState(rRows.data)
-        else setRecurringState(getRecurring())
-        if (sRows.data?.length) setSensorsState(sRows.data)
-        else setSensorsState(getSensors())
+        if (sRows.data) setSensorsState(sRows.data)
         if (cRows.data?.length) {
           setClientsState(cRows.data)
         } else if (cRows.data && isMitarbeiter) {
@@ -135,12 +139,8 @@ export function OpsProvider({ children }) {
         }
         if (flRows.data) setFreelancersState(flRows.data)
       } catch (e) {
-        console.error('[OpsContext] load failed:', e)
-        // Offline fallback
-        setProjectsState(getProjects())
-        setJobsState(getJobs())
-        setRecurringState(getRecurring())
-        setSensorsState(getSensors())
+        // Kein Ersatz durch Demodaten — der Fehler wird angezeigt.
+        dbErr('Betriebsdaten', 'read')(e)
       } finally {
         if (!cancelled) setLoading(false)
       }

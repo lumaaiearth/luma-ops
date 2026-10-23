@@ -18,7 +18,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install Anthropic SDK
         run: npm i --no-save @anthropic-ai/sdk
@@ -29,14 +29,17 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          INPUT_FOCUS: ${{ github.event.inputs.focus }}
         run: |
-          # Solange die Secrets fehlen, still überspringen statt wöchentlich rot fehlzuschlagen
+          # Fehlende Secrets sind ein Fehler, kein stiller Erfolg (siehe mana-scan.yml).
           if [ -z "$ANTHROPIC_API_KEY" ] || [ -z "$SUPABASE_SERVICE_KEY" ]; then
-            echo "::warning::MANA-Chancen übersprungen — ANTHROPIC_API_KEY/SUPABASE_SERVICE_KEY fehlen (Repo → Settings → Secrets → Actions)."
-            exit 0
+            echo "::error::MANA-Chancen nicht möglich — ANTHROPIC_API_KEY/SUPABASE_SERVICE_KEY fehlen (Repo → Settings → Secrets → Actions)."
+            exit 1
           fi
-          if [ -n "${{ github.event.inputs.focus }}" ]; then
-            node scripts/mana-chancen.mjs --focus="${{ github.event.inputs.focus }}"
+          # Eingabe über eine Umgebungsvariable, nicht direkt in den Befehl
+          # eingesetzt — sonst wird Freitext als Shell-Code ausgeführt.
+          if [ -n "$INPUT_FOCUS" ]; then
+            node scripts/mana-chancen.mjs --focus="$INPUT_FOCUS"
           else
             node scripts/mana-chancen.mjs
           fi

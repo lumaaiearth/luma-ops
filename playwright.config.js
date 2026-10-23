@@ -3,10 +3,15 @@
 // Jeder gewonnene Job wandert dauerhaft hierher. Eine Regression in einem
 // bereits gewonnenen Job blockiert den Merge, auch Wellen später.
 //
-// Chromium liegt in dieser Umgebung vorinstalliert unter /opt/pw-browsers —
-// kein `playwright install` nötig, kein Download. Der Browser kommt nicht ins
-// Internet; die Suite fährt ausschließlich die lokale App.
+// Browser: BIOME_CHROMIUM, falls gesetzt; sonst /opt/pw-browsers/chromium,
+// wenn vorhanden (frühere Loop-Umgebung); sonst Playwrights eigenes Chromium
+// (`npx playwright install chromium`, lokal unter Windows und in der CI).
+// Die Suite fährt ausschließlich die lokale App.
+import { existsSync } from 'node:fs'
 import { defineConfig, devices } from '@playwright/test'
+
+const CHROMIUM = process.env.BIOME_CHROMIUM
+  || (existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : undefined)
 
 const PORT = Number(process.env.BIOME_PORT || 4173)
 const BASE = process.env.BIOME_BASE_URL || `http://127.0.0.1:${PORT}`
@@ -34,7 +39,7 @@ export default defineConfig({
     trace: 'retain-on-failure',
     video: 'off',
     launchOptions: {
-      executablePath: process.env.BIOME_CHROMIUM || '/opt/pw-browsers/chromium',
+      executablePath: CHROMIUM,
       args: ['--no-sandbox', '--disable-dev-shm-usage'],
     },
   },
@@ -50,7 +55,7 @@ export default defineConfig({
     },
   ],
   webServer: process.env.BIOME_BASE_URL ? undefined : {
-    command: `npx vite preview --port ${PORT} --strictPort`,
+    command: `npx vite preview --host 127.0.0.1 --port ${PORT} --strictPort`,
     port: PORT,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
