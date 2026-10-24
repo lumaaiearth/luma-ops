@@ -35,7 +35,7 @@ import { MONO, LABEL } from './bausteine.jsx'
 import { FEHLT, datum as fmtDatum, crsUri } from '../format.js'
 
 /**
- * @param {{ k: string, v: string, titel?: string }} p
+ * @param {{ k: string, v: string, titel?: string, test?: string }} p
  */
 function Feld({ k, v, titel, test }) {
   return (
