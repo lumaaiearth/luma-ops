@@ -16,6 +16,7 @@ import { fetchBuildingsBbox } from '../lib/overpass.js'
 import { fetchAlkisBuildings, fetchBerlinTrees, isInBerlin } from '../lib/berlinGeo.js'
 import { findLod2Patch, findLod2Entry } from '../lib/lod2.js'
 import { crownBase } from '../lib/solar.js'
+import { HELLE_KARTE_URL } from '../data/biomeLayers.js'
 
 const MONO = "'Space Mono', monospace"
 const SANS = "'Space Grotesk', sans-serif"
@@ -228,7 +229,7 @@ export default function Sun3DView({ center, mapFeatures = [], projectColorById =
     const layers = [
       new TileLayer({
         id: 'basemap',
-        data: 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+        data: HELLE_KARTE_URL,   // CARTO zeigt ohne API-Schlüssel nur ein Wasserzeichen
         minZoom: 0, maxZoom: 19, tileSize: 256,
         renderSubLayers: props => {
           const { west, south, east, north } = props.tile.bbox

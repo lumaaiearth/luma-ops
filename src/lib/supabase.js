@@ -17,21 +17,30 @@ export async function sbGet(table) {
   return data
 }
 
+// Fixture-Modus (Playwright-Abnahme, Karten-Funktionstest): Schreibzugriffe
+// bleiben im Browser. Vite ersetzt die Bedingung beim Produktionsbau durch
+// false — in dist/ fällt der Zweig weg (gleiches Muster wie AuthContext).
+const FIXTURE = !!import.meta.env?.VITE_BIOME_FIXTURE
+
 // ── Rohe DB-Operationen (werfen bei Fehler) ────────────────────────────────────
 async function _upsert(table, rows) {
+  if (FIXTURE) return
   const { error } = await sb.from(table).upsert(rows, { onConflict: 'id' })
   if (error) throw error
 }
 async function _delete(table, id) {
+  if (FIXTURE) return
   const { error } = await sb.from(table).delete().eq('id', id)
   if (error) throw error
 }
 async function _insert(table, row) {
+  if (FIXTURE) return row
   const { data, error } = await sb.from(table).upsert(row, { onConflict: 'id' }).select().single()
   if (error) throw error
   return data
 }
 async function _update(table, id, changes) {
+  if (FIXTURE) return
   const { error } = await sb.from(table).update(changes).eq('id', id)
   if (error) throw error
 }

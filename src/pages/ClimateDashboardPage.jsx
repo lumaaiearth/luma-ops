@@ -18,6 +18,7 @@ import { useIsMobile } from '../lib/useIsMobile.js'
 import { geometryCentroid } from '../lib/geo.js'
 import { sampleScopePoints, fetchGebietsProfil, fetchSensorCluster, CLUSTER } from '../lib/klimaProfil.js'
 import { idwRaster, rasterZuDataUrl } from '../lib/idw.js'
+import { DUNKLE_KARTE_URL } from '../data/biomeLayers.js'
 
 const MONO = "'Space Mono', monospace"
 const SANS = "'Space Grotesk', sans-serif"
@@ -530,8 +531,8 @@ export default function ClimateDashboardPage() {
           </div>
           <div style={{ height: 320 }}>
             <MapContainer center={[52.515, 13.405]} zoom={10} style={{ width: '100%', height: '100%' }} scrollWheelZoom>
-              <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                attribution='&copy; OpenStreetMap &copy; CARTO' maxZoom={19} />
+              <TileLayer url={DUNKLE_KARTE_URL}
+                attribution='&copy; Esri, HERE, Garmin, OpenStreetMap-Mitwirkende' maxNativeZoom={16} maxZoom={19} />
               {scope?.geometry && (
                 <GeoJSON key={scope.label} data={{ type: 'Feature', geometry: scope.geometry }}
                   style={{ color: A, weight: 2, fillColor: A, fillOpacity: 0.06 }} />
