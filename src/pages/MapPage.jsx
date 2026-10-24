@@ -29,6 +29,7 @@ import { TILES, GRUNDKARTEN, GRUNDKARTEN_GRUPPEN, LAYER_CATS, OPEN_LAYERS, legen
 import { geometryCentroid, geomMeasures } from '../lib/geo.js'
 import { projektAusLage } from '../lib/projektAusLage.js'
 import { kartenStatusSetzen } from '../lib/kartenStatus.js'
+import { darfGeometrieAendern, FRIST_STUNDEN } from '../lib/geometrieRecht.js'
 import { SENSOR_TYPE_LABELS, SENSOR_TYPE_ICONS } from '../data/sensorTypes.js'
 import { useSensorSeries } from '../lib/sensorHistory.js'
 import SensorTile, { SensorSparkRow, sensorColor } from '../components/SensorTile.jsx'
@@ -1111,7 +1112,7 @@ export default function MapPage({ ohneSeitenleiste = false, inspector = null } =
   // Rechte: Erfassen (Features, Fotos, Sensoren, Analysen) dürfen alle internen
   // Nutzer — dafür ist die mobile Serien-Erfassung gebaut, und die RLS erlaubt es
   // (Policy is_internal()). Löschen und Geometrien verschieben bleibt Admin-Sache.
-  const { isAdmin, isMitarbeiter } = useAuth()
+  const { isAdmin, isMitarbeiter, user } = useAuth()
   const canCapture = isMitarbeiter
   const navigate = useNavigate()
   const location = useLocation()
@@ -1259,6 +1260,33 @@ export default function MapPage({ ohneSeitenleiste = false, inspector = null } =
   const [measureMenu, setMeasureMenu] = useState(false)
   const [liveMeasure, setLiveMeasure] = useState(null)       // { length, area } während des Zeichnens
   const featureLayers = useRef(new Map())                    // featureId -> Leaflet-Layer (für Edit-Modus)
+  // Event-Handler der Leaflet-Layer leben länger als ein Render — sie lesen
+  // den aktuellen Stand über Refs statt über veraltete Closures.
+  const mapFeaturesRef = useRef(mapFeatures)
+  useEffect(() => { mapFeaturesRef.current = mapFeatures }, [mapFeatures])
+  const darfAendern = useCallback(
+    f => darfGeometrieAendern(f, { isAdmin, isMitarbeiter, userId: user?.id }),
+    [isAdmin, isMitarbeiter, user?.id])
+  const darfAendernRef = useRef(darfAendern)
+  useEffect(() => { darfAendernRef.current = darfAendern }, [darfAendern])
+  // Rückgängig für die letzte Speicherung (Geometrie geändert oder Objekt angelegt)
+  const [rueckgaengig, setRueckgaengig] = useState(null)   // { text, aktion }
+  useEffect(() => {
+    if (!rueckgaengig) return
+    const t = setTimeout(() => setRueckgaengig(null), 12000)
+    return () => clearTimeout(t)
+  }, [rueckgaengig])
+  function merkeGeometrie(featId) {
+    const vorher = mapFeaturesRef.current.find(f => f.id === featId)
+    if (!vorher) return
+    setRueckgaengig({
+      text: `„${vorher.label || 'Objekt'}“ verschoben`,
+      aktion: () => updateMapFeature(featId, { geometry: vorher.geometry, properties: vorher.properties }),
+    })
+  }
+  function merkeAnlage(featId, label) {
+    setRueckgaengig({ text: `„${label || 'Objekt'}“ gespeichert`, aktion: () => deleteMapFeature(featId) })
+  }
   const editModeRef = useRef(false)
   useEffect(() => { editModeRef.current = editMode }, [editMode])
   // Während gezeichnet oder gemessen wird, gehören Klicks dem Zeichenwerkzeug.
@@ -1298,10 +1326,11 @@ export default function MapPage({ ohneSeitenleiste = false, inspector = null } =
 
   // Bearbeiten-Modus: Geoman-Editing auf allen Feature-Layern an/aus
   useEffect(() => {
-    featureLayers.current.forEach(layer => {
+    featureLayers.current.forEach((layer, id) => {
       try {
         if (!layer._map) return
-        if (editMode) layer.pm?.enable({ allowSelfIntersection: true })
+        const feat = mapFeaturesRef.current.find(f => f.id === id)
+        if (editMode && darfAendernRef.current(feat)) layer.pm?.enable({ allowSelfIntersection: true })
         else layer.pm?.disable()
       } catch { /* Layer gerade entfernt */ }
     })
@@ -1662,7 +1691,7 @@ export default function MapPage({ ohneSeitenleiste = false, inspector = null } =
   // Serien-Speichern: Feature anlegen, Zeichenmodus bleibt aktiv → nächster Tap
   function onQuickTreeSave({ label, properties }) {
     if (!drawingProject || !pendingGeometry) return
-    createMapFeature({
+    const neu = createMapFeature({
       id: genId(),
       project_id: drawingProject.id,
       feature_type: 'tree',
@@ -1670,6 +1699,7 @@ export default function MapPage({ ohneSeitenleiste = false, inspector = null } =
       label,
       properties,
     })
+    merkeAnlage(neu.id, label)
     ensureProjectPin(drawingProject, pendingGeometry)
     setSerialCount(c => c + 1)
     setPendingGeometry(null)  // DrawControl remountet → Zeichnen sofort wieder aktiv
@@ -1714,6 +1744,7 @@ export default function MapPage({ ohneSeitenleiste = false, inspector = null } =
   function saveEditedGeometry(featId, layer) {
     try {
       const geometry = layer.toGeoJSON().geometry
+      merkeGeometrie(featId)
       updateMapFeature(featId, { geometry, properties: withoutAnalysen(featId) })
     } catch { /* Layer nicht serialisierbar */ }
   }
@@ -1721,7 +1752,7 @@ export default function MapPage({ ohneSeitenleiste = false, inspector = null } =
   // Sonnen-/Starkregen-Ergebnisse hängen am Standort — nach dem Verschieben
   // sind sie ungültig und müssen neu berechnet werden.
   function withoutAnalysen(featId) {
-    const props = mapFeatures.find(f => f.id === featId)?.properties || {}
+    const props = mapFeaturesRef.current.find(f => f.id === featId)?.properties || {}
     if (!props.sonnenanalyse && !props.starkregen) return props
     const { sonnenanalyse, starkregen, ...rest } = props
     return rest
@@ -1753,6 +1784,7 @@ export default function MapPage({ ohneSeitenleiste = false, inspector = null } =
         label,
         properties,
       })
+      merkeAnlage(featureId, label)
       ensureProjectPin(drawingProject, pendingGeometry)
     }
     if (goToFloralis) {
@@ -2329,12 +2361,13 @@ export default function MapPage({ ohneSeitenleiste = false, inspector = null } =
               const [lng, lat] = geom.coordinates
               const isTree = feat.feature_type === 'tree'
               const icon = isTree ? makeTreeIcon(color) : makePin(color, 14)
-              const canDrag = isAdmin && editMode
+              const canDrag = editMode && darfAendern(feat)
               return (
                 <Marker key={feat.id} position={[lat, lng]} icon={icon} draggable={canDrag}
                   eventHandlers={{
                     dragend: e => {
                       const ll = e.target.getLatLng()
+                      merkeGeometrie(feat.id)
                       updateMapFeature(feat.id, {
                         geometry: { type: 'Point', coordinates: [ll.lng, ll.lat] },
                         properties: withoutAnalysen(feat.id),
@@ -2349,13 +2382,14 @@ export default function MapPage({ ohneSeitenleiste = false, inspector = null } =
             // Polygon / LineString / etc.
             const isLine = geom.type === 'LineString' || geom.type === 'MultiLineString'
             return (
-              <GeoJSON key={feat.id} data={{ type: 'Feature', geometry: geom }}
+              // Schlüssel mit Änderungszeit: nach Rückgängig zeigt die Karte wieder die alte Form
+              <GeoJSON key={`${feat.id}:${feat.updated_at || ''}`} data={{ type: 'Feature', geometry: geom }}
                 style={{ color, weight: 2.5, fillColor: color, fillOpacity: isLine ? 0 : 0.18 }}
                 onEachFeature={(_, layer) => {
                   // Für den Bearbeiten-Modus registrieren & Änderungen speichern
                   featureLayers.current.set(feat.id, layer)
                   layer.on('pm:edit', () => saveEditedGeometry(feat.id, layer))
-                  if (isAdmin && editModeRef.current) {
+                  if (editModeRef.current && darfAendernRef.current(feat)) {
                     try { layer.pm?.enable({ allowSelfIntersection: true }) } catch {}
                   }
                   layer.on('click', (e) => {
@@ -2546,9 +2580,11 @@ export default function MapPage({ ohneSeitenleiste = false, inspector = null } =
                   style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: '1px solid transparent', background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
                   <span style={{ fontSize: 13 }}>📡</span>{!kompakt && 'Sensor'}
                 </button>
-                {/* Geometrien verschieben bleibt Admin-Sache — versehentliches
-                    Ziehen würde bestehende Flächen verfälschen */}
-                {isAdmin && <button onClick={() => setEditMode(v => !v)} title="Bearbeiten: Punkte verschieben, Eckpunkte ziehen"
+                {/* Admin verschiebt alles; Mitarbeitende nur eigene Objekte der
+                    letzten 24 h (src/lib/geometrieRecht.js) — versehentliches
+                    Ziehen soll gewachsene Bestände nicht verfälschen */}
+                {canCapture && <button onClick={() => setEditMode(v => !v)} data-test="bearbeiten-knopf"
+                  title={isAdmin ? 'Bearbeiten: Punkte verschieben, Eckpunkte ziehen' : `Bearbeiten: eigene Objekte der letzten ${FRIST_STUNDEN} h verschieben`}
                   style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: `1px solid ${editMode ? `color-mix(in srgb, ${A} 44%, transparent)` : 'transparent'}`, background: editMode ? A14 : 'transparent', color: editMode ? A : MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
                   <Move size={13} />{!kompakt && 'Bearbeiten'}
                 </button>}
@@ -2852,11 +2888,33 @@ export default function MapPage({ ohneSeitenleiste = false, inspector = null } =
           </div>
         )}
 
+        {/* Rückgängig nach dem Speichern */}
+        {rueckgaengig && (
+          <div className="lu-fade-in" data-test="rueckgaengig" style={{ position: 'absolute', bottom: isMobile ? 84 : 24, left: '50%', transform: 'translateX(-50%)', zIndex: 1100, background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '7px 8px 7px 14px', fontSize: 12, color: FG, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 4px 18px rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', gap: 12, maxWidth: 'calc(100% - 24px)' }}>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rueckgaengig.text}</span>
+            <button onClick={() => { rueckgaengig.aktion(); setRueckgaengig(null) }}
+              style={{ padding: '4px 10px', borderRadius: 6, border: `1px solid ${A}`, background: 'transparent', color: A, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+              Rückgängig
+            </button>
+            <button onClick={() => setRueckgaengig(null)} aria-label="Hinweis schließen"
+              style={{ background: 'none', border: 'none', color: MUTED, cursor: 'pointer', display: 'flex' }}><X size={13} /></button>
+          </div>
+        )}
+
         {/* Bearbeiten-Modus Banner */}
         {editMode && !drawMode && (
           <div style={{ position: 'absolute', top: isMobile ? 104 : 58, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: SURFACE, border: `1px solid color-mix(in srgb, ${A} 38%, transparent)`, borderRadius: 14, padding: '7px 14px', fontSize: 12, color: FG, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 2px 12px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', gap: 10 }}>
             <Move size={13} color={A} />
-            <span>Bearbeiten aktiv — Punkte verschieben, Eckpunkte ziehen. Änderungen werden automatisch gespeichert.</span>
+            <span data-test="bearbeiten-hinweis">
+              {isAdmin
+                ? 'Bearbeiten aktiv — Punkte verschieben, Eckpunkte ziehen. Änderungen werden automatisch gespeichert.'
+                : (() => {
+                    const n = mapFeatures.filter(darfAendern).length
+                    return n
+                      ? `Bearbeiten aktiv — ${n} eigene Objekte der letzten ${FRIST_STUNDEN} h verschiebbar. Änderungen werden automatisch gespeichert.`
+                      : `Keine eigenen Objekte der letzten ${FRIST_STUNDEN} h — ältere oder fremde Objekte korrigiert ein Admin.`
+                  })()}
+            </span>
             <button onClick={() => setEditMode(false)} className="lu-btn-primary"
               style={{ padding: '3px 10px', borderRadius: 6, background: A, border: 'none', color: 'var(--luma-on-a)', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
               Fertig

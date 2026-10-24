@@ -225,6 +225,36 @@ for (const route of ['/karte-vollbild', '/biome']) {
       await expect.poll(() => page.locator('.leaflet-interactive').count()).toBeGreaterThan(vorher)
     })
 
+    test('Mitarbeitende korrigieren eigene neue Objekte, Speichern lässt sich rückgängig machen', async ({ page }) => {
+      // Als Mitarbeiter-Konto neu laden (Fixture-Schalter, nur im Abnahme-Build)
+      await page.evaluate(() => localStorage.setItem('luma_abnahme_rolle', 'mitarbeiter'))
+      await page.reload()
+      await karte(page).waitFor()
+      await zurTestflaeche(page)
+      await page.locator('select[title="Projekt für neue Objekte"]').selectOption('test-nord')
+      const baeume = () => page.locator('.leaflet-marker-icon').count()
+      const vorher = await baeume()
+      // Baum setzen und speichern → Rückgängig entfernt ihn wieder
+      await page.locator('button[title^="Baum"]').first().click()
+      await klickKarte(page, 90, 60)
+      await page.getByRole('button', { name: /Speichern/ }).first().click()
+      await page.keyboard.press('Escape')
+      await expect.poll(baeume).toBe(vorher + 1)
+      const hinweis = page.locator('[data-test=rueckgaengig]')
+      await expect(hinweis).toContainText('gespeichert')
+      await hinweis.getByRole('button', { name: 'Rückgängig' }).click()
+      await expect.poll(baeume).toBe(vorher)
+      // Noch einmal setzen: im Bearbeiten-Modus ist nur der eigene, neue Baum verschiebbar
+      await page.locator('button[title^="Baum"]').first().click()
+      await klickKarte(page, 90, 60)
+      await page.getByRole('button', { name: /Speichern/ }).first().click()
+      await page.keyboard.press('Escape')
+      await page.locator('[data-test=bearbeiten-knopf]').click()
+      await expect(page.locator('[data-test=bearbeiten-hinweis]')).toContainText('1 eigene Objekte')
+      await expect(page.locator('.leaflet-marker-draggable')).toHaveCount(1)
+      await page.evaluate(() => localStorage.removeItem('luma_abnahme_rolle'))
+    })
+
     test('Baum-Serie schlägt die nächste freie Nummer vor', async ({ page }) => {
       await zurTestflaeche(page)
       await page.locator('select[title="Projekt für neue Objekte"]').selectOption('test-nord')
