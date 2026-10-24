@@ -220,3 +220,14 @@ export const OPEN_LAYERS = [
     desc: 'Straßen mit Namen — legt die Orientierung über ein Luftbild.',
     tiles: { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', attribution: '&copy; Esri, HERE, Garmin, OpenStreetMap-Mitwirkende', maxNativeZoom: 19 } },
 ]
+
+/**
+ * Legende einer WMS-Ebene (GetLegendGraphic). Geprüft 2026-10-24: alle
+ * eingebundenen GDI-Berlin- und DWD-Dienste liefern ein PNG mit Einheit und
+ * Farbstufen. Ebenen ohne WMS (Kacheln, eigene Raster) haben keine.
+ */
+export function legendeUrl(layer) {
+  if (!layer?.wms) return null
+  const ebene = String(layer.wms.layers).split(',')[0]
+  return `${layer.wms.url}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetLegendGraphic&FORMAT=image/png&SLD_VERSION=1.1.0&LAYER=${encodeURIComponent(ebene)}`
+}
