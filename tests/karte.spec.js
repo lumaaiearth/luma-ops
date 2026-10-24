@@ -93,6 +93,31 @@ for (const route of ['/karte-vollbild', '/biome']) {
       await expect(page.locator('[data-test=objekt-detail]')).toHaveCount(0)
     })
 
+    test('Statusleiste in /biome nennt, was die Karte zeigt', async ({ page, isMobile }) => {
+      test.skip(route !== '/biome', 'Statusleiste gibt es nur in der BIOME-Schale')
+      const leiste = page.locator('[data-test=statusleiste]')
+      await expect(leiste.locator('[data-test=status-grundkarte]')).toBeVisible()
+      await expect(leiste.locator('[data-test=status-massstab]')).toContainText('≈ 1:')
+      await expect(leiste.locator('[data-test=status-position]')).toContainText('Mitte')
+      await expect(leiste).toContainText('Bestand')
+      await page.locator('[data-test=ebenen-knopf]').click()
+      const panel = page.locator('[data-test=ebenen-panel]')
+      await panel.locator('[data-test=grundkarte-osm]').click()
+      await expect(leiste.locator('[data-test=status-grundkarte]')).toContainText('OpenStreetMap')
+      await panel.locator('[data-test=ebene-flurstuecke]').click()
+      await expect(leiste.locator('[data-test=status-overlays]')).toContainText('1')
+      await page.keyboard.press('Escape')
+      if (!isMobile) {
+        const b = await karte(page).boundingBox()
+        await page.mouse.move(b.x + b.width / 2, b.y + b.height - 80)
+        await expect(leiste.locator('[data-test=status-position]')).toContainText('Cursor')
+      }
+      // In der Bestandsansicht verschwinden die Kartenangaben wieder
+      await page.getByRole('button', { name: 'Bestand', exact: true }).click()
+      await expect(leiste.locator('[data-test=status-grundkarte]')).toHaveCount(0)
+      await expect(leiste).toContainText('Standort')
+    })
+
     test('Detailpanel zeigt Feldnamen statt interner Schlüssel', async ({ page, isMobile }) => {
       test.skip(route !== '/karte-vollbild' || isMobile, 'Seitenleiste mit Objektliste nur in der Vollbild-Karte am Desktop')
       await page.getByText('Testkunde A', { exact: true }).click()

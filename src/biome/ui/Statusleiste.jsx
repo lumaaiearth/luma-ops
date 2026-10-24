@@ -22,17 +22,24 @@
  * Das Koordinatenformat ist laut GE-03 eine **Nutzereinstellung** (DMS oder
  * dezimal), keine Produktentscheidung. BIOME bietet sie noch nicht an; deshalb
  * steht hier nur das, was tatsächlich gilt.
+ *
+ * In der Kartenansicht kommt vorne dazu, was die Karte zeigt (K4): Grundkarte
+ * mit Herkunft, Overlays, Maßstab und die Position unter dem Cursor — das ist
+ * der eigentliche GE-03-Zug. Die Karte meldet das über src/lib/kartenStatus.js.
+ * Standort und Stichtag beziehen sich dann ausdrücklich auf den Bestand.
  */
+import { useSyncExternalStore } from 'react'
 import { BORDER, FG, MUTED } from '../../lib/theme.js'
+import { kartenStatusAbo, kartenStatusLesen, massstab, koordinateKurz } from '../../lib/kartenStatus.js'
 import { MONO, LABEL } from './bausteine.jsx'
 import { FEHLT, datum as fmtDatum, crsUri } from '../format.js'
 
 /**
- * @param {{ k: string, v: string, titel?: string }} p
+ * @param {{ k: string, v: string, titel?: string, test?: string }} p
  */
-function Feld({ k, v, titel }) {
+function Feld({ k, v, titel, test }) {
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6, minWidth: 0 }} title={titel}>
+    <span data-test={test} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6, minWidth: 0 }} title={titel}>
       <span style={{ ...LABEL, fontSize: 9 }}>{k}</span>
       <span style={{
         fontFamily: MONO, fontSize: 11,
@@ -53,6 +60,8 @@ function Feld({ k, v, titel }) {
  */
 export default function Statusleiste({ standort, stichdatum, ebenenBilanz }) {
   const crs = standort?.crs || 'EPSG:4326'
+  const karte = useSyncExternalStore(kartenStatusAbo, kartenStatusLesen)
+  const bezug = karte.cursor || karte.mitte
   return (
     <footer
       data-test="statusleiste"
@@ -62,7 +71,21 @@ export default function Statusleiste({ standort, stichdatum, ebenenBilanz }) {
         minHeight: 34, boxSizing: 'border-box',
       }}
     >
-      <Feld k="Standort" v={standort?.name || FEHLT} />
+      {karte.aktiv && (
+        <>
+          <Feld k="Grundkarte" v={karte.grundkarte?.name || FEHLT} titel={karte.grundkarte?.hinweis || undefined} test="status-grundkarte" />
+          <Feld k="Overlays" v={karte.overlays.length ? String(karte.overlays.length) : 'keine'}
+            titel={karte.overlays.join(', ') || undefined} test="status-overlays" />
+          <Feld k="Maßstab" v={massstab(karte.zoom, bezug?.lat) ? `≈ ${massstab(karte.zoom, bezug?.lat)} · Zoom ${karte.zoom}` : FEHLT}
+            titel="Näherung für 96 dpi; gilt in der Bildmitte bzw. am Cursor" test="status-massstab" />
+          {/* Ohne Cursor die Kartenmitte — so steht immer da, wo man hinschaut */}
+          <Feld k={karte.cursor ? 'Cursor' : 'Mitte'} v={koordinateKurz(bezug) || FEHLT} test="status-position" />
+          <Feld k="Kartendaten" v="map_features (Altbestand)"
+            titel="Die Karte liest noch nicht aus dem Datenkern — siehe Hinweis über der Karte." />
+          <span aria-hidden style={{ width: 1, alignSelf: 'stretch', background: BORDER }} />
+        </>
+      )}
+      <Feld k={karte.aktiv ? 'Bestand' : 'Standort'} v={standort?.name || FEHLT} />
       <Feld k="Stichtag" v={stichdatum ? fmtDatum(stichdatum) : FEHLT} />
       <Feld
         k="Bezugssystem"

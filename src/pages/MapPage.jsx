@@ -28,6 +28,7 @@ import { useSpeicherUrl } from '../components/SpeicherBild.jsx'
 import { TILES, GRUNDKARTEN, GRUNDKARTEN_GRUPPEN, LAYER_CATS, OPEN_LAYERS, legendeUrl } from '../data/biomeLayers.js'
 import { geometryCentroid, geomMeasures } from '../lib/geo.js'
 import { projektAusLage } from '../lib/projektAusLage.js'
+import { kartenStatusSetzen } from '../lib/kartenStatus.js'
 import { SENSOR_TYPE_LABELS, SENSOR_TYPE_ICONS } from '../data/sensorTypes.js'
 import { useSensorSeries } from '../lib/sensorHistory.js'
 import SensorTile, { SensorSparkRow, sensorColor } from '../components/SensorTile.jsx'
@@ -257,6 +258,25 @@ function ViewTracker({ viewRef }) {
       viewRef.current = { lat: c.lat, lng: c.lng, zoom: map.getZoom() }
     },
   })
+  return null
+}
+
+// Meldet, was die Karte zeigt, an die BIOME-Statusleiste (src/lib/kartenStatus.js)
+function StatusMelder({ grundkarte, overlays }) {
+  const rahmen = useRef(0)
+  const map = useMapEvents({
+    mousemove: e => {
+      cancelAnimationFrame(rahmen.current)
+      rahmen.current = requestAnimationFrame(() => kartenStatusSetzen({ cursor: { lat: e.latlng.lat, lng: e.latlng.lng } }))
+    },
+    mouseout: () => { cancelAnimationFrame(rahmen.current); kartenStatusSetzen({ cursor: null }) },
+    moveend: () => { const c = map.getCenter(); kartenStatusSetzen({ zoom: map.getZoom(), mitte: { lat: c.lat, lng: c.lng } }) },
+  })
+  useEffect(() => {
+    const c = map.getCenter()
+    kartenStatusSetzen({ grundkarte, overlays, zoom: map.getZoom(), mitte: { lat: c.lat, lng: c.lng } })
+  }, [map, grundkarte, overlays])
+  useEffect(() => () => { cancelAnimationFrame(rahmen.current); kartenStatusSetzen(null) }, [])
   return null
 }
 
@@ -1146,6 +1166,18 @@ export default function MapPage({ ohneSeitenleiste = false, inspector = null } =
       localStorage.setItem('luma_ebenen_deckkraft', JSON.stringify(ebenenDeckkraft))
     } catch { /* privat/voll */ }
   }, [activeLayers, ebenenDeckkraft])
+  // Für die Statusleiste: was die Karte zeigt, mit Herkunft (Hinweistext)
+  const statusGrundkarte = useMemo(() => {
+    const g = GRUNDKARTEN.find(k => k.id === tileLayer)
+    const u = ueberblend && GRUNDKARTEN.find(k => k.id === ueberblend)
+    return {
+      name: (g?.label || tileLayer) + (u ? ` + ${u.label}` : ''),
+      hinweis: [g?.hinweis, u?.hinweis].filter(Boolean).join(' · ') || null,
+    }
+  }, [tileLayer, ueberblend])
+  const statusOverlays = useMemo(
+    () => OPEN_LAYERS.filter(l => activeLayers.has(l.id)).map(l => l.label),
+    [activeLayers])
   const deckkraftVon = l => ebenenDeckkraft[l.id] ?? l.wms?.opacity ?? 1
   const [expandedClients, setExpandedClients] = useState(new Set(['all']))
   const [hiddenProjects, setHiddenProjects] = useState(new Set())
@@ -2217,6 +2249,7 @@ export default function MapPage({ ohneSeitenleiste = false, inspector = null } =
 
           {flyTarget && <FlyTo center={flyTarget} />}
           <ViewTracker viewRef={viewRef} />
+          <StatusMelder grundkarte={statusGrundkarte} overlays={statusOverlays} />
 
           {/* Eigener Standort (GPS) */}
           <UserLocation userPos={userPos} />
