@@ -510,7 +510,9 @@ export function OpsProvider({ children }) {
 
   // ── Map Features ─────────────────────────────────────────────────────────────
   function createMapFeature(data) {
-    const feature = { ...data, id: data.id || genId(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+    // created_by setzt die Datenbank selbst (auth.uid()); lokal sofort mitführen,
+    // damit eigene Objekte ohne Neuladen korrigiert werden können (K7).
+    const feature = { ...data, id: data.id || genId(), ...(user?.id && { created_by: user.id }), created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
     setMapFeaturesState(prev => [...prev, feature])
     sbInsert('map_features', feature).catch(dbErr('map_features', 'write'))
     return feature
@@ -521,7 +523,7 @@ export function OpsProvider({ children }) {
   // was nicht gespeichert ist. Liefert die Zahl der gespeicherten Objekte.
   async function createMapFeatures(liste, { blockGroesse = 500 } = {}) {
     const jetzt = new Date().toISOString()
-    const neu = liste.map(d => ({ ...d, id: d.id || genId(), created_at: jetzt, updated_at: jetzt }))
+    const neu = liste.map(d => ({ ...d, id: d.id || genId(), ...(user?.id && { created_by: user.id }), created_at: jetzt, updated_at: jetzt }))
     setMapFeaturesState(prev => [...prev, ...neu])
     let gespeichert = 0
     for (let i = 0; i < neu.length; i += blockGroesse) {

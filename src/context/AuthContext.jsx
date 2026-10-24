@@ -40,7 +40,8 @@ export function AuthProvider({ children }) {
       setUser({ id: '00000000-0000-4000-8000-0000000000ff', email: 'abnahme@luma.test' })
       setProfile({
         id: '00000000-0000-4000-8000-0000000000ff',
-        name: 'Abnahme', rolle: 'admin',
+        // Rolle für Abnahmetests umschaltbar (nur dieser Fixture-Zweig)
+        name: 'Abnahme', rolle: (() => { try { return localStorage.getItem('luma_abnahme_rolle') || 'admin' } catch { return 'admin' } })(),
         // org_id muss gesetzt sein, sonst hält RequireAuth das Konto für
         // frisch angelegt und zeigt den Freischaltungsschirm.
         org_id: '00000000-0000-4000-8000-0000000000fe',
