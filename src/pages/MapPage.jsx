@@ -1092,6 +1092,7 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
   useEffect(() => { try { localStorage.setItem('luma_grundkarte', tileLayer) } catch { /* privat/voll */ } }, [tileLayer])
   const [ebenenPanel, setEbenenPanel] = useState(false)
   const [legendeOffen, setLegendeOffen] = useState(true)
+  const [objektePanel, setObjektePanel] = useState(false)
   // Zweite Grundkarte halbtransparent darüber (z. B. Luftbild + OSM-Straßen)
   const [ueberblend, setUeberblend] = useState(null)
   const [ueberblendDeckkraft, setUeberblendDeckkraft] = useState(0.4)
@@ -1818,71 +1819,36 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
   })
 
   // ── Sidebar ────────────────────────────────────────────────────────────────
-  const sidebarContent = (
-    <div style={{ width: isMobile ? '100%' : 268, background: SURFACE, borderRight: isMobile ? 'none' : `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100%' }}>
-      <div style={{ padding: '16px 14px 12px', borderBottom: `1px solid ${BORDER}` }}>
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
-          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, letterSpacing: '0.15em', textTransform: 'uppercase', flex: 1 }}>
-            BIOME™{location.pathname === '/earth' ? ' EARTH' : ''}
-          </div>
-          {!isMobile && location.pathname !== '/earth' && (
-            <button onClick={() => window.open('/earth', 'biome_earth', 'popup=yes,width=1500,height=950')}
-              title="BIOME Earth — als eigenes Fenster öffnen" aria-label="BIOME Earth öffnen"
-              style={{ width: 26, height: 26, borderRadius: 7, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <ExternalLink size={12} />
-            </button>
-          )}
-          {isMobile && (
-            <button onClick={() => setSidebarOpen(false)} aria-label="Seitenleiste schließen"
-              style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <X size={15} />
-            </button>
-          )}
-        </div>
-
-        <div style={{ marginBottom: 10 }}>{grundkartenWahl}</div>
-
-        <button onClick={() => setShowJobs(v => !v)}
-          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 6, border: `1px solid ${showJobs ? `color-mix(in srgb, ${A} 31%, transparent)` : BORDER}`, background: showJobs ? A14 : 'transparent', color: showJobs ? A : MUTED, cursor: 'pointer', fontSize: 12, width: '100%' }}>
-          <div style={{ width: 8, height: 8, borderRadius: 2, background: '#F59E0B' }} />
-          Einsätze (14 Tage)
-          <span style={{ marginLeft: 'auto', fontFamily: "'Space Mono', monospace", fontSize: 10 }}>{upcomingJobs.length}</span>
-        </button>
-
-        <button onClick={() => setShowTasks(v => !v)}
-          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 6, border: `1px solid ${showTasks ? `color-mix(in srgb, ${A} 31%, transparent)` : BORDER}`, background: showTasks ? A14 : 'transparent', color: showTasks ? A : MUTED, cursor: 'pointer', fontSize: 12, width: '100%', marginTop: 6 }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#A78BFA' }} />
-          Aufgaben mit Ort
-          <span style={{ marginLeft: 'auto', fontFamily: "'Space Mono', monospace", fontSize: 10 }}>{mappableTasks.length}</span>
-        </button>
+  // Objektsuche + Typfilter — Seitenleiste und Objekte-Panel (BIOME-Schale)
+  const objektFilter = (
+    <div style={{ padding: '10px 10px 6px', borderBottom: `1px solid ${BORDER}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 6, border: `1px solid ${BORDER}`, background: 'rgba(255,255,255,0.03)', marginBottom: 7 }}>
+        <Search size={12} color={MUTED} />
+        <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+          placeholder="Bäume, Beete, Flächen suchen…"
+          style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: FG, fontSize: 12, fontFamily: "'Space Grotesk', sans-serif" }} />
+        {searchQuery && <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', color: MUTED, cursor: 'pointer', padding: 0, display: 'flex' }}><X size={11} /></button>}
       </div>
-
-      {/* Search + type filter */}
-      <div style={{ padding: '10px 10px 6px', borderBottom: `1px solid ${BORDER}` }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 6, border: `1px solid ${BORDER}`, background: 'rgba(255,255,255,0.03)', marginBottom: 7 }}>
-          <Search size={12} color={MUTED} />
-          <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Bäume, Beete, Flächen suchen…"
-            style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: FG, fontSize: 12, fontFamily: "'Space Grotesk', sans-serif" }} />
-          {searchQuery && <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', color: MUTED, cursor: 'pointer', padding: 0, display: 'flex' }}><X size={11} /></button>}
-        </div>
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          <button onClick={() => setTypeFilter(null)}
-            style={{ padding: '3px 8px', borderRadius: 10, border: `1px solid ${!typeFilter ? A+'60' : BORDER}`, background: !typeFilter ? A14 : 'transparent', color: !typeFilter ? A : MUTED, cursor: 'pointer', fontSize: 10, fontFamily: "'Space Grotesk', sans-serif" }}>
-            Alle
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+        <button onClick={() => setTypeFilter(null)}
+          style={{ padding: '3px 8px', borderRadius: 10, border: `1px solid ${!typeFilter ? A+'60' : BORDER}`, background: !typeFilter ? A14 : 'transparent', color: !typeFilter ? A : MUTED, cursor: 'pointer', fontSize: 10, fontFamily: "'Space Grotesk', sans-serif" }}>
+          Alle
+        </button>
+        {FEATURE_MODES.map(m => (
+          <button key={m.id} onClick={() => setTypeFilter(typeFilter === m.id ? null : m.id)}
+            style={{ padding: '3px 8px', borderRadius: 10, border: `1px solid ${typeFilter === m.id ? m.color+'60' : BORDER}`, background: typeFilter === m.id ? m.color+'15' : 'transparent', color: typeFilter === m.id ? m.color : MUTED, cursor: 'pointer', fontSize: 10, fontFamily: "'Space Grotesk', sans-serif" }}>
+            {m.icon} {m.label}
           </button>
-          {FEATURE_MODES.map(m => (
-            <button key={m.id} onClick={() => setTypeFilter(typeFilter === m.id ? null : m.id)}
-              style={{ padding: '3px 8px', borderRadius: 10, border: `1px solid ${typeFilter === m.id ? m.color+'60' : BORDER}`, background: typeFilter === m.id ? m.color+'15' : 'transparent', color: typeFilter === m.id ? m.color : MUTED, cursor: 'pointer', fontSize: 10, fontFamily: "'Space Grotesk', sans-serif" }}>
-              {m.icon} {m.label}
-            </button>
-          ))}
-        </div>
+        ))}
       </div>
+    </div>
+  )
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '10px 8px' }}>
-        {overlayListe}
-
+  // Projektordner mit Objekten und Erfassen-Knöpfen (Drohnenbild, Orthomosaik …)
+  // — Seitenleiste und Objekte-Panel. In /biome ist die Seitenleiste aus; vorher
+  // waren Projektliste und Luftbild-Upload dort gar nicht erreichbar.
+  const projektListe = (
+    <>
         {/* Project folders */}
         <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '10px 8px 6px' }}>Projekte</div>
         {clientGroups.map(group => {
@@ -1896,7 +1862,7 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
                 <span style={{ fontSize: 12, fontWeight: 600, color: FG, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{group.name}</span>
                 <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED }}>{group.projects.length}</span>
               </button>
-
+    
               {isExpanded && group.projects.map(p => {
                 const pJobs = jobsByProject[p.id] || []
                 const isActive = activeProject === p.id
@@ -1923,7 +1889,7 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
                         {hidden ? <EyeOff size={11} /> : <Eye size={11} />}
                       </button>
                     </div>
-
+    
                     {/* Feature list under project */}
                     {isActive && (
                       <div style={{ paddingLeft: 16 }}>
@@ -1994,7 +1960,7 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
                             </div>
                           )
                         })}
-
+    
                         {/* Sensoren des Projekts (📡, klick → hinfliegen, Link → Sensorseite) */}
                         {(sensorsByProject[p.id] || []).map(s => {
                           const sColor = s.status === 'critical' ? 'var(--luma-danger)' : s.status === 'warning' ? 'var(--luma-warn)' : '#38bdf8'
@@ -2017,7 +1983,7 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
                             </div>
                           )
                         })}
-
+    
                         {/* Draw mode selector */}
                         {canCapture && !drawMode && (
                           <div style={{ marginTop: 4, marginBottom: 6 }}>
@@ -2044,7 +2010,7 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
                             </div>
                           </div>
                         )}
-
+    
                         {/* Upcoming jobs */}
                         {pJobs.length > 0 && (
                           <div style={{ marginBottom: 4, display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -2067,6 +2033,54 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
             </div>
           )
         })}
+    </>
+  )
+
+  const sidebarContent = (
+    <div style={{ width: isMobile ? '100%' : 268, background: SURFACE, borderRight: isMobile ? 'none' : `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100%' }}>
+      <div style={{ padding: '16px 14px 12px', borderBottom: `1px solid ${BORDER}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, letterSpacing: '0.15em', textTransform: 'uppercase', flex: 1 }}>
+            BIOME™{location.pathname === '/earth' ? ' EARTH' : ''}
+          </div>
+          {!isMobile && location.pathname !== '/earth' && (
+            <button onClick={() => window.open('/earth', 'biome_earth', 'popup=yes,width=1500,height=950')}
+              title="BIOME Earth — als eigenes Fenster öffnen" aria-label="BIOME Earth öffnen"
+              style={{ width: 26, height: 26, borderRadius: 7, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <ExternalLink size={12} />
+            </button>
+          )}
+          {isMobile && (
+            <button onClick={() => setSidebarOpen(false)} aria-label="Seitenleiste schließen"
+              style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <X size={15} />
+            </button>
+          )}
+        </div>
+
+        <div style={{ marginBottom: 10 }}>{grundkartenWahl}</div>
+
+        <button onClick={() => setShowJobs(v => !v)}
+          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 6, border: `1px solid ${showJobs ? `color-mix(in srgb, ${A} 31%, transparent)` : BORDER}`, background: showJobs ? A14 : 'transparent', color: showJobs ? A : MUTED, cursor: 'pointer', fontSize: 12, width: '100%' }}>
+          <div style={{ width: 8, height: 8, borderRadius: 2, background: '#F59E0B' }} />
+          Einsätze (14 Tage)
+          <span style={{ marginLeft: 'auto', fontFamily: "'Space Mono', monospace", fontSize: 10 }}>{upcomingJobs.length}</span>
+        </button>
+
+        <button onClick={() => setShowTasks(v => !v)}
+          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 6, border: `1px solid ${showTasks ? `color-mix(in srgb, ${A} 31%, transparent)` : BORDER}`, background: showTasks ? A14 : 'transparent', color: showTasks ? A : MUTED, cursor: 'pointer', fontSize: 12, width: '100%', marginTop: 6 }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#A78BFA' }} />
+          Aufgaben mit Ort
+          <span style={{ marginLeft: 'auto', fontFamily: "'Space Mono', monospace", fontSize: 10 }}>{mappableTasks.length}</span>
+        </button>
+      </div>
+
+      {objektFilter}
+
+      <div style={{ flex: 1, overflowY: 'auto', padding: '10px 8px' }}>
+        {overlayListe}
+
+        {projektListe}
       </div>
     </div>
   )
@@ -2447,6 +2461,17 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
                 <div style={{ width: 1, alignSelf: 'stretch', background: BORDER, margin: '2px 2px', flexShrink: 0 }} />
               </>
             )}
+            {/* Objekte: Projektordner, Objektliste, Drohnenbild/Orthomosaik —
+                nur wo die Seitenleiste fehlt (BIOME-Schale am Desktop; am
+                Telefon gibt es dafür „☰ Projekte“). */}
+            {ohneSeitenleiste && !isMobile && (
+              <button onClick={() => setObjektePanel(v => !v)}
+                title="Objekte: Projekte, Flächen, Bäume, Luftbilder" className="lu-chip"
+                aria-pressed={objektePanel} data-test="objekte-knopf"
+                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: `1px solid ${objektePanel ? `color-mix(in srgb, ${A} 44%, transparent)` : 'transparent'}`, background: objektePanel ? A14 : 'transparent', color: objektePanel ? A : MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
+                <FolderOpen size={13} />{!kompakt && 'Objekte'}
+              </button>
+            )}
             {/* Ebenen: Grundkarte + Klima-/Wasser-/Kataster-Overlays */}
             <button onClick={() => { setEbenenPanel(v => !v); setSensorPanel(false) }}
               title="Ebenen: Grundkarte (Luftbild, OpenStreetMap …) und Overlays wählen" className="lu-chip"
@@ -2537,6 +2562,26 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
             </div>
           )
         })()}
+
+        {/* ── Objekte-Panel (links, nur BIOME-Schale) ── */}
+        {objektePanel && ohneSeitenleiste && !isMobile && !drawMode && (
+          <div className="lu-panel lu-fade-in" data-test="objekte-panel" style={{
+            position: 'absolute', top: 58, left: 12, zIndex: 1001, width: 300,
+            maxHeight: 'calc(100% - 130px)', display: 'flex', flexDirection: 'column', boxShadow: ELEV[2],
+          }}>
+            <div className="lu-panel-head" style={{ flexShrink: 0 }}>
+              <span className="lu-panel-title" style={{ display: 'flex', alignItems: 'center', gap: SPACE[2], flex: 1 }}>
+                <FolderOpen size={13} /> Objekte
+              </span>
+              <button onClick={() => setObjektePanel(false)} title="Panel schließen" aria-label="Objekte-Panel schließen" className="lu-chip"
+                style={{ display: 'flex', padding: 3, borderRadius: RADIUS.sm, border: '1px solid transparent', background: 'transparent', color: MUTED, cursor: 'pointer' }}>
+                <X size={13} />
+              </button>
+            </div>
+            {objektFilter}
+            <div style={{ overflowY: 'auto', padding: '6px 8px 10px' }}>{projektListe}</div>
+          </div>
+        )}
 
         {/* ── Ebenen-Panel (rechts) ── */}
         {ebenenPanel && !drawMode && (() => {

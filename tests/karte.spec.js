@@ -55,6 +55,23 @@ for (const route of ['/karte-vollbild', '/biome']) {
       await expect(page.locator('[data-test=ebenen-panel] [data-test=deckkraft-versiegelung]')).toHaveValue('30')
     })
 
+    test('Projektliste und Luftbild-Upload sind in der BIOME-Ansicht erreichbar', async ({ page, isMobile }) => {
+      // Vorher nur in der Seitenleiste — in /biome am Desktop gab es sie nicht.
+      // (Vollbild-Karte und Telefon haben die Seitenleiste bzw. „☰ Projekte“.)
+      test.skip(route !== '/biome' || isMobile, 'neu nur für /biome am Desktop')
+      await page.locator('[data-test=objekte-knopf]').click()
+      const panel = page.locator('[data-test=objekte-panel]')
+      await expect(panel).toBeVisible()
+      const drohne = panel.getByText('Drohnenbild', { exact: false }).first()
+      if (!(await drohne.isVisible().catch(() => false))) {
+        await panel.getByText('Testkunde A', { exact: true }).click()      // Ordner aufklappen
+        await panel.getByText('Testfläche Nord', { exact: true }).first().click()
+      }
+      await drohne.scrollIntoViewIfNeeded()
+      await drohne.click()
+      await expect(page.getByText('Drohnenbild hinzufügen')).toBeVisible()
+    })
+
     test('Werkzeugleiste passt in die Karte', async ({ page }) => {
       // Vorher lief sie in der BIOME-Schale seitlich über.
       const leiste = page.locator('[data-test=ebenen-knopf]').locator('xpath=..')
