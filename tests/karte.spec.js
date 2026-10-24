@@ -72,6 +72,17 @@ for (const route of ['/karte-vollbild', '/biome']) {
       await expect(page.getByText('Drohnenbild hinzufügen')).toBeVisible()
     })
 
+    test('Detailpanel zeigt Feldnamen statt interner Schlüssel', async ({ page, isMobile }) => {
+      test.skip(route !== '/karte-vollbild' || isMobile, 'Seitenleiste mit Objektliste nur in der Vollbild-Karte am Desktop')
+      await page.getByText('Testkunde A', { exact: true }).click()
+      await page.getByText('Testfläche Nord', { exact: true }).first().click()
+      await page.getByText('B-0001', { exact: false }).first().click()
+      await expect(page.getByText('Verkehrssicherheit (Altangabe)')).toBeVisible()
+      await expect(page.getByText('Fällung empfohlen')).toBeVisible()
+      await page.getByText('Projektfläche Nord', { exact: false }).first().click()
+      await expect(page.getByText(/area m2/i)).toHaveCount(0)
+    })
+
     test('Werkzeugleiste passt in die Karte', async ({ page }) => {
       // Vorher lief sie in der BIOME-Schale seitlich über.
       const leiste = page.locator('[data-test=ebenen-knopf]').locator('xpath=..')

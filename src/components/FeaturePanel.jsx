@@ -431,7 +431,30 @@ const KNOWN_KEYS = new Set([
   'umfang_messhoehe_cm',
   'schaedlinge', 'standorttyp', 'letzte_kontrolle', 'opacity', 'image_url', 'filename',
   'tiles_url', 'slug', 'minZoom', 'maxZoom', 'tms', 'sonnenanalyse', 'starkregen',
+  // Maße rechnet das Panel aus der Geometrie (oben). Ein gespeicherter Wert
+  // wäre doppelt und nach dem Verschieben von Eckpunkten veraltet.
+  'area_m2', 'perimeter_m', 'length_m', 'flaeche_m2',
 ])
+
+// Beschriftung für Felder ohne eigene Zeile. Vorher stand der rohe Feldname
+// da („AREA M2“, „VERKEHRSSICHERHEIT“). Die drei Altangaben stammen aus den
+// 2026-08 entfernten Skalen (docs/BIOME_UMSTELLUNG.md) — sie bleiben lesbar,
+// sind aber als Angabe ohne Verfahren und ohne Person gekennzeichnet.
+const FELD_LABELS = {
+  verkehrssicherheit: 'Verkehrssicherheit (Altangabe)',
+  schutzstatus: 'Schutzstatus (Altangabe)',
+  eps_befall: 'EPS-Befall (Altangabe)',
+  kontrollintervall: 'Kontrollintervall',
+  pflegehinweis: 'Pflegehinweis',
+  bewaesserung: 'Bewässerung',
+  material: 'Material',
+}
+const WERT_LABELS = {
+  nicht_geschuetzt: 'nicht geschützt', geschuetzt: 'geschützt', gefaellung: 'Fällung empfohlen',
+  kein: 'kein', gering: 'gering', mittel: 'mittel', stark: 'stark',
+}
+const feldLabel = k => FELD_LABELS[k] || (k.charAt(0).toUpperCase() + k.slice(1)).replace(/_/g, ' ')
+const wertLabel = v => WERT_LABELS[v] || String(v).replace(/_/g, ' ')
 
 export default function FeaturePanel({
   feature, project, isMobile, isAdmin, canCapture = false,
@@ -583,7 +606,12 @@ export default function FeaturePanel({
             {p.baummarke && <Row k="Baummarke" v={p.baummarke} />}
             {p.schaedlinge && <Row k="Schädlinge" v={p.schaedlinge} />}
             {p.letzte_kontrolle && <Row k="Letzte Kontrolle" v={p.letzte_kontrolle} />}
-            {extraProps.map(([k, v]) => <Row key={k} k={k.replace(/_/g, ' ')} v={String(v)} />)}
+            {extraProps.map(([k, v]) => <Row key={k} k={feldLabel(k)} v={wertLabel(v)} />)}
+            {extraProps.some(([k]) => k in FELD_LABELS && FELD_LABELS[k].includes('Altangabe')) && (
+              <div style={{ fontSize: 10, color: MUTED, lineHeight: 1.4 }}>
+                Altangaben stammen aus früheren Erfassungen ohne Verfahren und ohne Person; die Skalen dazu sind entfernt.
+              </div>
+            )}
           </div>
         )}
 
