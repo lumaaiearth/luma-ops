@@ -25,6 +25,7 @@ import { TREE_SPECIES, matchSpecies, rememberSpecies } from '../data/treeSpecies
 import { useSpeicherUrl } from '../components/SpeicherBild.jsx'
 import { TILES, GRUNDKARTEN, GRUNDKARTEN_GRUPPEN, LAYER_CATS, OPEN_LAYERS, legendeUrl } from '../data/biomeLayers.js'
 import { geometryCentroid, geomMeasures } from '../lib/geo.js'
+import { projektAusLage } from '../lib/projektAusLage.js'
 import { SENSOR_TYPE_LABELS, SENSOR_TYPE_ICONS } from '../data/sensorTypes.js'
 import { useSensorSeries } from '../lib/sensorHistory.js'
 import SensorTile, { SensorSparkRow, sensorColor } from '../components/SensorTile.jsx'
@@ -1550,12 +1551,9 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
       setMeasureResult(null)
       return
     }
-    const proj = projects.find(p => p.id === drawProjectId)
-    if (!proj) {
-      setProjectHint(true)
-      setTimeout(() => setProjectHint(false), 2500)
-      return
-    }
+    // Ohne gewähltes Projekt trotzdem zeichnen — das Projekt wird nach dem
+    // Setzen aus der Lage bestimmt (onFeatureDrawn → projektAusLage).
+    const proj = projects.find(p => p.id === drawProjectId) || null
     startDraw(proj, mode)
   }
 
@@ -1613,6 +1611,19 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
       setMeasureResult({ area: m?.area_m2 || 0, perimeter: m?.perimeter_m || 0 })
       cancelDraw()
       return
+    }
+    if (!drawingProject) {
+      const v = projektAusLage(geometry, mapFeatures, projects)
+      const proj = v && projects.find(p => p.id === v.projectId)
+      if (!proj) {
+        // Nicht raten: ohne Projektfläche oder Projekt in der Nähe fragen.
+        cancelDraw()
+        setProjectHint(true)
+        setTimeout(() => setProjectHint(false), 4000)
+        return
+      }
+      setDrawingProject(proj)
+      setDrawProjectId(proj.id)
     }
     setPendingGeometry(geometry)
   }
@@ -2748,7 +2759,7 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
         {/* Projekt-Hinweis */}
         {projectHint && (
           <div className="lu-fade-in" style={{ position: 'absolute', top: isMobile ? 104 : 58, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: 'color-mix(in srgb, var(--luma-danger) 15%, var(--luma-card))', border: '1px solid color-mix(in srgb, var(--luma-danger) 45%, transparent)', borderRadius: 8, padding: '6px 14px', fontSize: 12, color: 'var(--luma-danger)', fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 2px 12px rgba(0,0,0,0.4)' }}>
-            Bitte zuerst links in der Toolbar ein Projekt wählen
+            An dieser Stelle liegt kein Projekt — bitte oben in der Leiste ein Projekt wählen
           </div>
         )}
 
