@@ -118,6 +118,32 @@ for (const route of ['/karte-vollbild', '/biome']) {
       await expect(leiste).toContainText('Standort')
     })
 
+    test('Feldmodus: am Telefon füllt die Karte den Bildschirm', async ({ page, isMobile }) => {
+      test.skip(route !== '/biome' || !isMobile, 'Feldmodus gibt es nur am Telefon in /biome')
+      const ueberlaufVorher = await page.evaluate(() => document.body.style.overflow)
+      await page.locator('[data-test=feldmodus-an]').click()
+      const rahmen = page.locator('[data-test=karten-rahmen]')
+      const vp = page.viewportSize()
+      await expect.poll(async () => (await rahmen.boundingBox())?.height).toBe(vp.height)
+      const b = await karte(page).boundingBox()
+      expect(b.y).toBe(0)
+      expect(b.height).toBe(vp.height)
+      // Seite darunter scrollt nicht mit
+      expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).toBe('hidden')
+      // Zeichnen funktioniert im Vollbild (Klick landet auf der Karte, nicht versetzt)
+      await zurTestflaeche(page)
+      await page.locator('select[title="Projekt für neue Objekte"]').selectOption('test-nord')
+      await page.locator('button[title^="Baum"]').first().click()
+      await klickKarte(page, 60, 80)
+      await expect(page.locator('input[value="B-0002"]')).toBeVisible()
+      await page.getByRole('button', { name: 'Verwerfen' }).click()
+      await page.keyboard.press('Escape')
+      await page.locator('[data-test=feldmodus-aus]').click()
+      await expect(page.locator('[data-test=feldmodus-aus]')).toHaveCount(0)
+      // Vorheriger Zustand wiederhergestellt
+      expect(await page.evaluate(() => document.body.style.overflow)).toBe(ueberlaufVorher)
+    })
+
     test('Detailpanel zeigt Feldnamen statt interner Schlüssel', async ({ page, isMobile }) => {
       test.skip(route !== '/karte-vollbild' || isMobile, 'Seitenleiste mit Objektliste nur in der Vollbild-Karte am Desktop')
       await page.getByText('Testkunde A', { exact: true }).click()
