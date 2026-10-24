@@ -516,6 +516,28 @@ export function OpsProvider({ children }) {
     return feature
   }
 
+  // Viele Objekte auf einmal (Import): ein State-Update, Schreiben in Blöcken.
+  // Ein abgelehnter Block wird wieder entfernt, damit die Karte nichts zeigt,
+  // was nicht gespeichert ist. Liefert die Zahl der gespeicherten Objekte.
+  async function createMapFeatures(liste, { blockGroesse = 500 } = {}) {
+    const jetzt = new Date().toISOString()
+    const neu = liste.map(d => ({ ...d, id: d.id || genId(), created_at: jetzt, updated_at: jetzt }))
+    setMapFeaturesState(prev => [...prev, ...neu])
+    let gespeichert = 0
+    for (let i = 0; i < neu.length; i += blockGroesse) {
+      const block = neu.slice(i, i + blockGroesse)
+      try {
+        await sbUpsert('map_features', block)
+        gespeichert += block.length
+      } catch (e) {
+        dbErr('map_features', 'write')(e)
+        const ids = new Set(block.map(f => f.id))
+        setMapFeaturesState(prev => prev.filter(f => !ids.has(f.id)))
+      }
+    }
+    return gespeichert
+  }
+
   function updateMapFeature(id, changes) {
     const upd = { ...changes, updated_at: new Date().toISOString() }
     setMapFeaturesState(prev => prev.map(f => f.id === id ? { ...f, ...upd } : f))
@@ -717,7 +739,7 @@ export function OpsProvider({ children }) {
   const people = [...TEAM, ...normalizedFreelancers.filter(f => f.active !== false)]
 
   return (
-    <OpsContext.Provider value={{ jobs: visibleJobs, archivedJobs, recurring, sensors, projects, clients, vehicles, chips, mapFeatures, pflanzplaene, tasks: activeTasks, deletedTasks, boards, people, freelancers: normalizedFreelancers, loading, createJob, createJobAsync, updateJob, deleteJob, setJobStatus, archiveJob, restoreJob, createRecurring, deleteRecurring, updateSensorValue, createSensor, updateSensor, deleteSensor, createProject, updateProject, deleteProject, createClient, updateClient, deleteClient, createVehicle, updateVehicle, deleteVehicle, createFreelancer, updateFreelancer, deleteFreelancer, saveChips, createMapFeature, updateMapFeature, deleteMapFeature, createPflanzplan, updatePflanzplan, deletePflanzplan, createTask, updateTask, deleteTask, restoreTask, purgeTask, setTaskStatus, createBoard, updateBoard, deleteBoard }}>
+    <OpsContext.Provider value={{ jobs: visibleJobs, archivedJobs, recurring, sensors, projects, clients, vehicles, chips, mapFeatures, pflanzplaene, tasks: activeTasks, deletedTasks, boards, people, freelancers: normalizedFreelancers, loading, createJob, createJobAsync, updateJob, deleteJob, setJobStatus, archiveJob, restoreJob, createRecurring, deleteRecurring, updateSensorValue, createSensor, updateSensor, deleteSensor, createProject, updateProject, deleteProject, createClient, updateClient, deleteClient, createVehicle, updateVehicle, deleteVehicle, createFreelancer, updateFreelancer, deleteFreelancer, saveChips, createMapFeature, createMapFeatures, updateMapFeature, deleteMapFeature, createPflanzplan, updatePflanzplan, deletePflanzplan, createTask, updateTask, deleteTask, restoreTask, purgeTask, setTaskStatus, createBoard, updateBoard, deleteBoard }}>
 
       {children}
     </OpsContext.Provider>

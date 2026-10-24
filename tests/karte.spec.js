@@ -93,6 +93,28 @@ for (const route of ['/karte-vollbild', '/biome']) {
       await expect(page.locator('[data-test=flaechenbezug]')).toContainText('Beete darin')
     })
 
+    test('Baumliste importieren und Objekte exportieren', async ({ page }) => {
+      await page.locator('[data-test=austausch-knopf]').click()
+      const dialog = page.locator('[data-test=austausch-dialog]')
+      await expect(dialog).toBeVisible()
+      // CSV mit einem Baum in der Testfläche und einem weit weg
+      const csv = 'Nr;Baumart;Breite;Länge\n7;Spitz-Ahorn;52,5160;13,3775\n8;Eiche;52,40;13,10\n'
+      await dialog.locator('[data-test=import-datei]').setInputFiles({ name: 'baumliste.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) })
+      const vorschau = dialog.locator('[data-test=import-vorschau]')
+      await expect(vorschau).toContainText('2 Objekte gelesen')
+      await dialog.locator('[data-test=import-projekt]').selectOption('__lage__')
+      await expect(vorschau).toContainText('1 Objekte liegen bei keinem Projekt')
+      await dialog.locator('[data-test=import-uebernehmen]').click()
+      await expect(dialog.locator('[data-test=import-ergebnis]')).toContainText('1 Objekte gespeichert')
+      // Export enthält den importierten Baum
+      await dialog.locator('[data-test=export-umfang]').selectOption('test-nord')
+      const [download] = await Promise.all([page.waitForEvent('download'), dialog.locator('[data-test=export-csv]').click()])
+      const inhalt = await (await import('node:fs/promises')).readFile(await download.path(), 'utf8')
+      expect(inhalt).toContain('Spitz-Ahorn')
+      expect(inhalt).toContain('B-0001')
+      expect(download.suggestedFilename()).toMatch(/\.csv$/)
+    })
+
     test('Projekt wird aus der Lage vorgeschlagen, sonst gefragt', async ({ page }) => {
       // Ohne Projektwahl in der Leiste: Baum mitten in die Testfläche setzen.
       await zurTestflaeche(page)
