@@ -72,6 +72,27 @@ for (const route of ['/karte-vollbild', '/biome']) {
       await expect(page.getByText('Drohnenbild hinzufügen')).toBeVisible()
     })
 
+    test('In /biome steht das gewählte Objekt im Inspector, nicht in einem zweiten Panel', async ({ page, isMobile }) => {
+      test.skip(route !== '/biome' || isMobile, 'Inspector neben der Karte nur am Desktop')
+      await page.locator('[data-test=objekte-knopf]').click()
+      const panel = page.locator('[data-test=objekte-panel]')
+      const baum = panel.getByText('B-0001', { exact: false }).first()
+      if (!(await baum.isVisible().catch(() => false))) {
+        await panel.getByText('Testkunde A', { exact: true }).click()
+        await panel.getByText('Testfläche Nord', { exact: true }).first().click()
+      }
+      await baum.click()
+      const insp = page.locator('[data-test=inspector]')
+      await expect(insp.locator('[data-test=objekt-detail]')).toBeVisible()
+      await expect(insp).toContainText('Tilia cordata')
+      await expect(page.locator('[data-test=objekt-detail]')).toHaveCount(1)
+      await expect(page.locator('[data-test=inspector-leer]')).toHaveCount(0)
+      // Schließen im Inspector gibt die Auswahl frei
+      await insp.getByRole('button', { name: 'Schließen' }).click()
+      await expect(page.locator('[data-test=inspector-leer]')).toBeVisible()
+      await expect(page.locator('[data-test=objekt-detail]')).toHaveCount(0)
+    })
+
     test('Detailpanel zeigt Feldnamen statt interner Schlüssel', async ({ page, isMobile }) => {
       test.skip(route !== '/karte-vollbild' || isMobile, 'Seitenleiste mit Objektliste nur in der Vollbild-Karte am Desktop')
       await page.getByText('Testkunde A', { exact: true }).click()
