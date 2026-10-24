@@ -74,6 +74,17 @@ export function OpsProvider({ children }) {
   useEffect(() => {
     let cancelled = false
     async function load() {
+      // Fixture-Modus (Karten-Funktionstest): Testprojekte statt Datenbank.
+      // Vite ersetzt die Bedingung beim Produktionsbau durch false, der Zweig
+      // samt Import fällt aus dist/ heraus.
+      if (import.meta.env.VITE_BIOME_FIXTURE) {
+        const fx = (await import('../../fixtures/karte.json')).default
+        if (!cancelled) {
+          setClientsState(fx.clients); setProjectsState(fx.projects); setMapFeaturesState(fx.map_features)
+          setLoading(false)
+        }
+        return
+      }
       // Ohne aktive Session (z. B. auf der Login-Seite) gar nicht laden/seeden:
       // Reads kämen leer zurück und jeder Seed-Upsert würde an der RLS scheitern
       // („new row violates row-level security policy"). Sobald sich jemand

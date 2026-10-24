@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "node scripts/test-leistungsnachweis.mjs && node scripts/test-sensor-series.mjs && node scripts/test-biome-format.mjs && node scripts/test-angebot.mjs && node scripts/test-speicher-url.mjs && node scripts/test-einsatz-abschluss.mjs",
+    "test": "node scripts/test-leistungsnachweis.mjs && node scripts/test-sensor-series.mjs && node scripts/test-biome-format.mjs && node scripts/test-angebot.mjs && node scripts/test-speicher-url.mjs && node scripts/test-einsatz-abschluss.mjs && node scripts/test-geotiff-import.mjs",
     "lint": "eslint .",
     "typecheck": "node scripts/typecheck.mjs",
     "migration:test": "bash scripts/test-migration.sh",
@@ -38,6 +38,7 @@
     "geotiff": "^3.0.5",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.477.0",
+    "proj4": "2.22.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-leaflet": "^5.0.0",

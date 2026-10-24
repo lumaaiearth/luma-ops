@@ -1,0 +1,29 @@
+{
+  "_hinweis": "Testdaten für den Karten-Funktionstest im Fixture-Modus (VITE_BIOME_FIXTURE=1). Erfundene Projekte, keine Kundendaten. Wird nur im Abnahme-Build geladen.",
+  "clients": [
+    { "id": "test-kunde-a", "name": "Testkunde A", "color": "#3F51B5" },
+    { "id": "test-kunde-b", "name": "Testkunde B", "color": "#0B8043" }
+  ],
+  "projects": [
+    { "id": "test-nord", "name": "Testfläche Nord", "client_id": "test-kunde-a", "lat": 52.5163, "lng": 13.3777, "status": "active" },
+    { "id": "test-sued", "name": "Testfläche Süd", "client_id": "test-kunde-b", "lat": 52.4875, "lng": 13.4245, "status": "active" }
+  ],
+  "map_features": [
+    {
+      "id": "test-flaeche-1", "project_id": "test-nord", "feature_type": "area", "label": "Projektfläche Nord",
+      "geometry": { "type": "Polygon", "coordinates": [[[13.3768, 52.5158], [13.3786, 52.5158], [13.3786, 52.5168], [13.3768, 52.5168], [13.3768, 52.5158]]] },
+      "properties": { "area_m2": 1220 }, "created_at": "2026-10-01T08:00:00Z"
+    },
+    {
+      "id": "test-beet-1", "project_id": "test-nord", "feature_type": "bed", "label": "Staudenbeet 1",
+      "geometry": { "type": "Polygon", "coordinates": [[[13.3772, 52.5161], [13.3777, 52.5161], [13.3777, 52.5164], [13.3772, 52.5164], [13.3772, 52.5161]]] },
+      "properties": { "area_m2": 112 }, "created_at": "2026-10-01T08:05:00Z"
+    },
+    {
+      "id": "test-baum-1", "project_id": "test-nord", "feature_type": "tree", "label": "B-0001",
+      "geometry": { "type": "Point", "coordinates": [13.3781, 52.5163] },
+      "properties": { "baumnummer": "B-0001", "baumart_deutsch": "Winter-Linde", "baumart_latein": "Tilia cordata" },
+      "created_at": "2026-10-01T08:10:00Z"
+    }
+  ]
+}

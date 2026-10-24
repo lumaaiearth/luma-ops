@@ -10,6 +10,7 @@ import { SEASONS, LICHT_KLASSEN } from '../lib/solar.js'
 import { AMPEL as REGEN_AMPEL, SZENARIEN } from '../lib/starkregen.js'
 import { fetchKlimaProfil, empfehlungen } from '../lib/klimaProfil.js'
 import { renderMapSnapshot } from '../lib/mapSnapshot.js'
+import { HELLE_KARTE_URL } from '../data/biomeLayers.js'
 
 const MONO = "'Space Mono', monospace"
 const SANS = "'Space Grotesk', sans-serif"
@@ -50,7 +51,8 @@ function Zeile({ k, v }) {
   )
 }
 
-const CARTO_LIGHT = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'
+// CARTO liefert ohne API-Schlüssel nur noch ein Wasserzeichen — siehe biomeLayers.js
+const CARTO_LIGHT = HELLE_KARTE_URL
 
 export default function ClimateReport({ feature, project, heatmapEntry, onClose }) {
   const [klima, setKlima] = useState(null)

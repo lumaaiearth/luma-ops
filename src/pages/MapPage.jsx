@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { MapContainer, TileLayer, WMSTileLayer, Marker, Popup, useMap, useMapEvents, GeoJSON, ImageOverlay, Circle } from 'react-leaflet'
+import { MapContainer, TileLayer, WMSTileLayer, Marker, Popup, useMap, useMapEvents, GeoJSON, ImageOverlay, Circle, ZoomControl } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import '@geoman-io/leaflet-geoman-free'
@@ -22,7 +22,8 @@ import { useIsMobile } from '../lib/useIsMobile.js'
 import TreeQuickForm from '../components/TreeQuickForm.jsx'
 import FeaturePanel from '../components/FeaturePanel.jsx'
 import { TREE_SPECIES, matchSpecies, rememberSpecies } from '../data/treeSpecies.js'
-import { TILES, LAYER_CATS, OPEN_LAYERS } from '../data/biomeLayers.js'
+import { useSpeicherUrl } from '../components/SpeicherBild.jsx'
+import { TILES, GRUNDKARTEN, GRUNDKARTEN_GRUPPEN, LAYER_CATS, OPEN_LAYERS } from '../data/biomeLayers.js'
 import { geometryCentroid, geomMeasures } from '../lib/geo.js'
 import { SENSOR_TYPE_LABELS, SENSOR_TYPE_ICONS } from '../data/sensorTypes.js'
 import { useSensorSeries } from '../lib/sensorHistory.js'
@@ -84,7 +85,9 @@ function nextTreeNumber(features, projectId) {
   let best = null
   features.forEach(f => {
     if (f.project_id !== projectId || f.feature_type !== 'tree') return
-    const m = String(f.properties?.baumnummer || '').match(/^(.*?)(\d+)\s*$/)
+    // Ältere Bäume tragen die Nummer nur in der Bezeichnung — sonst schlüge
+    // die Serie eine Nummer vor, die es schon gibt.
+    const m = String(f.properties?.baumnummer || f.label || '').match(/^(.*?)(\d+)\s*$/)
     if (!m) return
     const num = parseInt(m[2], 10)
     if (!best || num >= best.num) best = { prefix: m[1], num, width: m[2].length }
@@ -237,6 +240,13 @@ const Sun3DView = lazy(() => import('../components/Sun3DView.jsx'))
 const ClimateReport = lazy(() => import('../components/ClimateReport.jsx'))
 
 // Merkt sich Kartenmitte/Zoom (für die 3D-Ansicht), ohne Re-Render auszulösen
+// Drohnenbild über signierten Link (privater Bucket, src/lib/speicherUrl.js).
+function DrohnenBildEbene({ url, bounds, opacity }) {
+  const u = useSpeicherUrl(url)
+  if (!u) return null
+  return <ImageOverlay url={u} bounds={bounds} opacity={opacity} />
+}
+
 function ViewTracker({ viewRef }) {
   const map = useMapEvents({
     moveend: () => {
@@ -262,6 +272,10 @@ function DrawControl({ mode, onFeatureDrawn, onCancel, onLiveMeasure }) {
 
   useEffect(() => {
     if (!map || !mode) return
+
+    // Hinweise am Mauszeiger („Ersten Punkt anklicken …") auf Deutsch —
+    // Geoman bringt die Übersetzung mit, sie war nur nie eingeschaltet.
+    try { map.pm.setLang('de') } catch { /* ältere Geoman-Version */ }
 
     const isPoint = mode === 'tree' || mode === 'point' || mode === 'sensor'
     const isLine = mode === 'line' || mode === 'measure'   // 'measure_area' → Polygon
@@ -591,20 +605,11 @@ function FeatureForm({ mode, project, color, existingFeature, draft, onSave, onC
 /* ─── DRONE IMAGE UPLOAD ────────────────────────────────────────────────── */
 async function extractGeoTiffBounds(file) {
   try {
-    const { fromArrayBuffer } = await import('geotiff')
-    const buf = await file.arrayBuffer()
-    const tiff = await fromArrayBuffer(buf)
-    const image = await tiff.getImage()
-    const bbox = image.getBoundingBox() // [west, south, east, north] in CRS units
-    const origin = image.getOrigin()
-    const res = image.getResolution()
-    // GeoTIFFs from drones are usually in WGS84 (EPSG:4326) or UTM
-    // Try raw bbox first; if values look like degrees use them directly
-    const [west, south, east, north] = bbox
-    if (Math.abs(west) <= 180 && Math.abs(east) <= 180 && Math.abs(south) <= 90 && Math.abs(north) <= 90) {
-      return { south, west, north, east }
-    }
-    return null
+    // Nur die Lage (Orthomosaik-Dialog). Liest bei großen Dateien nur den
+    // Kopf; erkennt neben Grad auch UTM 32/33, Soldner Berlin, Web Mercator.
+    const [{ fromArrayBuffer }, { epsgAusGeoKeys, nachWgs84 }] = await Promise.all([import('geotiff'), import('../lib/geotiffImport.js')])
+    const image = await (await fromArrayBuffer(await file.arrayBuffer())).getImage()
+    return nachWgs84(image.getBoundingBox(), epsgAusGeoKeys(image.getGeoKeys?.()) || 4326)
   } catch {
     return null
   }
@@ -640,6 +645,7 @@ function DroneImageModal({ project, color, onSave, onCancel }) {
   const [opacity, setOpacity] = useState(0.8)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState(null)
+  const [tiffPng, setTiffPng] = useState(null)   // GeoTIFF als PNG für die Anzeige
   const dropRef = useRef(null)
 
   async function handleFile(f) {
@@ -655,12 +661,29 @@ function DroneImageModal({ project, color, onSave, onCancel }) {
       setPreview(null)
     }
 
-    // Try auto bounds
+    // GeoTIFF: Lage aus der Georeferenz (auch UTM), Bild für die Anzeige als
+    // PNG — Browser zeigen TIFF nicht als Kartenbild an.
+    setTiffPng(null)
     if (f.name.match(/\.(tif|tiff)$/i)) {
-      const detected = await extractGeoTiffBounds(f)
-      if (detected) {
-        setBounds({ south: detected.south.toFixed(7), west: detected.west.toFixed(7), north: detected.north.toFixed(7), east: detected.east.toFixed(7) })
-        setAutoDetected(true)
+      if (f.size > 250 * 1024 * 1024) {
+        setError('Dieses GeoTIFF ist sehr groß (über 250 MB). Große Orthomosaike bitte als Kachel-Ebene über „🗺️ Orthomosaik“ einbinden.')
+        return
+      }
+      try {
+        const { leseGeoTiff, rasterAlsPng } = await import('../lib/geotiffImport.js')
+        const erg = await leseGeoTiff(await f.arrayBuffer())
+        if (erg.fehler) {
+          setError(`${erg.fehler} Die Ecken können unten von Hand eingetragen werden.`)
+        } else {
+          const d = erg.bounds
+          setBounds({ south: d.south.toFixed(7), west: d.west.toFixed(7), north: d.north.toFixed(7), east: d.east.toFixed(7) })
+          setAutoDetected(true)
+          const png = await rasterAlsPng(erg)
+          setTiffPng(png)
+          setPreview(URL.createObjectURL(png))
+        }
+      } catch (e) {
+        setError(`GeoTIFF konnte nicht gelesen werden (${e.message || e}).`)
       }
     }
   }
@@ -672,7 +695,9 @@ function DroneImageModal({ project, color, onSave, onCancel }) {
     setUploading(true)
     setError(null)
     try {
-      const url = await uploadDroneImage(project.id, file)
+      const url = await uploadDroneImage(project.id, tiffPng
+        ? new File([tiffPng], file.name.replace(/\.tiff?$/i, '.png'), { type: 'image/png' })
+        : file)
       const bbox = {
         type: 'Polygon',
         coordinates: [[[+west,+south],[+east,+south],[+east,+north],[+west,+north],[+west,+south]]],
@@ -1039,13 +1064,36 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
   const location = useLocation()
   const today = isoToday()
   const isMobile = useIsMobile()
+  // Breite der Karte selbst (nicht des Fensters): in der BIOME-Schale ist sie
+  // durch Karteninhalt und Inspector viel schmaler. Ist sie schmal, zeigt die
+  // Werkzeugleiste nur Symbole — vorher lief sie seitlich über, und „Ebenen“,
+  // „Messen“, „3D“ waren nur durch Scrollen erreichbar.
+  const kartenRahmen = useRef(null)
+  const [kartenBreite, setKartenBreite] = useState(1600)
+  useEffect(() => {
+    const el = kartenRahmen.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(([e]) => setKartenBreite(e.contentRect.width))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  const kompakt = isMobile || kartenBreite < 1250
 
   const [activeProject, setActiveProject] = useState(null)
   const [showJobs, setShowJobs] = useState(true)
   const [showTasks, setShowTasks] = useState(true)
   const [flyTarget, setFlyTarget] = useState(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [tileLayer, setTileLayer] = useState('satellite')
+  // Grundkarte wird je Gerät gemerkt — wer im Feld mit dem Berliner Luftbild
+  // arbeitet, will es beim nächsten Öffnen nicht neu wählen.
+  const [tileLayer, setTileLayer] = useState(() => {
+    try { const v = localStorage.getItem('luma_grundkarte'); return TILES[v] ? v : 'satellite' } catch { return 'satellite' }
+  })
+  useEffect(() => { try { localStorage.setItem('luma_grundkarte', tileLayer) } catch { /* privat/voll */ } }, [tileLayer])
+  const [ebenenPanel, setEbenenPanel] = useState(false)
+  // Zweite Grundkarte halbtransparent darüber (z. B. Luftbild + OSM-Straßen)
+  const [ueberblend, setUeberblend] = useState(null)
+  const [ueberblendDeckkraft, setUeberblendDeckkraft] = useState(0.4)
   const [activeLayers, setActiveLayers] = useState(new Set())
   const [expandedClients, setExpandedClients] = useState(new Set(['all']))
   const [hiddenProjects, setHiddenProjects] = useState(new Set())
@@ -1119,6 +1167,12 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
   const featureLayers = useRef(new Map())                    // featureId -> Leaflet-Layer (für Edit-Modus)
   const editModeRef = useRef(false)
   useEffect(() => { editModeRef.current = editMode }, [editMode])
+  // Während gezeichnet oder gemessen wird, gehören Klicks dem Zeichenwerkzeug.
+  // Vorher öffnete ein Klick auf eine bestehende Fläche deren Detailpanel und
+  // verschluckte den Klick — ein Beet innerhalb einer Projektfläche ließ sich
+  // so nicht zeichnen.
+  const drawModeRef = useRef(null)
+  useEffect(() => { drawModeRef.current = drawMode }, [drawMode])
 
 
   // Toolbar-Projekt folgt der Sidebar-Auswahl
@@ -1637,6 +1691,105 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
   }
 
   const tile = TILES[tileLayer]
+  const grundkarte = GRUNDKARTEN.find(g => g.id === tileLayer)
+
+  // ── Ebenen: Grundkarte + Overlays ──────────────────────────────────────────
+  // Ein Baustein für Seitenleiste UND schwebendes Ebenen-Panel. In der
+  // BIOME-Schale (/biome) ist die Seitenleiste ausgeblendet — vorher gab es
+  // dort deshalb gar keine Möglichkeit, Grundkarte oder Klima-Ebenen zu wählen.
+  const grundkartenWahl = (
+    <div>
+      {GRUNDKARTEN_GRUPPEN.map(gr => (
+        <div key={gr.id} style={{ marginBottom: 6 }}>
+          <div style={{ fontSize: 9.5, color: MUTED, margin: '2px 2px 4px', fontFamily: "'Space Grotesk', sans-serif" }}>{gr.label}</div>
+          <div role="radiogroup" aria-label={`Grundkarte: ${gr.label}`} style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 3 }}>
+            {GRUNDKARTEN.filter(g => g.gruppe === gr.id).map(g => {
+              const an = tileLayer === g.id
+              return (
+                <button key={g.id} role="radio" aria-checked={an} onClick={() => { setTileLayer(g.id); if (ueberblend === g.id) setUeberblend(null) }} title={g.hinweis}
+                  data-test={`grundkarte-${g.id}`}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 7px', borderRadius: 6, border: `1px solid ${an ? `color-mix(in srgb, ${A} 38%, transparent)` : BORDER}`, background: an ? A14 : 'transparent', color: an ? A : MUTED, cursor: 'pointer', fontSize: 10.5, fontFamily: "'Space Grotesk', sans-serif", minWidth: 0, textAlign: 'left' }}>
+                  {gr.id === 'luftbild' ? <Satellite size={12} style={{ flexShrink: 0 }} /> : <MapIcon size={12} style={{ flexShrink: 0 }} />}
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.kurz}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+      {grundkarte?.hinweis && (
+        <div style={{ fontSize: 10, color: MUTED, margin: '2px 2px 0', lineHeight: 1.4 }}>{grundkarte.hinweis}</div>
+      )}
+      {/* Zweite Grundkarte darüberblenden, z. B. Luftbild + 40 % OSM */}
+      <div style={{ marginTop: 10, padding: '8px 8px 6px', border: `1px solid ${BORDER}`, borderRadius: 8 }}>
+        <label htmlFor="karte-ueberblenden" style={{ display: 'block', fontSize: 10, color: MUTED, marginBottom: 4 }}>Zweite Karte überblenden</label>
+        <select id="karte-ueberblenden" value={ueberblend || ''} onChange={e => setUeberblend(e.target.value || null)} data-test="ueberblenden"
+          style={{ width: '100%', padding: '5px 6px', borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: FG, fontSize: 11, fontFamily: "'Space Grotesk', sans-serif" }}>
+          <option value="">— keine —</option>
+          {GRUNDKARTEN.filter(g => g.id !== tileLayer).map(g => <option key={g.id} value={g.id}>{g.label}</option>)}
+        </select>
+        {ueberblend && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+            <input type="range" min={10} max={90} step={5} value={Math.round(ueberblendDeckkraft * 100)}
+              onChange={e => setUeberblendDeckkraft(Number(e.target.value) / 100)} aria-label="Deckkraft der überblendeten Karte"
+              style={{ flex: 1, accentColor: A }} />
+            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, width: 32, textAlign: 'right' }}>{Math.round(ueberblendDeckkraft * 100)} %</span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
+  const overlayListe = LAYER_CATS.map(cat => {
+    const layers = OPEN_LAYERS.filter(l => l.cat === cat.id)
+    return (
+      <div key={cat.id} style={{ marginBottom: 10 }}>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: cat.color, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '4px 8px 5px' }}>{cat.label}</div>
+        {layers.map(layer => {
+          const on = activeLayers.has(layer.id)
+          return (
+            <div key={layer.id} style={{ marginBottom: 2 }}>
+              <button onClick={() => toggleLayer(layer.id)} aria-pressed={on} data-test={`ebene-${layer.id}`}
+                style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 6, border: `1px solid ${on ? layer.color + '60' : BORDER}`, background: on ? layer.color + '15' : 'transparent', color: on ? layer.color : MUTED, cursor: 'pointer', fontSize: 12, width: '100%', textAlign: 'left' }}>
+                <div style={{ width: 8, height: 8, borderRadius: 2, background: layer.color, flexShrink: 0 }} />
+                <span style={{ flex: 1 }}>{layer.label}</span>
+                {layer.region && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, opacity: 0.55, flexShrink: 0 }}>{layer.region}</span>}
+                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: on && layerIssues[layer.id] ? 'var(--luma-warn)' : undefined }}>
+                  {on ? (layerIssues[layer.id] ? 'FEHLER' : 'AN') : 'AUS'}
+                </span>
+              </button>
+              {on && layerIssues[layer.id] && (
+                <div style={{ fontSize: 10, color: 'var(--luma-warn)', padding: '3px 10px 4px 25px', lineHeight: 1.4 }}>
+                  Der Dienst liefert gerade keine Kacheln{layer.minZoom ? ` — evtl. zu weit herausgezoomt (ab Stufe ${layer.minZoom} sichtbar)` : ''}.
+                </div>
+              )}
+              {on && layer.desc && (
+                <div style={{ fontSize: 10, color: MUTED, padding: '3px 10px 4px 25px', lineHeight: 1.4 }}>{layer.desc}</div>
+              )}
+              {/* Sonnen-Heatmap: Jahreszeiten-Umschalter + Legende */}
+              {on && layer.id === 'sonnen_heatmap' && (
+                <div style={{ padding: '2px 10px 8px 25px' }}>
+                  <div style={{ display: 'flex', gap: 3, marginBottom: 7, flexWrap: 'wrap' }}>
+                    {[['fruehling', '🌱 21.3.'], ['sommer', '☀️ 21.6.'], ['herbst', '🍂 23.9.'], ['winter', '❄️ 21.12.']].map(([k, l]) => (
+                      <button key={k} onClick={() => setHeatmapSeason(k)}
+                        style={{ padding: '3px 7px', borderRadius: 8, border: `1px solid ${heatmapSeason === k ? '#fbbf2460' : BORDER}`, background: heatmapSeason === k ? '#fbbf2415' : 'transparent', color: heatmapSeason === k ? '#fbbf24' : MUTED, cursor: 'pointer', fontSize: 10, fontFamily: "'Space Grotesk', sans-serif" }}>
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ height: 8, borderRadius: 4, background: 'linear-gradient(to right, rgb(23,42,84) 0%, rgb(43,92,138) 25%, rgb(56,140,118) 45%, rgb(124,179,66) 65%, rgb(222,200,49) 82%, rgb(255,236,120) 100%)' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'Space Mono', monospace", fontSize: 8, color: MUTED, marginTop: 3 }}>
+                    <span>0 h Sonne</span>
+                    <span>{heatmapMax ? `${heatmapMax} h Tageslänge` : 'volle Sonne'}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    )
+  })
 
   // ── Sidebar ────────────────────────────────────────────────────────────────
   const sidebarContent = (
@@ -1661,15 +1814,7 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
           )}
         </div>
 
-        {/* Tile toggle */}
-        <div style={{ display: 'flex', gap: 3, marginBottom: 10, flexWrap: 'wrap' }}>
-          {[['satellite', Satellite, 'Satellit'], ['sentinel', Satellite, 'Sentinel-2'], ['dark', MapIcon, 'Dunkel'], ['light', Layers, 'Hell']].map(([id, Icon, label]) => (
-            <button key={id} onClick={() => setTileLayer(id)}
-              style={{ flex: 1, minWidth: 52, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '6px 4px', borderRadius: 6, border: `1px solid ${tileLayer === id ? `color-mix(in srgb, ${A} 38%, transparent)` : BORDER}`, background: tileLayer === id ? A14 : 'transparent', color: tileLayer === id ? A : MUTED, cursor: 'pointer', fontSize: 9, fontFamily: "'Space Grotesk', sans-serif" }}>
-              <Icon size={12} />{label}
-            </button>
-          ))}
-        </div>
+        <div style={{ marginBottom: 10 }}>{grundkartenWahl}</div>
 
         <button onClick={() => setShowJobs(v => !v)}
           style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 6, border: `1px solid ${showJobs ? `color-mix(in srgb, ${A} 31%, transparent)` : BORDER}`, background: showJobs ? A14 : 'transparent', color: showJobs ? A : MUTED, cursor: 'pointer', fontSize: 12, width: '100%' }}>
@@ -1710,57 +1855,7 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '10px 8px' }}>
-        {/* Open data layers - by category */}
-        {LAYER_CATS.map(cat => {
-          const layers = OPEN_LAYERS.filter(l => l.cat === cat.id)
-          return (
-            <div key={cat.id} style={{ marginBottom: 10 }}>
-              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: cat.color, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '4px 8px 5px' }}>{cat.label}</div>
-              {layers.map(layer => {
-                const on = activeLayers.has(layer.id)
-                return (
-                  <div key={layer.id} style={{ marginBottom: 2 }}>
-                    <button onClick={() => toggleLayer(layer.id)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 6, border: `1px solid ${on ? layer.color + '60' : BORDER}`, background: on ? layer.color + '15' : 'transparent', color: on ? layer.color : MUTED, cursor: 'pointer', fontSize: 12, width: '100%', textAlign: 'left' }}>
-                      <div style={{ width: 8, height: 8, borderRadius: 2, background: layer.color, flexShrink: 0 }} />
-                      <span style={{ flex: 1 }}>{layer.label}</span>
-                      {layer.region && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, opacity: 0.55, flexShrink: 0 }}>{layer.region}</span>}
-                      <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: on && layerIssues[layer.id] ? 'var(--luma-warn)' : undefined }}>
-                        {on ? (layerIssues[layer.id] ? 'FEHLER' : 'AN') : 'AUS'}
-                      </span>
-                    </button>
-                    {on && layerIssues[layer.id] && (
-                      <div style={{ fontSize: 10, color: 'var(--luma-warn)', padding: '3px 10px 4px 25px', lineHeight: 1.4 }}>
-                        Der Dienst liefert gerade keine Kacheln{layer.minZoom ? ` — evtl. zu weit herausgezoomt (ab Stufe ${layer.minZoom} sichtbar)` : ''}.
-                      </div>
-                    )}
-                    {on && layer.desc && (
-                      <div style={{ fontSize: 10, color: MUTED, padding: '3px 10px 4px 25px', lineHeight: 1.4 }}>{layer.desc}</div>
-                    )}
-                    {/* Sonnen-Heatmap: Jahreszeiten-Umschalter + Legende */}
-                    {on && layer.id === 'sonnen_heatmap' && (
-                      <div style={{ padding: '2px 10px 8px 25px' }}>
-                        <div style={{ display: 'flex', gap: 3, marginBottom: 7, flexWrap: 'wrap' }}>
-                          {[['fruehling', '🌱 21.3.'], ['sommer', '☀️ 21.6.'], ['herbst', '🍂 23.9.'], ['winter', '❄️ 21.12.']].map(([k, l]) => (
-                            <button key={k} onClick={() => setHeatmapSeason(k)}
-                              style={{ padding: '3px 7px', borderRadius: 8, border: `1px solid ${heatmapSeason === k ? '#fbbf2460' : BORDER}`, background: heatmapSeason === k ? '#fbbf2415' : 'transparent', color: heatmapSeason === k ? '#fbbf24' : MUTED, cursor: 'pointer', fontSize: 10, fontFamily: "'Space Grotesk', sans-serif" }}>
-                              {l}
-                            </button>
-                          ))}
-                        </div>
-                        <div style={{ height: 8, borderRadius: 4, background: 'linear-gradient(to right, rgb(23,42,84) 0%, rgb(43,92,138) 25%, rgb(56,140,118) 45%, rgb(124,179,66) 65%, rgb(222,200,49) 82%, rgb(255,236,120) 100%)' }} />
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'Space Mono', monospace", fontSize: 8, color: MUTED, marginTop: 3 }}>
-                          <span>0 h Sonne</span>
-                          <span>{heatmapMax ? `${heatmapMax} h Tageslänge` : 'volle Sonne'}</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )
-        })}
+        {overlayListe}
 
         {/* Project folders */}
         <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '10px 8px 6px' }}>Projekte</div>
@@ -1954,7 +2049,7 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
     <div style={{ display: 'flex', height: '100%', overflow: 'hidden', position: 'relative' }}>
       {!isMobile && !ohneSeitenleiste && sidebarContent}
 
-      <div style={{ flex: 1, position: 'relative' }}>
+      <div ref={kartenRahmen} style={{ flex: 1, position: 'relative', minWidth: 0 }}>
         <style>{`
           .leaflet-popup-content-wrapper { background: #0d1a23 !important; border: 1px solid rgba(255,255,255,0.12) !important; border-radius: 8px !important; box-shadow: 0 8px 24px rgba(0,0,0,0.6) !important; color: #e8f0f5 !important; }
           .leaflet-popup-tip { background: #0d1a23 !important; }
@@ -1973,11 +2068,28 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
           .button-container button.active { background: rgba(9,190,96,0.22) !important; border-color: rgba(9,190,96,0.5) !important; }
         `}</style>
 
-        <MapContainer center={[52.515, 13.405]} zoom={11} maxZoom={22} style={{ width: '100%', height: '100%' }} zoomControl={true}>
+        <MapContainer center={[52.515, 13.405]} zoom={11} maxZoom={22} style={{ width: '100%', height: '100%' }} zoomControl={false}>
+          {/* Zoom unten rechts: oben links lag er unter der Werkzeugleiste. */}
+          <ZoomControl position="bottomright" />
           {tile.wms
             ? <WMSTileLayer key={tileLayer} url={tile.url} layers={tile.layers} format={tile.format} attribution={tile.attribution} maxNativeZoom={tile.maxNativeZoom} maxZoom={tile.maxZoom} />
             : <TileLayer key={tileLayer} url={tile.url} attribution={tile.attribution} maxNativeZoom={tile.maxNativeZoom} maxZoom={tile.maxZoom} />
           }
+
+          {/* Zweite Grundkarte, halbtransparent über der ersten (zIndex 150:
+              über der Grundkarte, unter den Fach-Overlays mit 210). */}
+          {ueberblend && TILES[ueberblend] && (() => {
+            const t = TILES[ueberblend]
+            return t.wms
+              ? <WMSTileLayer key={`ueber-${ueberblend}`} url={t.url} layers={t.layers} format={t.format} attribution={t.attribution} opacity={ueberblendDeckkraft} zIndex={150} maxNativeZoom={t.maxNativeZoom} maxZoom={t.maxZoom} />
+              : <TileLayer key={`ueber-${ueberblend}`} url={t.url} attribution={t.attribution} opacity={ueberblendDeckkraft} zIndex={150} maxNativeZoom={t.maxNativeZoom} maxZoom={t.maxZoom} />
+          })()}
+
+          {/* Overlays aus normalen Kacheldiensten (z. B. Beschriftung) */}
+          {OPEN_LAYERS.filter(l => l.tiles && activeLayers.has(l.id)).map(layer => (
+            <TileLayer key={layer.id} url={layer.tiles.url} attribution={layer.tiles.attribution || ''}
+              zIndex={260} maxZoom={22} maxNativeZoom={layer.tiles.maxNativeZoom || 19} />
+          ))}
 
           {/* Open data WMS layers.
               zIndex 210: immer über der Basiskarte (sonst verdeckt ein Basiskarten-
@@ -2041,7 +2153,7 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
             const west = Math.min(...lngs), east = Math.max(...lngs)
             const opacity = droneOpacity[feat.id] ?? feat.properties?.opacity ?? 0.8
             return (
-              <ImageOverlay key={feat.id} url={feat.properties.image_url} bounds={[[south, west], [north, east]]} opacity={opacity} />
+              <DrohnenBildEbene key={feat.id} url={feat.properties.image_url} bounds={[[south, west], [north, east]]} opacity={opacity} />
             )
           })}
 
@@ -2095,7 +2207,7 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
                       })
                     },
                     // Klick öffnet das Detailpanel + wählt das Projekt im Ordner aus
-                    click: () => { if (!editModeRef.current) openFeature(feat) },
+                    click: () => { if (!editModeRef.current && !drawModeRef.current) openFeature(feat) },
                   }} />
               )
             }
@@ -2114,6 +2226,7 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
                   }
                   layer.on('click', (e) => {
                     if (editModeRef.current) return  // im Bearbeiten-Modus nicht öffnen
+                    if (drawModeRef.current) return  // Klick an das Zeichenwerkzeug durchreichen
                     L.DomEvent.stopPropagation(e)
                     // Detailpanel öffnen + Projekt im Ordner auswählen (Maße zeigt das Panel)
                     openFeature(feat)
@@ -2263,12 +2376,16 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
             border: `1px solid ${BORDER}`, borderRadius: 10, padding: 4,
             boxShadow: '0 2px 14px rgba(0,0,0,0.4)',
             maxWidth: !isMobile && panelFeatureId ? 'calc(100% - 380px)' : 'calc(100% - 24px)', overflowX: 'auto',
+            // Auf schmalen Karten (Telefon) umbrechen statt seitlich scrollen —
+            // sonst lagen Ebenen, Messen, 3D und Standort außerhalb des Bildes.
+            flexWrap: kartenBreite < 560 ? 'wrap' : 'nowrap', justifyContent: 'center',
+            width: kartenBreite < 560 ? 'calc(100% - 24px)' : undefined,
           }}>
             {/* Suche: Adresse (OSM-Geocoder), Projekte & Features */}
             <button onClick={() => searchOpen ? closeSearch() : setSearchOpen(true)}
               title="Suchen: Adresse, Projekt oder Feature" className="lu-chip"
               style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: `1px solid ${searchOpen ? `color-mix(in srgb, ${A} 44%, transparent)` : 'transparent'}`, background: searchOpen ? A14 : 'transparent', color: searchOpen ? A : MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
-              <Search size={13} />{!isMobile && !searchOpen && 'Suchen'}
+              <Search size={13} />{!kompakt && !searchOpen && 'Suchen'}
             </button>
             {searchOpen && (
               <input autoFocus value={geoQuery} onChange={e => setGeoQuery(e.target.value)}
@@ -2288,27 +2405,35 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
                 {FEATURE_MODES.map(m => (
                   <button key={m.id} onClick={() => startDrawFromToolbar(m.id)} title={`${m.label} — ${m.desc}`} className="lu-chip"
                     style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: '1px solid transparent', background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
-                    <span style={{ fontSize: 13 }}>{m.icon}</span>{!isMobile && m.label}
+                    <span style={{ fontSize: 13 }}>{m.icon}</span>{!kompakt && m.label}
                   </button>
                 ))}
                 <button onClick={() => startDrawFromToolbar('sensor')} title="Sensor — an GPS-Position anlegen, verknüpft mit Sensorseite" className="lu-chip"
                   style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: '1px solid transparent', background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
-                  <span style={{ fontSize: 13 }}>📡</span>{!isMobile && 'Sensor'}
+                  <span style={{ fontSize: 13 }}>📡</span>{!kompakt && 'Sensor'}
                 </button>
                 {/* Geometrien verschieben bleibt Admin-Sache — versehentliches
                     Ziehen würde bestehende Flächen verfälschen */}
                 {isAdmin && <button onClick={() => setEditMode(v => !v)} title="Bearbeiten: Punkte verschieben, Eckpunkte ziehen"
                   style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: `1px solid ${editMode ? `color-mix(in srgb, ${A} 44%, transparent)` : 'transparent'}`, background: editMode ? A14 : 'transparent', color: editMode ? A : MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
-                  <Move size={13} />{!isMobile && 'Bearbeiten'}
+                  <Move size={13} />{!kompakt && 'Bearbeiten'}
                 </button>}
                 <div style={{ width: 1, alignSelf: 'stretch', background: BORDER, margin: '2px 2px', flexShrink: 0 }} />
               </>
             )}
+            {/* Ebenen: Grundkarte + Klima-/Wasser-/Kataster-Overlays */}
+            <button onClick={() => { setEbenenPanel(v => !v); setSensorPanel(false) }}
+              title="Ebenen: Grundkarte (Luftbild, OpenStreetMap …) und Overlays wählen" className="lu-chip"
+              aria-pressed={ebenenPanel} data-test="ebenen-knopf"
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: `1px solid ${ebenenPanel ? `color-mix(in srgb, ${A} 44%, transparent)` : 'transparent'}`, background: ebenenPanel ? A14 : 'transparent', color: ebenenPanel ? A : MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
+              <Layers size={13} />{!kompakt && 'Ebenen'}
+              {activeLayers.size > 0 && <Badge color={A}>{activeLayers.size}</Badge>}
+            </button>
             {/* Messen: Strecke ODER Fläche (nichts davon wird gespeichert) */}
             <div style={{ position: 'relative', flexShrink: 0 }}>
               <button onClick={() => setMeasureMenu(v => !v)} title="Messen: Strecke oder Fläche" className="lu-chip"
                 style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: `1px solid ${measureMenu ? BORDER : 'transparent'}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap' }}>
-                <Ruler size={13} />{!isMobile && 'Messen'}
+                <Ruler size={13} />{!kompakt && 'Messen'}
               </button>
               {measureMenu && (
                 <div className="lu-fade-in" style={{ position: 'absolute', top: '100%', left: 0, marginTop: 6, zIndex: 1002, background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, padding: 4, boxShadow: '0 8px 26px rgba(0,0,0,0.45)', minWidth: 168 }}>
@@ -2327,19 +2452,19 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
               )}
             </div>
             {/* Sensor-Kacheln: aktueller Wert + Messverlauf je Sensor */}
-            <button onClick={() => { setSensorPanel(v => !v); setSensorHistOn(true) }}
+            <button onClick={() => { setSensorPanel(v => !v); setSensorHistOn(true); setEbenenPanel(false) }}
               title="Sensor-Kacheln: aktueller Wert und Messverlauf je Sensor" className="lu-chip"
               style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: `1px solid ${sensorPanel ? 'rgba(56,189,248,0.5)' : 'transparent'}`, background: sensorPanel ? 'rgba(56,189,248,0.14)' : 'transparent', color: sensorPanel ? '#38bdf8' : MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
-              <span style={{ fontSize: 13 }}>📡</span>{!isMobile && 'Sensoren'}
+              <span style={{ fontSize: 13 }}>📡</span>{!kompakt && 'Sensoren'}
               {sensorAlarmCount > 0 && <Badge color={DANGER}>{sensorAlarmCount}</Badge>}
             </button>
             <button onClick={() => setShow3D(true)} title="3D-Schatten: Gebäude in 3D mit Sonnenstand-Simulation" className="lu-chip"
               style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: '1px solid transparent', background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
-              <span style={{ fontSize: 13 }}>☀️</span>{!isMobile && '3D-Schatten'}
+              <span style={{ fontSize: 13 }}>☀️</span>{!kompakt && '3D-Schatten'}
             </button>
             <button onClick={() => setGpsOn(v => !v)} title="Meinen Standort anzeigen (GPS)"
               style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: `1px solid ${gpsOn ? 'rgba(59,130,246,0.5)' : 'transparent'}`, background: gpsOn ? 'rgba(59,130,246,0.14)' : 'transparent', color: gpsOn ? '#3b82f6' : MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
-              <LocateFixed size={13} />{!isMobile && 'Standort'}
+              <LocateFixed size={13} />{!kompakt && 'Standort'}
             </button>
             {canCapture && gpsOn && userPos && (
               <button onClick={captureTreeAtPosition} title="Baum an meiner aktuellen GPS-Position erfassen"
@@ -2349,6 +2474,44 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
             )}
           </div>
         )}
+
+        {/* ── Ebenen-Panel (rechts) ── */}
+        {ebenenPanel && !drawMode && (() => {
+          const top = (isMobile ? 102 : 58) + (versteckt > 0 ? 40 : 0)
+          const right = !isMobile && panelFeatureId ? 354 : 12
+          return (
+            <div className="lu-panel lu-fade-in" data-test="ebenen-panel" style={{
+              position: 'absolute', top, right, zIndex: 1001,
+              width: isMobile ? `calc(100% - ${SPACE[6]})` : 292,
+              maxHeight: isMobile ? '58vh' : `calc(100% - ${top + 26}px)`,
+              display: 'flex', flexDirection: 'column',
+              boxShadow: ELEV[2], transition: 'right .18s ease',
+            }}>
+              <div className="lu-panel-head" style={{ flexShrink: 0 }}>
+                <span className="lu-panel-title" style={{ display: 'flex', alignItems: 'center', gap: SPACE[2], flex: 1 }}>
+                  <Layers size={13} /> Ebenen
+                </span>
+                {activeLayers.size > 0 && (
+                  <button onClick={() => { setActiveLayers(new Set()); setLayerIssues({}) }} className="lu-chip"
+                    title="Alle Overlays ausschalten"
+                    style={{ padding: '3px 8px', borderRadius: RADIUS.sm, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 10.5 }}>
+                    Alle aus
+                  </button>
+                )}
+                <button onClick={() => setEbenenPanel(false)} title="Panel schließen" aria-label="Ebenen-Panel schließen" className="lu-chip"
+                  style={{ display: 'flex', padding: 3, borderRadius: RADIUS.sm, border: '1px solid transparent', background: 'transparent', color: MUTED, cursor: 'pointer' }}>
+                  <X size={13} />
+                </button>
+              </div>
+              <div style={{ overflowY: 'auto', padding: SPACE[2] }}>
+                <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '2px 2px 6px' }}>Grundkarte</div>
+                {grundkartenWahl}
+                <div style={{ height: 1, background: BORDER, margin: '12px 0 8px' }} />
+                {overlayListe}
+              </div>
+            </div>
+          )
+        })()}
 
         {/* ── Sensor-Kacheln (Panel rechts) ── */}
         {sensorPanel && !drawMode && (() => {
