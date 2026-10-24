@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { MapContainer, TileLayer, WMSTileLayer, Marker, Popup, useMap, useMapEvents, GeoJSON, ImageOverlay, Circle, ZoomControl } from 'react-leaflet'
 import L from 'leaflet'
@@ -1079,7 +1080,13 @@ function SensorFormModal({ project, position, onSave, onCancel }) {
  * „Karteninhalt" links die Rolle dieser Seitenleiste. Zwei linke Leisten
  * nebeneinander wären keine Übersicht, sondern das Gegenteil.
  */
-export default function MapPage({ ohneSeitenleiste = false } = {}) {
+// Eingebettet in die BIOME-Schale (`inspector`) steht das Objekt-Detail im
+// Inspector der Schale statt als zweites, schwebendes Panel über der Karte:
+//   inspector.ziel        DOM-Knoten im Inspector (Portal-Ziel)
+//   inspector.objektId    dort gewähltes Objekt (Auswahl gehört der Schale)
+//   inspector.aufAuswahl  Objekt gewählt/abgewählt (id | null)
+// Am Telefon bleibt das untere Blatt — der Inspector liegt dort unter der Karte.
+export default function MapPage({ ohneSeitenleiste = false, inspector = null } = {}) {
   const { projects, jobs, clients, mapFeatures, tasks, pflanzplaene, sensors, createSensor, createMapFeature, createMapFeatures, updateMapFeature, deleteMapFeature, updateProject } = useOps()
   // Rechte: Erfassen (Features, Fotos, Sensoren, Analysen) dürfen alle internen
   // Nutzer — dafür ist die mobile Serien-Erfassung gebaut, und die RLS erlaubt es
@@ -1164,7 +1171,16 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
   const [showFullForm, setShowFullForm] = useState(false)    // Kurzform → Vollformular
   const [quickDraft, setQuickDraft] = useState(null)         // Vorbelegung fürs Vollformular
   const [serialCount, setSerialCount] = useState(0)          // Bäume in dieser Serie
-  const [panelFeatureId, setPanelFeatureId] = useState(null) // geöffnetes Baum-Detailpanel
+  const [eigeneAuswahl, setEigeneAuswahl] = useState(null) // geöffnetes Detailpanel
+  const imInspector = !!inspector && !isMobile
+  const panelFeatureId = imInspector ? (inspector.objektId ?? null) : eigeneAuswahl
+  const aufInspectorAuswahl = inspector?.aufAuswahl
+  const setPanelFeatureId = useCallback(id => {
+    if (imInspector) aufInspectorAuswahl(id)
+    else setEigeneAuswahl(id)
+  }, [imInspector, aufInspectorAuswahl])
+  // Platz für das schwebende Panel nur freihalten, wenn es auch schwebt
+  const panelSchwebt = !!panelFeatureId && !imInspector && !isMobile
 
   // 3D-Schatten-Ansicht
   const [show3D, setShow3D] = useState(false)
@@ -2455,12 +2471,12 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
             position: 'absolute', top: isMobile ? 56 : 12,
             // Bei offenem Detailpanel (Desktop: 330 px rechts) die Toolbar-Mitte
             // mitverschieben, sonst liegt ihr rechtes Ende unter dem Panel
-            left: !isMobile && panelFeatureId ? 'calc(50% - 171px)' : '50%',
+            left: panelSchwebt ? 'calc(50% - 171px)' : '50%',
             transform: 'translateX(-50%)', transition: 'left .18s ease',
             zIndex: 1000, display: 'flex', alignItems: 'center', gap: 4, background: SURFACE,
             border: `1px solid ${BORDER}`, borderRadius: 10, padding: 4,
             boxShadow: '0 2px 14px rgba(0,0,0,0.4)',
-            maxWidth: !isMobile && panelFeatureId ? 'calc(100% - 380px)' : 'calc(100% - 24px)', overflowX: 'auto',
+            maxWidth: panelSchwebt ? 'calc(100% - 380px)' : 'calc(100% - 24px)', overflowX: 'auto',
             // Auf schmalen Karten (Telefon) umbrechen statt seitlich scrollen —
             // sonst lagen Ebenen, Messen, 3D und Standort außerhalb des Bildes.
             flexWrap: kartenBreite < 560 ? 'wrap' : 'nowrap', justifyContent: 'center',
@@ -2637,7 +2653,7 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
         {/* ── Ebenen-Panel (rechts) ── */}
         {ebenenPanel && !drawMode && (() => {
           const top = (isMobile ? 102 : 58) + (versteckt > 0 ? 40 : 0)
-          const right = !isMobile && panelFeatureId ? 354 : 12
+          const right = panelSchwebt ? 354 : 12
           return (
             <div className="lu-panel lu-fade-in" data-test="ebenen-panel" style={{
               position: 'absolute', top, right, zIndex: 1001,
@@ -2678,7 +2694,7 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
           // offenem Feature-Detail liegt dort das 330-px-Panel. Beidem ausweichen,
           // statt sich darüberzulegen.
           const top = (isMobile ? 102 : 58) + (versteckt > 0 ? 40 : 0)
-          const right = !isMobile && panelFeatureId ? 354 : 12
+          const right = panelSchwebt ? 354 : 12
           return (
           <div className="lu-panel lu-fade-in" style={{
             position: 'absolute', top, right, zIndex: 1001,
@@ -2942,12 +2958,13 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
       )}
 
       {/* Feature-Detailpanel (alle Typen: Baum, Beet, Fläche, Punkt, Linie) */}
-      {panelFeatureId && (() => {
+      {panelFeatureId && (!imInspector || inspector.ziel) && (() => {
         const feat = mapFeatures.find(f => f.id === panelFeatureId)
         if (!feat) return null
         const proj = projects.find(p => p.id === feat.project_id)
-        return (
+        const panel = (
           <FeaturePanel
+            eingebettet={imInspector}
             feature={feat}
             project={proj}
             alleObjekte={mapFeatures}
@@ -2985,6 +3002,7 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
             onGoProject={() => proj && navigate(`/projects/${proj.id}`)}
           />
         )
+        return imInspector ? createPortal(panel, inspector.ziel) : panel
       })()}
 
       {/* Drone image upload modal */}

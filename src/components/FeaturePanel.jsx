@@ -458,7 +458,7 @@ const feldLabel = k => FELD_LABELS[k] || (k.charAt(0).toUpperCase() + k.slice(1)
 const wertLabel = v => WERT_LABELS[v] || String(v).replace(/_/g, ' ')
 
 export default function FeaturePanel({
-  feature, project, isMobile, isAdmin, canCapture = false,
+  feature, project, isMobile, isAdmin, canCapture = false, eingebettet = false,
   onClose, onEdit, onDelete, onUpdateProperties, onGoProject,
   linkedPlans = [], onOpenPlan, onPlanInFlorales, onReport, alleObjekte = [],
 }) {
@@ -486,7 +486,11 @@ export default function FeaturePanel({
   const extraProps = Object.entries(p).filter(([k, v]) => !KNOWN_KEYS.has(k) && v != null && v !== '' && typeof v !== 'object')
 
   return (
-    <div className="lu-fade-in" style={{
+    <div className="lu-fade-in" data-test="objekt-detail" style={eingebettet ? {
+      // Im Inspector der BIOME-Schale: angedockt, ohne eigenen Rahmen/Schatten
+      position: 'sticky', top: 0, height: 'calc(100dvh - 56px)', maxHeight: '100%',
+      display: 'flex', flexDirection: 'column', overflow: 'hidden',
+    } : {
       position: 'absolute', zIndex: 1200,
       ...(isMobile
         ? { left: 0, right: 0, bottom: 0, maxHeight: '62%', borderRadius: '14px 14px 0 0' }
@@ -502,7 +506,7 @@ export default function FeaturePanel({
           <div style={{ fontSize: 14, fontWeight: 600, color: FG, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {feature.label || (isTree ? p.baumart_deutsch || 'Baum' : info.label)}
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, display: 'flex', gap: 6, alignItems: 'center', overflow: 'hidden' }}>
+          <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, display: 'flex', gap: 6, alignItems: 'center', overflow: 'hidden', whiteSpace: 'nowrap' }}>
             <span>{info.label}</span>
             {p.baumnummer && <span>#{p.baumnummer}</span>}
             {p.baumart_latein && <span style={{ fontStyle: 'italic' }}>{p.baumart_latein}</span>}

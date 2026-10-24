@@ -86,6 +86,14 @@ export default function BiomeBaeumePage() {
   // getrennt, weil eine sichtbare Ebene nicht die ausgewählte ist.
   const [sichtbarkeit, setSichtbarkeit] = useState(/** @type {Record<string,boolean>} */ ({}))
   const [auswahl, setAuswahl] = useState(/** @type {any} */ (null))
+  // Kartenobjekte erscheinen im selben Inspector (K2): die Karte rendert ihr
+  // Detail in diesen Knoten, die Auswahl selbst liegt hier.
+  const [objektZiel, setObjektZiel] = useState(/** @type {HTMLElement|null} */ (null))
+  const kartenInspector = useMemo(() => ({
+    ziel: objektZiel,
+    objektId: auswahl?.art === 'objekt' ? auswahl.id : null,
+    aufAuswahl: id => setAuswahl(id ? { art: 'objekt', id } : null),
+  }), [objektZiel, auswahl])
   // Merkt sich, von wo die Herkunftstafel geöffnet wurde. Ohne das landet der
   // Fokus beim Schließen auf BODY, und der Weg zurück zum Auslöser kostet
   // vierzig Tastendrücke.
@@ -305,7 +313,7 @@ export default function BiomeBaeumePage() {
           </Karte>
           <div style={{ height: 'min(72vh, 720px)', borderRadius: 12, overflow: 'hidden', border: `1px solid ${BORDER}` }}>
             <Suspense fallback={<div style={{ padding: 20, color: MUTED }}>Karte wird geladen…</div>}>
-              <MapPage ohneSeitenleiste />
+              <MapPage ohneSeitenleiste inspector={kartenInspector} />
             </Suspense>
           </div>
         </>
@@ -574,11 +582,13 @@ export default function BiomeBaeumePage() {
         </section>
 
         <Inspector
-          auswahl={auswahl}
+          // Kartenobjekt nur, solange die Karte offen ist — sonst bliebe der Inspector leer
+          auswahl={ansicht !== 'karte' && auswahl?.art === 'objekt' ? null : auswahl}
           stichjahr={stichjahr}
           h={h}
           aufHerkunft={herkunftOeffnen}
           aufSchliessen={() => setAuswahl(null)}
+          objektZiel={setObjektZiel}
         />
       </div>
 

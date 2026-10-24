@@ -175,14 +175,15 @@ function BaumInspector({ baum, stichjahr, h, aufHerkunft, aufSchliessen }) {
 
 /**
  * @param {{
- *   auswahl: {art: 'ebene'|'baum', ebene?: any, baum?: any}|null,
+ *   auswahl: {art: 'ebene'|'baum'|'objekt', ebene?: any, baum?: any, id?: string}|null,
  *   stichjahr: number,
  *   h: ReturnType<typeof import('../herkunft.js').herkunftBauer>,
  *   aufHerkunft: (eintrag: any, ev: any) => void,
  *   aufSchliessen: () => void,
+ *   objektZiel?: (el: HTMLElement|null) => void,
  * }} p
  */
-export default function Inspector({ auswahl, stichjahr, h, aufHerkunft, aufSchliessen }) {
+export default function Inspector({ auswahl, stichjahr, h, aufHerkunft, aufSchliessen, objektZiel }) {
   return (
     <aside
       aria-label="Inspector"
@@ -196,9 +197,15 @@ export default function Inspector({ auswahl, stichjahr, h, aufHerkunft, aufSchli
       {!auswahl ? (
         <div data-test="inspector-leer" style={{ padding: 14, color: MUTED, fontSize: 13, lineHeight: 1.5 }}>
           <div style={{ ...LABEL, marginBottom: 6 }}>Nichts ausgewählt</div>
-          Wählen Sie links eine Ebene oder in der Liste einen Baum. Was Sie
-          auswählen, steht hier — mit Herkunft zu jedem Wert.
+          Wählen Sie links eine Ebene, in der Liste einen Baum oder auf der
+          Karte ein Objekt. Was Sie auswählen, steht hier — mit Herkunft zu
+          jedem Wert.
         </div>
+      ) : auswahl.art === 'objekt' ? (
+        // Kartenobjekt: das Detail rendert die Karte selbst hier hinein
+        // (Portal), damit Bearbeiten, Fotos und Analysen nicht doppelt
+        // gebaut werden. Siehe MapPage, Prop `inspector`.
+        <div ref={objektZiel} data-test="inspector-objekt" style={{ height: '100%' }} />
       ) : auswahl.art === 'ebene' ? (
         <EbenenInspector ebene={auswahl.ebene} aufSchliessen={aufSchliessen} />
       ) : (
