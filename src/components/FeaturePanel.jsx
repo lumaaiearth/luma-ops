@@ -12,6 +12,7 @@ import { compressImage } from '../lib/images.js'
 import { queueUpload } from '../lib/uploadQueue.js'
 import { isNetworkError } from '../lib/outbox.js'
 import { geomMeasures, fmtArea, fmtLen, fmtLatLng, geometryBbox } from '../lib/geo.js'
+import { bezugDesBeets, beeteInFlaeche } from '../lib/flaechenBezug.js'
 import { sampleScopePoints } from '../lib/klimaProfil.js'
 import { examplePhotos } from '../lib/placeholderImages.js'
 import { fetchBuildingsAround } from '../lib/overpass.js'
@@ -459,7 +460,7 @@ const wertLabel = v => WERT_LABELS[v] || String(v).replace(/_/g, ' ')
 export default function FeaturePanel({
   feature, project, isMobile, isAdmin, canCapture = false,
   onClose, onEdit, onDelete, onUpdateProperties, onGoProject,
-  linkedPlans = [], onOpenPlan, onPlanInFlorales, onReport,
+  linkedPlans = [], onOpenPlan, onPlanInFlorales, onReport, alleObjekte = [],
 }) {
   if (!feature) return null
   const p = feature.properties || {}
@@ -572,6 +573,30 @@ export default function FeaturePanel({
             {m.centroid && <Stat label="GPS" value={fmtLatLng(m.centroid)} />}
           </div>
         )}
+
+        {/* Bezug Beet ↔ Projektfläche, aus der Lage abgeleitet */}
+        {(() => {
+          const bb = bezugDesBeets(feature, alleObjekte)
+          if (bb) {
+            const t = {
+              innen: { farbe: OK, text: `liegt in „${bb.flaeche?.label || 'Projektfläche'}“` },
+              teilweise: { farbe: WARN, text: `ragt über den Rand von „${bb.flaeche?.label || 'Projektfläche'}“` },
+              aussen: { farbe: WARN, text: 'liegt außerhalb der Projektfläche dieses Projekts' },
+              keine_projektflaeche: { farbe: MUTED, text: 'für dieses Projekt ist keine Projektfläche gezeichnet' },
+            }[bb.status]
+            return <div data-test="flaechenbezug" style={{ fontSize: 11.5, color: t.farbe }}>{t.text}</div>
+          }
+          const bf = beeteInFlaeche(feature, alleObjekte)
+          if (bf && bf.beete.length) {
+            return (
+              <div data-test="flaechenbezug" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                <Stat label="Beete darin" value={`${bf.beete.length}${bf.teilweise ? ` (${bf.teilweise} am Rand)` : ''}`} />
+                <Stat label="Bepflanzt" value={`${fmtArea(bf.beetM2)} · ${Math.round(bf.anteil * 100)} %`} />
+              </div>
+            )
+          }
+          return null
+        })()}
 
         {/* Gemessene Größen (Baum) */}
         {isTree && (

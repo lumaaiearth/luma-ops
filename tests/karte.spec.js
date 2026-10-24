@@ -83,6 +83,16 @@ for (const route of ['/karte-vollbild', '/biome']) {
       await expect(page.getByText(/area m2/i)).toHaveCount(0)
     })
 
+    test('Beet zeigt seine Projektfläche, die Fläche ihre Beete', async ({ page, isMobile }) => {
+      test.skip(route !== '/karte-vollbild' || isMobile, 'Seitenleiste mit Objektliste nur in der Vollbild-Karte am Desktop')
+      await page.getByText('Testkunde A', { exact: true }).click()
+      await page.getByText('Testfläche Nord', { exact: true }).first().click()
+      await page.getByText('Staudenbeet 1', { exact: false }).first().click()
+      await expect(page.locator('[data-test=flaechenbezug]')).toContainText('liegt in „Projektfläche Nord“')
+      await page.getByText('Projektfläche Nord', { exact: false }).first().click()
+      await expect(page.locator('[data-test=flaechenbezug]')).toContainText('Beete darin')
+    })
+
     test('Projekt wird aus der Lage vorgeschlagen, sonst gefragt', async ({ page }) => {
       // Ohne Projektwahl in der Leiste: Baum mitten in die Testfläche setzen.
       await zurTestflaeche(page)

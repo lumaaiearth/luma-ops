@@ -2942,6 +2942,7 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
           <FeaturePanel
             feature={feat}
             project={proj}
+            alleObjekte={mapFeatures}
             isMobile={isMobile}
             isAdmin={isAdmin}
             canCapture={canCapture}
