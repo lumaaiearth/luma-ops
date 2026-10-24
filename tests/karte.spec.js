@@ -41,6 +41,20 @@ for (const route of ['/karte-vollbild', '/biome']) {
       await expect(knopf).toContainText('1')
     })
 
+    test('Overlay zeigt Legende und Deckkraft und bleibt nach Neuladen an', async ({ page }) => {
+      await page.locator('[data-test=ebenen-knopf]').click()
+      const panel = page.locator('[data-test=ebenen-panel]')
+      await panel.locator('[data-test=ebene-versiegelung]').click()
+      // Legende sitzt auf der Karte (unten links), nicht im Panel
+      await expect(page.locator('[data-test=legende] [data-test=legende-versiegelung]')).toBeVisible()
+      await panel.locator('[data-test=deckkraft-versiegelung]').fill('30')
+      await page.reload()
+      await karte(page).waitFor()
+      await page.locator('[data-test=ebenen-knopf]').click()
+      await expect(page.locator('[data-test=ebenen-panel] [data-test=ebene-versiegelung]')).toHaveAttribute('aria-pressed', 'true')
+      await expect(page.locator('[data-test=ebenen-panel] [data-test=deckkraft-versiegelung]')).toHaveValue('30')
+    })
+
     test('Werkzeugleiste passt in die Karte', async ({ page }) => {
       // Vorher lief sie in der BIOME-Schale seitlich über.
       const leiste = page.locator('[data-test=ebenen-knopf]').locator('xpath=..')

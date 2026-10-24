@@ -23,7 +23,7 @@ import TreeQuickForm from '../components/TreeQuickForm.jsx'
 import FeaturePanel from '../components/FeaturePanel.jsx'
 import { TREE_SPECIES, matchSpecies, rememberSpecies } from '../data/treeSpecies.js'
 import { useSpeicherUrl } from '../components/SpeicherBild.jsx'
-import { TILES, GRUNDKARTEN, GRUNDKARTEN_GRUPPEN, LAYER_CATS, OPEN_LAYERS } from '../data/biomeLayers.js'
+import { TILES, GRUNDKARTEN, GRUNDKARTEN_GRUPPEN, LAYER_CATS, OPEN_LAYERS, legendeUrl } from '../data/biomeLayers.js'
 import { geometryCentroid, geomMeasures } from '../lib/geo.js'
 import { SENSOR_TYPE_LABELS, SENSOR_TYPE_ICONS } from '../data/sensorTypes.js'
 import { useSensorSeries } from '../lib/sensorHistory.js'
@@ -1091,10 +1091,27 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
   })
   useEffect(() => { try { localStorage.setItem('luma_grundkarte', tileLayer) } catch { /* privat/voll */ } }, [tileLayer])
   const [ebenenPanel, setEbenenPanel] = useState(false)
+  const [legendeOffen, setLegendeOffen] = useState(true)
   // Zweite Grundkarte halbtransparent darüber (z. B. Luftbild + OSM-Straßen)
   const [ueberblend, setUeberblend] = useState(null)
   const [ueberblendDeckkraft, setUeberblendDeckkraft] = useState(0.4)
-  const [activeLayers, setActiveLayers] = useState(new Set())
+  // Aktive Overlays und ihre Deckkraft werden je Gerät gemerkt.
+  const [activeLayers, setActiveLayers] = useState(() => {
+    try {
+      const ids = JSON.parse(localStorage.getItem('luma_ebenen') || '[]')
+      return new Set(ids.filter(id => OPEN_LAYERS.some(l => l.id === id)))
+    } catch { return new Set() }
+  })
+  const [ebenenDeckkraft, setEbenenDeckkraft] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('luma_ebenen_deckkraft') || '{}') } catch { return {} }
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem('luma_ebenen', JSON.stringify([...activeLayers]))
+      localStorage.setItem('luma_ebenen_deckkraft', JSON.stringify(ebenenDeckkraft))
+    } catch { /* privat/voll */ }
+  }, [activeLayers, ebenenDeckkraft])
+  const deckkraftVon = l => ebenenDeckkraft[l.id] ?? l.wms?.opacity ?? 1
   const [expandedClients, setExpandedClients] = useState(new Set(['all']))
   const [hiddenProjects, setHiddenProjects] = useState(new Set())
   const [hiddenFeatures, setHiddenFeatures] = useState(new Set())
@@ -1766,6 +1783,15 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
               {on && layer.desc && (
                 <div style={{ fontSize: 10, color: MUTED, padding: '3px 10px 4px 25px', lineHeight: 1.4 }}>{layer.desc}</div>
               )}
+              {on && layer.id !== 'sonnen_heatmap' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 10px 4px 25px' }}>
+                  <input type="range" min={10} max={100} step={5} value={Math.round(deckkraftVon(layer) * 100)}
+                    onChange={e => setEbenenDeckkraft(prev => ({ ...prev, [layer.id]: Number(e.target.value) / 100 }))}
+                    aria-label={`Deckkraft ${layer.label}`} data-test={`deckkraft-${layer.id}`}
+                    style={{ flex: 1, accentColor: layer.color }} />
+                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, width: 30, textAlign: 'right' }}>{Math.round(deckkraftVon(layer) * 100)} %</span>
+                </div>
+              )}
               {/* Sonnen-Heatmap: Jahreszeiten-Umschalter + Legende */}
               {on && layer.id === 'sonnen_heatmap' && (
                 <div style={{ padding: '2px 10px 8px 25px' }}>
@@ -2087,7 +2113,7 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
 
           {/* Overlays aus normalen Kacheldiensten (z. B. Beschriftung) */}
           {OPEN_LAYERS.filter(l => l.tiles && activeLayers.has(l.id)).map(layer => (
-            <TileLayer key={layer.id} url={layer.tiles.url} attribution={layer.tiles.attribution || ''}
+            <TileLayer key={layer.id} url={layer.tiles.url} attribution={layer.tiles.attribution || ''} opacity={deckkraftVon(layer)}
               zIndex={260} maxZoom={22} maxNativeZoom={layer.tiles.maxNativeZoom || 19} />
           ))}
 
@@ -2097,7 +2123,7 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
               sonst bei Zoom 18 und die Ebene verschwindet beim Heranzoomen. */}
           {OPEN_LAYERS.filter(l => l.wms && activeLayers.has(l.id)).map(layer => (
             <WMSTileLayer key={layer.id} url={layer.wms.url} layers={layer.wms.layers}
-              format={layer.wms.format} transparent={layer.wms.transparent} opacity={layer.wms.opacity}
+              format={layer.wms.format} transparent={layer.wms.transparent} opacity={deckkraftVon(layer)}
               version={layer.wms.version || '1.3.0'} attribution={layer.wms.attribution || ''}
               zIndex={210} maxZoom={22} maxNativeZoom={19} minZoom={layer.minZoom || 0}
               eventHandlers={{
@@ -2474,6 +2500,43 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
             )}
           </div>
         )}
+
+        {/* ── Legende (unten links): für alle aktiven WMS-Ebenen, einklappbar.
+            Sichtbar auch bei geschlossenem Ebenen-Panel — wer eine Farbe auf der
+            Karte deuten will, soll nicht erst ein Panel öffnen und scrollen. ── */}
+        {!drawMode && (() => {
+          const mitLegende = OPEN_LAYERS.filter(l => activeLayers.has(l.id) && legendeUrl(l))
+          if (!mitLegende.length) return null
+          return (
+            <div className="lu-panel" data-test="legende" style={{
+              position: 'absolute', left: 12, bottom: 28, zIndex: 999,
+              width: legendeOffen ? 210 : 'auto', maxHeight: legendeOffen ? '45%' : undefined,
+              display: 'flex', flexDirection: 'column', boxShadow: ELEV[2],
+            }}>
+              <button onClick={() => setLegendeOffen(v => !v)} aria-expanded={legendeOffen}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', border: 'none', background: 'transparent', color: FG, cursor: 'pointer', fontSize: 11.5, fontFamily: "'Space Grotesk', sans-serif" }}>
+                <Layers size={12} /> Legende {legendeOffen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+              </button>
+              {legendeOffen && (
+                <div style={{ overflowY: 'auto', padding: '0 8px 8px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {mitLegende.map(l => (
+                    <div key={l.id}>
+                      <div style={{ fontSize: 10.5, color: FG, marginBottom: 3 }}>{l.label}</div>
+                      {/* Legenden der Dienste sind schwarz auf weiß — heller Kasten
+                          auch im dunklen Theme; leere Legenden ausblenden. */}
+                      <div style={{ background: '#fff', borderRadius: 6, padding: 5 }}>
+                        <img src={legendeUrl(l)} alt={`Legende ${l.label}`} loading="lazy" data-test={`legende-${l.id}`}
+                          style={{ maxWidth: '100%', display: 'block' }}
+                          onLoad={e => { if (e.currentTarget.naturalHeight < 12) e.currentTarget.parentElement.parentElement.style.display = 'none' }}
+                          onError={e => { e.currentTarget.parentElement.parentElement.style.display = 'none' }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })()}
 
         {/* ── Ebenen-Panel (rechts) ── */}
         {ebenenPanel && !drawMode && (() => {
