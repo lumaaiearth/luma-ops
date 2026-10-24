@@ -103,6 +103,29 @@ for (const route of ['/karte-vollbild', '/biome']) {
       await expect(page.getByText('Baum erfassen')).toHaveCount(0)
     })
 
+    test('Luftbild ohne Georeferenz: Rahmen auf der Karte aufziehen', async ({ page, isMobile }) => {
+      test.skip(route !== '/karte-vollbild' || isMobile, 'Seitenleiste mit Drohnenbild-Knopf am Desktop')
+      await page.getByText('Testkunde A', { exact: true }).click()
+      await page.getByText('Testfläche Nord', { exact: true }).first().click()
+      const knopf = page.getByText('Drohnenbild', { exact: false }).first()
+      await knopf.scrollIntoViewIfNeeded()
+      await knopf.click()
+      const dialog = page.locator('[data-test=drohnenbild-dialog]')
+      // 1×1-PNG ohne Georeferenz
+      const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64')
+      await page.locator('#drone-file-input').setInputFiles({ name: 'befliegung.png', mimeType: 'image/png', buffer: png })
+      await dialog.locator('[data-test=rahmen-aufziehen]').click()
+      await expect(dialog).toBeHidden()
+      await klickKarte(page, -80, -50)
+      await klickKarte(page, 80, 50)
+      await expect(dialog).toBeVisible()
+      await expect(dialog.getByText('AUF KARTE GESETZT')).toBeVisible()
+      // alle vier Koordinaten eingetragen, Datei und Bezeichnung erhalten
+      const werte = await dialog.locator('input[type=number]').evaluateAll(els => els.map(e => e.value))
+      expect(werte.filter(Boolean)).toHaveLength(4)
+      await expect(dialog.locator('input[placeholder^="z.B. Orthomosaik"]')).toHaveValue('befliegung')
+    })
+
     test('Werkzeugleiste passt in die Karte', async ({ page }) => {
       // Vorher lief sie in der BIOME-Schale seitlich über.
       const leiste = page.locator('[data-test=ebenen-knopf]').locator('xpath=..')

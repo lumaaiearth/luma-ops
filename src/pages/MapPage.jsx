@@ -280,9 +280,12 @@ function DrawControl({ mode, onFeatureDrawn, onCancel, onLiveMeasure }) {
 
     const isPoint = mode === 'tree' || mode === 'point' || mode === 'sensor'
     const isLine = mode === 'line' || mode === 'measure'   // 'measure_area' → Polygon
-    const shapeName = isPoint ? 'Marker' : isLine ? 'Line' : 'Polygon'
+    const isRect = mode === 'rahmen'    // Luftbild-Rahmen aufziehen
+    const shapeName = isPoint ? 'Marker' : isLine ? 'Line' : isRect ? 'Rectangle' : 'Polygon'
 
-    if (isPoint) {
+    if (isRect) {
+      map.pm.enableDraw('Rectangle', { snappable: false })
+    } else if (isPoint) {
       map.pm.enableDraw('Marker', { snappable: false })
     } else if (isLine) {
       map.pm.enableDraw('Line', { snappable: true })
@@ -637,7 +640,7 @@ async function uploadDroneImage(projectId, file) {
   return data.publicUrl
 }
 
-function DroneImageModal({ project, color, onSave, onCancel }) {
+function DroneImageModal({ project, color, onSave, onCancel, versteckt = false, rahmen = null, onRahmenAufziehen }) {
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState(null)
   const [bounds, setBounds] = useState({ south: '', west: '', north: '', east: '' })
@@ -647,6 +650,16 @@ function DroneImageModal({ project, color, onSave, onCancel }) {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState(null)
   const [tiffPng, setTiffPng] = useState(null)   // GeoTIFF als PNG für die Anzeige
+  const [rahmenGesetzt, setRahmenGesetzt] = useState(false)
+  // Auf der Karte aufgezogener Rahmen → Koordinaten übernehmen (beim Rendern,
+  // sobald ein neuer Rahmen ankommt — kein Effect nötig).
+  const [rahmenUebernommen, setRahmenUebernommen] = useState(null)
+  if (rahmen && rahmen !== rahmenUebernommen) {
+    setRahmenUebernommen(rahmen)
+    setBounds({ south: rahmen.south.toFixed(7), west: rahmen.west.toFixed(7), north: rahmen.north.toFixed(7), east: rahmen.east.toFixed(7) })
+    setAutoDetected(false)
+    setRahmenGesetzt(true)
+  }
   const dropRef = useRef(null)
 
   async function handleFile(f) {
@@ -719,9 +732,11 @@ function DroneImageModal({ project, color, onSave, onCancel }) {
   const labelStyle = { fontSize: 10, color: MUTED, fontFamily: "'Space Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3, display: 'block' }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.65)' }}
+    // Während der Rahmen aufgezogen wird, bleibt der Dialog geladen (Datei,
+    // Bezeichnung bleiben erhalten), ist aber unsichtbar.
+    <div style={{ position: 'fixed', inset: 0, zIndex: 2000, display: versteckt ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.65)' }}
       onClick={e => e.target === e.currentTarget && onCancel()}>
-      <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 20, width: 420, maxWidth: '95vw', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }}>
+      <div data-test="drohnenbild-dialog" style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 20, width: 420, maxWidth: '95vw', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
           <div style={{ width: 32, height: 32, borderRadius: 8, background: '#8b5cf620', border: '1px solid #8b5cf640', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🚁</div>
@@ -762,7 +777,16 @@ function DroneImageModal({ project, color, onSave, onCancel }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
             <label style={{ ...labelStyle, marginBottom: 0 }}>Bounding Box (WGS84)</label>
             {autoDetected && <span style={{ fontSize: 9, background: '#22c55e20', color: '#22c55e', border: '1px solid #22c55e40', borderRadius: 4, padding: '1px 6px', fontFamily: "'Space Mono', monospace" }}>AUTO</span>}
+            {rahmenGesetzt && !autoDetected && <span style={{ fontSize: 9, background: '#8b5cf620', color: '#8b5cf6', border: '1px solid #8b5cf640', borderRadius: 4, padding: '1px 6px', fontFamily: "'Space Mono', monospace" }}>AUF KARTE GESETZT</span>}
           </div>
+          {/* Ohne Georeferenz (JPG/PNG): Rahmen auf der Karte aufziehen statt
+              vier Koordinaten abzutippen. */}
+          {onRahmenAufziehen && (
+            <button type="button" onClick={onRahmenAufziehen} data-test="rahmen-aufziehen"
+              style={{ width: '100%', marginBottom: 8, padding: '8px 10px', borderRadius: 7, border: '1px solid #8b5cf650', background: '#8b5cf612', color: '#8b5cf6', cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif" }}>
+              ▭ Rahmen auf der Karte aufziehen
+            </button>
+          )}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
             {[['north','Nord (max lat)'],['south','Süd (min lat)'],['west','West (min lng)'],['east','Ost (max lng)']].map(([k, ph]) => (
               <div key={k}>
@@ -772,7 +796,7 @@ function DroneImageModal({ project, color, onSave, onCancel }) {
             ))}
           </div>
           <div style={{ fontSize: 10, color: MUTED, marginTop: 5, fontStyle: 'italic' }}>
-            Tipp: DJI Pilot / DroneDeploy zeigt die Bounding Box des Orthomosaiks an.
+            GeoTIFF: Ecken werden aus der Datei gelesen. JPG/PNG: Rahmen aufziehen oder Koordinaten eintragen (z. B. aus DJI Pilot / DroneDeploy).
           </div>
         </div>
 
@@ -1130,6 +1154,7 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
   const [pendingGeometry, setPendingGeometry] = useState(null)
   const [editingFeature, setEditingFeature] = useState(null)
   const [droneModal, setDroneModal] = useState(null) // project | null
+  const [droneRahmen, setDroneRahmen] = useState(null) // auf der Karte aufgezogener Rahmen
   const [orthoModal, setOrthoModal] = useState(null) // project | null (hochauflösende Kachel-Ebene)
   const [droneOpacity, setDroneOpacity] = useState({}) // { featureId: opacity }
 
@@ -1609,6 +1634,13 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
     if (drawMode === 'measure_area') {
       const m = geomMeasures(geometry)
       setMeasureResult({ area: m?.area_m2 || 0, perimeter: m?.perimeter_m || 0 })
+      cancelDraw()
+      return
+    }
+    if (drawMode === 'rahmen') {
+      const ring = geometry?.coordinates?.[0] || []
+      const lngs = ring.map(c => c[0]), lats = ring.map(c => c[1])
+      if (lngs.length) setDroneRahmen({ south: Math.min(...lats), west: Math.min(...lngs), north: Math.max(...lats), east: Math.max(...lngs) })
       cancelDraw()
       return
     }
@@ -2789,6 +2821,8 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
                     ? 'Messpunkte setzen — letzten Punkt doppelt antippen zum Abschließen'
                   : drawMode === 'measure_area'
                     ? 'Eckpunkte der Fläche setzen — ersten Punkt antippen zum Schließen'
+                  : drawMode === 'rahmen'
+                    ? 'Rahmen des Luftbilds aufziehen: eine Ecke anklicken, zur gegenüberliegenden ziehen'
                     : drawMode === 'line'
                       ? 'Punkte setzen — letzten Punkt doppelt antippen zum Abschließen'
                       : 'Eckpunkte setzen — ersten Punkt antippen oder Doppelklick zum Abschließen'}
@@ -2950,7 +2984,10 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
           project={droneModal}
           color={projectColorById[droneModal.id] || A}
           onSave={onDroneSave}
-          onCancel={() => setDroneModal(null)}
+          onCancel={() => { setDroneModal(null); setDroneRahmen(null) }}
+          versteckt={drawMode === 'rahmen'}
+          rahmen={droneRahmen}
+          onRahmenAufziehen={() => { setPanelFeatureId(null); setPendingGeometry(null); setMeasureResult(null); setDrawMode('rahmen') }}
         />
       )}
 
