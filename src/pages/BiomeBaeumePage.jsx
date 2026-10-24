@@ -41,7 +41,8 @@
  */
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import { TreeDeciduous, Download, ChevronRight, Map as MapIcon, List } from 'lucide-react'
+import { TreeDeciduous, Download, ChevronRight, Map as MapIcon, List, Maximize2, X } from 'lucide-react'
+import { useIsMobile } from '../lib/useIsMobile.js'
 import { BORDER, FG, MUTED, WARN } from '../lib/theme.js'
 import { MONO, SANS, LABEL, TIPPZIEL, Karte, Wert, HerkunftsTafel, Zeile } from '../biome/ui/bausteine.jsx'
 import {
@@ -77,6 +78,19 @@ export default function BiomeBaeumePage() {
     ort.pathname.startsWith('/biome/baeume') ? 'liste' : 'karte',
   )
   const [stand, setStand] = useState(null)
+  // Feldmodus (K8): am Telefon die Karte bildschirmfüllend über Kopf, Hinweis
+  // und Navigation — vorher begann sie unter beidem, und beim Zeichnen
+  // scrollte die Seite mit.
+  const isMobile = useIsMobile()
+  const [feldmodus, setFeldmodus] = useState(false)
+  const imFeldmodus = feldmodus && isMobile && ansicht === 'karte'
+  useEffect(() => {
+    if (!imFeldmodus) return
+    const vorher = document.body.style.overflow
+    // Kein Escape zum Verlassen: Escape bricht in der Karte das Zeichnen ab.
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = vorher }
+  }, [imFeldmodus])
   const [fehler, setFehler] = useState(null)
   const [filter, setFilter] = useState('alle')
   const [herkunft, setHerkunft] = useState(null)
@@ -311,10 +325,35 @@ export default function BiomeBaeumePage() {
               Verfahren und Person.
             </div>
           </Karte>
-          <div style={{ height: 'min(72vh, 720px)', borderRadius: 12, overflow: 'hidden', border: `1px solid ${BORDER}` }}>
+          {isMobile && (
+            <button type="button" onClick={() => setFeldmodus(true)} data-test="feldmodus-an"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%',
+                minHeight: TIPPZIEL, marginBottom: 10, borderRadius: 10, cursor: 'pointer',
+                border: `1px solid ${BORDER}`, background: 'transparent', color: FG, fontFamily: SANS, fontSize: 14,
+              }}>
+              <Maximize2 size={16} /> Feldmodus — Karte im Vollbild
+            </button>
+          )}
+          <div data-test="karten-rahmen" style={imFeldmodus ? {
+            position: 'fixed', inset: 0, zIndex: 1500, background: 'var(--luma-bg, #0b0f0d)',
+          } : { height: 'min(72vh, 720px)', borderRadius: 12, overflow: 'hidden', border: `1px solid ${BORDER}` }}>
             <Suspense fallback={<div style={{ padding: 20, color: MUTED }}>Karte wird geladen…</div>}>
               <MapPage ohneSeitenleiste inspector={kartenInspector} />
             </Suspense>
+            {imFeldmodus && (
+              <button type="button" onClick={() => setFeldmodus(false)} data-test="feldmodus-aus"
+                aria-label="Feldmodus beenden"
+                style={{
+                  position: 'absolute', top: 10, right: 10, zIndex: 1300,
+                  width: TIPPZIEL, height: TIPPZIEL, borderRadius: 10, cursor: 'pointer',
+                  border: `1px solid ${BORDER}`, background: 'var(--luma-surface, #fff)', color: FG,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.35)',
+                }}>
+                <X size={18} />
+              </button>
+            )}
           </div>
         </>
       ) : (
