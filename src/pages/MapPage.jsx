@@ -21,6 +21,7 @@ import { ROLOFF_VS, STAMMUMFANG, KONTROLLE_HINWEIS, schutzschwelleErreicht } fro
 import { useIsMobile } from '../lib/useIsMobile.js'
 import TreeQuickForm from '../components/TreeQuickForm.jsx'
 import FeaturePanel from '../components/FeaturePanel.jsx'
+import KartenAustausch from '../components/KartenAustausch.jsx'
 import { TREE_SPECIES, matchSpecies, rememberSpecies } from '../data/treeSpecies.js'
 import { useSpeicherUrl } from '../components/SpeicherBild.jsx'
 import { TILES, GRUNDKARTEN, GRUNDKARTEN_GRUPPEN, LAYER_CATS, OPEN_LAYERS, legendeUrl } from '../data/biomeLayers.js'
@@ -29,7 +30,7 @@ import { projektAusLage } from '../lib/projektAusLage.js'
 import { SENSOR_TYPE_LABELS, SENSOR_TYPE_ICONS } from '../data/sensorTypes.js'
 import { useSensorSeries } from '../lib/sensorHistory.js'
 import SensorTile, { SensorSparkRow, sensorColor } from '../components/SensorTile.jsx'
-import { Layers, Satellite, Map as MapIcon, Pencil, Save, X, ExternalLink, ChevronRight, ChevronDown, FolderOpen, Folder, Eye, EyeOff, Search, MapPin, Plus, Trash2, Upload, Image, SlidersHorizontal, Ruler, Move, LocateFixed } from 'lucide-react'
+import { Layers, Satellite, Map as MapIcon, Pencil, Save, X, ExternalLink, ChevronRight, ChevronDown, FolderOpen, Folder, Eye, EyeOff, Search, MapPin, Plus, Trash2, Upload, Image, SlidersHorizontal, Ruler, Move, LocateFixed, ArrowUpDown } from 'lucide-react'
 
 /* ─── GEO HELPERS ───────────────────────────────────────────────────────── */
 function geodesicArea(latLngs) {
@@ -1079,7 +1080,7 @@ function SensorFormModal({ project, position, onSave, onCancel }) {
  * nebeneinander wären keine Übersicht, sondern das Gegenteil.
  */
 export default function MapPage({ ohneSeitenleiste = false } = {}) {
-  const { projects, jobs, clients, mapFeatures, tasks, pflanzplaene, sensors, createSensor, createMapFeature, updateMapFeature, deleteMapFeature, updateProject } = useOps()
+  const { projects, jobs, clients, mapFeatures, tasks, pflanzplaene, sensors, createSensor, createMapFeature, createMapFeatures, updateMapFeature, deleteMapFeature, updateProject } = useOps()
   // Rechte: Erfassen (Features, Fotos, Sensoren, Analysen) dürfen alle internen
   // Nutzer — dafür ist die mobile Serien-Erfassung gebaut, und die RLS erlaubt es
   // (Policy is_internal()). Löschen und Geometrien verschieben bleibt Admin-Sache.
@@ -1116,6 +1117,7 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
   })
   useEffect(() => { try { localStorage.setItem('luma_grundkarte', tileLayer) } catch { /* privat/voll */ } }, [tileLayer])
   const [ebenenPanel, setEbenenPanel] = useState(false)
+  const [austausch, setAustausch] = useState(false)
   const [legendeOffen, setLegendeOffen] = useState(true)
   const [objektePanel, setObjektePanel] = useState(false)
   // Zweite Grundkarte halbtransparent darüber (z. B. Luftbild + OSM-Straßen)
@@ -2523,6 +2525,12 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
               <Layers size={13} />{!kompakt && 'Ebenen'}
               {activeLayers.size > 0 && <Badge color={A}>{activeLayers.size}</Badge>}
             </button>
+            {/* Import/Export: GeoJSON, KML, CSV-Baumlisten */}
+            <button onClick={() => setAustausch(true)}
+              title="Import / Export: GeoJSON, KML, CSV-Baumliste" className="lu-chip" data-test="austausch-knopf"
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderRadius: 7, border: '1px solid transparent', background: 'transparent', color: MUTED, cursor: 'pointer', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
+              <ArrowUpDown size={13} />{!kompakt && 'Austausch'}
+            </button>
             {/* Messen: Strecke ODER Fläche (nichts davon wird gespeichert) */}
             <div style={{ position: 'relative', flexShrink: 0 }}>
               <button onClick={() => setMeasureMenu(v => !v)} title="Messen: Strecke oder Fläche" className="lu-chip"
@@ -2980,6 +2988,24 @@ export default function MapPage({ ohneSeitenleiste = false } = {}) {
       })()}
 
       {/* Drone image upload modal */}
+      {austausch && (
+        <KartenAustausch
+          sichtbare={mapFeatures.filter(f => !hiddenProjects.has(f.project_id) && !hiddenFeatures.has(f.id) && passtZumFilter(f))}
+          alleObjekte={mapFeatures}
+          projects={projects}
+          standardProjektId={drawProjectId}
+          darfImportieren={canCapture}
+          onImport={async liste => {
+            const n = await createMapFeatures(liste)
+            for (const p of projects) {
+              const erstes = liste.find(o => o.project_id === p.id)
+              if (erstes) ensureProjectPin(p, erstes.geometry)
+            }
+            return n
+          }}
+          onClose={() => setAustausch(false)}
+        />
+      )}
       {droneModal && (
         <DroneImageModal
           project={droneModal}
