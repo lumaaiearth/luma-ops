@@ -83,6 +83,26 @@ for (const route of ['/karte-vollbild', '/biome']) {
       await expect(page.getByText(/area m2/i)).toHaveCount(0)
     })
 
+    test('Projekt wird aus der Lage vorgeschlagen, sonst gefragt', async ({ page }) => {
+      // Ohne Projektwahl in der Leiste: Baum mitten in die Testfläche setzen.
+      await zurTestflaeche(page)
+      await page.locator('button[title^="Baum"]').first().click()
+      await klickKarte(page, 0, 0)
+      await expect(page.getByText('Baum erfassen')).toBeVisible()
+      await expect(page.locator('text=Testfläche Nord').first()).toBeVisible()
+      // Esc wirkt im Eingabefeld bewusst nicht — erst verwerfen, dann Modus verlassen
+      await page.getByRole('button', { name: 'Verwerfen' }).click()
+      await page.keyboard.press('Escape')
+      // Weit weg (herausgezoomt, Rand der Karte): kein Projekt → Hinweis, kein Formular
+      for (let i = 0; i < 4; i++) { await page.locator('.leaflet-control-zoom-out').click(); await page.waitForTimeout(250) }
+      await page.locator('select[title="Projekt für neue Objekte"]').selectOption('')
+      await page.locator('button[title^="Baum"]').first().click()
+      const b = await karte(page).boundingBox()
+      await page.mouse.click(b.x + 40, b.y + b.height - 60)
+      await expect(page.getByText('An dieser Stelle liegt kein Projekt')).toBeVisible()
+      await expect(page.getByText('Baum erfassen')).toHaveCount(0)
+    })
+
     test('Werkzeugleiste passt in die Karte', async ({ page }) => {
       // Vorher lief sie in der BIOME-Schale seitlich über.
       const leiste = page.locator('[data-test=ebenen-knopf]').locator('xpath=..')
