@@ -24,6 +24,7 @@ import TreeQuickForm from '../components/TreeQuickForm.jsx'
 import FeaturePanel from '../components/FeaturePanel.jsx'
 import KartenAustausch from '../components/KartenAustausch.jsx'
 import EckenBildEbene from '../components/EckenBildEbene.jsx'
+import OrthoErzeugen from '../components/OrthoErzeugen.jsx'
 import { bildEcken } from '../lib/eckenTransform.js'
 import { TREE_SPECIES, matchSpecies, rememberSpecies } from '../data/treeSpecies.js'
 import { useSpeicherUrl } from '../components/SpeicherBild.jsx'
@@ -941,9 +942,17 @@ function OrthoTilesModal({ project, onSave, onCancel }) {
         </div>
 
         <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.6, marginBottom: 14, padding: '9px 12px', background: '#0ea5e910', border: '1px solid #0ea5e930', borderRadius: 8 }}>
-          Kacheln zuerst mit <code style={{ color: FG }}>npm run tiles</code> hochladen (siehe DRONE_ORTHO.md),
-          dann hier registrieren. Kürzel muss mit dem Upload-Ordner übereinstimmen.
+          Orthomosaik als GeoTIFF wählen — die App erzeugt die Kacheln selbst. Bereits
+          mit gdal2tiles erzeugte Kacheln (<code style={{ color: FG }}>npm run tiles</code>, siehe DRONE_ORTHO.md)
+          lassen sich weiter unten von Hand registrieren.
         </div>
+
+        <OrthoErzeugen
+          project={project}
+          kuerzel={effSlug}
+          aufDateiName={name => { if (!label) setLabel(name) }}
+          onFertig={data => onSave({ ...data, label: label || effSlug, properties: { ...data.properties, opacity: +opacity } })}
+        />
 
         <div style={{ marginBottom: 10 }}>
           <label style={labelStyle}>Bezeichnung</label>
