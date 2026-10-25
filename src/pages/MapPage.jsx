@@ -23,6 +23,8 @@ import { useIsMobile } from '../lib/useIsMobile.js'
 import TreeQuickForm from '../components/TreeQuickForm.jsx'
 import FeaturePanel from '../components/FeaturePanel.jsx'
 import KartenAustausch from '../components/KartenAustausch.jsx'
+import EckenBildEbene from '../components/EckenBildEbene.jsx'
+import { bildEcken } from '../lib/eckenTransform.js'
 import { TREE_SPECIES, matchSpecies, rememberSpecies } from '../data/treeSpecies.js'
 import { useSpeicherUrl } from '../components/SpeicherBild.jsx'
 import { TILES, GRUNDKARTEN, GRUNDKARTEN_GRUPPEN, LAYER_CATS, OPEN_LAYERS, legendeUrl } from '../data/biomeLayers.js'
@@ -246,10 +248,10 @@ const ClimateReport = lazy(() => import('../components/ClimateReport.jsx'))
 
 // Merkt sich Kartenmitte/Zoom (für die 3D-Ansicht), ohne Re-Render auszulösen
 // Drohnenbild über signierten Link (privater Bucket, src/lib/speicherUrl.js).
-function DrohnenBildEbene({ url, bounds, opacity }) {
+function DrohnenBildEbene({ url, ecken, opacity }) {
   const u = useSpeicherUrl(url)
-  if (!u) return null
-  return <ImageOverlay url={u} bounds={bounds} opacity={opacity} />
+  if (!u || !ecken) return null
+  return <EckenBildEbene url={u} ecken={ecken} opacity={opacity} />
 }
 
 function ViewTracker({ viewRef }) {
@@ -688,6 +690,9 @@ function DroneImageModal({ project, color, onSave, onCancel, versteckt = false, 
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState(null)
   const [tiffPng, setTiffPng] = useState(null)   // GeoTIFF als PNG für die Anzeige
+  // Echte Bildecken aus dem GeoTIFF (ol, or, ur, ul) — gelten nur, solange
+  // niemand die Koordinaten von Hand oder per Rahmen ändert.
+  const [ecken, setEcken] = useState(null)
   const [rahmenGesetzt, setRahmenGesetzt] = useState(false)
   // Auf der Karte aufgezogener Rahmen → Koordinaten übernehmen (beim Rendern,
   // sobald ein neuer Rahmen ankommt — kein Effect nötig).
@@ -697,6 +702,7 @@ function DroneImageModal({ project, color, onSave, onCancel, versteckt = false, 
     setBounds({ south: rahmen.south.toFixed(7), west: rahmen.west.toFixed(7), north: rahmen.north.toFixed(7), east: rahmen.east.toFixed(7) })
     setAutoDetected(false)
     setRahmenGesetzt(true)
+    setEcken(null)
   }
   const dropRef = useRef(null)
 
@@ -716,6 +722,7 @@ function DroneImageModal({ project, color, onSave, onCancel, versteckt = false, 
     // GeoTIFF: Lage aus der Georeferenz (auch UTM), Bild für die Anzeige als
     // PNG — Browser zeigen TIFF nicht als Kartenbild an.
     setTiffPng(null)
+    setEcken(null)
     if (f.name.match(/\.(tif|tiff)$/i)) {
       if (f.size > 250 * 1024 * 1024) {
         setError('Dieses GeoTIFF ist sehr groß (über 250 MB). Große Orthomosaike bitte als Kachel-Ebene über „🗺️ Orthomosaik“ einbinden.')
@@ -730,6 +737,7 @@ function DroneImageModal({ project, color, onSave, onCancel, versteckt = false, 
           const d = erg.bounds
           setBounds({ south: d.south.toFixed(7), west: d.west.toFixed(7), north: d.north.toFixed(7), east: d.east.toFixed(7) })
           setAutoDetected(true)
+          setEcken(erg.ecken)
           const png = await rasterAlsPng(erg)
           setTiffPng(png)
           setPreview(URL.createObjectURL(png))
@@ -750,15 +758,16 @@ function DroneImageModal({ project, color, onSave, onCancel, versteckt = false, 
       const url = await uploadDroneImage(project.id, tiffPng
         ? new File([tiffPng], file.name.replace(/\.tiff?$/i, '.png'), { type: 'image/png' })
         : file)
-      const bbox = {
-        type: 'Polygon',
-        coordinates: [[[+west,+south],[+east,+south],[+east,+north],[+west,+north],[+west,+south]]],
-      }
+      // Mit GeoTIFF-Ecken: Ring = ol, or, ur, ul (eckgenau, K12). Sonst der
+      // achsparallele Kasten aus den eingetragenen Koordinaten.
+      const geometry = ecken
+        ? { type: 'Polygon', coordinates: [[...ecken, ecken[0]]] }
+        : { type: 'Polygon', coordinates: [[[+west,+south],[+east,+south],[+east,+north],[+west,+north],[+west,+south]]] }
       onSave({
         feature_type: 'drone_image',
-        geometry: bbox,
+        geometry,
         label: label || file.name,
-        properties: { image_url: url, opacity: +opacity, filename: file.name },
+        properties: { image_url: url, opacity: +opacity, filename: file.name, ...(ecken && { eckgenau: true }) },
       })
     } catch (e) {
       setError(e.message || 'Upload fehlgeschlagen')
@@ -829,7 +838,7 @@ function DroneImageModal({ project, color, onSave, onCancel, versteckt = false, 
             {[['north','Nord (max lat)'],['south','Süd (min lat)'],['west','West (min lng)'],['east','Ost (max lng)']].map(([k, ph]) => (
               <div key={k}>
                 <div style={{ fontSize: 9, color: MUTED, fontFamily: "'Space Mono', monospace", marginBottom: 2 }}>{k.toUpperCase()}</div>
-                <input style={inputStyle} type="number" step="0.0000001" value={bounds[k]} onChange={e => setBounds(prev => ({ ...prev, [k]: e.target.value }))} placeholder={ph} />
+                <input style={inputStyle} type="number" step="0.0000001" value={bounds[k]} onChange={e => { setEcken(null); setBounds(prev => ({ ...prev, [k]: e.target.value })) }} placeholder={ph} />
               </div>
             ))}
           </div>
@@ -2328,14 +2337,9 @@ export default function MapPage({ ohneSeitenleiste = false, inspector = null } =
 
           {/* Drone image overlays */}
           {mapFeatures.filter(f => f.feature_type === 'drone_image' && !hiddenProjects.has(f.project_id) && !hiddenFeatures.has(f.id) && f.properties?.image_url && f.geometry).map(feat => {
-            const coords = feat.geometry.coordinates[0]
-            const lngs = coords.map(c => c[0])
-            const lats = coords.map(c => c[1])
-            const south = Math.min(...lats), north = Math.max(...lats)
-            const west = Math.min(...lngs), east = Math.max(...lngs)
             const opacity = droneOpacity[feat.id] ?? feat.properties?.opacity ?? 0.8
             return (
-              <DrohnenBildEbene key={feat.id} url={feat.properties.image_url} bounds={[[south, west], [north, east]]} opacity={opacity} />
+              <DrohnenBildEbene key={feat.id} url={feat.properties.image_url} ecken={bildEcken(feat)} opacity={opacity} />
             )
           })}
 

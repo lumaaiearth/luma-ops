@@ -5,7 +5,7 @@
 // Baut kleine GeoTIFFs mit geotiff.js selbst (in WGS84 und in UTM 33) und
 // prüft, dass Lage und Pixel richtig herauskommen.
 import { writeArrayBuffer } from 'geotiff'
-import { epsgAusGeoKeys, nachWgs84, leseGeoTiff } from '../src/lib/geotiffImport.js'
+import { epsgAusGeoKeys, nachWgs84, eckenNachWgs84, leseGeoTiff } from '../src/lib/geotiffImport.js'
 
 let ok = 0, fehler = 0
 function pruefe(b, text) { if (b) { ok++; console.log(`  ok  ${text}`) } else { fehler++; console.log(`  FEHLER  ${text}`) } }
@@ -38,6 +38,15 @@ const ergUtm = await leseGeoTiff(tifUtm)
 pruefe(!ergUtm.fehler && ergUtm.epsg === 25833, `GeoTIFF in UTM 33 wird gelesen${ergUtm.fehler ? ': ' + ergUtm.fehler : ''}`)
 pruefe(ergUtm.bounds && nahe(ergUtm.bounds.south, utm.south, 0.001) && nahe(ergUtm.bounds.west, utm.west, 0.001), 'Lage des UTM-GeoTIFF stimmt mit der Umrechnung des Kastens überein')
 pruefe(ergUtm.rgba && ergUtm.rgba.length === w * h * 4 && ergUtm.rgba[0] === 200 && ergUtm.rgba[1] === 100 && ergUtm.rgba[3] === 255, 'Pixel kommen als RGBA an (deckend)')
+
+// Ecken einzeln: das UTM-Raster ist in WGS84 gedreht (Meridiankonvergenz ~1°)
+const ek = ergUtm.ecken
+pruefe(Array.isArray(ek) && ek.length === 4, 'GeoTIFF liefert vier Bildecken')
+const drehung = ek && Math.atan2(ek[1][1] - ek[0][1], (ek[1][0] - ek[0][0]) * Math.cos(52.51 * Math.PI / 180)) * 180 / Math.PI
+pruefe(ek && Math.abs(drehung) > 0.5 && Math.abs(drehung) < 2, `Oberkante gegenüber Ost gedreht (${drehung?.toFixed(2)}°) — achsparallel wäre falsch`)
+pruefe(ek && ek.every(p => p[0] >= ergUtm.bounds.west - 1e-9 && p[0] <= ergUtm.bounds.east + 1e-9 && p[1] >= ergUtm.bounds.south - 1e-9 && p[1] <= ergUtm.bounds.north + 1e-9), 'alle Ecken liegen im Umrisskasten')
+const ekWgs = eckenNachWgs84([13, 52, 14, 53], 4326)
+pruefe(JSON.stringify(ekWgs) === JSON.stringify([[13, 53], [14, 53], [14, 52], [13, 52]]), 'WGS84: Ecken ol, or, ur, ul unverändert')
 
 const tifWgs = await writeArrayBuffer(pixel, {
   width: w, height: h, BitsPerSample: [8, 8, 8], SamplesPerPixel: 3, PhotometricInterpretation: 2,

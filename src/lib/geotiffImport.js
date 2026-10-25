@@ -61,10 +61,24 @@ export function nachWgs84(bbox, epsg) {
 }
 
 /**
+ * Die vier Bildecken einzeln nach WGS84 — ol, or, ur, ul als [lng, lat].
+ * Anders als der Umrisskasten behält das die Drehung eines UTM-Rasters
+ * gegenüber Nord, damit das Bild eckgenau auf der Karte liegt (K12).
+ */
+export function eckenNachWgs84(bbox, epsg) {
+  const def = DEFS[epsg]
+  if (!def || !bbox || bbox.length !== 4) return null
+  const [w, s, e, n] = bbox
+  const roh = [[w, n], [e, n], [e, s], [w, s]]
+  const ecken = epsg === 4326 || epsg === 4258 ? roh : roh.map((p) => proj4(def, DEFS[4326], p))
+  return ecken.every((p) => Number.isFinite(p[0]) && Number.isFinite(p[1]) && Math.abs(p[1]) <= 90) ? ecken : null
+}
+
+/**
  * GeoTIFF lesen: Lage in WGS84 und ein verkleinertes RGBA-Raster für die
  * Anzeige (längste Kante höchstens `maxKante` Pixel).
  * @param {ArrayBuffer} buf
- * @returns {Promise<{bounds, epsg, breite, hoehe, rgba: Uint8ClampedArray, kanaele: number} | {fehler: string, epsg?: number}>}
+ * @returns {Promise<{bounds, ecken, epsg, breite, hoehe, rgba: Uint8ClampedArray, kanaele: number} | {fehler: string, epsg?: number}>}
  */
 export async function leseGeoTiff(buf, { maxKante = 4096 } = {}) {
   const { fromArrayBuffer } = await import('geotiff')
@@ -98,7 +112,7 @@ export async function leseGeoTiff(buf, { maxKante = 4096 } = {}) {
       rgba[i * 4 + 3] = k >= 4 ? rgb[j + 3] : 255
     }
   }
-  return { bounds, epsg, breite, hoehe, rgba, kanaele }
+  return { bounds, ecken: eckenNachWgs84(bbox, epsg), epsg, breite, hoehe, rgba, kanaele }
 }
 
 /** RGBA-Raster als PNG-Blob (nur im Browser). */
