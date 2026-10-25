@@ -46,7 +46,11 @@ for (const route of ['/karte-vollbild', '/biome']) {
       const panel = page.locator('[data-test=ebenen-panel]')
       await panel.locator('[data-test=ebene-versiegelung]').click()
       // Legende sitzt auf der Karte (unten links), nicht im Panel
-      await expect(page.locator('[data-test=legende] [data-test=legende-versiegelung]')).toBeVisible()
+      // Das Legendenbild kommt vom GDI-Server Berlin — geprüft wird die Anfrage,
+      // nicht ob der fremde Server rechtzeitig antwortet (in der CI einmal nicht).
+      const legende = page.locator('[data-test=legende] [data-test=legende-versiegelung]')
+      await expect(legende).toBeAttached()
+      await expect(legende).toHaveAttribute('src', /REQUEST=GetLegendGraphic.*LAYER=versieg2021/)
       await panel.locator('[data-test=deckkraft-versiegelung]').fill('30')
       await page.reload()
       await karte(page).waitFor()
