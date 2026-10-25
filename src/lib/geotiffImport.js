@@ -30,6 +30,7 @@ const DEFS = {
 }
 
 export const UNTERSTUETZTE_EPSG = Object.keys(DEFS).map(Number)
+export { DEFS }
 
 /** EPSG-Code aus den GeoKeys eines GeoTIFF (projiziert vor geographisch). */
 export function epsgAusGeoKeys(keys) {

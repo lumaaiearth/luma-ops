@@ -88,6 +88,19 @@ if (typeof window !== 'undefined') {
   setTimeout(() => { if (navigator.onLine) flushSbOutbox() }, 3000)
 }
 
+// ── Storage: Orthomosaik-Kacheln (K13) ─────────────────────────────────────────
+// Eine Kachel nach drone-tiles. Überschreibt (gleicher Pfad beim erneuten Lauf);
+// ein Fehlversuch wird einmal wiederholt — bei tausenden Kacheln kommt das vor.
+export async function sbUploadKachel(pfad, blob, typ) {
+  // Abnahme: Kacheln im Speicher behalten, damit der Test ihre Lage prüfen kann
+  if (FIXTURE) { (window.__abnahmeKacheln ||= new Map()).set(pfad, blob); return }
+  for (let versuch = 0; ; versuch++) {
+    const { error } = await sb.storage.from('drone-tiles').upload(pfad, blob, { contentType: typ, upsert: true, cacheControl: '31536000' })
+    if (!error) return
+    if (versuch >= 1) throw error
+  }
+}
+
 // ── Storage: Job Photos ────────────────────────────────────────────────────────
 
 export async function sbUploadPhoto(jobId, photoId, blob) {

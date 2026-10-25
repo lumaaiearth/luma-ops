@@ -11,6 +11,19 @@ Kacheln → flüssig und beliebig hochauflösend.
 Drohne → WebODM (Orthomosaik) → gdal2tiles (Kacheln) → Supabase Storage → LUMA Ops Karte
 ```
 
+## Einfacher Weg (seit 2026-10-25): direkt in der App
+
+Karte → Projekt → „🗺️ Orthomosaik“ → **Orthomosaik (GeoTIFF) wählen**. Die App liest
+Lage und Auflösung aus dem GeoTIFF (WGS84, UTM 32/33, Soldner Berlin), schlägt die
+feinste Zoomstufe vor, schätzt Kachelzahl und Speicher und erzeugt die Kacheln im
+Browser (WebP mit Transparenz, sonst PNG). Kein gdal, kein service_role-Key.
+Fenster offen lassen, bis es fertig ist. Grenze je Orthomosaik: 300 MB
+(Free-Plan: 1 GB Speicher gesamt) — sonst eine gröbere feinste Stufe wählen.
+Code: `src/lib/orthoKacheln.js`, `src/components/OrthoErzeugen.jsx`.
+
+Der Weg mit gdal2tiles unten bleibt für sehr große Mosaike (viele GB) oder
+Bezugssysteme, die die App nicht kennt.
+
 ---
 
 ## Einmalig: Werkzeuge

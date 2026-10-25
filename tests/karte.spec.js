@@ -46,7 +46,11 @@ for (const route of ['/karte-vollbild', '/biome']) {
       const panel = page.locator('[data-test=ebenen-panel]')
       await panel.locator('[data-test=ebene-versiegelung]').click()
       // Legende sitzt auf der Karte (unten links), nicht im Panel
-      await expect(page.locator('[data-test=legende] [data-test=legende-versiegelung]')).toBeVisible()
+      // Das Legendenbild kommt vom GDI-Server Berlin — geprüft wird die Anfrage,
+      // nicht ob der fremde Server rechtzeitig antwortet (in der CI einmal nicht).
+      const legende = page.locator('[data-test=legende] [data-test=legende-versiegelung]')
+      await expect(legende).toBeAttached()
+      await expect(legende).toHaveAttribute('src', /REQUEST=GetLegendGraphic.*LAYER=versieg2021/)
       await panel.locator('[data-test=deckkraft-versiegelung]').fill('30')
       await page.reload()
       await karte(page).waitFor()
@@ -256,6 +260,58 @@ for (const route of ['/karte-vollbild', '/biome']) {
       const b = await lage()
       expect(b.breite / a.breite).toBeGreaterThan(1.8)
       expect(b.breite / a.breite).toBeLessThan(2.2)
+    })
+
+    test('Orthomosaik aus GeoTIFF in der App kacheln', async ({ page, isMobile }) => {
+      test.skip(route !== '/karte-vollbild' || isMobile, 'Seitenleiste mit Orthomosaik-Knopf am Desktop')
+      // Echtes kleines GeoTIFF in UTM 33: 400 × 300 px à 25 cm (100 m × 75 m) an der Testfläche
+      const { writeArrayBuffer } = await import('geotiff')
+      const w = 400, h = 300
+      const pixel = new Array(w * h * 3)
+      for (let i = 0; i < w * h; i++) { pixel[i * 3] = 30 + (i % w) % 200; pixel[i * 3 + 1] = 120; pixel[i * 3 + 2] = 60 }
+      const tif = Buffer.from(await writeArrayBuffer(pixel, {
+        width: w, height: h, BitsPerSample: [8, 8, 8], SamplesPerPixel: 3, PhotometricInterpretation: 2,
+        ModelPixelScale: [0.25, 0.25, 0], ModelTiepoint: [0, 0, 0, 389800, 5819480, 0],
+        ProjectedCSTypeGeoKey: 25833, GTModelTypeGeoKey: 1, GTRasterTypeGeoKey: 1,
+      }))
+      await page.getByText('Testkunde A', { exact: true }).click()
+      await page.getByText('Testfläche Nord', { exact: true }).first().click()
+      const knopf = page.getByText('Orthomosaik', { exact: false }).first()
+      await knopf.scrollIntoViewIfNeeded()
+      await knopf.click()
+      await page.locator('[data-test=ortho-datei]').setInputFiles({ name: 'befliegung-test.tif', mimeType: 'image/tiff', buffer: tif })
+      const kopf = page.locator('[data-test=ortho-kopf]')
+      await expect(kopf).toContainText('EPSG:25833')
+      await expect(kopf).toContainText('25.0 cm/px')
+      await expect(page.locator('[data-test=ortho-maxzoom]')).toHaveValue('19')
+      await expect(page.locator('[data-test=ortho-schaetzung]')).toContainText('Kacheln')
+      await page.locator('[data-test=ortho-erzeugen]').click()
+      // Fertig: Dialog zu, Karte fordert die neue Kachelebene an
+      await expect(page.locator('[data-test=ortho-erzeugen-bereich]')).toHaveCount(0, { timeout: 30000 })
+      await expect.poll(() => page.locator('img.leaflet-tile[src*="drone-tiles/test-nord/befliegung-test/"]').count(), { timeout: 15000 }).toBeGreaterThan(0)
+
+      // Lage prüfen: an der NW-Ecke des Bildes (UTM 389800/5819480) muss die
+      // Kachel der feinsten Stufe innen deckend und außen durchsichtig sein.
+      const proj4 = (await import('proj4')).default
+      const [lng, lat] = proj4('+proj=utm +zone=33 +ellps=GRS80 +units=m +no_defs', 'WGS84', [389800, 5819480])
+      const z = 19, n = 256 * 2 ** z, s = Math.sin(lat * Math.PI / 180)
+      const gx = (lng + 180) / 360 * n, gy = (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * n
+      const pruefung = await page.evaluate(async ({ z, gx, gy }) => {
+        const kacheln = window.__abnahmeKacheln
+        const pixel = async (x, y) => {
+          const tx = Math.floor(x / 256), ty = Math.floor(y / 256)
+          const blob = [...kacheln.entries()].find(([p]) => p.endsWith(`/${z}/${tx}/${ty}.webp`) || p.endsWith(`/${z}/${tx}/${ty}.png`))?.[1]
+          if (!blob) return null
+          const bmp = await createImageBitmap(blob)
+          const c = new OffscreenCanvas(256, 256); const g = c.getContext('2d'); g.drawImage(bmp, 0, 0)
+          return [...g.getImageData(Math.floor(x - tx * 256), Math.floor(y - ty * 256), 1, 1).data]
+        }
+        return { anzahl: kacheln.size, innen: await pixel(gx + 6, gy + 6), aussen: await pixel(gx - 6, gy - 6) }
+      }, { z, gx, gy })
+      expect(pruefung.anzahl).toBeGreaterThan(5)
+      expect(pruefung.innen?.[3]).toBeGreaterThan(200)       // deckend
+      expect(Math.abs(pruefung.innen[1] - 120)).toBeLessThan(12)   // Grünkanal des Testbilds
+      expect(pruefung.aussen === null || pruefung.aussen[3] < 20).toBe(true)
     })
 
     test('Werkzeugleiste passt in die Karte', async ({ page }) => {
