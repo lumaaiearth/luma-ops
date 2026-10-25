@@ -26,6 +26,12 @@
       "created_at": "2026-10-01T08:10:00Z"
     },
     {
+      "id": "test-luftbild-0", "project_id": "test-sued", "feature_type": "drone_image", "label": "Befliegung Süd 2025",
+      "geometry": { "type": "Polygon", "coordinates": [[[13.4232, 52.4884], [13.4258, 52.4885], [13.4259, 52.4866], [13.4233, 52.4865], [13.4232, 52.4884]]] },
+      "properties": { "eckgenau": true, "opacity": 0.8, "aufnahme_datum": "2025-06-12", "image_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" },
+      "created_at": "2026-10-01T08:15:00Z"
+    },
+    {
       "id": "test-luftbild-1", "project_id": "test-sued", "feature_type": "drone_image", "label": "Befliegung Süd",
       "geometry": { "type": "Polygon", "coordinates": [[[13.4232, 52.4884], [13.4258, 52.4885], [13.4259, 52.4866], [13.4233, 52.4865], [13.4232, 52.4884]]] },
       "properties": { "eckgenau": true, "opacity": 0.8, "image_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" },
