@@ -25,6 +25,8 @@ import FeaturePanel from '../components/FeaturePanel.jsx'
 import KartenAustausch from '../components/KartenAustausch.jsx'
 import EckenBildEbene from '../components/EckenBildEbene.jsx'
 import OrthoErzeugen from '../components/OrthoErzeugen.jsx'
+import OfflineDialog from '../components/OfflineDialog.jsx'
+import { OFFLINE_ERLAUBT } from '../lib/offlineKacheln.js'
 import { bildEcken } from '../lib/eckenTransform.js'
 import { clipPolygone, vergleichsKandidaten, aufnahmeDatum } from '../lib/vergleich.js'
 import { TREE_SPECIES, matchSpecies, rememberSpecies } from '../data/treeSpecies.js'
@@ -1262,6 +1264,7 @@ export default function MapPage({ ohneSeitenleiste = false, inspector = null } =
   const [droneModal, setDroneModal] = useState(null) // project | null
   const [droneRahmen, setDroneRahmen] = useState(null) // auf der Karte aufgezogener Rahmen
   const [orthoModal, setOrthoModal] = useState(null) // project | null (hochauflösende Kachel-Ebene)
+  const [offlineProjekt, setOfflineProjekt] = useState(null) // project | null (Kacheln vorhalten, K17)
   const [droneOpacity, setDroneOpacity] = useState({}) // { featureId: opacity }
   // Zeitvergleich zweier Befliegungen (K14)
   const [vergleich, setVergleich] = useState(null)   // { a, b, anteil }
@@ -2205,6 +2208,10 @@ export default function MapPage({ ohneSeitenleiste = false, inspector = null } =
                                 style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 7px', borderRadius: 5, border: '1px solid #0ea5e940', background: '#0ea5e912', color: '#0ea5e9', cursor: 'pointer', fontSize: 10, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap' }}>
                                 🗺️ Orthomosaik
                               </button>
+                              <button onClick={() => setOfflineProjekt(p)} data-test="offline-knopf" title="Kartenkacheln dieses Gebiets für die Arbeit ohne Netz speichern"
+                                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 7px', borderRadius: 5, border: '1px solid #64748b40', background: '#64748b12', color: '#94a3b8', cursor: 'pointer', fontSize: 10, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap' }}>
+                                📥 Offline
+                              </button>
                             </div>
                           </div>
                         )}
@@ -2310,8 +2317,11 @@ export default function MapPage({ ohneSeitenleiste = false, inspector = null } =
           {/* Zoom unten rechts: oben links lag er unter der Werkzeugleiste. */}
           <ZoomControl position="bottomright" />
           {tile.wms
-            ? <WMSTileLayer key={tileLayer} url={tile.url} layers={tile.layers} format={tile.format} attribution={tile.attribution} maxNativeZoom={tile.maxNativeZoom} maxZoom={tile.maxZoom} />
-            : <TileLayer key={tileLayer} url={tile.url} attribution={tile.attribution} maxNativeZoom={tile.maxNativeZoom} maxZoom={tile.maxZoom} />
+            // crossOrigin bei den vorab ladbaren Quellen (alle senden CORS): so landen
+            // die Kacheln als normale statt als opake Antwort im Cache — Chrome
+            // rechnet opake Antworten mit ~7 MB je Kachel auf das Speicherkontingent.
+            ? <WMSTileLayer key={tileLayer} url={tile.url} layers={tile.layers} format={tile.format} attribution={tile.attribution} maxNativeZoom={tile.maxNativeZoom} maxZoom={tile.maxZoom} crossOrigin={OFFLINE_ERLAUBT.has(tileLayer) ? 'anonymous' : undefined} />
+            : <TileLayer key={tileLayer} url={tile.url} attribution={tile.attribution} maxNativeZoom={tile.maxNativeZoom} maxZoom={tile.maxZoom} crossOrigin={OFFLINE_ERLAUBT.has(tileLayer) ? 'anonymous' : undefined} />
           }
 
           {/* Zweite Grundkarte, halbtransparent über der ersten (zIndex 150:
@@ -2414,6 +2424,7 @@ export default function MapPage({ ohneSeitenleiste = false, inspector = null } =
                 maxNativeZoom={p.maxZoom || 22}
                 maxZoom={22}
                 tms={!!p.tms}
+                crossOrigin="anonymous"
                 zIndex={350}
               />
             )
@@ -3227,6 +3238,9 @@ export default function MapPage({ ohneSeitenleiste = false, inspector = null } =
       })()}
 
       {/* Drone image upload modal */}
+      {offlineProjekt && (
+        <OfflineDialog project={offlineProjekt} features={mapFeatures} aktuelleGrundkarte={tileLayer} onClose={() => setOfflineProjekt(null)} />
+      )}
       {austausch && (
         <KartenAustausch
           sichtbare={mapFeatures.filter(f => !hiddenProjects.has(f.project_id) && !hiddenFeatures.has(f.id) && passtZumFilter(f))}

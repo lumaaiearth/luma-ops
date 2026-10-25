@@ -409,3 +409,47 @@ for (const route of ['/karte-vollbild', '/biome']) {
     })
   })
 }
+
+// Eigener Block: Service Worker gesperrt, damit page.route auch die Anfragen
+// an den GDI-Server abfängt (sonst gingen sie am Test vorbei ins Netz).
+test.describe('Karte offline', () => {
+  test.use({ serviceWorkers: 'block' })
+
+  test('Offline vorhalten: Kacheln des Projektgebiets landen im Cache der Karte', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'Projekt-Knöpfe in der Seitenleiste am Desktop')
+    await page.goto('/karte-vollbild')
+    await karte(page).waitFor()
+    // GDI Berlin im Test nicht fragen: kleines JPEG mit CORS-Kopf ausliefern
+    const jpeg = Buffer.from('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/yQALCAABAAEBAREA/8wABgAQEAX/2gAIAQEAAD8A0s8g/9k=', 'base64')
+    let anfragen = 0
+    await page.route(/gdi\.berlin\.de\/services\/wms\/truedop_2024/, r => { anfragen++; r.fulfill({ status: 200, contentType: 'image/jpeg', headers: { 'access-control-allow-origin': '*' }, body: jpeg }) })
+    await page.evaluate(() => caches.delete('luma-kacheln-amtlich'))
+    await page.locator('[data-test=ebenen-knopf]').click()
+    await page.locator('[data-test=ebenen-panel] [data-test=grundkarte-luftbild_berlin]').click()
+    await page.locator('[data-test=ebenen-knopf]').click()
+    await page.getByText('Testkunde A', { exact: true }).click()
+    await page.getByText('Testfläche Nord', { exact: true }).first().click()
+    const knopf = page.locator('[data-test=offline-knopf]').first()
+    await knopf.scrollIntoViewIfNeeded()
+    await knopf.click()
+    const dialog = page.locator('[data-test=offline-dialog]')
+    await expect(dialog.locator('[data-test=offline-grundkarte]')).toHaveValue('luftbild_berlin')
+    await expect(dialog.locator('[data-test=offline-schaetzung]')).toContainText('Kacheln Grundkarte')
+    await dialog.locator('[data-test=offline-starten]').click()
+    await expect(dialog.locator('[data-test=offline-stand]')).toContainText('Fertig', { timeout: 30000 })
+    const imCache = await page.evaluate(async () => (await (await caches.open('luma-kacheln-amtlich')).keys()).length)
+    expect(imCache).toBeGreaterThan(20)
+    await page.keyboard.press('Escape')
+    await page.locator('[data-test=offline-dialog]').evaluate(el => el.parentElement.click())
+    // Die Karte selbst fragt dieselben URLs an: mindestens eine sichtbare Kachel liegt schon im Cache
+    await zurTestflaeche(page)
+    await expect.poll(async () => page.evaluate(async () => {
+      const cache = await caches.open('luma-kacheln-amtlich')
+      const srcs = [...document.querySelectorAll('img.leaflet-tile')].map(i => i.src).filter(s => s.includes('truedop_2024'))
+      let treffer = 0
+      for (const s of srcs) if (await cache.match(s)) treffer++
+      return treffer
+    }), { timeout: 10000 }).toBeGreaterThan(0)
+    expect(anfragen).toBeGreaterThan(0)
+  })
+})

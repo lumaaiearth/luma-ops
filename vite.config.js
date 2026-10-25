@@ -45,12 +45,35 @@ export default defineConfig({
             },
           },
           {
+            // Eigene Orthomosaik-Kacheln (K13) — eigener Cache, damit tausende
+            // Kacheln nicht die Fotos verdrängen. Vorab gefüllt von
+            // „Offline vorhalten“ (src/lib/offlineKacheln.js, gleicher Name).
+            urlPattern: ({ url }) => url.hostname.endsWith('supabase.co') && url.pathname.startsWith('/storage/v1/object/public/drone-tiles/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'luma-ortho-kacheln',
+              expiration: { maxEntries: 12000, maxAgeSeconds: 120 * 24 * 3600 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
             // Supabase Storage (Fotos/Dateien)
             urlPattern: ({ url }) => url.hostname.endsWith('supabase.co') && url.pathname.startsWith('/storage/'),
             handler: 'CacheFirst',
             options: {
               cacheName: 'luma-supabase-storage',
               expiration: { maxEntries: 300, maxAgeSeconds: 30 * 24 * 3600 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            // Amtliche Luftbilder und Karten (GDI Berlin, LGB, basemap.de). Fielen
+            // vorher durch die Regel unten — offline gab es kein Berliner Luftbild.
+            urlPattern: ({ url }) => /(^|\.)(gdi\.berlin\.de|geobasis-bb\.de|geodatenzentrum\.de)$/.test(url.hostname),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'luma-kacheln-amtlich',
+              expiration: { maxEntries: 12000, maxAgeSeconds: 120 * 24 * 3600 },
               cacheableResponse: { statuses: [0, 200] },
             },
           },
