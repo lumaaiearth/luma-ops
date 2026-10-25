@@ -40,6 +40,7 @@ import JobModal from '../components/JobModal.jsx'
 import PflegeStatistik from '../components/PflegeStatistik.jsx'
 import { useWeather } from '../context/WeatherContext.jsx'
 import { baueNachweisEmail } from '../lib/nachweisEmail.js'
+import { baueJahresbericht, druckeJahresbericht } from '../lib/jahresbericht.js'
 import { sendeEmail, versandProtokoll } from '../lib/email.js'
 
 const MONATE = ['Jan', 'Feb', 'Mrz', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
@@ -1504,6 +1505,7 @@ function AufgabeModal({ plan, aufgabe, onClose, onSave }) {
 /* ─── Tab: Abschluss (Plan/Ist, Nachweis, Restanten) ──────────── */
 
 function TabAbschluss({ plans, jahr, entries, jobs, gaengeByPlan, planLabel, planHours, projById, updatePlan, updateGang, clients }) {
+  const { mapFeatures, pflanzplaene } = useOps()   // für den Jahresbericht
   const curKW = jahr === new Date().getFullYear() ? isoWeek() : jahr < new Date().getFullYear() ? 53 : 0
   const [copied, setCopied] = useState(null)
   const [mailModal, setMailModal] = useState(null)
@@ -1580,6 +1582,22 @@ function TabAbschluss({ plans, jahr, entries, jobs, gaengeByPlan, planLabel, pla
       kundeName: projById[projectId]?.client || '',
       titel: `Leistungsnachweis ${jahr}`,
     })
+    if (!ok) window.__lumaToast?.('⚠️ Pop-up-Blocker verhindert die Druckansicht')
+  }
+
+  // Jahresbericht je Fläche (5.3): Leistungsnachweis-Summe neben Fläche,
+  // Bäumen, Einsätzen und Pflanzung — src/lib/jahresbericht.js
+  function pdfJahresbericht(projectId, label, ps) {
+    const projekt = { id: projectId, name: label, location: projById[projectId]?.location || '' }
+    const kunde = (clients || []).find((c) => c.id === projById[projectId]?.client_id) || null
+    const ok = druckeJahresbericht(baueJahresbericht({
+      projekt, kunde, jahr,
+      objekte: mapFeatures || [],
+      nachweis: baueNachweis(projectId, label, ps),
+      gaenge: ps.flatMap((p) => gaengeByPlan[p.id] || []),
+      einsaetze: jobs || [],
+      plaene: pflanzplaene || [],
+    }))
     if (!ok) window.__lumaToast?.('⚠️ Pop-up-Blocker verhindert die Druckansicht')
   }
 
@@ -1666,6 +1684,11 @@ function TabAbschluss({ plans, jahr, entries, jobs, gaengeByPlan, planLabel, pla
                   title="Leistungsnachweis aus der Zeiterfassung als PDF für den Kunden erzeugen"
                   onClick={() => pdfNachweis(projectId, label, ps)}>
                   PDF
+                </Button>
+                <Button variant="ghost" icon={FileText} data-test="jahresbericht"
+                  title={`Jahresbericht ${jahr} für diese Fläche: Fläche, Pflege, Einsätze, Bäume, Pflanzung (PDF)`}
+                  onClick={() => pdfJahresbericht(projectId, label, ps)}>
+                  Jahresbericht
                 </Button>
                 <Button variant="ghost" icon={Mail}
                   title="Leistungsnachweis per E-Mail an den Auftraggeber senden (mit Vorschau und Freigabe)"
