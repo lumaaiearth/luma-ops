@@ -26,6 +26,7 @@ import KartenAustausch from '../components/KartenAustausch.jsx'
 import EckenBildEbene from '../components/EckenBildEbene.jsx'
 import OrthoErzeugen from '../components/OrthoErzeugen.jsx'
 import { bildEcken } from '../lib/eckenTransform.js'
+import { clipPolygone, vergleichsKandidaten, aufnahmeDatum } from '../lib/vergleich.js'
 import { TREE_SPECIES, matchSpecies, rememberSpecies } from '../data/treeSpecies.js'
 import { useSpeicherUrl } from '../components/SpeicherBild.jsx'
 import { TILES, GRUNDKARTEN, GRUNDKARTEN_GRUPPEN, LAYER_CATS, OPEN_LAYERS, legendeUrl } from '../data/biomeLayers.js'
@@ -249,11 +250,41 @@ const ClimateReport = lazy(() => import('../components/ClimateReport.jsx'))
 
 // Merkt sich Kartenmitte/Zoom (für die 3D-Ansicht), ohne Re-Render auszulösen
 // Drohnenbild über signierten Link (privater Bucket, src/lib/speicherUrl.js).
-function DrohnenBildEbene({ url, ecken, opacity }) {
+function DrohnenBildEbene({ url, ecken, opacity, aufElement }) {
   const u = useSpeicherUrl(url)
   if (!u || !ecken) return null
-  return <EckenBildEbene url={u} ecken={ecken} opacity={opacity} />
+  return <EckenBildEbene url={u} ecken={ecken} opacity={opacity} aufElement={aufElement} />
 }
+
+// Zeitvergleich (K14): Ebene A links, Ebene B rechts vom Schieber beschneiden.
+// `elemente` liefert je Luftbild-Id das DOM-Element der Ebene (Rahmen-div bzw.
+// Kachel-Container) — beide liegen in Layer-Koordinaten.
+function VergleichsClip({ vergleich, elemente }) {
+  const map = useMap()
+  useEffect(() => {
+    if (!vergleich) return
+    let rahmen = 0, versuche = 0
+    const holen = id => elemente.current.get(id)?.() || null
+    function setzen() {
+      const { links, rechts } = clipPolygone(map.containerPointToLayerPoint([0, 0]), map.getSize(), vergleich.anteil)
+      const a = holen(vergleich.a), b = holen(vergleich.b)
+      if (a) a.style.clipPath = links
+      if (b) b.style.clipPath = rechts
+      // Ebene gerade erst eingeblendet → im nächsten Bild noch einmal
+      if ((!a || !b) && versuche++ < 120) rahmen = requestAnimationFrame(setzen)
+    }
+    setzen()
+    map.on('move zoomend resize viewreset', setzen)
+    return () => {
+      cancelAnimationFrame(rahmen)
+      map.off('move zoomend resize viewreset', setzen)
+      for (const id of [vergleich.a, vergleich.b]) { const el = holen(id); if (el) el.style.clipPath = '' }
+    }
+  }, [map, vergleich, elemente])
+  return null
+}
+
+const datumKurz = d => d ? new Date(d).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
 
 function ViewTracker({ viewRef }) {
   const map = useMapEvents({
@@ -1232,6 +1263,15 @@ export default function MapPage({ ohneSeitenleiste = false, inspector = null } =
   const [droneRahmen, setDroneRahmen] = useState(null) // auf der Karte aufgezogener Rahmen
   const [orthoModal, setOrthoModal] = useState(null) // project | null (hochauflösende Kachel-Ebene)
   const [droneOpacity, setDroneOpacity] = useState({}) // { featureId: opacity }
+  // Zeitvergleich zweier Befliegungen (K14)
+  const [vergleich, setVergleich] = useState(null)   // { a, b, anteil }
+  const [vergleichWahl, setVergleichWahl] = useState({ a: null, b: null })
+  const luftbildElemente = useRef(new Map())          // featureId -> () => HTMLElement
+  const vergleichKandidaten = useMemo(() => vergleichsKandidaten(mapFeatures), [mapFeatures])
+  const vergleichAktiv = vergleich && mapFeatures.some(f => f.id === vergleich.a) && mapFeatures.some(f => f.id === vergleich.b) ? vergleich : null
+  const zeigeLuftbild = f => vergleichAktiv
+    ? f.id === vergleichAktiv.a || f.id === vergleichAktiv.b
+    : !hiddenProjects.has(f.project_id) && !hiddenFeatures.has(f.id)
 
   // Serien-Kartierung & Detailpanel
   const [showFullForm, setShowFullForm] = useState(false)    // Kurzform → Vollformular
@@ -2316,6 +2356,7 @@ export default function MapPage({ ohneSeitenleiste = false, inspector = null } =
           <ViewTracker viewRef={viewRef} />
           <StatusMelder grundkarte={statusGrundkarte} overlays={statusOverlays} />
           <GroesseNachfuehren />
+          <VergleichsClip vergleich={vergleichAktiv} elemente={luftbildElemente} />
 
           {/* Eigener Standort (GPS) */}
           <UserLocation userPos={userPos} />
@@ -2345,25 +2386,27 @@ export default function MapPage({ ohneSeitenleiste = false, inspector = null } =
           )}
 
           {/* Drone image overlays */}
-          {mapFeatures.filter(f => f.feature_type === 'drone_image' && !hiddenProjects.has(f.project_id) && !hiddenFeatures.has(f.id) && f.properties?.image_url && f.geometry).map(feat => {
-            const opacity = droneOpacity[feat.id] ?? feat.properties?.opacity ?? 0.8
+          {mapFeatures.filter(f => f.feature_type === 'drone_image' && zeigeLuftbild(f) && f.properties?.image_url && f.geometry).map(feat => {
+            const opacity = vergleichAktiv ? 1 : droneOpacity[feat.id] ?? feat.properties?.opacity ?? 0.8
             return (
-              <DrohnenBildEbene key={feat.id} url={feat.properties.image_url} ecken={bildEcken(feat)} opacity={opacity} />
+              <DrohnenBildEbene key={feat.id} url={feat.properties.image_url} ecken={bildEcken(feat)} opacity={opacity}
+                aufElement={el => { if (el) luftbildElemente.current.set(feat.id, () => el); else luftbildElemente.current.delete(feat.id) }} />
             )
           })}
 
           {/* Hochauflösende Orthomosaik-Kachelebenen (XYZ), auf die Fläche geclippt */}
-          {mapFeatures.filter(f => f.feature_type === 'ortho_tiles' && !hiddenProjects.has(f.project_id) && !hiddenFeatures.has(f.id) && f.properties?.tiles_url && f.geometry).map(feat => {
+          {mapFeatures.filter(f => f.feature_type === 'ortho_tiles' && zeigeLuftbild(f) && f.properties?.tiles_url && f.geometry).map(feat => {
             const coords = feat.geometry.coordinates[0]
             const lngs = coords.map(c => c[0])
             const lats = coords.map(c => c[1])
             const south = Math.min(...lats), north = Math.max(...lats)
             const west = Math.min(...lngs), east = Math.max(...lngs)
-            const opacity = droneOpacity[feat.id] ?? feat.properties?.opacity ?? 0.9
+            const opacity = vergleichAktiv ? 1 : droneOpacity[feat.id] ?? feat.properties?.opacity ?? 0.9
             const p = feat.properties
             return (
               <TileLayer
                 key={feat.id}
+                ref={l => { if (l) luftbildElemente.current.set(feat.id, () => l.getContainer()); else luftbildElemente.current.delete(feat.id) }}
                 url={p.tiles_url}
                 bounds={[[south, west], [north, east]]}
                 opacity={opacity}
@@ -2781,6 +2824,36 @@ export default function MapPage({ ohneSeitenleiste = false, inspector = null } =
                 {grundkartenWahl}
                 <div style={{ height: 1, background: BORDER, margin: '12px 0 8px' }} />
                 {overlayListe}
+                {vergleichKandidaten.liste.length >= 2 && (() => {
+                  const a = vergleichWahl.a ?? vergleichKandidaten.vorschlag?.a ?? vergleichKandidaten.liste[0].id
+                  const b = vergleichWahl.b ?? vergleichKandidaten.vorschlag?.b ?? vergleichKandidaten.liste.at(-1).id
+                  const option = f => <option key={f.id} value={f.id}>{f.label || 'Luftbild'} · {datumKurz(aufnahmeDatum(f))}</option>
+                  const selStyle = { width: '100%', padding: '5px 7px', borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: FG, fontSize: 11.5 }
+                  return (
+                    <div data-test="vergleich-abschnitt">
+                      <div style={{ height: 1, background: BORDER, margin: '12px 0 8px' }} />
+                      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '2px 2px 6px' }}>Zeitvergleich</div>
+                      <div style={{ display: 'grid', gap: 6 }}>
+                        <label style={{ fontSize: 11, color: MUTED }}>Vorher (links)
+                          <select value={a} onChange={e => setVergleichWahl(w => ({ ...w, a: e.target.value }))} data-test="vergleich-a" style={selStyle}>{vergleichKandidaten.liste.map(option)}</select>
+                        </label>
+                        <label style={{ fontSize: 11, color: MUTED }}>Nachher (rechts)
+                          <select value={b} onChange={e => setVergleichWahl(w => ({ ...w, b: e.target.value }))} data-test="vergleich-b" style={selStyle}>{vergleichKandidaten.liste.map(option)}</select>
+                        </label>
+                        <button disabled={a === b} data-test="vergleich-start" className="lu-chip"
+                          onClick={() => {
+                            setVergleich({ a, b, anteil: 0.5 })
+                            const c = geometryCentroid(mapFeatures.find(f => f.id === b)?.geometry)
+                            if (c) setFlyTarget([c.lat, c.lng])
+                            setEbenenPanel(false)
+                          }}
+                          style={{ padding: '7px 10px', borderRadius: 7, border: `1px solid ${A}`, background: A14, color: A, cursor: a === b ? 'default' : 'pointer', fontSize: 12, fontWeight: 600, opacity: a === b ? 0.5 : 1 }}>
+                          {a === b ? 'Zwei verschiedene Aufnahmen wählen' : 'Mit Schieber vergleichen'}
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
             </div>
           )
@@ -2916,6 +2989,34 @@ export default function MapPage({ ohneSeitenleiste = false, inspector = null } =
             An dieser Stelle liegt kein Projekt — bitte oben in der Leiste ein Projekt wählen
           </div>
         )}
+
+        {/* Zeitvergleich: Schieber über der Karte */}
+        {vergleichAktiv && (() => {
+          const fa = mapFeatures.find(f => f.id === vergleichAktiv.a), fb = mapFeatures.find(f => f.id === vergleichAktiv.b)
+          const ziehen = e => {
+            const r = e.currentTarget.parentElement.getBoundingClientRect()
+            setVergleich(v => v && { ...v, anteil: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) })
+          }
+          return (
+            <div data-test="vergleich" style={{ position: 'absolute', inset: 0, zIndex: 1050, pointerEvents: 'none' }}>
+              <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${vergleichAktiv.anteil * 100}%`, width: 2, marginLeft: -1, background: '#fff', boxShadow: '0 0 6px rgba(0,0,0,0.6)' }} />
+              <div role="slider" aria-label="Vergleichsschieber" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(vergleichAktiv.anteil * 100)}
+                onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId) }}
+                onPointerMove={e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) ziehen(e) }}
+                style={{ position: 'absolute', top: '50%', left: `${vergleichAktiv.anteil * 100}%`, width: 36, height: 36, margin: '-18px 0 0 -18px', borderRadius: '50%', background: '#fff', boxShadow: '0 2px 10px rgba(0,0,0,0.5)', cursor: 'ew-resize', pointerEvents: 'auto', touchAction: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333', fontSize: 14, userSelect: 'none' }}>
+                ⇆
+              </div>
+              <div style={{ position: 'absolute', left: '50%', bottom: isMobile ? 112 : 20, transform: 'translateX(-50%)', pointerEvents: 'auto', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 10, fontSize: 11.5, color: FG, fontFamily: "'Space Grotesk', sans-serif", boxShadow: '0 4px 18px rgba(0,0,0,0.45)', maxWidth: 'calc(100% - 24px)' }}>
+                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>◀ {!isMobile && `${fa?.label || 'Vorher'} · `}{datumKurz(aufnahmeDatum(fa))}</span>
+                <input type="range" min="0" max="100" value={Math.round(vergleichAktiv.anteil * 100)} data-test="vergleich-regler" aria-label="Lage des Schiebers"
+                  onChange={e => setVergleich(v => v && { ...v, anteil: +e.target.value / 100 })} style={{ width: isMobile ? 80 : 120, accentColor: A }} />
+                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{!isMobile && `${fb?.label || 'Nachher'} · `}{datumKurz(aufnahmeDatum(fb))} ▶</span>
+                <button onClick={() => setVergleich(null)} aria-label="Vergleich beenden" data-test="vergleich-ende"
+                  style={{ background: 'none', border: 'none', color: MUTED, cursor: 'pointer', display: 'flex' }}><X size={14} /></button>
+              </div>
+            </div>
+          )
+        })()}
 
         {/* Rückgängig nach dem Speichern */}
         {rueckgaengig && (

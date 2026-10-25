@@ -241,7 +241,7 @@ for (const route of ['/karte-vollbild', '/biome']) {
       await page.getByText('Testfläche Süd').last().click()
       await page.waitForTimeout(1200)
       await page.keyboard.press('Escape')
-      const bild = page.locator('img.luma-eckenbild')
+      const bild = page.locator('img.luma-eckenbild').first()
       await expect(bild).toBeVisible()
       const lage = async () => bild.evaluate(el => {
         const m = new DOMMatrix(getComputedStyle(el).transform)
@@ -260,6 +260,40 @@ for (const route of ['/karte-vollbild', '/biome']) {
       const b = await lage()
       expect(b.breite / a.breite).toBeGreaterThan(1.8)
       expect(b.breite / a.breite).toBeLessThan(2.2)
+    })
+
+    test('Zeitvergleich: zwei Befliegungen mit Schieber', async ({ page, isMobile }) => {
+      await page.locator('button[title^="Suchen"]').first().click()
+      await page.locator('input[placeholder^="Adresse, Projekt"]').fill('Testfläche Süd')
+      await page.getByText('Testfläche Süd').last().click()
+      await page.waitForTimeout(1000)
+      await page.keyboard.press('Escape')
+      await page.locator('[data-test=ebenen-knopf]').click()
+      const abschnitt = page.locator('[data-test=vergleich-abschnitt]')
+      await abschnitt.scrollIntoViewIfNeeded()
+      // Vorschlag: ältere Aufnahme links, neuere rechts
+      await expect(abschnitt.locator('[data-test=vergleich-a]')).toHaveValue('test-luftbild-0')
+      await expect(abschnitt.locator('[data-test=vergleich-b]')).toHaveValue('test-luftbild-1')
+      await abschnitt.locator('[data-test=vergleich-start]').click()
+      await expect(page.locator('[data-test=vergleich]')).toBeVisible()
+      const clips = () => page.locator('.luma-eckenbild-rahmen').evaluateAll(els => els.map(e => e.style.clipPath).sort())
+      await expect.poll(async () => (await clips()).filter(Boolean).length).toBe(2)
+      const vorher = await clips()
+      // Schieber nach links: die linke Seite wird schmaler
+      await page.locator('[data-test=vergleich-regler]').fill('20')
+      await expect.poll(clips).not.toEqual(vorher)
+      // Schwenken verschiebt den Schnitt mit (Layer-Koordinaten) — Maus-Ziehen
+      // schwenkt nur am Desktop; im Telefonprofil erwartet Leaflet Touch
+      if (!isMobile) {
+        const nachRegler = await clips()
+        const b = await karte(page).boundingBox()
+        await page.mouse.move(b.x + 100, b.y + b.height - 120)
+        await page.mouse.down(); await page.mouse.move(b.x + 160, b.y + b.height - 100, { steps: 5 }); await page.mouse.up()
+        await expect.poll(clips).not.toEqual(nachRegler)
+      }
+      await page.locator('[data-test=vergleich-ende]').click()
+      await expect(page.locator('[data-test=vergleich]')).toHaveCount(0)
+      await expect.poll(async () => (await clips()).filter(Boolean).length).toBe(0)
     })
 
     test('Orthomosaik aus GeoTIFF in der App kacheln', async ({ page, isMobile }) => {
