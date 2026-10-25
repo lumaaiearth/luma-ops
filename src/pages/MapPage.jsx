@@ -262,6 +262,21 @@ function ViewTracker({ viewRef }) {
   return null
 }
 
+// Leaflet misst seinen Container nur beim Start. Wechselt die Größe (Feldmodus,
+// Seitenleiste, Drehen des Telefons), fehlen sonst Kacheln und Klicks landen
+// versetzt.
+function GroesseNachfuehren() {
+  const map = useMap()
+  useEffect(() => {
+    const el = map.getContainer()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => map.invalidateSize({ pan: false }))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [map])
+  return null
+}
+
 // Meldet, was die Karte zeigt, an die BIOME-Statusleiste (src/lib/kartenStatus.js)
 function StatusMelder({ grundkarte, overlays }) {
   const rahmen = useRef(0)
@@ -2282,6 +2297,7 @@ export default function MapPage({ ohneSeitenleiste = false, inspector = null } =
           {flyTarget && <FlyTo center={flyTarget} />}
           <ViewTracker viewRef={viewRef} />
           <StatusMelder grundkarte={statusGrundkarte} overlays={statusOverlays} />
+          <GroesseNachfuehren />
 
           {/* Eigener Standort (GPS) */}
           <UserLocation userPos={userPos} />
