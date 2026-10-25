@@ -230,6 +230,34 @@ for (const route of ['/karte-vollbild', '/biome']) {
       await expect(dialog.locator('input[placeholder^="z.B. Orthomosaik"]')).toHaveValue('befliegung')
     })
 
+    test('Luftbild liegt eckgenau, nicht achsparallel', async ({ page }) => {
+      // Testbild in den Fixtures: Ecken wie ein UTM-Raster leicht gedreht
+      await page.locator('button[title^="Suchen"]').first().click()
+      await page.locator('input[placeholder^="Adresse, Projekt"]').fill('Testfläche Süd')
+      await page.getByText('Testfläche Süd').last().click()
+      await page.waitForTimeout(1200)
+      await page.keyboard.press('Escape')
+      const bild = page.locator('img.luma-eckenbild')
+      await expect(bild).toBeVisible()
+      const lage = async () => bild.evaluate(el => {
+        const m = new DOMMatrix(getComputedStyle(el).transform)
+        const w = el.naturalWidth
+        const ol = m.transformPoint(new DOMPoint(0, 0)), or = m.transformPoint(new DOMPoint(w, 0))
+        return { is3d: !m.is2D || getComputedStyle(el).transform.startsWith('matrix3d'), breite: Math.hypot((or.x / or.w) - (ol.x / ol.w), (or.y / or.w) - (ol.y / ol.w)), schraeg: (or.y / or.w) - (ol.y / ol.w) }
+      })
+      const a = await lage()
+      expect(a.is3d).toBe(true)
+      expect(a.breite).toBeGreaterThan(20)
+      // Oberkante steigt nach rechts (Nord-Ecke rechts liegt höher) — achsparallel wäre 0
+      expect(a.schraeg).toBeLessThan(-0.5)
+      // Nach dem Zoomen neu eingepasst: doppelt so breit
+      await page.locator('.leaflet-control-zoom-in').click()
+      await page.waitForTimeout(700)
+      const b = await lage()
+      expect(b.breite / a.breite).toBeGreaterThan(1.8)
+      expect(b.breite / a.breite).toBeLessThan(2.2)
+    })
+
     test('Werkzeugleiste passt in die Karte', async ({ page }) => {
       // Vorher lief sie in der BIOME-Schale seitlich über.
       const leiste = page.locator('[data-test=ebenen-knopf]').locator('xpath=..')
