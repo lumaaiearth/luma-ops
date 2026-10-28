@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "node scripts/test-leistungsnachweis.mjs && node scripts/test-sensor-series.mjs && node scripts/test-biome-format.mjs && node scripts/test-angebot.mjs && node scripts/test-speicher-url.mjs && node scripts/test-einsatz-abschluss.mjs && node scripts/test-geotiff-import.mjs && node scripts/test-projekt-aus-lage.mjs && node scripts/test-flaechenbezug.mjs && node scripts/test-karten-austausch.mjs && node scripts/test-karten-status.mjs && node scripts/test-geometrie-recht.mjs && node scripts/test-ecken-transform.mjs && node scripts/test-ortho-kacheln.mjs && node scripts/test-vergleich.mjs && node scripts/test-offline-kacheln.mjs && node scripts/test-jahresbericht.mjs",
+    "test": "node scripts/test-leistungsnachweis.mjs && node scripts/test-sensor-series.mjs && node scripts/test-biome-format.mjs && node scripts/test-angebot.mjs && node scripts/test-speicher-url.mjs && node scripts/test-einsatz-abschluss.mjs && node scripts/test-geotiff-import.mjs && node scripts/test-projekt-aus-lage.mjs && node scripts/test-flaechenbezug.mjs && node scripts/test-karten-austausch.mjs && node scripts/test-karten-status.mjs && node scripts/test-geometrie-recht.mjs && node scripts/test-ecken-transform.mjs && node scripts/test-ortho-kacheln.mjs && node scripts/test-vergleich.mjs && node scripts/test-offline-kacheln.mjs && node scripts/test-jahresbericht.mjs && node scripts/test-kalender-ics.mjs && node scripts/test-pflege-kalender.mjs",
     "lint": "eslint .",
     "typecheck": "node scripts/typecheck.mjs",
     "migration:test": "bash scripts/test-migration.sh",

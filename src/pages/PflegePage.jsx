@@ -41,6 +41,8 @@ import PflegeStatistik from '../components/PflegeStatistik.jsx'
 import { useWeather } from '../context/WeatherContext.jsx'
 import { baueNachweisEmail } from '../lib/nachweisEmail.js'
 import { baueJahresbericht, druckeJahresbericht } from '../lib/jahresbericht.js'
+import PflegeKalender from '../components/PflegeKalender.jsx'
+import { isoWoche } from '../lib/pflegeKalender.js'
 import { sendeEmail, versandProtokoll } from '../lib/email.js'
 
 const MONATE = ['Jan', 'Feb', 'Mrz', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
@@ -216,7 +218,8 @@ export default function PflegePage() {
   const { entries, hourRules, rates, costRates, costs, logTime, updateEntry, deleteEntry, addCost, deleteCost } = useTime()
   const { isAdmin, profile } = useAuth()
 
-  const [tab, setTab] = useState('erfassung')
+  // ?tab=kalender u. Ä. öffnet direkt den Reiter (Verweis aus den Einstellungen)
+  const [tab, setTab] = useState(() => new URLSearchParams(window.location.search).get('tab') || 'erfassung')
   const [plaene, setPlaene] = useState([])
   const [aufgaben, setAufgaben] = useState([])
   const [gaenge, setGaenge] = useState([])
@@ -425,6 +428,68 @@ export default function PflegePage() {
     setGangModal(null)
   }
 
+  // Kalendertermin (Google) für einen Gang übernehmen: Einsatz anlegen bzw.
+  // verschieben, Gang terminieren. stumm: kein neuer Google-Termin — der
+  // Termin steht ja schon dort; per gcal_event_id bleiben beide verknüpft.
+  async function kalenderUebernehmen(gang, termin) {
+    const plan = plaene.find((p) => p.id === gang?.plan_id)
+    if (!plan || !termin) return
+    const { jahr: tJahr, kw } = isoWoche(termin.start_datum)
+    const gcalId = /@google\.com$/.test(termin.uid || '') ? termin.uid.replace(/@google\.com$/, '') : null
+    const zeit = { date: termin.start_datum, start_time: termin.start_zeit || '08:00', end_time: termin.ende_zeit || null }
+    let jobId = gang.job_id && jobById[gang.job_id] ? gang.job_id : null
+    if (jobId) {
+      const job = jobById[jobId]
+      if (job.date !== zeit.date || job.start_time !== zeit.start_time) updateJob(jobId, { ...zeit, ...(gcalId && !job.gcal_event_id ? { gcal_event_id: gcalId } : {}) })
+    } else {
+      // Vorhandenen, noch keinem Gang zugeordneten Einsatz am selben Tag nutzen
+      const vorhanden = (jobs || []).find((j) => j.project_id === plan.project_id && j.date === zeit.date && !gaenge.some((g) => g.job_id === j.id))
+      if (vorhanden) jobId = vorhanden.id
+      else {
+        try {
+          const aufgabenText = (gang.aufgaben || []).map((a) => `– ${a.titel} (${a.stunden} h)`).join('\n')
+          const job = await createJobAsync({
+            project_id: plan.project_id, title: gang.titel || `Pflegegang KW ${gang.kw}`,
+            job_type: 'pflege', ...zeit, date_end: null, duration: zeit.end_time ? 'custom' : 'full',
+            assigned_users: [], vehicle_id: null, vehicle_ids: [], tools: [],
+            notes: `Pflegegang KW ${gang.kw}${plan.objekt ? ` · ${plan.objekt}` : ''}\nAus Google-Kalender: ${termin.titel}\n${aufgabenText}`,
+            location: termin.ort || null, color: null, status: 'planned', gcal_event_id: gcalId,
+            planned_hours: round2(Number(gang.soll_stunden || 0) + Number(gang.fahrt_stunden || 0)),
+          }, { stumm: true })
+          jobId = job.id
+        } catch (e) { dbErr('jobs')(e); return }
+      }
+    }
+    const verschoben = tJahr === plan.jahr && kw !== gang.kw
+    updateGang(gang.id, {
+      job_id: jobId, termin: termin.start_datum,
+      status: gang.status === 'erledigt' ? 'erledigt' : 'terminiert',
+      ...(verschoben ? { kw, verschoben: true } : {}),
+    })
+  }
+
+  // Termin ohne geplanten Gang (z. B. Sonderpflege): als Zusatz-Einsatz anlegen
+  async function kalenderZusatz(plan, termin) {
+    if (!plan || !termin) return
+    if ((jobs || []).some((j) => j.project_id === plan.project_id && j.date === termin.start_datum)) return
+    const gcalId = /@google\.com$/.test(termin.uid || '') ? termin.uid.replace(/@google\.com$/, '') : null
+    try {
+      await createJobAsync({
+        project_id: plan.project_id, title: termin.titel || 'Zusatzeinsatz', job_type: 'pflege',
+        date: termin.start_datum, date_end: null, start_time: termin.start_zeit || '08:00', end_time: termin.ende_zeit || null,
+        duration: termin.ende_zeit ? 'custom' : 'full', assigned_users: [], vehicle_id: null, vehicle_ids: [], tools: [],
+        notes: `Zusatztermin aus Google-Kalender${plan.objekt ? ` · ${plan.objekt}` : ''}${termin.beschreibung ? `\n${termin.beschreibung}` : ''}`,
+        location: termin.ort || null, color: null, status: 'planned', gcal_event_id: gcalId, planned_hours: null,
+      }, { stumm: true })
+    } catch (e) { dbErr('jobs')(e) }
+  }
+
+  // Jahresplanung: vorgeschlagene Daten an die Gänge schreiben (Status bleibt)
+  function termineSetzen(vorschlaege) {
+    for (const v of vorschlaege) if (v.datum) updateGang(v.gangId, { termin: v.datum })
+    window.__lumaToast?.(`✓ ${vorschlaege.length} Termine in den Plan übernommen`)
+  }
+
   // Leistung anlegen/ändern: wochen + jahres_stunden aus den Fenstern ableiten.
   // Danach werden die geplanten Einsätze sofort aus dem LV regeneriert —
   // LV ist die Quelle, die Einsätze folgen (terminierte/erledigte bleiben).
@@ -557,7 +622,7 @@ export default function PflegePage() {
   const totalTage = yearPlans.reduce((s, p) => s + (gaengeByPlan[p.id] || []).filter((g) => g.status !== 'entfallen').length, 0)
   // Reihenfolge = Arbeitsablauf (Wunsch Malte 08/2026): erst eintragen,
   // dann auswerten, dann planen. Standorte/Angebote sind Stammdaten-Pflege.
-  const TABS = [['erfassung', 'Erfassung'], ['statistik', 'Statistik'], ['jahresplan', 'Jahresplanung'], ['standorte', 'Standorte'], ...(isAdmin ? [['angebote', 'Angebote & Verträge']] : [])]
+  const TABS = [['erfassung', 'Erfassung'], ['statistik', 'Statistik'], ['jahresplan', 'Jahresplanung'], ['standorte', 'Standorte'], ['kalender', 'Kalender & Planung'], ...(isAdmin ? [['angebote', 'Angebote & Verträge']] : [])]
 
   return (
     // Gleiche Seitenarchitektur wie ManaPage/Dashboard: zentrierter Container
@@ -620,6 +685,10 @@ export default function PflegePage() {
           {tab === 'standorte' && (
             <TabStandorte isMobile={isMobile} plans={yearPlans}
               {...{ jahr, years, aufgabenByPlan, gaengeByPlan, jobById, planLabel, planClientId, planHours, clientById, projById, updatePlan, updateGang, regenerateGaenge, carryOverPlan, markErledigt, onTerminieren: setGangModal, deleteAufgabe, onEditAufgabe: (plan, aufgabe) => setAufgabeModal({ plan, aufgabe }) }} />
+          )}
+          {tab === 'kalender' && (
+            <PflegeKalender {...{ jahr, plaene, gaenge, projects, clients, rates, jobs, isAdmin, planLabel }}
+              onUebernehmen={kalenderUebernehmen} onZusatz={kalenderZusatz} onTermineSetzen={termineSetzen} />
           )}
           {tab === 'angebote' && isAdmin && (
             <TabAngebote {...{ offers, setOffers, clientById, onNew: () => setOfferModal(true) }} />

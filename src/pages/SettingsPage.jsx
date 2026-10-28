@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Navigate, Link } from 'react-router-dom'
 import { A, SURFACE, BORDER, FG, MUTED, A06, A08, A18, A20 } from '../lib/theme.js'
 import { useTheme, THEMES } from '../context/ThemeContext.jsx'
 import { VEHICLES, TEAM } from '../data/seed.js'
@@ -13,7 +13,7 @@ import InstallSection from '../components/InstallSection.jsx'
 import UserManagement from '../components/UserManagement.jsx'
 import { Avatar } from '../components/ui.jsx'
 import { avatarFor } from '../lib/people.js'
-import { Car, Truck, Plus, Trash2, Calendar, ExternalLink, AlertTriangle, Send, Check, RefreshCw, Unlink, FolderOpen, Pencil, X } from 'lucide-react'
+import { Car, Truck, Plus, Trash2, Calendar, ExternalLink, Send, Check, RefreshCw, Unlink, FolderOpen, Pencil, X } from 'lucide-react'
 
 const DEFAULT_CHIPS = [
   'Wochenpflege', 'Rasenmähen', 'Baumpflege', 'Schröpfschnitt',
@@ -111,10 +111,11 @@ export default function SettingsPage() {
   const [editP, setEditP] = useState({})
   const [showAddVehicle, setShowAddVehicle] = useState(false)
   const [newV, setNewV] = useState({ name: '', model: '', type: 'van', ownership: 'owned', color: '#08AA56' })
-  const [gcalUrl, setGcalUrl] = useState(() => localStorage.getItem('luma_gcal_url') || '')
-  const [gcalStatus, setGcalStatus] = useState(null)
   const [newChip, setNewChip] = useState('')
-  const [gcalEvents, setGcalEvents] = useState([])
+  // Der frühere iCal-Import legte die geheime Kalenderadresse im Browser ab
+  // und schickte sie über einen fremden Proxy. Das Abo läuft jetzt über den
+  // Server (Pflege → Kalender & Planung); die alte Ablage wird gelöscht.
+  useEffect(() => { try { localStorage.removeItem('luma_gcal_url') } catch { /* privat */ } }, [])
 
   const [tgToken, setTgToken] = useState(() => localStorage.getItem('luma_tg_token') || '')
   const [tgPflege, setTgPflege] = useState(() => localStorage.getItem('luma_tg_pflege') || '')
@@ -159,42 +160,6 @@ export default function SettingsPage() {
     await createVehicle(newV)
     setNewV({ name: '', model: '', type: 'van', ownership: 'owned', color: '#08AA56' })
     setShowAddVehicle(false)
-  }
-
-  async function importGcal() {
-    if (!gcalUrl) return
-    setGcalStatus('loading')
-    setGcalEvents([])
-    try {
-      // Google Calendar iCal URLs need CORS proxy for browser fetch
-      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(gcalUrl)}`
-      const res = await fetch(proxyUrl)
-      if (!res.ok) throw new Error('HTTP ' + res.status)
-      const text = await res.text()
-      // Parse basic iCal VEVENT blocks
-      const events = []
-      const blocks = text.split('BEGIN:VEVENT')
-      for (let i = 1; i < blocks.length; i++) {
-        const block = blocks[i]
-        const get = (key) => {
-          const m = block.match(new RegExp(key + '[^:]*:([^\\r\\n]+)'))
-          return m ? m[1].trim() : ''
-        }
-        const dtstart = get('DTSTART')
-        const summary = get('SUMMARY')
-        const location = get('LOCATION')
-        if (summary && dtstart) {
-          const dateStr = dtstart.replace('T', '').slice(0, 8)
-          const iso = `${dateStr.slice(0,4)}-${dateStr.slice(4,6)}-${dateStr.slice(6,8)}`
-          events.push({ summary, date: iso, location })
-        }
-      }
-      setGcalEvents(events.slice(0, 20))
-      setGcalStatus('ok')
-      localStorage.setItem('luma_gcal_url', gcalUrl)
-    } catch (err) {
-      setGcalStatus('error')
-    }
   }
 
   // Guard erst nach allen Hooks (Rules of Hooks)
@@ -376,60 +341,16 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {/* ── Google Calendar iCal Import (Fallback) ── */}
+      {/* ── Google-Kalender abonnieren: jetzt serverseitig in der Pflege ── */}
       <section style={{ marginBottom: 36 }}>
         <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 14 }}>
-          Google Kalender Import (iCal, read-only)
+          Google Kalender abonnieren (iCal)
         </div>
-
-        <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, marginBottom: 12 }}>
-          <div style={{ fontSize: 13, color: FG, marginBottom: 10, lineHeight: 1.6 }}>
-            Google Calendar iCal-URL einfügen — Termine werden als Einsatz-Vorschläge importiert.
-          </div>
-          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, marginBottom: 12 }}>
-            Google Calendar → Einstellungen → Kalender wählen → "Privatadresse im iCal-Format" kopieren
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              style={{ ...INPUT_STYLE, flex: 1 }}
-              value={gcalUrl}
-              onChange={e => setGcalUrl(e.target.value)}
-              placeholder="https://calendar.google.com/calendar/ical/.../.../basic.ics"
-            />
-            <button
-              onClick={importGcal}
-              disabled={!gcalUrl || gcalStatus === 'loading'}
-              style={{ padding: '9px 16px', borderRadius: 6, background: gcalUrl ? A : A06, border: 'none', color: gcalUrl ? 'var(--luma-on-a)' : MUTED, cursor: gcalUrl ? 'pointer' : 'default', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap' }}>
-              {gcalStatus === 'loading' ? 'Lädt...' : 'Importieren'}
-            </button>
-          </div>
+        <div style={{ padding: '16px 20px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, fontSize: 13, color: FG, lineHeight: 1.6 }}>
+          Der Kalender wird jetzt vom Server abonniert und den Pflegegängen zugeordnet — die geheime iCal-Adresse
+          liegt nicht mehr im Browser und geht nicht mehr über einen fremden Dienst.{' '}
+          <Link to="/pflege?tab=kalender" style={{ color: A }}>Pflege → Kalender &amp; Planung</Link>
         </div>
-
-        {gcalStatus === 'error' && (
-          <div style={{ display: 'flex', gap: 8, padding: '10px 14px', background: '#ef444410', border: '1px solid #ef444430', borderRadius: 6, marginBottom: 10 }}>
-            <AlertTriangle size={14} color="#ef4444" style={{ flexShrink: 0, marginTop: 1 }} />
-            <span style={{ fontSize: 12, color: '#ef4444' }}>Import fehlgeschlagen. Prüfe die URL oder ob der Kalender öffentlich freigegeben ist.</span>
-          </div>
-        )}
-
-        {gcalStatus === 'ok' && gcalEvents.length > 0 && (
-          <div>
-            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: A, marginBottom: 8 }}>{gcalEvents.length} Termine gefunden</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {gcalEvents.map((ev, i) => (
-                <div key={i} style={{ display: 'flex', gap: 14, padding: '9px 14px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 6, alignItems: 'center' }}>
-                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED, minWidth: 80 }}>{ev.date}</div>
-                  <div style={{ flex: 1, fontSize: 13, color: FG }}>{ev.summary}</div>
-                  {ev.location && <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: MUTED }}>{ev.location}</div>}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {gcalStatus === 'ok' && gcalEvents.length === 0 && (
-          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: MUTED, padding: '8px 0' }}>Keine kommenden Termine gefunden.</div>
-        )}
       </section>
 
       {/* ── Team Kalender (iCal free/busy) ── */}
