@@ -1,0 +1,30 @@
+# Stündlicher Abgleich des abonnierten Google-Kalenders (Pflege → Kalender & Planung).
+# Ruft die Edge Function kalender-sync mit dem Secret KALENDER_SYNC_TOKEN auf.
+# Ohne Secret läuft der Job durch und tut nichts — der Abgleich passiert dann
+# nur beim Öffnen der Seite in der App.
+name: Kalender abgleichen
+
+on:
+  schedule:
+    - cron: '23 * * * *'
+  workflow_dispatch:
+
+jobs:
+  abgleich:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Kalender abgleichen
+        env:
+          TOKEN: ${{ secrets.KALENDER_SYNC_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::notice::KALENDER_SYNC_TOKEN nicht gesetzt — stündlicher Abgleich aus."
+            exit 0
+          fi
+          antwort=$(curl -sS -w '\n%{http_code}' -X POST \
+            "https://eqwoyfsfyohtcibithak.supabase.co/functions/v1/kalender-sync" \
+            -H "x-sync-token: $TOKEN" -H "Content-Type: application/json" -d '{}')
+          code=$(echo "$antwort" | tail -1)
+          echo "$antwort" | head -n -1 | sed -E 's/"(name|id)":"[^"]*"/"\1":"…"/g'
+          [ "$code" = "200" ] || { echo "::error::Abgleich fehlgeschlagen (HTTP $code)"; exit 1; }
