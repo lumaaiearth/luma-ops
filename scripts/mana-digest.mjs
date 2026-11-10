@@ -72,9 +72,10 @@ function parseMailAccess(raw) {
 
 async function loadRows() {
   const now = new Date().toISOString()
+  const sixWeeks = new Date(Date.now() - 42 * 86400e3).toISOString().slice(0, 10)
   const q = 'mana_ausschreibungen?select=id,titel,auftraggeber,ort,bundesland,frist_angebot,url,score,score_begruendung,eckdaten,status,created_at,quelle'
     + `&status=in.(neu,interessant,in_bearbeitung)&score=gte.${MIN}`
-    + `&or=(frist_angebot.gte.${now},frist_angebot.is.null)&order=score.desc&limit=40`
+    + `&or=(frist_angebot.gte.${now},and(frist_angebot.is.null,veroeffentlicht_am.gte.${sixWeeks}))&order=score.desc&limit=40`
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${q}`, { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } })
   if (!res.ok) throw new Error(`Supabase: ${res.status} ${await res.text()}`)
   return res.json()
