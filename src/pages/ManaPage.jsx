@@ -261,6 +261,9 @@ function DetailModal({ row, onClose, onPatch }) {
           <MetaField label="Ort" value={[row.ort, row.bundesland].filter(Boolean).join(', ')} />
           <MetaField label="Frist" value={row.frist_angebot ? `${isoToGerman(row.frist_angebot.slice(0, 10))}${frist ? ` (${frist.label})` : ''}` : null} color={frist?.color} />
           <MetaField label="Volumen (geschätzt)" value={eck.volumen_geschaetzt} />
+          {eck.empfehlung && <MetaField label="Empfehlung" value={eck.empfehlung} />}
+          {eck.passung != null && <MetaField label="Passung · Lukrativität" value={`${eck.passung} · ${eck.lukrativitaet}`} />}
+          {eck.aufwand_angebot && <MetaField label="Aufwand Angebot" value={eck.aufwand_angebot} />}
           <MetaField label="Verfahren" value={row.verfahren_art} />
           <MetaField label="CPV" value={(row.cpv_codes || []).join(', ')} />
         </div>

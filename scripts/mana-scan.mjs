@@ -1,23 +1,32 @@
 #!/usr/bin/env node
 // ════════════════════════════════════════════════════════════════════════════
-// MANA™ RADAR — täglicher Vergabe-Scan
+// MANA™ RADAR — täglicher Vergabe-Scan (v2)
+//
+// Quellen:
+//   • Bekanntmachungsservice (oeffentlichevergabe.de) — Tagesexporte, alle
+//     Größen, auch Unterschwelle (Vergabeplattform Berlin, Vergabemarktplatz
+//     Brandenburg melden dorthin)
+//   • TED (ted.europa.eu) — EU-weite Ausschreibungen oberhalb der Schwelle
 //
 // Pipeline:
-//   1. Tagesexport vom Bekanntmachungsservice (oeffentlichevergabe.de) laden
-//   2. Mechanischer Vorfilter: nur Bekanntmachungen (tag=tender) mit passenden
-//      CPV-Codes / Regionen aus dem Suchprofil (mana_profil)
-//   3. Dedupe gegen mana_ausschreibungen
-//   4. Claude bewertet jede neue Ausschreibung gegen das LUMA-Firmenprofil
-//   5. Upsert nach Supabase, Telegram-Digest für Treffer >= min_score
+//   1. Die letzten N Tage laden (Standard 7). Der Bekanntmachungsservice
+//      liefert manche Tage leer oder verspätet — durch das Rückfenster werden
+//      sie beim nächsten Lauf nachgeholt; Bekanntes fällt per Dedupe raus.
+//   2. Vorfilter: nur Ausschreibungen (keine Zuschläge), Region aus dem
+//      Suchprofil (NUTS-Präfixe), CPV-Präfix ODER Stichwort im Titel,
+//      harte Ausschlüsse (Winterdienst, Reinigung …)
+//   3. Dedupe gegen die DB — per ID und quellenübergreifend per Titel+Auftraggeber
+//   4. Claude bewertet Passung und Lukrativität gegen das Firmenprofil
+//   5. Upsert nach Supabase; optional Telegram-Digest
 //
 // Aufruf:
-//   node scripts/mana-scan.mjs [--day=YYYY-MM-DD] [--dry-run] [--no-ai] [--limit=N]
+//   node scripts/mana-scan.mjs [--days=7] [--day=YYYY-MM-DD] [--dry-run] [--no-ai] [--limit=N] [--no-ted] [--no-bkms]
 //
 // Env:
 //   SUPABASE_SERVICE_KEY   service_role Key (Pflicht, außer --dry-run)
 //   ANTHROPIC_API_KEY      Anthropic API Key (Pflicht, außer --no-ai)
-//   TELEGRAM_BOT_TOKEN     optional — Digest-Nachricht
-//   TELEGRAM_CHAT_ID       optional — Ziel-Chat
+//   MANA_MODEL             optional, Standard claude-sonnet-5-5
+//   TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID  optional
 //
 // Abhängigkeit (nicht committen): npm i --no-save @anthropic-ai/sdk
 // ════════════════════════════════════════════════════════════════════════════
@@ -30,7 +39,8 @@ import { join } from 'node:path'
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://eqwoyfsfyohtcibithak.supabase.co'
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || ''
 const BKMS = 'https://oeffentlichevergabe.de/api/notice-exports'
-const MODEL = process.env.MANA_MODEL || 'claude-opus-4-8'
+const TED = 'https://api.ted.europa.eu/v3/notices/search'
+const MODEL = process.env.MANA_MODEL || 'claude-sonnet-5-5'
 
 const args = Object.fromEntries(process.argv.slice(2).map(a => {
   const m = a.match(/^--([^=]+)(?:=(.*))?$/)
@@ -39,15 +49,22 @@ const args = Object.fromEntries(process.argv.slice(2).map(a => {
 const DRY = !!args['dry-run']
 const NO_AI = !!args['no-ai']
 const LIMIT = args.limit ? parseInt(args.limit, 10) : Infinity
+const DAYS = args.days ? parseInt(args.days, 10) : 7
 
 if (!DRY && !SERVICE_KEY) fail('SUPABASE_SERVICE_KEY fehlt (oder --dry-run nutzen)')
 if (!NO_AI && !process.env.ANTHROPIC_API_KEY) fail('ANTHROPIC_API_KEY fehlt (oder --no-ai nutzen)')
 
 function fail(msg) { console.error(`✗ ${msg}`); process.exit(1) }
 const log = (...m) => console.log(...m)
+const trunc = (s, n) => (typeof s === 'string' && s.length > n ? s.slice(0, n) + '…' : s ?? null)
 
 // NUTS-1-Präfix → Bundesland
 const NUTS = { DE1: 'Baden-Württemberg', DE2: 'Bayern', DE3: 'Berlin', DE4: 'Brandenburg', DE5: 'Bremen', DE6: 'Hamburg', DE7: 'Hessen', DE8: 'Mecklenburg-Vorpommern', DE9: 'Niedersachsen', DEA: 'Nordrhein-Westfalen', DEB: 'Rheinland-Pfalz', DEC: 'Saarland', DED: 'Sachsen', DEE: 'Sachsen-Anhalt', DEF: 'Schleswig-Holstein', DEG: 'Thüringen' }
+
+// Stichworte, die auch ohne passenden CPV-Code in die Bewertung führen
+const KEYWORDS = /baum|bäume|gehölz|entsiegel|biodivers|klimaanpass|schwammstadt|begrünung|pflanzung|pflanzarbeit|wildblumen|blühwiese|artenschutz|habitat|stadtnatur|stadtgrün|regenwasserbewirtschaftung|versickerung|insekten|naturnah/i
+// Harte Ausschlüsse (Titel) — spart Bewertungen für Leistungen, die LUMA nicht anbietet
+const EXCLUDE = /winterdienst|reinigung|hausmeister|schneeräum|glätte|facility|gebäudemanagement|kanal|abwasser/i
 
 // ── Supabase REST (service_role) ─────────────────────────────────────────────
 async function sbRest(path, { method = 'GET', body, headers = {} } = {}) {
@@ -66,56 +83,65 @@ async function sbRest(path, { method = 'GET', body, headers = {} } = {}) {
   return text ? JSON.parse(text) : null
 }
 
+const DEFAULT_PROFIL = {
+  firmenprofil: 'LUMA (Berlin): urbane Biodiversität, Klimaanpassung, Baumpflege und Baumkontrolle.',
+  cpv_prefixes: ['7721', '7723', '773', '451127', '9071', '9072'],
+  regionen: ['DE3', 'DE4'],
+  min_score: 60,
+  aktiv: true,
+}
+
 async function loadProfil() {
-  const fallback = { firmenprofil: 'LUMA: ökologischer Garten- und Landschaftsbau, Pflanzungen, Miyawaki-Wälder, Grünpflege.', cpv_prefixes: ['773', '4511'], regionen: [], min_score: 60, aktiv: true }
-  if (!SERVICE_KEY) return fallback
+  if (!SERVICE_KEY) return DEFAULT_PROFIL
   try {
     const rows = await sbRest('mana_profil?id=eq.1')
-    return rows?.[0] || fallback
+    return rows?.[0] || DEFAULT_PROFIL
   } catch (e) {
     log(`⚠ Profil nicht ladbar (${e.message}) — nutze Defaults`)
-    return fallback
+    return DEFAULT_PROFIL
   }
 }
 
-async function existingIds(ids) {
-  if (!SERVICE_KEY || ids.length === 0) return new Set()
-  const seen = new Set()
-  for (let i = 0; i < ids.length; i += 100) {
-    const chunk = ids.slice(i, i + 100).map(id => `"${id}"`).join(',')
-    const rows = await sbRest(`mana_ausschreibungen?select=id&id=in.(${chunk})`)
-    for (const r of rows) seen.add(r.id)
-  }
-  return seen
+// Schlüssel für quellenübergreifendes Dedupe (TED und Bekanntmachungsservice
+// führen dieselbe Ausschreibung unter verschiedenen IDs)
+const norm = s => (s || '').toLowerCase().replace(/deutschland\s*–\s*[^–]*–\s*/, '').replace(/[^a-z0-9äöüß]+/g, '')
+const dedupeKey = n => `${norm(n.titel).slice(0, 50)}|${norm(n.auftraggeber).slice(0, 20)}`
+
+async function knownRows() {
+  if (!SERVICE_KEY) return { ids: new Set(), keys: new Set() }
+  const since = new Date(Date.now() - 120 * 86400e3).toISOString()
+  const rows = await sbRest(`mana_ausschreibungen?select=id,titel,auftraggeber&created_at=gte.${since}&limit=5000`)
+  return { ids: new Set(rows.map(r => r.id)), keys: new Set(rows.map(dedupeKey)) }
 }
 
-// ── BKMS Tagesexport laden & parsen ──────────────────────────────────────────
-async function fetchDay(day) {
+// ── Quelle 1: Bekanntmachungsservice (OCDS-Tagesexport) ──────────────────────
+async function fetchBkmsDay(day) {
   const url = `${BKMS}?pubDay=${day}&format=ocds.zip`
-  log(`→ Lade ${url}`)
   const res = await fetch(url)
-  if (res.status === 404) { log('  (kein Export für diesen Tag)'); return [] }
-  if (!res.ok) throw new Error(`BKMS: ${res.status}`)
+  if (res.status === 404) return []
+  if (!res.ok) throw new Error(`Bekanntmachungsservice ${day}: HTTP ${res.status}`)
   const buf = Buffer.from(await res.arrayBuffer())
+  if (buf.length < 200) return [] // leerer Export — wird beim nächsten Lauf nachgeholt
   const dir = mkdtempSync(join(tmpdir(), 'mana-'))
-  const zipPath = join(dir, 'day.zip')
-  writeFileSync(zipPath, buf)
-  execSync(`unzip -q -o "${zipPath}" -d "${dir}/x"`)
-  const notices = []
-  for (const f of readdirSync(`${dir}/x`)) {
-    if (!f.endsWith('.json')) continue
-    try { notices.push(JSON.parse(readFileSync(`${dir}/x/${f}`, 'utf8'))) } catch { /* defektes File überspringen */ }
+  try {
+    const zipPath = join(dir, 'day.zip')
+    writeFileSync(zipPath, buf)
+    execSync(`unzip -q -o "${zipPath}" -d "${dir}/x"`)
+    const notices = []
+    for (const f of readdirSync(`${dir}/x`)) {
+      if (!f.endsWith('.json')) continue
+      try { notices.push(JSON.parse(readFileSync(`${dir}/x/${f}`, 'utf8'))) } catch { /* defektes File überspringen */ }
+    }
+    return notices
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
   }
-  rmSync(dir, { recursive: true, force: true })
-  log(`  ${notices.length} Bekanntmachungen im Export`)
-  return notices
 }
 
-function extract(doc) {
+function extractBkms(doc) {
   const rel = doc?.releases?.[0]
   if (!rel) return null
-  const tags = rel.tag || []
-  if (!tags.includes('tender')) return null // nur Ausschreibungen, keine Zuschläge
+  if (!(rel.tag || []).includes('tender')) return null // nur Ausschreibungen, keine Zuschläge
   const t = rel.tender || {}
   const cpvs = new Set()
   for (const item of t.items || []) {
@@ -129,16 +155,15 @@ function extract(doc) {
   const frist = t.tenderPeriod?.endDate || lots.map(l => l.tenderPeriod?.endDate).find(Boolean) || null
   return {
     id: rel.id,
+    quelle: 'bkms',
     ocid: rel.ocid || null,
     titel: t.title || '(ohne Titel)',
     beschreibung: trunc(t.description, 1500),
     auftraggeber: rel.buyer?.name || null,
     ort: delivery.locality || buyerAddr.locality || null,
-    region,
-    bundesland: NUTS[region?.slice(0, 3)] || null,
+    regionen: [region].filter(Boolean),
     cpv_codes: [...cpvs].sort(),
     verfahren_art: t.procurementMethodDetails || t.procurementMethod || null,
-    kategorie: t.mainProcurementCategory || null,
     veroeffentlicht_am: (doc.publishedDate || rel.date || '').slice(0, 10) || null,
     frist_angebot: frist,
     wert: t.value || null,
@@ -147,37 +172,122 @@ function extract(doc) {
   }
 }
 
-const trunc = (s, n) => (typeof s === 'string' && s.length > n ? s.slice(0, n) + '…' : s ?? null)
+async function loadBkms(days) {
+  const out = []
+  for (const day of days) {
+    try {
+      const docs = await fetchBkmsDay(day)
+      const ext = docs.map(extractBkms).filter(Boolean)
+      log(`  Bekanntmachungsservice ${day}: ${docs.length} Bekanntmachungen${docs.length ? '' : ' (leer — wird nachgeholt)'}`)
+      out.push(...ext)
+    } catch (e) { log(`⚠ ${e.message}`) }
+  }
+  return out
+}
+
+// ── Quelle 2: TED (EU) ───────────────────────────────────────────────────────
+const TED_FIELDS = ['publication-number', 'notice-type', 'notice-title', 'title-lot', 'description-lot', 'buyer-name', 'buyer-city',
+  'place-of-performance', 'classification-cpv', 'deadline-receipt-tender-date-lot', 'estimated-value-lot', 'estimated-value-cur-lot',
+  'publication-date', 'document-url-lot', 'procedure-type']
+
+const deu = v => {
+  if (!v) return null
+  if (typeof v === 'string') return v
+  if (Array.isArray(v)) return v[0] ?? null
+  const x = v.deu ?? v.DEU ?? Object.values(v)[0]
+  return Array.isArray(x) ? x.join(' / ') : x
+}
+
+async function loadTed(fromDay, regionen) {
+  const places = (regionen.length ? regionen : ['DEU']).join(' ')
+  const query = `place-of-performance IN (${places}) AND notice-type IN (cn-standard cn-social cn-desg pin-cfc-standard pin-cfc-social) AND publication-date>=${fromDay.replaceAll('-', '')}`
+  const out = []
+  for (let page = 1; page <= 20; page++) {
+    const res = await fetch(TED, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, fields: TED_FIELDS, limit: 250, page, scope: 'ALL' }),
+    })
+    if (!res.ok) { log(`⚠ TED: HTTP ${res.status} ${trunc(await res.text(), 300)}`); break }
+    const data = await res.json()
+    const notices = data.notices || []
+    for (const n of notices) {
+      const titleLots = n['title-lot'] ? [].concat(deu(n['title-lot']) || []) : []
+      const dl = (n['deadline-receipt-tender-date-lot'] || [])[0]
+      const val = (n['estimated-value-lot'] || [])[0]
+      out.push({
+        id: `ted:${n['publication-number']}`,
+        quelle: 'ted',
+        ocid: null,
+        titel: (deu(n['notice-title']) || '(ohne Titel)').replace(/^Deutschland\s*–\s*[^–]*–\s*/, ''),
+        beschreibung: trunc(deu(n['description-lot']), 1500),
+        auftraggeber: deu(n['buyer-name']),
+        ort: deu(n['buyer-city']),
+        regionen: (n['place-of-performance'] || []).filter(p => p.startsWith('DE') && p.length > 2),
+        cpv_codes: [...new Set(n['classification-cpv'] || [])].sort(),
+        verfahren_art: n['procedure-type'] || n['notice-type'] || null,
+        veroeffentlicht_am: (n['publication-date'] || '').slice(0, 10) || null,
+        frist_angebot: dl ? dl.slice(0, 10) + 'T23:59:59+01:00' : null,
+        wert: val ? { amount: Number(val), currency: (n['estimated-value-cur-lot'] || [])[0] || 'EUR' } : null,
+        url: n.links?.html?.DEU || `https://ted.europa.eu/de/notice/-/detail/${n['publication-number']}`,
+        unterlagen: (n['document-url-lot'] || [])[0] || null,
+        lose: titleLots.slice(0, 6),
+      })
+    }
+    if (notices.length < 250) break
+  }
+  log(`  TED ab ${fromDay}: ${out.length} Ausschreibungen in der Region`)
+  return out
+}
+
+// ── Vorfilter ────────────────────────────────────────────────────────────────
+function prefilter(list, profil) {
+  const stats = { region: 0, fach: 0, ausschluss: 0 }
+  const res = list.filter(n => {
+    if (profil.regionen.length && !n.regionen.some(r => profil.regionen.some(p => r.startsWith(p)))) { stats.region++; return false }
+    const cpvHit = n.cpv_codes.some(c => profil.cpv_prefixes.some(p => c.startsWith(p)))
+    const kwHit = KEYWORDS.test(n.titel) || KEYWORDS.test((n.lose || []).map(l => l.title || l).join(' '))
+    if (!cpvHit && !kwHit) { stats.fach++; return false }
+    if (EXCLUDE.test(n.titel)) { stats.ausschluss++; return false }
+    return true
+  })
+  return { res, stats }
+}
 
 // ── Claude-Bewertung ─────────────────────────────────────────────────────────
 const SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['score', 'score_begruendung', 'zusammenfassung', 'frist_angebot', 'volumen_geschaetzt', 'leistungen', 'eignungsnachweise'],
+  required: ['score', 'passung', 'lukrativitaet', 'empfehlung', 'score_begruendung', 'zusammenfassung', 'frist_angebot',
+    'volumen_geschaetzt', 'aufwand_angebot', 'leistungen', 'eignungsnachweise'],
   properties: {
-    score: { type: 'integer', description: 'Relevanz für LUMA, 0-100' },
-    score_begruendung: { type: 'string', description: '1-2 Sätze, warum (nicht) relevant' },
-    zusammenfassung: { type: 'string', description: '2-4 Sätze: Was wird ausgeschrieben?' },
-    frist_angebot: { type: ['string', 'null'], description: 'Angebots-/Teilnahmefrist als ISO-Datum YYYY-MM-DD, falls erkennbar' },
-    volumen_geschaetzt: { type: ['string', 'null'], description: 'Geschätztes Auftragsvolumen, falls erkennbar' },
+    score: { type: 'integer', description: 'Gesamtwert 0-100 für die Rangfolge: wie lohnend ist es für LUMA, hier anzubieten' },
+    passung: { type: 'integer', description: 'Fachliche Passung zum Portfolio 0-100' },
+    lukrativitaet: { type: 'integer', description: 'Wirtschaftliche Attraktivität 0-100 (Volumen, Laufzeit, Konkurrenz, Marge)' },
+    empfehlung: { type: 'string', enum: ['bieten', 'prüfen', 'ignorieren'] },
+    score_begruendung: { type: 'string', description: 'Ein Satz, max. 25 Wörter: warum lohnend oder nicht' },
+    zusammenfassung: { type: 'string', description: '2-3 Sätze: Was wird ausgeschrieben?' },
+    frist_angebot: { type: ['string', 'null'], description: 'Angebotsfrist als YYYY-MM-DD, falls erkennbar' },
+    volumen_geschaetzt: { type: ['string', 'null'], description: 'Auftragsvolumen kurz, z.B. "ca. 120.000 € / 2 Jahre", null wenn unbekannt' },
+    aufwand_angebot: { type: 'string', enum: ['gering', 'mittel', 'hoch'], description: 'Aufwand für Angebot und Nachweise' },
     leistungen: { type: 'array', items: { type: 'string' }, description: 'Kernleistungen, max 6 Stichworte' },
     eignungsnachweise: { type: 'array', items: { type: 'string' }, description: 'Geforderte Nachweise/Eignung, falls genannt' },
   },
 }
 
 function buildSystem(profil) {
-  return `Du bist MANA, der Akquise-Agent von LUMA. Du bewertest deutsche öffentliche Ausschreibungen danach, wie gut sie zum Unternehmen passen.
+  return `Du bist MANA, der Akquise-Agent von LUMA. Du bewertest öffentliche Ausschreibungen danach, ob es sich für LUMA lohnt anzubieten.
 
 FIRMENPROFIL:
 ${profil.firmenprofil}
 
-BEWERTUNGSSKALA:
-- 90-100: Kerngeschäft, sehr gute Passung (z.B. Pflanzung, naturnahe Grünanlage, Miyawaki, Grünpflege)
-- 70-89: gut passend, LUMA könnte anbieten (z.B. Grünflächen-Los in größerem Vorhaben)
-- 40-69: teilweise passend / nur Teilleistung / Region unklar
-- 0-39: unpassend (reiner Tiefbau, Hochbau, Lieferleistungen ohne Grünbezug etc.)
+BEWERTUNG:
+- passung (0-100): Wie gut passt die Leistung zum Portfolio? Leistungen, die LUMA ausdrücklich nicht will, liegen unter 25 — auch wenn sie grün klingen.
+- lukrativitaet (0-100): Volumen und Laufzeit im Verhältnis zur Firmengröße (Lose bis ca. 500.000 € sind ideal, mehrjährige Rahmenverträge wertvoll), voraussichtliche Konkurrenz (Spezialleistungen wie Baumkontrolle, Gutachten, ökologische Pflanzungen = weniger Wettbewerb als Standardpflege), Aufwand für Angebot und Nachweise, Erreichbarkeit vom Standort Berlin.
+- score: Gesamtwert für die Rangfolge. Passung ist Voraussetzung: bei passung < 40 ist score höchstens 30.
+- empfehlung: "bieten" ab ca. score 70, "prüfen" 45-69, sonst "ignorieren".
 
-Bewerte nüchtern und begründe kurz. Extrahiere die Eckdaten nur aus den gegebenen Daten, erfinde nichts; unbekannte Felder sind null.`
+Bewerte nüchtern. Extrahiere Eckdaten nur aus den gegebenen Daten, erfinde nichts; unbekannte Felder sind null.`
 }
 
 async function scoreNotice(anthropic, profil, n) {
@@ -186,7 +296,6 @@ async function scoreNotice(anthropic, profil, n) {
   const res = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 2000,
-    thinking: { type: 'adaptive' },
     system: buildSystem(profil),
     output_config: { format: { type: 'json_schema', schema: SCHEMA } },
     messages: [{ role: 'user', content: `Bewerte diese Ausschreibung:\n\n${JSON.stringify(payload, null, 1)}` }],
@@ -196,71 +305,50 @@ async function scoreNotice(anthropic, profil, n) {
   return JSON.parse(text)
 }
 
-// ── Telegram ─────────────────────────────────────────────────────────────────
-// Ausschreibungen in Arbeit, deren Frist in den nächsten 5 Tagen abläuft
-async function fristWarnungen() {
-  if (!SERVICE_KEY) return []
-  const now = new Date().toISOString()
-  const in5d = new Date(Date.now() + 5 * 86400e3).toISOString()
-  try {
-    return await sbRest(
-      `mana_ausschreibungen?select=titel,ort,bundesland,frist_angebot,status,url` +
-      `&status=in.(neu,interessant,in_bearbeitung)&frist_angebot=gte.${now}&frist_angebot=lte.${in5d}` +
-      `&order=frist_angebot.asc`,
-    )
-  } catch (e) { log(`⚠ Fristen-Check: ${e.message}`); return [] }
-}
-
-async function telegramDigest(hits, warnungen, day) {
+// ── Telegram (optional) ──────────────────────────────────────────────────────
+async function telegramDigest(hits) {
   const token = process.env.TELEGRAM_BOT_TOKEN, chat = process.env.TELEGRAM_CHAT_ID
-  if (!token || !chat || (hits.length === 0 && warnungen.length === 0)) return false
-  const fmt = (h, withScore) => {
-    const frist = h.frist_angebot ? ` · Frist ${String(h.frist_angebot).slice(0, 10)}` : ''
-    const ort = [h.ort, h.bundesland].filter(Boolean).join(', ')
-    return `▪️ ${withScore ? `[${h.score}] ` : ''}${trunc(h.titel, 90)}\n   ${ort}${frist}${h.url ? `\n   ${h.url}` : ''}`
-  }
-  const parts = []
-  if (hits.length > 0) {
-    parts.push(`🌿 MANA · ${hits.length} relevante Ausschreibung${hits.length === 1 ? '' : 'en'} (${day})\n\n${hits.slice(0, 10).map(h => fmt(h, true)).join('\n\n')}`)
-  }
-  if (warnungen.length > 0) {
-    parts.push(`⏰ Fristen laufen ab (≤ 5 Tage):\n\n${warnungen.slice(0, 8).map(h => fmt(h, false)).join('\n\n')}`)
-  }
+  if (!token || !chat || hits.length === 0) return false
+  const lines = hits.slice(0, 10).map(h => `▪️ [${h.score}] ${trunc(h.titel, 90)}\n   ${[h.ort, h.bundesland].filter(Boolean).join(', ')}${h.frist_angebot ? ` · Frist ${String(h.frist_angebot).slice(0, 10)}` : ''}`)
   const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chat, text: parts.join('\n\n———\n\n'), disable_web_page_preview: true }),
+    body: JSON.stringify({ chat_id: chat, text: `🌿 MANA · ${hits.length} neue relevante Ausschreibungen\n\n${lines.join('\n\n')}`, disable_web_page_preview: true }),
   })
-  if (!res.ok) log(`⚠ Telegram: ${res.status} ${await res.text()}`)
   return res.ok
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 async function main() {
-  const day = typeof args.day === 'string' ? args.day
-    : new Date(Date.now() - 86400e3).toISOString().slice(0, 10) // gestern (Export vollständig)
-
   const profil = await loadProfil()
   if (!profil.aktiv) { log('Profil inaktiv — Scan übersprungen.'); return }
-  log(`MANA RADAR · Tag ${day} · CPV ${profil.cpv_prefixes.join(',')} · Regionen ${profil.regionen.length ? profil.regionen.join(',') : 'bundesweit'}${DRY ? ' · DRY-RUN' : ''}`)
 
-  const docs = await fetchDay(day)
-  const candidates = docs.map(extract).filter(Boolean)
-    .filter(n => n.cpv_codes.some(c => profil.cpv_prefixes.some(p => c.startsWith(p))))
-    .filter(n => profil.regionen.length === 0 || profil.regionen.some(p => (n.region || '').startsWith(p)))
-  log(`  ${candidates.length} nach CPV-/Regions-Vorfilter`)
+  const days = typeof args.day === 'string' ? [args.day]
+    : Array.from({ length: DAYS }, (_, i) => new Date(Date.now() - (i + 1) * 86400e3).toISOString().slice(0, 10))
+  const fromDay = days[days.length - 1]
+  log(`MANA RADAR v2 · ${fromDay} … ${days[0]} · Regionen ${profil.regionen.join(',') || 'bundesweit'} · Modell ${MODEL}${DRY ? ' · DRY-RUN' : ''}`)
 
-  const seen = await existingIds(candidates.map(n => n.id))
-  const fresh = candidates.filter(n => !seen.has(n.id)).slice(0, LIMIT)
-  log(`  ${fresh.length} neu (Dedupe: ${candidates.length - fresh.length} bekannt)`)
-  if (fresh.length === 0) {
-    if (!DRY) {
-      const warnungen = await fristWarnungen()
-      if (await telegramDigest([], warnungen, day)) log(`✓ Telegram gesendet (${warnungen.length} Fristen-Warnungen)`)
-    }
-    log('Fertig — nichts Neues.')
-    return
+  const all = []
+  if (!args['no-bkms']) all.push(...await loadBkms(days))
+  if (!args['no-ted']) {
+    try { all.push(...await loadTed(fromDay, profil.regionen)) } catch (e) { log(`⚠ TED: ${e.message}`) }
   }
+
+  const { res: candidates, stats } = prefilter(all, profil)
+  log(`  Vorfilter: ${all.length} geladen → ${candidates.length} Kandidaten (außerhalb Region ${stats.region}, fachfremd ${stats.fach}, ausgeschlossen ${stats.ausschluss})`)
+
+  const known = await knownRows()
+  const batchKeys = new Set()
+  const fresh = []
+  for (const n of candidates) {
+    const key = dedupeKey(n)
+    if (known.ids.has(n.id) || known.keys.has(key) || batchKeys.has(key)) continue
+    batchKeys.add(key)
+    fresh.push(n)
+  }
+  const todo = fresh.slice(0, LIMIT)
+  log(`  ${todo.length} neu zu bewerten (${candidates.length - fresh.length} schon bekannt)`)
+  if (todo.length === 0) { log('Fertig — nichts Neues.'); return }
 
   let anthropic = null
   if (!NO_AI) {
@@ -269,30 +357,32 @@ async function main() {
   }
 
   const rows = []
-  for (const n of fresh) {
+  let failed = 0
+  for (const n of todo) {
     let ai = null
     if (anthropic) {
       try { ai = await scoreNotice(anthropic, profil, n) }
-      catch (e) { log(`⚠ Bewertung fehlgeschlagen für ${n.id}: ${e.message}`) }
+      catch (e) { failed++; log(`⚠ Bewertung fehlgeschlagen für ${n.id}: ${e.message}`) }
+      if (!ai) continue // ohne Bewertung nicht speichern — nächster Lauf versucht es erneut
     }
-    const row = {
-      id: n.id, quelle: 'bkms', ocid: n.ocid,
+    const region = n.regionen.find(r => profil.regionen.some(p => r.startsWith(p))) || n.regionen[0] || ''
+    rows.push({
+      id: n.id, quelle: n.quelle, ocid: n.ocid,
       titel: n.titel, auftraggeber: n.auftraggeber,
-      ort: n.ort, bundesland: n.bundesland,
+      ort: n.ort, bundesland: NUTS[region.slice(0, 3)] || null,
       cpv_codes: n.cpv_codes, verfahren_art: n.verfahren_art,
       veroeffentlicht_am: n.veroeffentlicht_am,
-      frist_angebot: n.frist_angebot || (ai?.frist_angebot ? `${ai.frist_angebot}T23:59:59Z` : null),
+      frist_angebot: n.frist_angebot || (ai?.frist_angebot ? `${ai.frist_angebot}T23:59:59+01:00` : null),
       url: n.url, raw: n,
       score: ai?.score ?? null,
       score_begruendung: ai?.score_begruendung ?? null,
       zusammenfassung: ai?.zusammenfassung ?? null,
       eckdaten: ai, updated_at: new Date().toISOString(),
-    }
-    rows.push(row)
-    log(`  ${String(row.score ?? '–').padStart(3)} · ${trunc(n.titel, 80)}`)
+    })
+    log(`  ${String(ai?.score ?? '–').padStart(3)} ${n.quelle.padEnd(4)} · ${trunc(n.titel, 80)}`)
   }
 
-  if (!DRY) {
+  if (!DRY && rows.length) {
     for (let i = 0; i < rows.length; i += 50) {
       await sbRest('mana_ausschreibungen', {
         method: 'POST',
@@ -300,13 +390,13 @@ async function main() {
         headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
       })
     }
-    log(`✓ ${rows.length} Zeilen nach Supabase geschrieben`)
+    log(`✓ ${rows.length} Ausschreibungen gespeichert`)
     const hits = rows.filter(r => (r.score ?? 0) >= (profil.min_score ?? 60)).sort((a, b) => b.score - a.score)
-    const warnungen = await fristWarnungen()
-    if (await telegramDigest(hits, warnungen, day)) log(`✓ Telegram-Digest gesendet (${hits.length} Treffer, ${warnungen.length} Fristen-Warnungen)`)
-  } else {
+    if (await telegramDigest(hits)) log('✓ Telegram gesendet')
+  } else if (DRY) {
     log(`DRY-RUN — nichts geschrieben (${rows.length} Zeilen vorbereitet)`)
   }
+  if (failed && failed === todo.length) fail(`Alle ${failed} Bewertungen fehlgeschlagen`)
 }
 
 main().catch(e => fail(e.stack || e.message))

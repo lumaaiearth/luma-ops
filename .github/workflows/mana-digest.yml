@@ -1,0 +1,37 @@
+name: MANA Wochen-Mail
+
+on:
+  schedule:
+    - cron: '0 6 * * 0'   # sonntags ~07:00 deutscher Zeit (Winterzeit)
+  workflow_dispatch:
+    inputs:
+      to:
+        description: 'Empfänger (leer = info@luma.earth)'
+        required: false
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install nodemailer
+        run: npm i --no-save nodemailer
+
+      - name: Send digest
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          MAIL_ACCESS: ${{ secrets.MAIL_ACCESS }}
+          MANA_DIGEST_TO: ${{ github.event.inputs.to }}
+        run: |
+          if [ -z "$SUPABASE_SERVICE_KEY" ] || [ -z "$MAIL_ACCESS" ]; then
+            echo "::error::SUPABASE_SERVICE_KEY/MAIL_ACCESS fehlen (Repo → Settings → Secrets → Actions)."
+            exit 1
+          fi
+          [ -z "$MANA_DIGEST_TO" ] && unset MANA_DIGEST_TO
+          node scripts/mana-digest.mjs

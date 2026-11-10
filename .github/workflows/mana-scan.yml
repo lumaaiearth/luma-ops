@@ -5,8 +5,8 @@ on:
     - cron: '30 4 * * *'   # täglich ~06:30 deutscher Zeit (Sommerzeit)
   workflow_dispatch:
     inputs:
-      day:
-        description: 'Tag (YYYY-MM-DD), leer = gestern'
+      days:
+        description: 'Rückfenster in Tagen (leer = 7)'
         required: false
 
 jobs:
@@ -29,7 +29,7 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          INPUT_DAY: ${{ github.event.inputs.day }}
+          INPUT_DAYS: ${{ github.event.inputs.days }}
         run: |
           # Fehlende Secrets sind ein Fehler. Früher wurde still übersprungen und
           # „success" gemeldet — dadurch blieb monatelang unbemerkt, dass MANA nie lief.
@@ -37,8 +37,4 @@ jobs:
             echo "::error::MANA-Scan nicht möglich — ANTHROPIC_API_KEY/SUPABASE_SERVICE_KEY fehlen (Repo → Settings → Secrets → Actions)."
             exit 1
           fi
-          if [ -n "$INPUT_DAY" ]; then
-            node scripts/mana-scan.mjs --day="$INPUT_DAY"
-          else
-            node scripts/mana-scan.mjs
-          fi
+          node scripts/mana-scan.mjs --days="${INPUT_DAYS:-7}"
