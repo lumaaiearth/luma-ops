@@ -43,8 +43,11 @@ function parseMailAccess(raw) {
   if (!v) return null
   let cfg
   if (v.startsWith('{')) cfg = JSON.parse(v)
-  else if (/^[^:\s]+@[^:\s]+:/.test(v)) { const i = v.indexOf(':'); cfg = { user: v.slice(0, i), pass: v.slice(i + 1) } }
-  else cfg = { user: 'info@luma.earth', pass: v }
+  else {
+    // "adresse:passwort", "adresse passwort", "adresse;passwort" oder zeilenweise
+    const m = v.match(/^([^\s:;]+@[^\s:;]+)\s*[:;\s]\s*([\s\S]+)$/)
+    cfg = m ? { user: m[1], pass: m[2].trim() } : { user: 'info@luma.earth', pass: v }
+  }
   return { host: cfg.host || 'smtp.strato.de', port: Number(cfg.port || 465), user: cfg.user || 'info@luma.earth', pass: cfg.pass }
 }
 
@@ -117,6 +120,7 @@ async function main() {
   }
   const cfg = parseMailAccess(process.env.MAIL_ACCESS)
   if (!cfg) fail('MAIL_ACCESS fehlt')
+  console.log(`  SMTP ${cfg.host}:${cfg.port} · Benutzer ${cfg.user} · Passwortlänge ${cfg.pass?.length ?? 0} · Format ${process.env.MAIL_ACCESS.trim().startsWith('{') ? 'JSON' : cfg.user === 'info@luma.earth' && !process.env.MAIL_ACCESS.includes('@') ? 'nur Passwort' : 'Adresse+Passwort'}`)
   const { default: nodemailer } = await import('nodemailer')
   const transport = nodemailer.createTransport({ host: cfg.host, port: cfg.port, secure: cfg.port === 465, auth: { user: cfg.user, pass: cfg.pass } })
   await transport.sendMail({ from: `MANA · LUMA <${cfg.user}>`, to: TO, subject: mail.subject, text: mail.text, html: mail.html })
