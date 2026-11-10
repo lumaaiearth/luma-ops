@@ -108,13 +108,39 @@ const norm = s => (s || '').toLowerCase().replace(/deutschland\s*–\s*[^–]*�
 const dedupeKey = n => `${norm(n.titel).slice(0, 50)}|${norm(n.auftraggeber).slice(0, 20)}`
 
 async function knownRows() {
-  if (!SERVICE_KEY) return { ids: new Set(), keys: new Set() }
+  if (!SERVICE_KEY) return { ids: new Set(), keys: new Set(), ohneFrist: new Set() }
   const since = new Date(Date.now() - 120 * 86400e3).toISOString()
-  const rows = await sbRest(`mana_ausschreibungen?select=id,titel,auftraggeber&created_at=gte.${since}&limit=5000`)
-  return { ids: new Set(rows.map(r => r.id)), keys: new Set(rows.map(dedupeKey)) }
+  const rows = await sbRest(`mana_ausschreibungen?select=id,titel,auftraggeber,frist_angebot&created_at=gte.${since}&limit=5000`)
+  return { ids: new Set(rows.map(r => r.id)), keys: new Set(rows.map(dedupeKey)), ohneFrist: new Set(rows.filter(r => !r.frist_angebot).map(r => r.id)) }
 }
 
 // ── Quelle 1: Bekanntmachungsservice (OCDS-Tagesexport) ──────────────────────
+// Der OCDS-Export enthält keine Angebotsfrist — die steht nur im eForms-XML.
+// Deshalb zusätzlich den eForms-Export laden: Notice-ID → früheste Frist.
+async function fetchBkmsDeadlines(day) {
+  const res = await fetch(`${BKMS}?pubDay=${day}&format=eforms.zip`)
+  const map = new Map()
+  if (!res.ok) return map
+  const buf = Buffer.from(await res.arrayBuffer())
+  if (buf.length < 200) return map
+  const dir = mkdtempSync(join(tmpdir(), 'mana-ef-'))
+  try {
+    writeFileSync(join(dir, 'e.zip'), buf)
+    execSync(`unzip -q -o "${join(dir, 'e.zip')}" -d "${dir}/x"`)
+    for (const f of readdirSync(`${dir}/x`)) {
+      if (!f.endsWith('.xml')) continue
+      const xml = readFileSync(`${dir}/x/${f}`, 'utf8')
+      const id = xml.match(/<cbc:ID schemeName="notice-id">([^<]+)</)?.[1]
+      const ends = [...xml.matchAll(/<cac:TenderSubmissionDeadlinePeriod>\s*<cbc:EndDate>(\d{4}-\d{2}-\d{2})[^<]*<\/cbc:EndDate>(?:\s*<cbc:EndTime>(\d{2}:\d{2}))?/g)]
+        .map(m => `${m[1]}T${m[2] || '23:59'}:00+01:00`).sort()
+      if (id && ends.length) map.set(id, ends[0])
+    }
+  } catch { /* ohne Fristen weiter */ } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+  return map
+}
+
 async function fetchBkmsDay(day) {
   const url = `${BKMS}?pubDay=${day}&format=ocds.zip`
   const res = await fetch(url)
@@ -178,6 +204,10 @@ async function loadBkms(days) {
     try {
       const docs = await fetchBkmsDay(day)
       const ext = docs.map(extractBkms).filter(Boolean)
+      if (ext.length) {
+        const fristen = await fetchBkmsDeadlines(day)
+        for (const n of ext) if (!n.frist_angebot && fristen.has(n.id)) n.frist_angebot = fristen.get(n.id)
+      }
       log(`  Bekanntmachungsservice ${day}: ${docs.length} Bekanntmachungen${docs.length ? '' : ' (leer — wird nachgeholt)'}`)
       out.push(...ext)
     } catch (e) { log(`⚠ ${e.message}`) }
@@ -338,6 +368,13 @@ async function main() {
   log(`  Vorfilter: ${all.length} geladen → ${candidates.length} Kandidaten (außerhalb Region ${stats.region}, fachfremd ${stats.fach}, ausgeschlossen ${stats.ausschluss})`)
 
   const known = await knownRows()
+  // Fristen für bereits gespeicherte Einträge nachtragen
+  const nachtrag = candidates.filter(n => known.ohneFrist.has(n.id) && n.frist_angebot)
+  if (!DRY) for (const n of nachtrag) {
+    await sbRest(`mana_ausschreibungen?id=eq.${encodeURIComponent(n.id)}`, { method: 'PATCH', body: { frist_angebot: n.frist_angebot, updated_at: new Date().toISOString() } })
+    known.ohneFrist.delete(n.id)
+  }
+  if (nachtrag.length) log(`  Frist nachgetragen: ${nachtrag.length}`)
   const batchKeys = new Set()
   const fresh = []
   for (const n of candidates) {
@@ -379,7 +416,7 @@ async function main() {
       zusammenfassung: ai?.zusammenfassung ?? null,
       eckdaten: ai, updated_at: new Date().toISOString(),
     })
-    log(`  ${String(ai?.score ?? '–').padStart(3)} ${n.quelle.padEnd(4)} · ${trunc(n.titel, 80)}`)
+    log(`  ${String(ai?.score ?? "–").padStart(3)} ${n.quelle.padEnd(4)} · ${(n.frist_angebot || "Frist ?").slice(0, 10)} · ${trunc(n.titel, 70)}`)
   }
 
   if (!DRY && rows.length) {
