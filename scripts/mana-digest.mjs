@@ -41,14 +41,33 @@ const trunc = (s, n) => (s && s.length > n ? s.slice(0, n) + '…' : s || '')
 function parseMailAccess(raw) {
   const v = (raw || '').trim()
   if (!v) return null
-  let cfg
-  if (v.startsWith('{')) cfg = JSON.parse(v)
-  else {
-    // "adresse:passwort", "adresse passwort", "adresse;passwort" oder zeilenweise
-    const m = v.match(/^([^\s:;]+@[^\s:;]+)\s*[:;\s]\s*([\s\S]+)$/)
-    cfg = m ? { user: m[1], pass: m[2].trim() } : { user: 'info@luma.earth', pass: v }
+  if (v.startsWith('{')) {
+    const c = JSON.parse(v)
+    return { host: c.host || 'smtp.strato.de', port: Number(c.port || 465), user: c.user || 'info@luma.earth', pass: c.pass || c.password }
   }
-  return { host: cfg.host || 'smtp.strato.de', port: Number(cfg.port || 465), user: cfg.user || 'info@luma.earth', pass: cfg.pass }
+  // Freitext: Zeilen "Bezeichnung: Wert" oder einfach Werte, getrennt durch Zeilen/Leerzeichen/Doppelpunkt
+  const cfg = {}
+  const rest = []
+  for (const line of v.split(/\r?\n/).map(l => l.trim()).filter(Boolean)) {
+    const lab = line.match(/^(user(name)?|benutzer(name)?|login|e-?mail|adresse|absender|pass(wort|word)?|kennwort|pw|host|server|smtp(-?server)?|port)\s*[:=]\s*(.+)$/i)
+    if (lab) {
+      const k = lab[1].toLowerCase(), val = lab[lab.length - 1].trim()
+      if (/^(pass|kennwort|pw)/.test(k)) cfg.pass = val
+      else if (/^(host|server|smtp)/.test(k)) cfg.host = val
+      else if (k === 'port') cfg.port = val
+      else cfg.user = val
+    } else rest.push(...line.split(/\s+/))
+  }
+  for (let tok of rest) {
+    if (!cfg.user && /^[^@\s:;]+@[^@\s:;]+$/.test(tok.replace(/[:;]$/, ''))) { cfg.user = tok.replace(/[:;]$/, ''); continue }
+    if (!cfg.user && /^[^@\s:;]+@[^@\s:;]+[:;]/.test(tok)) { const i = tok.search(/[:;]/, tok.indexOf('@')); cfg.user = tok.slice(0, i); tok = tok.slice(i + 1); if (!tok) continue }
+    if (!cfg.host && /^(smtp|imap|mail)\.[a-z0-9.-]+\.[a-z]{2,}$/i.test(tok)) { cfg.host = tok; continue }
+    if (!cfg.port && /^\d{2,4}$/.test(tok)) { cfg.port = tok; continue }
+    if (!cfg.pass) cfg.pass = tok
+  }
+  let host = cfg.host || 'smtp.strato.de'
+  if (/^imap\./i.test(host)) host = host.replace(/^imap\./i, 'smtp.')
+  return { host, port: Number(cfg.port || 465) === 993 ? 465 : Number(cfg.port || 465), user: cfg.user || 'info@luma.earth', pass: cfg.pass }
 }
 
 async function loadRows() {
@@ -120,7 +139,7 @@ async function main() {
   }
   const cfg = parseMailAccess(process.env.MAIL_ACCESS)
   if (!cfg) fail('MAIL_ACCESS fehlt')
-  console.log(`  SMTP ${cfg.host}:${cfg.port} · Benutzer ${cfg.user} · Passwortlänge ${cfg.pass?.length ?? 0} · Format ${process.env.MAIL_ACCESS.trim().startsWith('{') ? 'JSON' : cfg.user === 'info@luma.earth' && !process.env.MAIL_ACCESS.includes('@') ? 'nur Passwort' : 'Adresse+Passwort'}`)
+  console.log(`  SMTP ${cfg.host}:${cfg.port} · Benutzer ${cfg.user} · Passwortlänge ${cfg.pass?.length ?? 0} · Zeilen im Eintrag ${process.env.MAIL_ACCESS.trim().split(/\r?\n/).length}`)
   const { default: nodemailer } = await import('nodemailer')
   const transport = nodemailer.createTransport({ host: cfg.host, port: cfg.port, secure: cfg.port === 465, auth: { user: cfg.user, pass: cfg.pass } })
   await transport.sendMail({ from: `MANA · LUMA <${cfg.user}>`, to: TO, subject: mail.subject, text: mail.text, html: mail.html })
